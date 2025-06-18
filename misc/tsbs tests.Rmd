@@ -1,0 +1,46 @@
+---
+title: "tsbs tests"
+output: html_document
+date: "2025-06-17"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+library(tsbs)
+```
+That didn't work.
+
+Load manually:
+```{r}
+lib_path <- system.file("libs", "tsbs.so", package = "tsbs")
+dyn.load(lib_path)
+library(tsbs)
+```
+
+```{r}
+x <- matrix(rnorm(40), ncol = 2)
+boots <- tsbs::blockBootstrap(x, num_boots = 3)
+length(boots)
+```
+
+
+```{r}
+set.seed(42)
+x <- arima.sim(n = 100, list(ar = 0.8))
+result <- bootstrap(
+  x = x,
+  block_length = 10,
+  block_type = "stationary",
+  num_blocks = 5,
+  num_boots = 100,
+  func = mean,
+  apply_func_to = "cols",
+  p_method = "plugin"
+)
+print(result$func_out_means)
+```
+
+
