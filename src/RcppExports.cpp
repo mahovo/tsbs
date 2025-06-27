@@ -10,39 +10,27 @@ Rcpp::Rostream<true>&  Rcpp::Rcout = Rcpp::Rcpp_cout_get();
 Rcpp::Rostream<false>& Rcpp::Rcerr = Rcpp::Rcpp_cerr_get();
 #endif
 
-// compute_default_block_length
-int compute_default_block_length(NumericMatrix x);
-RcppExport SEXP _tsbs_compute_default_block_length(SEXP xSEXP) {
+// blockBootstrap_cpp
+Rcpp::List blockBootstrap_cpp(const Rcpp::NumericMatrix& x, const Rcpp::NumericVector& n_length_spec, const Rcpp::NumericVector& block_length_spec, const Rcpp::NumericVector& num_blocks_spec, const int num_boots, const std::string& block_type, const double p, const bool overlap);
+RcppExport SEXP _tsbs_blockBootstrap_cpp(SEXP xSEXP, SEXP n_length_specSEXP, SEXP block_length_specSEXP, SEXP num_blocks_specSEXP, SEXP num_bootsSEXP, SEXP block_typeSEXP, SEXP pSEXP, SEXP overlapSEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
     Rcpp::RNGScope rcpp_rngScope_gen;
-    Rcpp::traits::input_parameter< NumericMatrix >::type x(xSEXP);
-    rcpp_result_gen = Rcpp::wrap(compute_default_block_length(x));
-    return rcpp_result_gen;
-END_RCPP
-}
-// blockBootstrap
-List blockBootstrap(NumericMatrix x, int n_length, int block_length, int num_blocks, int num_boots, std::string block_type, double p, bool overlap);
-RcppExport SEXP _tsbs_blockBootstrap(SEXP xSEXP, SEXP n_lengthSEXP, SEXP block_lengthSEXP, SEXP num_blocksSEXP, SEXP num_bootsSEXP, SEXP block_typeSEXP, SEXP pSEXP, SEXP overlapSEXP) {
-BEGIN_RCPP
-    Rcpp::RObject rcpp_result_gen;
-    Rcpp::RNGScope rcpp_rngScope_gen;
-    Rcpp::traits::input_parameter< NumericMatrix >::type x(xSEXP);
-    Rcpp::traits::input_parameter< int >::type n_length(n_lengthSEXP);
-    Rcpp::traits::input_parameter< int >::type block_length(block_lengthSEXP);
-    Rcpp::traits::input_parameter< int >::type num_blocks(num_blocksSEXP);
-    Rcpp::traits::input_parameter< int >::type num_boots(num_bootsSEXP);
-    Rcpp::traits::input_parameter< std::string >::type block_type(block_typeSEXP);
-    Rcpp::traits::input_parameter< double >::type p(pSEXP);
-    Rcpp::traits::input_parameter< bool >::type overlap(overlapSEXP);
-    rcpp_result_gen = Rcpp::wrap(blockBootstrap(x, n_length, block_length, num_blocks, num_boots, block_type, p, overlap));
+    Rcpp::traits::input_parameter< const Rcpp::NumericMatrix& >::type x(xSEXP);
+    Rcpp::traits::input_parameter< const Rcpp::NumericVector& >::type n_length_spec(n_length_specSEXP);
+    Rcpp::traits::input_parameter< const Rcpp::NumericVector& >::type block_length_spec(block_length_specSEXP);
+    Rcpp::traits::input_parameter< const Rcpp::NumericVector& >::type num_blocks_spec(num_blocks_specSEXP);
+    Rcpp::traits::input_parameter< const int >::type num_boots(num_bootsSEXP);
+    Rcpp::traits::input_parameter< const std::string& >::type block_type(block_typeSEXP);
+    Rcpp::traits::input_parameter< const double >::type p(pSEXP);
+    Rcpp::traits::input_parameter< const bool >::type overlap(overlapSEXP);
+    rcpp_result_gen = Rcpp::wrap(blockBootstrap_cpp(x, n_length_spec, block_length_spec, num_blocks_spec, num_boots, block_type, p, overlap));
     return rcpp_result_gen;
 END_RCPP
 }
 
 static const R_CallMethodDef CallEntries[] = {
-    {"_tsbs_compute_default_block_length", (DL_FUNC) &_tsbs_compute_default_block_length, 1},
-    {"_tsbs_blockBootstrap", (DL_FUNC) &_tsbs_blockBootstrap, 8},
+    {"_tsbs_blockBootstrap_cpp", (DL_FUNC) &_tsbs_blockBootstrap_cpp, 8},
     {NULL, NULL, 0}
 };
 

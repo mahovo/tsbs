@@ -3,35 +3,58 @@
 \name{blockBootstrap}
 \alias{blockBootstrap}
 \title{Block Bootstrap for Time Series (Rcpp Implementation)}
+\usage{
+blockBootstrap(
+  x,
+  n_length = NA_integer_,
+  block_length = NA_integer_,
+  num_blocks = NA_integer_,
+  num_boots = 20L,
+  block_type = "stationary",
+  p = 0.1,
+  overlap = TRUE
+)
+}
 \arguments{
 \item{x}{A numeric matrix with rows representing time points and columns representing variables.}
 
-\item{n_length}{Integer. Desired number of time points in the bootstrap sample. If \code{-1}, uses the original series length.}
-
-\item{block_length}{Integer. Length of each block. If \code{-1}, a default is computed based on the lag-1 autocorrelation of the series.}
-
-\item{num_blocks}{Optional number of blocks to use instead of setting \code{n_length}.}
-
 \item{num_boots}{Number of bootstrap replicates to generate.}
 
-\item{block_type}{Character. Type of block bootstrap: either \code{"moving"} (Moving Block Bootstrap) or \code{"stationary"} (Stationary Bootstrap).}
+\item{block_type}{Character. Either \code{"moving"} (Moving Block Bootstrap) or
+\code{"stationary"} (Stationary Bootstrap).}
 
-\item{p}{Probability parameter for the geometric distribution (used in Stationary Bootstrap).}
+\item{p}{Probability parameter for the geometric block length (used in Stationary Bootstrap).}
 
-\item{overlap}{Logical. If \code{FALSE}, stationary blocks are chosen from non-overlapping segments.}
+\item{overlap}{Logical. If \code{FALSE}, stationary blocks are chosen from
+non-overlapping segments.}
+
+\item{n_length_spec}{Integer or \code{NA}. Desired number of time points in the bootstrap sample.
+If \code{NA}, the original series length is used.}
+
+\item{block_length_spec}{Integer or \code{NA}. Length of each block.
+If \code{NA}, a heuristic is used based on the average lag-1 autocorrelation across variables.}
+
+\item{num_blocks_spec}{Integer or \code{NA}. Number of blocks to use.
+If \code{NA}, this is inferred from \code{n_length_spec}.}
 }
 \value{
-A list of matrices, each one a bootstrap replicate with dimensions approximately \verb{n_length × ncol(x)}.
+A list of matrices, each one a bootstrap replicate with dimensions approximately
+\code{n_length_spec} × \code{ncol(x)}.
 }
 \description{
 Generates bootstrap replicates of a multivariate time series using either the
 Moving Block Bootstrap (MBB) or Stationary Bootstrap (SB) methods.
 }
 \details{
-The Moving Block Bootstrap (MBB) resamples fixed-length overlapping blocks from the original time series.
-The Stationary Bootstrap (SB) samples blocks with geometrically distributed lengths and can optionally avoid overlap.
+The Moving Block Bootstrap (MBB) resamples fixed-length overlapping blocks
+from the original time series. The Stationary Bootstrap (SB) samples
+blocks with geometrically distributed lengths and can optionally enforce
+non-overlap constraints.
 
-If \code{block_length} is set to \code{-1}, an automatic heuristic is used that depends on the average lag-1 autocorrelation across variables.
+If \code{block_length_spec} is \code{NA}, an automatic heuristic is used that depends
+on the average lag-1 autocorrelation across variables. The function
+supports flexible specifications of output length (\code{n_length_spec}) and
+block structure (\code{num_blocks_spec}).
 }
 \examples{
 set.seed(123)

@@ -11,14 +11,6 @@ knitr::opts_chunk$set(echo = TRUE)
 ```{r}
 library(tsbs)
 ```
-That didn't work.
-
-Load manually:
-```{r}
-lib_path <- system.file("libs", "tsbs.so", package = "tsbs")
-dyn.load(lib_path)
-library(tsbs)
-```
 
 ```{r}
 x <- matrix(rnorm(40), ncol = 2)
@@ -43,4 +35,23 @@ result <- bootstrap(
 print(result$func_out_means)
 ```
 
+```{r}
+set.seed(123)
+returns <- arima.sim(n = 200, list(ar = 0.5))
+boot_samples <- hmm_bootstrap(returns, nstates = 2, num_blocks = 10, num_boots = 50)
+```
+
+
+```{r}
+tsbs(rnorm(50))
+```
+
+```{r}
+tmp <- "aaa"
+switch(
+  tmp,
+  aaa = 1,
+  "aaa" = 2
+)
+```
 
