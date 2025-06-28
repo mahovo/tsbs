@@ -4,7 +4,7 @@
 #' and generates bootstrap replicates by resampling regime-specific blocks.
 #'
 #' @param x Numeric vector representing the time series.
-#' @param nstates Integer number of hidden states for the HMM.
+#' @param num_states Integer number of hidden states for the HMM.
 #' @param num_blocks Integer number of blocks to sample for each bootstrap replicate.
 #' @param num_boots Integer number of bootstrap replicates to generate.
 #'
@@ -22,23 +22,23 @@
 #' @examples
 #' set.seed(123)
 #' x <- arima.sim(n = 200, list(ar = 0.5))
-#' hmm_samples <- hmm_bootstrap(x, nstates = 2, num_blocks = 10, num_boots = 5)
+#' hmm_samples <- hmm_bootstrap(x, num_states = 2, num_blocks = 10, num_boots = 5)
 #' length(hmm_samples)     # 5 bootstrap replicates
 #' length(hmm_samples[[1]]) # length of one bootstrap series
 #'
 #' @importFrom depmixS4 depmix fit posterior
 #' @importFrom stats gaussian
 #' @export
-hmm_bootstrap <- function(x, nstates = 2, num_blocks = 100, num_boots = 100) {
+hmm_bootstrap <- function(x, num_states = 2, num_blocks = 100, num_boots = 100) {
   if (!is.numeric(x)) stop("`x` must be a numeric vector.")
-  if (!is.numeric(nstates) || nstates < 1) stop("`nstates` must be a positive integer.")
+  if (!is.numeric(num_states) || num_states < 1) stop("`num_states` must be a positive integer.")
   if (!is.numeric(num_blocks) || num_blocks < 1) stop("`num_blocks` must be a positive integer.")
   if (!is.numeric(num_boots) || num_boots < 1) stop("`num_boots` must be a positive integer.")
   
   df <- data.frame(return = x)
   
   # Fit HMM
-  model <- depmixS4::depmix(return ~ 1, data = df, nstates = nstates, family = gaussian())
+  model <- depmixS4::depmix(return ~ 1, data = df, num_states = num_states, family = gaussian())
   fit <- depmixS4::fit(model, verbose = FALSE)
   states <- depmixS4::posterior(fit, type = "viterbi")$state
   
@@ -69,7 +69,7 @@ hmm_bootstrap <- function(x, nstates = 2, num_blocks = 100, num_boots = 100) {
 #'
 #' @param x Numeric vector representing the time series.
 #' @param ar_order Integer order of the autoregressive model.
-#' @param nstates Integer number of regimes (hidden states) in the MSAR model.
+#' @param num_states Integer number of regimes (hidden states) in the MSAR model.
 #' @param num_blocks Integer number of blocks to sample per bootstrap replicate.
 #' @param num_boots Integer number of bootstrap replicates.
 #'
@@ -87,19 +87,19 @@ hmm_bootstrap <- function(x, nstates = 2, num_blocks = 100, num_boots = 100) {
 #' @examples
 #' set.seed(123)
 #' x <- arima.sim(n = 200, list(ar = 0.7))
-#' msar_samples <- msar_bootstrap(x, ar_order = 1, nstates = 2, num_blocks = 10, num_boots = 5)
+#' msar_samples <- msar_bootstrap(x, ar_order = 1, num_states = 2, num_blocks = 10, num_boots = 5)
 #' length(msar_samples)     # 5 replicates
 #' length(msar_samples[[1]]) # length of one bootstrap series
 #'
 #' @importFrom MSwM msmFit
 #' @importFrom stats lm
 #' @export
-msar_bootstrap <- function(x, ar_order = 1, nstates = 2, num_blocks = 100, num_boots = 100) {
+msar_bootstrap <- function(x, ar_order = 1, num_states = 2, num_blocks = 100, num_boots = 100) {
   if (!is.numeric(x)) stop("`x` must be a numeric vector.")
   #if (!is.numeric(ar_order) || ar_order < 0) stop("`ar_order` must be a non-negative integer.")
   invalid_lengths(ar_order, allow_null = FALSE) stop("`ar_order` must be a non-negative integer.")
-  #if (!is.numeric(nstates) || nstates < 1) stop("`nstates` must be a positive integer.")
-  invalid_lengths(nstates, allow_null = FALSE) stop("`nstates` must be a positive integer.")
+  #if (!is.numeric(num_states) || num_states < 1) stop("`num_states` must be a positive integer.")
+  invalid_lengths(num_states, allow_null = FALSE) stop("`num_states` must be a positive integer.")
   #if (!is.numeric(num_blocks) || num_blocks < 1) stop("`num_blocks` must be a positive integer.")
   invalid_lengths(num_blocks, allow_null = FALSE) stop("`num_blocks` must be a positive integer.")
   #if (!is.numeric(num_boots) || num_boots < 1) stop("`num_boots` must be a positive integer.")
@@ -114,7 +114,7 @@ msar_bootstrap <- function(x, ar_order = 1, nstates = 2, num_blocks = 100, num_b
   base_model <- lm(y ~ ., data = df)
   
   # Fit MSAR model
-  ms_model <- MSwM::msmFit(base_model, k = nstates, sw = rep(TRUE, length(coef(base_model)) + 1))
+  ms_model <- MSwM::msmFit(base_model, k = num_states, sw = rep(TRUE, length(coef(base_model)) + 1))
   
   # State sequence
   states <- ms_model@Fit@smoProb
