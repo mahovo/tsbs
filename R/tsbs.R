@@ -97,13 +97,19 @@ tsbs <- function(
   }
   
     
-  ## Fails if NULL. Value is calculated automatically.
+  ## Fails if NULL. Value is not calculated automatically.
   if (invalid_lengths(ar_order, allow_null = FALSE))
     stop("`ar_order` must be a positive integer.")
   if (invalid_lengths(num_states, allow_null = FALSE))
     stop("`num_states` must be a positive integer.")
   if (invalid_lengths(num_boots, allow_null = FALSE))
     stop("`num_boots` must be a positive integer.")
+  
+  
+  ## Validate p
+  if (length(p) != 1 || is.na(p) || !is.finite(p) || p <= 0 || p >= 1) {
+    stop("'p' must be a single number in (0,1) or NULL. Got: ", p)
+  }
   
   n <- nrow(x)
 
@@ -134,10 +140,10 @@ tsbs <- function(
     block_type,
     moving = blockBootstrap(x, n_boot, block_length, num_blocks, num_boots, "moving", p, overlap),
     stationary = blockBootstrap(x, n_boot, block_length, num_blocks, num_boots, "stationary", p, overlap),
-    hmm = lapply(hmm_bootstrap(x[,1], num_states = num_states, num_blocks = if (is.na(num_sblocks)) 10 else num_blocks, num_boots = num_boots),
+    hmm = lapply(hmm_bootstrap(x[,1], num_states = num_states, num_blocks = num_blocks, num_boots = num_boots),
                  function(s) matrix(s, ncol = 1)),
     msar = lapply(msar_bootstrap(x[,1], ar_order = ar_order, num_states = num_states,
-                                 num_blocks = if (is.na(num_spec)) 10 else num_spec, num_boots = num_boots),
+                                 num_blocks = num_blocks, num_boots = num_boots),
                   function(s) matrix(s, ncol = 1)),
     wild = wild_bootstrap(x, num_boots),
     stop("Unsupported block_type.")
@@ -164,21 +170,27 @@ tsbs <- function(
 
 #' Invalid Length
 #'
-#' @param x 
-#' @param allow_null 
+#' @param x x, variable to test
+#' @param allow_null NULL value may be allowed when functions calculates value
+#'   of x automatically.
+#' 
+#' @details
+#' As long as exists() is before the first "or", this will return TRUE,
+#' when x doesn't exist.
 #'
 #' @returns
 #' @export
 #'
 #' @examples
 invalid_lengths <- function(x, allow_null = TRUE) {
-  ## deparse(substitute(x)) converts variable name to string
-  if(allow_null) {
+  ## deparse(substitute(x)) converts variable name to string.
+  ## 
+  !exists(deparse(substitute(x)))
+  || if(allow_null) {
     !is.null(x) && (!is.numeric(x) || x < 1) 
   } else {
     !is.numeric(x) || x < 1
   }
-  || !exists(deparse(substitute(x)))
   || (length(x) == 0)
   || is.na(x)
 }

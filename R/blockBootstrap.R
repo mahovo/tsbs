@@ -2,7 +2,8 @@
 #'
 #' Generates bootstrap replicates of a multivariate time series using either the
 #' Moving Block Bootstrap (MBB) or Stationary Bootstrap (SB) methods.
-#'
+#' Not intended to be called directly by user, only to be called internally by 
+#' tsbs().
 #'
 #' @param x A numeric matrix with rows representing time points and columns representing variables.
 #' @param n_length_spec Integer or `NA`. Desired number of time points in the bootstrap sample.
@@ -41,26 +42,24 @@
 #' @importFrom Rcpp sourceCpp
 #' @export
 blockBootstrap <- function(x,
-                           n_length = NA_integer_,
-                           block_length = NA_integer_,
-                           num_blocks = NA_integer_,
+                           n_boot = NULL,
+                           block_length = NULL,
+                           num_blocks = NULL,
                            num_boots = 20L,
                            block_type = "stationary",
                            p = 0.1,
                            overlap = TRUE) {
 
-  if (length(p) != 1 || is.na(p) || !is.finite(p) || p <= 0 || p >= 1) {
-    stop("'p' must be a single number in (0,1). Got: ", p)
-  }
+  
   
   .Call(`_tsbs_blockBootstrap_cpp`,
         as.matrix(x),
-        as.numeric(n_length),
-        as.numeric(block_length),
-        as.numeric(num_blocks),
+        n_boot,
+        block_length,
+        num_blocks,
         as.integer(num_boots),
         as.character(block_type),
-        as.numeric(p),
+        p,
         as.logical(overlap))
 }
 

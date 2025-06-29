@@ -1,11 +1,6 @@
 #include <Rcpp.h>
 using namespace Rcpp;
 
-// Helper: Check if a numeric vector has a valid value
-inline bool has_valid_value(const Rcpp::NumericVector &v) {
-  return (v.size() > 0) && !Rcpp::NumericVector::is_na(v[0]);
-}
-
 // Helper: Compute default block length
 // [[Rcpp::export]]
 int compute_default_block_length(const Rcpp::NumericMatrix &x) {
@@ -29,48 +24,58 @@ int compute_default_block_length(const Rcpp::NumericMatrix &x) {
 }
 
 // [[Rcpp::export]]
-Rcpp::List blockBootstrap_cpp(const Rcpp::NumericMatrix &x,
-                          const Rcpp::NumericVector &n_length_spec,
-                          const Rcpp::NumericVector &block_length_spec,
-                          const Rcpp::NumericVector &num_blocks_spec,
+Rcpp::List blockBootstrap_cpp(SEXP xSEXP,
+                          SEXP n_boot_spec,
+                          SEXP block_length_spec,
+                          SEXP num_blocks_spec,
                           const int num_boots,
                           const std::string &block_type,
-                          const double p,
+                          SEXP p_spec,
                           const bool overlap) {
-  const int n = x.nrow();
-  const int d = x.ncol();
-
-  // Block length
-  int block_length;
-  if (has_valid_value(block_length_spec)) {
-    block_length = block_length_spec[0];
-  } else {
-    block_length = compute_default_block_length(x);
-  }
-  if (block_length <= 0 || block_length > n) {
-    Rcpp::stop("Invalid 'block_length': Must be in range [1, n].");
-  }
   
+  // All inputs are validated in tsbs.R before blockBootstrap_cpp is called.
+  
+  NumericMatrix x(xSEXP);
+  
+  int n = x.nrow();
+  int d = x.ncol();
+  
+  // ---- Block length ----
+  
+  // If our Rcpp function takes const Rcpp::NumericVector &block_length_spec as 
+  // input, and it receives NULL, it will fail. So if we instead specify 
+  // SEXP block_length_spec and then do 
+  //
+  //  int block_length = Rf_isNull(block_length_spec)
+  //  ? compute_default_block_length(x)
+  //    : as<int>(block_length_spec);
+  //
+  // then that allows us to accept the NULL input, compute a valid value if NULL, 
+  // and specify integer type at that point for further processing.
+  int block_length = Rf_isNull(block_length_spec)
+    ? compute_default_block_length(x)
+      : as<int>(block_length_spec);
+
   // Number of blocks
   int num_blocks = (num_blocks_spec.size() > 0 && !Rcpp::NumericVector::is_na(num_blocks_spec[0]))
     ? static_cast<int>(num_blocks_spec[0]) : -1;
   
   // Final output length
-  int n_length;
+  int n_boot;
   if (num_blocks > 0) {
-    n_length = num_blocks * block_length;
-  } else if (n_length_spec.size() > 0 && !Rcpp::NumericVector::is_na(n_length_spec[0])) {
-    n_length = static_cast<int>(n_length_spec[0]);
+    n_boot = num_blocks * block_length;
+  } else if (n_boot_spec.size() > 0 && !Rcpp::NumericVector::is_na(n_boot_spec[0])) {
+    n_boot = static_cast<int>(n_boot_spec[0]);
   } else {
-    n_length = n;
+    n_boot = n;
   }
   
   Rcpp::List boots(num_boots);
   for (int b = 0; b < num_boots; ++b) {
-    Rcpp::NumericMatrix sample(n_length, d);
+    Rcpp::NumericMatrix sample(n_boot, d);
     int pos = 0;
     
-    while (pos < n_length) {
+    while (pos < n_boot) {
       int start_idx;
       int current_block_len;
       
@@ -99,7 +104,7 @@ Rcpp::List blockBootstrap_cpp(const Rcpp::NumericMatrix &x,
         Rcpp::stop("Unsupported block_type. Use 'moving' or 'stationary'.");
       }
       
-      int rows_to_copy = std::min(current_block_len, n_length - pos);
+      int rows_to_copy = std::min(current_block_len, n_boot - pos);
       for (int i = 0; i < rows_to_copy; ++i) {
         int idx = (start_idx + i) % n;
         for (int col = 0; col < d; ++col) {
