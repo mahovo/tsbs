@@ -33,7 +33,7 @@ Rcpp::List blockBootstrap_cpp(SEXP xSEXP,
                           SEXP p_spec,
                           const bool overlap) {
   
-  // All inputs are validated in tsbs.R before blockBootstrap_cpp is called.
+  // All inputs are validated in tsbs().R before blockBootstrap_cpp() is called.
   
   NumericMatrix x(xSEXP);
   
@@ -57,15 +57,14 @@ Rcpp::List blockBootstrap_cpp(SEXP xSEXP,
       : as<int>(block_length_spec);
 
   // Number of blocks
-  int num_blocks = (num_blocks_spec.size() > 0 && !Rcpp::NumericVector::is_na(num_blocks_spec[0]))
-    ? static_cast<int>(num_blocks_spec[0]) : -1;
+  // TODO
   
   // Final output length
   int n_boot;
-  if (num_blocks > 0) {
-    n_boot = num_blocks * block_length;
-  } else if (n_boot_spec.size() > 0 && !Rcpp::NumericVector::is_na(n_boot_spec[0])) {
+  if (!Rf_isNull(n_length_spec) && n_boot_spec.size() > 0) {
     n_boot = static_cast<int>(n_boot_spec[0]);
+  } else if (num_blocks > 0) {
+    n_boot = num_blocks * block_length;
   } else {
     n_boot = n;
   }

@@ -45,13 +45,3 @@ boot_samples <- hmm_bootstrap(returns, nstates = 2, num_blocks = 10, num_boots =
 ```{r}
 tsbs(rnorm(50))
 ```
-
-```{r}
-tmp <- "aaa"
-switch(
-  tmp,
-  aaa = 1,
-  "aaa" = 2
-)
-```
-

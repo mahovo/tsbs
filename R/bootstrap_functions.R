@@ -4,6 +4,7 @@
 #' and generates bootstrap replicates by resampling regime-specific blocks.
 #'
 #' @param x Numeric vector representing the time series.
+#' @param n_boot Length of bootstrap series.
 #' @param num_states Integer number of hidden states for the HMM.
 #' @param num_blocks Integer number of blocks to sample for each bootstrap replicate.
 #' @param num_boots Integer number of bootstrap replicates to generate.
@@ -18,6 +19,13 @@
 #'     to assign each observation to a state.
 #'   \item Samples contiguous blocks of observations belonging to each state.
 #' }
+#' If `n_boot` is set, the last block will be truncated when necessary to match 
+#'   the length (`n_boot`) of the bootstrap series. This is the only way to 
+#'   ensure equal length of all bootstrap series, as the length of each block is 
+#'   random. If `n_boot` is not set, `num_blocks` must be set, and the length of 
+#'   each bootstrap series will be determined by the number of blocks and the 
+#'   random lengths of the individual blocks for that particular series. Note 
+#'   that this almost certainly results in bootstrap series of different lengths.
 #'
 #' @examples
 #' set.seed(123)
@@ -29,7 +37,7 @@
 #' @importFrom depmixS4 depmix fit posterior
 #' @importFrom stats gaussian
 #' @export
-hmm_bootstrap <- function(x, num_states = 2, num_blocks = 100, num_boots = 100) {
+hmm_bootstrap <- function(x, n_boot = NULL, num_states = 2, num_blocks = 100, num_boots = 100) {
   if (!is.numeric(x)) stop("`x` must be a numeric vector.")
   if (!is.numeric(num_states) || num_states < 1) stop("`num_states` must be a positive integer.")
   if (!is.numeric(num_blocks) || num_blocks < 1) stop("`num_blocks` must be a positive integer.")
@@ -37,12 +45,12 @@ hmm_bootstrap <- function(x, num_states = 2, num_blocks = 100, num_boots = 100) 
   
   df <- data.frame(return = x)
   
-  # Fit HMM
+  ## Fit HMM
   model <- depmixS4::depmix(return ~ 1, data = df, num_states = num_states, family = gaussian())
   fit <- depmixS4::fit(model, verbose = FALSE)
   states <- depmixS4::posterior(fit, type = "viterbi")$state
   
-  # Extract regime-specific blocks
+  ## Extract regime-specific blocks
   r <- rle(states)
   ends <- cumsum(r$lengths)
   starts <- c(1, head(ends, -1) + 1)
@@ -51,11 +59,25 @@ hmm_bootstrap <- function(x, num_states = 2, num_blocks = 100, num_boots = 100) 
     starts, ends
   )
   
-  # Sample `num_blocks` blocks with replacement
+  ## Sample `num_blocks` blocks with replacement
   get_block <- function(b) x[b$start:b$end]
+  
+  # sampled_series <- replicate(num_boots, {
+  #   sampled_blocks <- lapply(sample(blocks, num_blocks, replace = TRUE), get_block)
+  #   unlist(sampled_blocks)
+  # }, simplify = FALSE)
   sampled_series <- replicate(num_boots, {
-    sampled_blocks <- lapply(sample(blocks, num_blocks, replace = TRUE), get_block)
-    unlist(sampled_blocks)
+    pos <- 1
+    bootstrap_series <- numeric(0)
+    while(length(bootstrap_series) < n_boot) {
+      sampled_block <- sample(blocks, 1, replace = TRUE)[[1]]
+      bootstrap_series <- c(bootstrap_series, get_block(sampled_block))
+    }
+    if(is.null(n_boot)) {
+      bootstrap_series
+    } else {
+        bootstrap_series[seq_len(n_boot)]
+      }
   }, simplify = FALSE)
   
   sampled_series
@@ -70,6 +92,7 @@ hmm_bootstrap <- function(x, num_states = 2, num_blocks = 100, num_boots = 100) 
 #' @param x Numeric vector representing the time series.
 #' @param ar_order Integer order of the autoregressive model.
 #' @param num_states Integer number of regimes (hidden states) in the MSAR model.
+#' @param n_boot Length of bootstrap series.
 #' @param num_blocks Integer number of blocks to sample per bootstrap replicate.
 #' @param num_boots Integer number of bootstrap replicates.
 #'
@@ -83,6 +106,13 @@ hmm_bootstrap <- function(x, num_states = 2, num_blocks = 100, num_boots = 100) 
 #'   \item Groups contiguous observations belonging to the same state into blocks.
 #'   \item Samples these regime-specific blocks with replacement to generate synthetic series.
 #' }
+#' If `n_boot` is set, the last block will be truncated when necessary to match 
+#'   the length (`n_boot`) of the bootstrap series. This is the only way to 
+#'   ensure equal length of all bootstrap series, as the length of each block is 
+#'   random. If `n_boot` is not set, `num_blocks` must be set, and the length of 
+#'   each bootstrap series will be determined by the number of blocks and the 
+#'   random lengths of the individual blocks for that particular series. Note 
+#'   that this almost certainly results in bootstrap series of different lengths.
 #'
 #' @examples
 #' set.seed(123)
@@ -94,7 +124,7 @@ hmm_bootstrap <- function(x, num_states = 2, num_blocks = 100, num_boots = 100) 
 #' @importFrom MSwM msmFit
 #' @importFrom stats lm
 #' @export
-msar_bootstrap <- function(x, ar_order = 1, num_states = 2, num_blocks = 100, num_boots = 100) {
+msar_bootstrap <- function(x, ar_order = 1, num_states = 2, n_boot = NULL, num_blocks = 100, num_boots = 100) {
   if (!is.numeric(x)) stop("`x` must be a numeric vector.")
   #if (!is.numeric(ar_order) || ar_order < 0) stop("`ar_order` must be a non-negative integer.")
   invalid_lengths(ar_order, allow_null = FALSE) stop("`ar_order` must be a non-negative integer.")
@@ -105,22 +135,22 @@ msar_bootstrap <- function(x, ar_order = 1, num_states = 2, num_blocks = 100, nu
   #if (!is.numeric(num_boots) || num_boots < 1) stop("`num_boots` must be a positive integer.")
   invalid_lengths(num_boots, allow_null = FALSE) stop("`num_boots` must be a positive integer.")
   
-  # Prepare lagged design matrix
+  ## Prepare lagged design matrix
   df <- data.frame(y = x)
   for (i in seq_len(ar_order)) df[[paste0("lag", i)]] <- dplyr::lag(x, i)
   df <- na.omit(df)
   
-  # Fit base AR model
+  ## Fit base AR model
   base_model <- lm(y ~ ., data = df)
   
-  # Fit MSAR model
+  ## Fit MSAR model
   ms_model <- MSwM::msmFit(base_model, k = num_states, sw = rep(TRUE, length(coef(base_model)) + 1))
   
-  # State sequence
+  ## State sequence
   states <- ms_model@Fit@smoProb
   state_seq <- apply(states, 1, which.max)
   
-  # Get contiguous blocks per state
+  ## Get contiguous blocks per state
   r <- rle(state_seq)
   ends <- cumsum(r$lengths)
   starts <- c(1, head(ends, -1) + 1)
@@ -129,13 +159,28 @@ msar_bootstrap <- function(x, ar_order = 1, num_states = 2, num_blocks = 100, nu
     starts, ends
   )
   
+  ## Sample `num_blocks` blocks with replacement
   get_block <- function(b) x[b$start:b$end]
   
-  # Sample num_blocks blocks per bootstrap
+  ## Sample num_blocks blocks per bootstrap
+  # sampled_series <- replicate(num_boots, {
+  #   sampled_blocks <- lapply(sample(blocks, num_blocks, replace = TRUE), get_block)
+  #   unlist(sampled_blocks)
+  # }, simplify = FALSE)
   sampled_series <- replicate(num_boots, {
-    sampled_blocks <- lapply(sample(blocks, num_blocks, replace = TRUE), get_block)
-    unlist(sampled_blocks)
+    pos <- 1
+    bootstrap_series <- numeric(0)
+    while(length(bootstrap_series) < n_boot) {
+      sampled_block <- sample(blocks, 1, replace = TRUE)[[1]]
+      bootstrap_series <- c(bootstrap_series, get_block(sampled_block))
+    }
+    if(is.null(n_boot)) {
+      bootstrap_series
+    } else {
+      bootstrap_series[seq_len(n_boot)]
+    }
   }, simplify = FALSE)
+
   
   sampled_series
 }

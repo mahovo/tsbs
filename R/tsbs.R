@@ -1,23 +1,45 @@
 #' Flexible Block Bootstrap for Time Series
 #'
-#' Generates block bootstrap replicates of a numeric time series or multivariate time series.
-#' Supports moving, stationary, HMM, MSAR, and wild block types.
+#' Generates block bootstrap replicates of a numeric time series or multivariate 
+#' time series. Supports moving, stationary, HMM, MSAR, and wild block types.
 #'
-#' @param x Numeric vector, matrix, or data frame of time series observations (rows = time points, cols = variables).
+#' @param x Numeric vector, matrix, or data frame of time series observations 
+#'   (rows = time points, cols = variables).
 #' @param n_boot Integer, optional desired length of each bootstrap replicate.
-#' @param block_length Integer length of each block; if `-1`, an automatic heuristic is used.
-#' @param block_type Character string: one of `"moving"`, `"stationary"`, `"hmm"`, `"msar"`, or `"wild"`.
-#' @param func A summary function to apply to each bootstrap replicate or column.
-#' @param apply_func_to Character string: `"cols"` to apply columnwise or `"df"` to apply on the full data frame.
+#' @param block_length Integer length of each block; if `-1`, an automatic h
+#'   euristic is used.
+#' @param block_type Character string: one of `"moving"`, `"stationary"`, `
+#'   "hmm"`, `"msar"`, or `"wild"`. See details below.
 #' @param num_blocks Integer number of blocks per bootstrap replicate.
 #' @param num_boots Integer number of bootstrap replicates.
-#' @param p_method Character string to choose method for stationary bootstrap parameter: `"1/n"`, `"plugin"`, or `"cross validation"`.
+#' @param func A summary function to apply to each bootstrap replicate or column.
+#' @param apply_func_to Character string: `"cols"` to apply columnwise or `"df"` 
+#'   to apply on the full data frame.
+#' @param p_method Character string to choose method for stationary bootstrap 
+#'   parameter: `"1/n"`, `"plugin"`, or `"cross validation"`.
 #' @param p Optional numeric value for stationary bootstrap `p`.
 #' @param overlap Logical indicating if overlapping blocks are allowed.
 #' @param ar_order Integer AR order for MSAR (`block_type="msar"`).
 #' @param num_states Integer number of states for HMM or MSAR.
 #' @param model_func Model-fitting function for cross-validation.
 #' @param score_func Scoring function for cross-validation.
+#' 
+#' @datails
+#' `block_type="moving"`: If `n_boot` is set, the last block will be truncated
+#'   when necessary to match the length (`n_boot`) of the bootstrap series. If 
+#'   `n_boot` is not set, `block_length` and `num_blocks` must be set, and  
+#'   `n_boot` will automatically be set to `block_length * num_blocks`.
+#' `block_type="stationary"`, `block_type="hmm"`, `block_type="msar"`: If 
+#'   `n_boot` is set, the last block will be truncated when necessary to match 
+#'   the length (`n_boot`) of the bootstrap series. This is the only way to 
+#'   ensure equal length of all bootstrap series, as the length of each block is 
+#'   random. If `n_boot` is not set, `num_blocks` must be set, and the length of 
+#'   each bootstrap series will be determined by the number of blocks and the 
+#'   random lengths of the individual blocks for that particular series. Note 
+#'   that this almost certainly results in bootstrap series of different lengths.
+#' : 
+#' `block_type="wild"`: 
+#'   
 #'
 #' @return A list containing:
 #' \describe{
@@ -48,10 +70,10 @@ tsbs <- function(
     n_boot = NULL,
     block_length = NULL,
     block_type = c("moving", "stationary", "hmm", "msar", "wild"),
-    func = mean,
-    apply_func_to = c("cols", "df"),
     num_blocks = NULL,
     num_boots = 100L,
+    func = mean,
+    apply_func_to = c("cols", "df"),
     p_method = c("1/n", "plugin", "cross validation"),
     p = NULL,
     overlap = TRUE,
