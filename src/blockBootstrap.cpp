@@ -1,28 +1,6 @@
 #include <Rcpp.h>
 using namespace Rcpp;
 
-// Helper: Compute default block length
-// [[Rcpp::export]]
-int compute_default_block_length(const Rcpp::NumericMatrix &x) {
-  int n = x.nrow();
-  Rcpp::NumericVector ac1(x.ncol());
-  for (int j = 0; j < x.ncol(); ++j) {
-    double mu = mean(x(_, j));
-    double num = 0.0, denom = 0.0;
-    
-    for (int t = 1; t < n; ++t) {
-      num += (x(t, j) - mu) * (x(t - 1, j) - mu);
-      denom += (x(t, j) - mu) * (x(t, j) - mu);
-    }
-    
-    ac1[j] = (denom != 0.0) ? std::abs(num / denom) : 0.0;
-  }
-  
-  double rho1 = mean(ac1);
-  int candidate = std::floor(10.0 / (1.0 - rho1));
-  return std::max(5, std::min(candidate, (int) std::sqrt(n)));
-}
-
 // [[Rcpp::export]]
 Rcpp::List blockBootstrap_cpp(SEXP xSEXP,
                           SEXP n_boot_spec,
@@ -30,7 +8,7 @@ Rcpp::List blockBootstrap_cpp(SEXP xSEXP,
                           SEXP num_blocks_spec,
                           const int num_boots,
                           const std::string &block_type,
-                          SEXP p_spec,
+                          SEXP p,
                           const bool overlap) {
   
   // All inputs are validated in tsbs().R before blockBootstrap_cpp() is called.
@@ -61,7 +39,7 @@ Rcpp::List blockBootstrap_cpp(SEXP xSEXP,
   
   // Final output length
   int n_boot;
-  if (!Rf_isNull(n_length_spec) && n_boot_spec.size() > 0) {
+  if (!Rf_isNull(n_boot_spec) && n_boot_spec.size() > 0) {
     n_boot = static_cast<int>(n_boot_spec[0]);
   } else if (num_blocks > 0) {
     n_boot = num_blocks * block_length;
@@ -83,9 +61,6 @@ Rcpp::List blockBootstrap_cpp(SEXP xSEXP,
         current_block_len = block_length;
         
       } else if (block_type == "stationary") {
-        if (p <= 0.0 || p >= 1.0) {
-          Rcpp::stop("'p' must be in the range (0, 1) for 'stationary' block_type.");
-        }
         current_block_len = static_cast<int>(R::rgeom(p)) + 1;
         if (current_block_len > block_length) {
           current_block_len = block_length;
@@ -112,8 +87,31 @@ Rcpp::List blockBootstrap_cpp(SEXP xSEXP,
       }
       pos += rows_to_copy;
     }
-    boots[b] = sample;
+    boots[b] = sample( Range(0, n_boot - 1), _ );
   }
   
   return boots;
+}
+
+
+// Helper: Compute default block length
+// [[Rcpp::export]]
+int compute_default_block_length(const Rcpp::NumericMatrix &x) {
+  int n = x.nrow();
+  Rcpp::NumericVector ac1(x.ncol());
+  for (int j = 0; j < x.ncol(); ++j) {
+    double mu = mean(x(_, j));
+    double num = 0.0, denom = 0.0;
+    
+    for (int t = 1; t < n; ++t) {
+      num += (x(t, j) - mu) * (x(t - 1, j) - mu);
+      denom += (x(t, j) - mu) * (x(t, j) - mu);
+    }
+    
+    ac1[j] = (denom != 0.0) ? std::abs(num / denom) : 0.0;
+  }
+  
+  double rho1 = mean(ac1);
+  int candidate = std::floor(10.0 / (1.0 - rho1));
+  return std::max(5, std::min(candidate, (int) std::sqrt(n)));
 }

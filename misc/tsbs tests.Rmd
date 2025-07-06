@@ -35,13 +35,48 @@ result <- bootstrap(
 print(result$func_out_means)
 ```
 
-```{r}
-set.seed(123)
-returns <- arima.sim(n = 200, list(ar = 0.5))
-boot_samples <- hmm_bootstrap(returns, nstates = 2, num_blocks = 10, num_boots = 50)
-```
 
 
 ```{r}
 tsbs(rnorm(50))
 ```
+
+
+```{r}
+set.seed(123)
+returns <- as.matrix(arima.sim(n = 200, list(ar = 0.5)))
+str(hmm_bootstrap(returns, n_boot = NULL, num_states = 2, num_blocks = 20, num_boots = 10))
+```
+
+```{r}
+set.seed(123)
+returns <- as.matrix(arima.sim(n = 200, list(ar = 0.5)))
+str(hmm_bootstrap(returns, n_boot = 100, num_states = 2, num_blocks = NULL, num_boots = 10))
+```
+
+
+```{r}
+set.seed(123)
+returns <- as.matrix(arima.sim(n = 200, list(ar = 0.5)))
+str(hmm_bootstrap(returns, n_boot = 100, num_states = 2, num_blocks = 20, num_boots = 10))
+```
+
+```{r}
+set.seed(123)
+returns <- as.matrix(arima.sim(n = 200, list(ar = 0.5)))
+str(msar_bootstrap(returns, n_boot = NULL, num_states = 2, num_blocks = 20, num_boots = 10))
+```
+
+```{r}
+set.seed(123)
+returns <- as.matrix(arima.sim(n = 200, list(ar = 0.5)))
+str(msar_bootstrap(returns, n_boot = 100, num_states = 2, num_blocks = NULL, num_boots = 10))
+```
+
+```{r}
+set.seed(123)
+returns <- as.matrix(arima.sim(n = 200, list(ar = 0.5)))
+str(msar_bootstrap(returns, n_boot = 100, num_states = 2, num_blocks = 20, num_boots = 10))
+```
+
+
