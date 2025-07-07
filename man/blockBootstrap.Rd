@@ -6,9 +6,9 @@
 \usage{
 blockBootstrap(
   x,
-  n_length = NA_integer_,
-  block_length = NA_integer_,
-  num_blocks = NA_integer_,
+  n_boot = NULL,
+  block_length = NULL,
+  num_blocks = NULL,
   num_boots = 20L,
   block_type = "stationary",
   p = 0.1,
@@ -44,6 +44,8 @@ A list of matrices, each one a bootstrap replicate with dimensions approximately
 \description{
 Generates bootstrap replicates of a multivariate time series using either the
 Moving Block Bootstrap (MBB) or Stationary Bootstrap (SB) methods.
+Not intended to be called directly by user, only to be called internally by
+tsbs().
 }
 \details{
 The Moving Block Bootstrap (MBB) resamples fixed-length overlapping blocks

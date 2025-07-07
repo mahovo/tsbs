@@ -6,40 +6,44 @@
 \usage{
 tsbs(
   x,
-  n_length = NA_integer_,
-  block_length = NA_integer_,
+  n_boot = NULL,
+  block_length = NULL,
   block_type = c("moving", "stationary", "hmm", "msar", "wild"),
+  num_blocks = NULL,
+  num_boots = 100L,
   func = mean,
   apply_func_to = c("cols", "df"),
-  num_blocks = NA_integer_,
-  num_boots = 100L,
   p_method = c("1/n", "plugin", "cross validation"),
   p = NULL,
   overlap = TRUE,
   ar_order = 1,
-  nstates = 2,
+  num_states = 2,
   model_func = default_model_func,
   score_func = mse
 )
 }
 \arguments{
-\item{x}{Numeric vector, matrix, or data frame of time series observations (rows = time points, cols = variables).}
+\item{x}{Numeric vector, matrix, or data frame of time series observations
+(rows = time points, cols = variables).}
 
-\item{n_length}{Integer, optional desired length of each bootstrap replicate.}
+\item{n_boot}{Integer, optional desired length of each bootstrap replicate.}
 
-\item{block_length}{Integer length of each block; if \code{-1}, an automatic heuristic is used.}
+\item{block_length}{Integer length of each block; if \code{-1}, an automatic h
+euristic is used.}
 
-\item{block_type}{Character string: one of \code{"moving"}, \code{"stationary"}, \code{"hmm"}, \code{"msar"}, or \code{"wild"}.}
-
-\item{func}{A summary function to apply to each bootstrap replicate or column.}
-
-\item{apply_func_to}{Character string: \code{"cols"} to apply columnwise or \code{"df"} to apply on the full data frame.}
+\item{block_type}{Character string: one of \code{"moving"}, \code{"stationary"}, \code{ "hmm"}, \code{"msar"}, or \code{"wild"}. See details below.}
 
 \item{num_blocks}{Integer number of blocks per bootstrap replicate.}
 
 \item{num_boots}{Integer number of bootstrap replicates.}
 
-\item{p_method}{Character string to choose method for stationary bootstrap parameter: \code{"1/n"}, \code{"plugin"}, or \code{"cross validation"}.}
+\item{func}{A summary function to apply to each bootstrap replicate or column.}
+
+\item{apply_func_to}{Character string: \code{"cols"} to apply columnwise or \code{"df"}
+to apply on the full data frame.}
+
+\item{p_method}{Character string to choose method for stationary bootstrap
+parameter: \code{"1/n"}, \code{"plugin"}, or \code{"cross validation"}.}
 
 \item{p}{Optional numeric value for stationary bootstrap \code{p}.}
 
@@ -47,7 +51,7 @@ tsbs(
 
 \item{ar_order}{Integer AR order for MSAR (\code{block_type="msar"}).}
 
-\item{nstates}{Integer number of states for HMM or MSAR.}
+\item{num_states}{Integer number of states for HMM or MSAR.}
 
 \item{model_func}{Model-fitting function for cross-validation.}
 
@@ -62,8 +66,8 @@ A list containing:
 }
 }
 \description{
-Generates block bootstrap replicates of a numeric time series or multivariate time series.
-Supports moving, stationary, HMM, MSAR, and wild block types.
+Generates block bootstrap replicates of a numeric time series or multivariate
+time series. Supports moving, stationary, HMM, MSAR, and wild block types.
 }
 \examples{
 set.seed(123)

@@ -4,12 +4,20 @@
 \alias{hmm_bootstrap}
 \title{Hidden Markov Model (HMM) Bootstrap for Time Series}
 \usage{
-hmm_bootstrap(x, nstates = 2, num_blocks = 100, num_boots = 100)
+hmm_bootstrap(
+  x,
+  n_boot = NULL,
+  num_states = 2,
+  num_blocks = 100,
+  num_boots = 100
+)
 }
 \arguments{
 \item{x}{Numeric vector representing the time series.}
 
-\item{nstates}{Integer number of hidden states for the HMM.}
+\item{n_boot}{Length of bootstrap series.}
+
+\item{num_states}{Integer number of hidden states for the HMM.}
 
 \item{num_blocks}{Integer number of blocks to sample for each bootstrap replicate.}
 
@@ -30,11 +38,18 @@ This function:
 to assign each observation to a state.
 \item Samples contiguous blocks of observations belonging to each state.
 }
+If \code{n_boot} is set, the last block will be truncated when necessary to match
+the length (\code{n_boot}) of the bootstrap series. This is the only way to
+ensure equal length of all bootstrap series, as the length of each block is
+random. If \code{n_boot} is not set, \code{num_blocks} must be set, and the length of
+each bootstrap series will be determined by the number of blocks and the
+random lengths of the individual blocks for that particular series. Note
+that this almost certainly results in bootstrap series of different lengths.
 }
 \examples{
 set.seed(123)
 x <- arima.sim(n = 200, list(ar = 0.5))
-hmm_samples <- hmm_bootstrap(x, nstates = 2, num_blocks = 10, num_boots = 5)
+hmm_samples <- hmm_bootstrap(x, num_states = 2, num_blocks = 10, num_boots = 5)
 length(hmm_samples)     # 5 bootstrap replicates
 length(hmm_samples[[1]]) # length of one bootstrap series
 

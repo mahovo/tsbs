@@ -20,26 +20,24 @@ length(boots)
 
 
 ```{r}
-set.seed(42)
-x <- arima.sim(n = 100, list(ar = 0.8))
-result <- bootstrap(
-  x = x,
-  block_length = 10,
-  block_type = "stationary",
-  num_blocks = 5,
-  num_boots = 100,
-  func = mean,
-  apply_func_to = "cols",
-  p_method = "plugin"
-)
-print(result$func_out_means)
+# set.seed(42)
+# x <- arima.sim(n = 100, list(ar = 0.8))
+# result <- bootstrap(
+#   x = x,
+#   block_length = 10,
+#   block_type = "stationary",
+#   num_blocks = 5,
+#   num_boots = 100,
+#   func = mean,
+#   apply_func_to = "cols",
+#   p_method = "plugin"
+# )
+# print(result$func_out_means)
 ```
 
 
 
-```{r}
-tsbs(rnorm(50))
-```
+
 
 
 ```{r}
@@ -77,6 +75,45 @@ str(msar_bootstrap(returns, n_boot = 100, num_states = 2, num_blocks = NULL, num
 set.seed(123)
 returns <- as.matrix(arima.sim(n = 200, list(ar = 0.5)))
 str(msar_bootstrap(returns, n_boot = 100, num_states = 2, num_blocks = 20, num_boots = 10))
+```
+
+
+```{r}
+tsbs( 
+  x = rnorm(50),
+  n_boot = 100L,
+  block_length = NULL,
+  block_type = "moving",
+  num_blocks = NULL,
+  num_boots = 10L,
+  func = mean,
+  apply_func_to = "cols",
+  p_method = "cross validation",
+  p = NULL,
+  overlap = TRUE,
+  ar_order = 1,
+  num_states = 2,
+  model_func = default_model_func,
+  score_func = mse     
+)
+```
+
+
+```{r}
+set.seed(42)
+x <- arima.sim(n = 100, list(ar = 0.8))
+result <- tsbs(
+  x = x,
+  n_boot = 100L,
+  block_length = 10,
+  block_type = "stationary",
+  num_blocks = 5,
+  num_boots = 100L,
+  func = mean,
+  apply_func_to = "cols",
+  p_method = "plugin"
+)
+print(result$func_out_means)
 ```
 
 

@@ -91,7 +91,7 @@ tsbs <- function(
   apply_func_to <- match.arg(apply_func_to)
   p_method <- match.arg(p_method)
   
-  if(.invalid_lengths(x))
+  if(.invalid_length(x))
     stop("No valued x value provided.")
   if (is.vector(x) || is.data.frame(x) || is.ts(x)) x <- as.matrix(x)
 
@@ -101,67 +101,45 @@ tsbs <- function(
     stop("`func` must be a valid function.")
 
   ## Note: If NULL, value is calculated automatically below
-  if (.invalid_lengths(n_boot))
+  if (.invalid_length(n_boot))
     stop("`n_boot` must be a positive integer or NULL.")
-  if (.invalid_lengths(block_length))
+  if (.invalid_length(block_length))
     stop("`block_length` must be a positive integer or NULL.")
-  if (.invalid_lengths(num_blocks))
+  if (.invalid_length(num_blocks))
     stop("`num_blocks` must be a positive integer or NULL.")
 
   ## Need to provide either n_boot or num_blocks.
   ## If missing, block_length will be calculated automatically.
   ## n_boot = block_length * num_blocks.
-  if(.invalid_lengths(n_boot) && .invalid_lengths(num_blocks)) {
+  if(.invalid_length(n_boot) && .invalid_length(num_blocks)) {
     stop("Must provide either n_boot or num_blocks.")
   } 
-  if(.invalid_lengths(n_boot)) {
+  if(.invalid_length(n_boot)) {
     if (is.null(block_length)) {block_length <- compute_default_block_length(x)}
     n_boot <- num_blocks * block_length
   }
-  if(.invalid_lengths(num_blocks)) {
+  if(.invalid_length(num_blocks)) {
     if (is.null(block_length)) {block_length <- compute_default_block_length(x)}
     num_blocks <- n_boot / block_length
   }
   
     
   ## Fails if NULL. Value is not calculated automatically.
-  if (.invalid_lengths(ar_order, allow_null = FALSE))
+  if (.invalid_length(ar_order, allow_null = FALSE))
     stop("`ar_order` must be a positive integer.")
-  if (.invalid_lengths(num_states, allow_null = FALSE))
+  if (.invalid_length(num_states, allow_null = FALSE))
     stop("`num_states` must be a positive integer.")
-  if (.invalid_lengths(num_boots, allow_null = FALSE))
+  if (.invalid_length(num_boots, allow_null = FALSE))
     stop("`num_boots` must be a positive integer.")
   
-  
   ## Validate p
-  if (.invalid_lengths(p) || length(p) != 1 || p <= 0 || p >= 1) {
-    stop("'p' must be a single number in (0,1) or NULL.")
+  if (.invalid_length(p) ) {
+    stop("`p` must be a single number in (0,1) or NULL.")
   }
-  
-  
-  ## Estimate p
-  # if (block_type == "stationary" && is.null(p)) {
-  #   if (p_method == "1/n") {
-  #     p <- 1 / if (is.null(block_length)) compute_default_block_length(x) else block_length
-  #   } else if (p_method == "plugin") {
-  #     ## acf[2,,1] is the autocorrelation for the 1st order (index 2) the first
-  #     ## variable (col 1).
-  #     #ac1 <- acf(x, lag.max = 1, plot = FALSE)$acf[2,,1]
-  # 
-  #     ## acf[2,,] is the vector of autocorrelations for the 1st order (index 2)
-  #     ## of each variable (if multivariate).
-  #     ac1 <- acf(x, lag.max = 1, plot = FALSE)$acf[2,,]
-  # 
-  #     ## The larger the average 1st order autocorrelation, the smaller the p
-  #     p <- 1 - abs(mean(ac1, na.rm = TRUE))
-  #   } else if (p_method == "cross validation") {
-  #     if (is.null(model_func) || is.null(score_func))
-  #       stop("For p_method = 'cross validation', provide `model_func` and `score_func`.")
-  #     p <- k_fold_cv_ts(x, x[,1], model_func, score_func)
-  #   }
-  # }
-  # 
-  
+  if (!is.null(p) && ( length(p) > 1 || p <= 0 || p >= 1)) {
+    stop("`p` must be a single number in (0,1) or NULL.")
+  }
+
   bootstrap_series <- switch(
     block_type,
     moving = {
@@ -170,7 +148,7 @@ tsbs <- function(
     stationary = {
       if(is.null(p)) {p <- .estimate_p(x, p_method, block_length, model_func, score_func)}
       blockBootstrap(x, n_boot, block_length, num_blocks, num_boots, "stationary", p, overlap)
-    }
+    },
     hmm = lapply(hmm_bootstrap(x[,1], num_states = num_states, num_blocks = num_blocks, num_boots = num_boots),
                  function(s) matrix(s, ncol = 1)),
     msar = lapply(msar_bootstrap(x[,1], ar_order = ar_order, num_states = num_states,
@@ -213,17 +191,17 @@ tsbs <- function(
 #' @export
 #'
 #' @examples
-.invalid_lengths <- function(x, allow_null = TRUE) {
+.invalid_length <- function(x, allow_null = TRUE) {
   ## deparse(substitute(x)) converts variable name to string.
-  ## 
-  !exists(deparse(substitute(x)))
-  || if(allow_null) {
+  
+  !exists(deparse(substitute(x)), where = parent.frame()) || 
+  if(allow_null) {
     !is.null(x) && (!is.numeric(x) || length(x) < 1) 
   } else {
     !is.numeric(x) || length(x) < 1
-  }
-  || is.na(x)
-  || !is.finite(x)
+  } || 
+  any(is.na(x)) || 
+  any(!is.finite(x))
 }
 
 
