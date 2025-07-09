@@ -10,9 +10,11 @@ blockBootstrap(
   block_length = NULL,
   num_blocks = NULL,
   num_boots = 20L,
-  block_type = "stationary",
+  type = "stationary",
   p = 0.1,
-  overlap = TRUE
+  overlap = TRUE,
+  stationary_max_percentile = 0.99,
+  stationary_max_fraction_of_n = 0.1
 )
 }
 \arguments{
@@ -20,13 +22,17 @@ blockBootstrap(
 
 \item{num_boots}{Number of bootstrap replicates to generate.}
 
-\item{block_type}{Character. Either \code{"moving"} (Moving Block Bootstrap) or
+\item{type}{Character. Either \code{"moving"} (Moving Block Bootstrap) or
 \code{"stationary"} (Stationary Bootstrap).}
 
 \item{p}{Probability parameter for the geometric block length (used in Stationary Bootstrap).}
 
 \item{overlap}{Logical. If \code{FALSE}, stationary blocks are chosen from
 non-overlapping segments.}
+
+\item{stationary_max_percentile}{Stationary max percentile.}
+
+\item{stationary_max_fraction_of_n}{Stationary max fraction of n.}
 
 \item{n_length_spec}{Integer or \code{NA}. Desired number of time points in the bootstrap sample.
 If \code{NA}, the original series length is used.}
@@ -61,7 +67,7 @@ block structure (\code{num_blocks_spec}).
 \examples{
 set.seed(123)
 x <- matrix(rnorm(100), ncol = 1)
-boots <- blockBootstrap(x, block_type = "stationary", num_boots = 5)
+boots <- blockBootstrap(x, type = "stationary", num_boots = 5)
 dim(boots[[1]])
 
 }

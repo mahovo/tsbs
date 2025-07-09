@@ -8,8 +8,8 @@
 #' @param n_boot Integer, optional desired length of each bootstrap replicate.
 #' @param block_length Integer length of each block; if `-1`, an automatic h
 #'   euristic is used.
-#' @param block_type Character string: one of `"moving"`, `"stationary"`, `
-#'   "hmm"`, `"msar"`, or `"wild"`. See details below.
+#' @param type Bootstrap type. Character string: one of `"moving"`, 
+#'   `"stationary"`, `"hmm"`, `"msar"`, or `"wild"`. See details below.
 #' @param num_blocks Integer number of blocks per bootstrap replicate.
 #' @param num_boots Integer number of bootstrap replicates.
 #' @param func A summary function to apply to each bootstrap replicate or column.
@@ -19,17 +19,19 @@
 #'   parameter: `"1/n"`, `"plugin"`, or `"cross validation"`.
 #' @param p Optional numeric value for stationary bootstrap `p`.
 #' @param overlap Logical indicating if overlapping blocks are allowed.
-#' @param ar_order Integer AR order for MSAR (`block_type="msar"`).
+#' @param ar_order Integer AR order for MSAR (`type="msar"`).
 #' @param num_states Integer number of states for HMM or MSAR.
 #' @param model_func Model-fitting function for cross-validation.
 #' @param score_func Scoring function for cross-validation.
+#' @param stationary_max_percentile Stationary max percentile.
+#' @param stationary_max_fraction_of_n Stationary max fraction of n.
 #' 
 #' @datails
-#' `block_type="moving"`: If `n_boot` is set, the last block will be truncated
+#' `type="moving"`: If `n_boot` is set, the last block will be truncated
 #'   when necessary to match the length (`n_boot`) of the bootstrap series. If 
 #'   `n_boot` is not set, `block_length` and `num_blocks` must be set, and  
 #'   `n_boot` will automatically be set to `block_length * num_blocks`.
-#' `block_type="stationary"`, `block_type="hmm"`, `block_type="msar"`: If 
+#' `type="stationary"`, `type="hmm"`, `type="msar"`: If 
 #'   `n_boot` is set, the last block will be truncated when necessary to match 
 #'   the length (`n_boot`) of the bootstrap series. This is the only way to 
 #'   ensure equal length of all bootstrap series, as the length of each block is 
@@ -38,7 +40,7 @@
 #'   random lengths of the individual blocks for that particular series. Note 
 #'   that this typically results in bootstrap series of different lengths.
 #' : 
-#' `block_type="wild"`: 
+#' `type="wild"`: 
 #'   
 #'
 #' @return A list containing:
@@ -53,7 +55,7 @@
 #' result <- tsbs(
 #'   x = x,
 #'   block_length = 10,
-#'   block_type = "stationary",
+#'   type = "stationary",
 #'   num_blocks = 5,
 #'   num_boots = 10,
 #'   func = mean,
@@ -69,7 +71,7 @@ tsbs <- function(
     x,
     n_boot = NULL,
     block_length = NULL,
-    block_type = c("moving", "stationary", "hmm", "msar", "wild"),
+    type = c("moving", "stationary", "hmm", "msar", "wild"),
     num_blocks = NULL,
     num_boots = 100L,
     func = mean,
@@ -80,14 +82,16 @@ tsbs <- function(
     ar_order = 1,
     num_states = 2,
     model_func = default_model_func,
-    score_func = mse
+    score_func = mse,
+    stationary_max_percentile = 0.99,
+    stationary_max_fraction_of_n = 0.10
 ) {
   
  
   
   ## --- Validation ---
   ## match.arg() picks the first element in the vector as default
-  block_type <- match.arg(block_type)
+  type <- match.arg(type)
   apply_func_to <- match.arg(apply_func_to)
   p_method <- match.arg(p_method)
   
@@ -125,29 +129,52 @@ tsbs <- function(
   
     
   ## Fails if NULL. Value is not calculated automatically.
-  if (.invalid_length(ar_order, allow_null = FALSE))
+  if(.invalid_length(ar_order, allow_null = FALSE))
     stop("`ar_order` must be a positive integer.")
-  if (.invalid_length(num_states, allow_null = FALSE))
+  if(.invalid_length(num_states, allow_null = FALSE))
     stop("`num_states` must be a positive integer.")
-  if (.invalid_length(num_boots, allow_null = FALSE))
+  if(.invalid_length(num_boots, allow_null = FALSE))
     stop("`num_boots` must be a positive integer.")
   
   ## Validate p
-  if (.invalid_length(p) ) {
-    stop("`p` must be a single number in (0,1) or NULL.")
-  }
-  if (!is.null(p) && ( length(p) > 1 || p <= 0 || p >= 1)) {
+  if(.invalid_percentage(p, allow_null = TRUE) ) {
     stop("`p` must be a single number in (0,1) or NULL.")
   }
 
+  ## Validate max block length for stationary bootstrap
+  if(.invalid_percentage(stationary_max_percentile, allow_null = FALSE) ) {
+    stop("`stationary_max_percentile` must be a single number in (0,1) or NULL.")
+  }
+  if(.invalid_percentage(stationary_max_fraction_of_n, allow_null = FALSE) ) {
+    stop("`stationary_max_fraction_of_n` must be a single number in (0,1) or NULL.")
+  }
+  
+  
+  .blockBootstrap <- function() {
+    blockBootstrap(
+      x, 
+      n_boot, 
+      block_length, 
+      num_blocks, 
+      num_boots, 
+      type, 
+      p, 
+      overlap,
+      stationary_max_percentile,
+      stationary_max_fraction_of_n
+    )
+  }
+
   bootstrap_series <- switch(
-    block_type,
+    type,
     moving = {
-      blockBootstrap(x, n_boot, block_length, num_blocks, num_boots, "moving", p, overlap)
+      .blockBootstrap()
+      #blockBootstrap(x, n_boot, block_length, num_blocks, num_boots, "moving", p, overlap)
     },
     stationary = {
       if(is.null(p)) {p <- .estimate_p(x, p_method, block_length, model_func, score_func)}
-      blockBootstrap(x, n_boot, block_length, num_blocks, num_boots, "stationary", p, overlap)
+      .blockBootstrap()
+      #blockBootstrap(x, n_boot, block_length, num_blocks, num_boots, "stationary", p, overlap)
     },
     hmm = lapply(hmm_bootstrap(x[,1], num_states = num_states, num_blocks = num_blocks, num_boots = num_boots),
                  function(s) matrix(s, ncol = 1)),
@@ -155,7 +182,7 @@ tsbs <- function(
                                  num_blocks = num_blocks, num_boots = num_boots),
                   function(s) matrix(s, ncol = 1)),
     wild = wild_bootstrap(x, num_boots),
-    stop("Unsupported block_type.")
+    stop("Unsupported type.")
   )
   
   func_outs <- lapply(bootstrap_series, function(sampled) {
@@ -205,6 +232,21 @@ tsbs <- function(
 }
 
 
+#' Invalid percentage
+#'
+#' @param p Percentage (decimal fraction) to validate
+#' @param allow_null Allow null?
+#'
+#' @returns
+#' @export
+#'
+#' @examples
+.invalid_percentage <- function(p, allow_null = TRUE) {
+  
+  .invalid_length(p, allow_null = allow_null) ||
+  length(p) > 1 || 
+  !is.null(p) && (p <= 0 || p >= 1)
+}
 
 
 #' Estimate p

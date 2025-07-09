@@ -13,11 +13,13 @@
 #' @param num_blocks_spec Integer or `NA`. Number of blocks to use.
 #'        If `NA`, this is inferred from `n_length_spec`.
 #' @param num_boots Number of bootstrap replicates to generate.
-#' @param block_type Character. Either `"moving"` (Moving Block Bootstrap) or
+#' @param type Character. Either `"moving"` (Moving Block Bootstrap) or
 #'        `"stationary"` (Stationary Bootstrap).
 #' @param p Probability parameter for the geometric block length (used in Stationary Bootstrap).
 #' @param overlap Logical. If `FALSE`, stationary blocks are chosen from
 #'        non-overlapping segments.
+#' @param stationary_max_percentile Stationary max percentile.
+#' @param stationary_max_fraction_of_n Stationary max fraction of n.
 #'
 #' @return A list of matrices, each one a bootstrap replicate with dimensions approximately
 #' `n_length_spec` × `ncol(x)`.
@@ -36,31 +38,36 @@
 #' @examples
 #' set.seed(123)
 #' x <- matrix(rnorm(100), ncol = 1)
-#' boots <- blockBootstrap(x, block_type = "stationary", num_boots = 5)
+#' boots <- blockBootstrap(x, type = "stationary", num_boots = 5)
 #' dim(boots[[1]])
 #'
 #' @importFrom Rcpp sourceCpp
 #' @export
-blockBootstrap <- function(x,
-                           n_boot = NULL,
-                           block_length = NULL,
-                           num_blocks = NULL,
-                           num_boots = 20L,
-                           block_type = "stationary",
-                           p = 0.1,
-                           overlap = TRUE) {
+blockBootstrap <- function(
+  x,
+  n_boot = NULL,
+  block_length = NULL,
+  num_blocks = NULL,
+  num_boots = 20L,
+  type = "stationary",
+  p = 0.1,
+  overlap = TRUE,
+  stationary_max_percentile = 0.99,
+  stationary_max_fraction_of_n = 0.10
+) {
 
-  
-  
   .Call(`_tsbs_blockBootstrap_cpp`,
-        as.matrix(x),
-        n_boot,
-        block_length,
-        num_blocks,
-        as.integer(num_boots),
-        as.character(block_type),
-        p,
-        as.logical(overlap))
+    as.matrix(x),
+    n_boot,
+    block_length,
+    num_blocks,
+    as.integer(num_boots),
+    as.character(type),
+    p,
+    as.logical(overlap),
+    stationary_max_percentile,
+    stationary_max_fraction_of_n
+  )
 }
 
 

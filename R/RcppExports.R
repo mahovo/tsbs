@@ -5,7 +5,7 @@ compute_default_block_length <- function(x) {
     .Call(`_tsbs_compute_default_block_length`, x)
 }
 
-blockBootstrap_cpp <- function(xSEXP, n_boot_spec, block_length_spec, num_blocks_spec, num_boots, block_type, p, overlap) {
-    .Call(`_tsbs_blockBootstrap_cpp`, xSEXP, n_boot_spec, block_length_spec, num_blocks_spec, num_boots, block_type, p, overlap)
+blockBootstrap_cpp <- function(xSEXP, n_boot_spec, block_length_spec, num_blocks_spec, num_boots, type, p, overlap, stationary_max_percentile, stationary_max_fraction_of_n) {
+    .Call(`_tsbs_blockBootstrap_cpp`, xSEXP, n_boot_spec, block_length_spec, num_blocks_spec, num_boots, type, p, overlap, stationary_max_percentile, stationary_max_fraction_of_n)
 }
 

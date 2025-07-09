@@ -24,14 +24,18 @@ int compute_default_block_length(const Rcpp::NumericMatrix &x) {
 }
 
 // [[Rcpp::export]]
-Rcpp::List blockBootstrap_cpp(SEXP xSEXP,
-                          SEXP n_boot_spec,
-                          SEXP block_length_spec,
-                          SEXP num_blocks_spec,
-                          const int num_boots,
-                          const std::string &block_type,
-                          SEXP p,
-                          const bool overlap) {
+Rcpp::List blockBootstrap_cpp(
+  SEXP xSEXP,
+  SEXP n_boot_spec,
+  SEXP block_length_spec,
+  SEXP num_blocks_spec,
+  const int num_boots,
+  const std::string &type,
+  SEXP p,
+  const bool overlap,
+  const double stationary_max_percentile,
+  const double stationary_max_fraction_of_n
+) {
   
   // All inputs are validated in tsbs().R before blockBootstrap_cpp() is called.
   
@@ -56,9 +60,6 @@ Rcpp::List blockBootstrap_cpp(SEXP xSEXP,
     ? compute_default_block_length(x)
       : Rcpp::as<int>(block_length_spec);
 
-  // Number of blocks
-  // TODO
-  
   // Final output length
   int n_boot;
   int num_blocks;
@@ -81,13 +82,21 @@ Rcpp::List blockBootstrap_cpp(SEXP xSEXP,
       int start_idx;
       int current_block_len;
       
-      if (block_type == "moving") {
+      if (type == "moving") {
         start_idx = static_cast<int>(R::runif(0, n - block_length + 1));
         current_block_len = block_length;
         
-      } else if (block_type == "stationary") {
+      } else if (type == "stationary") {
         
         double prob = Rcpp::as<double>(p);
+        
+        // Compute maximum block length
+        int max_from_percentile = R::qgeom(stationary_max_percentile, prob, 1, 0) + 1;
+        int max_from_n_fraction = static_cast<int>(stationary_max_fraction_of_n * n);
+        int max_block_length = std::min(max_from_percentile, max_from_n_fraction);
+        max_block_length = std::max(1, std::min(max_block_length, n)); // keep within [1, n]
+        
+        // Compute block length
         current_block_len = static_cast<int>(R::rgeom(prob)) + 1;
         if (current_block_len > block_length) {
           current_block_len = block_length;
@@ -102,7 +111,7 @@ Rcpp::List blockBootstrap_cpp(SEXP xSEXP,
         }
         
       } else {
-        Rcpp::stop("Unsupported block_type. Use 'moving' or 'stationary'.");
+        Rcpp::stop("Unsupported type. Use 'moving' or 'stationary'.");
       }
       
       int rows_to_copy = std::min(current_block_len, n_boot - pos);

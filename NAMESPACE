@@ -2,6 +2,7 @@
 
 S3method(predict,default_model)
 export(.invalid_length)
+export(.invalid_percentage)
 export(blockBootstrap)
 export(default_model_func)
 export(hmm_bootstrap)

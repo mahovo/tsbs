@@ -8,7 +8,7 @@ tsbs(
   x,
   n_boot = NULL,
   block_length = NULL,
-  block_type = c("moving", "stationary", "hmm", "msar", "wild"),
+  type = c("moving", "stationary", "hmm", "msar", "wild"),
   num_blocks = NULL,
   num_boots = 100L,
   func = mean,
@@ -19,7 +19,9 @@ tsbs(
   ar_order = 1,
   num_states = 2,
   model_func = default_model_func,
-  score_func = mse
+  score_func = mse,
+  stationary_max_percentile = 0.99,
+  stationary_max_fraction_of_n = 0.1
 )
 }
 \arguments{
@@ -31,7 +33,8 @@ tsbs(
 \item{block_length}{Integer length of each block; if \code{-1}, an automatic h
 euristic is used.}
 
-\item{block_type}{Character string: one of \code{"moving"}, \code{"stationary"}, \code{ "hmm"}, \code{"msar"}, or \code{"wild"}. See details below.}
+\item{type}{Bootstrap type. Character string: one of \code{"moving"},
+\code{"stationary"}, \code{"hmm"}, \code{"msar"}, or \code{"wild"}. See details below.}
 
 \item{num_blocks}{Integer number of blocks per bootstrap replicate.}
 
@@ -49,13 +52,17 @@ parameter: \code{"1/n"}, \code{"plugin"}, or \code{"cross validation"}.}
 
 \item{overlap}{Logical indicating if overlapping blocks are allowed.}
 
-\item{ar_order}{Integer AR order for MSAR (\code{block_type="msar"}).}
+\item{ar_order}{Integer AR order for MSAR (\code{type="msar"}).}
 
 \item{num_states}{Integer number of states for HMM or MSAR.}
 
 \item{model_func}{Model-fitting function for cross-validation.}
 
 \item{score_func}{Scoring function for cross-validation.}
+
+\item{stationary_max_percentile}{Stationary max percentile.}
+
+\item{stationary_max_fraction_of_n}{Stationary max fraction of n.}
 }
 \value{
 A list containing:
@@ -75,7 +82,7 @@ x <- arima.sim(n = 100, list(ar = 0.8))
 result <- tsbs(
   x = x,
   block_length = 10,
-  block_type = "stationary",
+  type = "stationary",
   num_blocks = 5,
   num_boots = 10,
   func = mean,

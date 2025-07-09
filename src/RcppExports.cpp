@@ -22,8 +22,8 @@ BEGIN_RCPP
 END_RCPP
 }
 // blockBootstrap_cpp
-Rcpp::List blockBootstrap_cpp(SEXP xSEXP, SEXP n_boot_spec, SEXP block_length_spec, SEXP num_blocks_spec, const int num_boots, const std::string& block_type, SEXP p, const bool overlap);
-RcppExport SEXP _tsbs_blockBootstrap_cpp(SEXP xSEXPSEXP, SEXP n_boot_specSEXP, SEXP block_length_specSEXP, SEXP num_blocks_specSEXP, SEXP num_bootsSEXP, SEXP block_typeSEXP, SEXP pSEXP, SEXP overlapSEXP) {
+Rcpp::List blockBootstrap_cpp(SEXP xSEXP, SEXP n_boot_spec, SEXP block_length_spec, SEXP num_blocks_spec, const int num_boots, const std::string& type, SEXP p, const bool overlap, const double stationary_max_percentile, const double stationary_max_fraction_of_n);
+RcppExport SEXP _tsbs_blockBootstrap_cpp(SEXP xSEXPSEXP, SEXP n_boot_specSEXP, SEXP block_length_specSEXP, SEXP num_blocks_specSEXP, SEXP num_bootsSEXP, SEXP typeSEXP, SEXP pSEXP, SEXP overlapSEXP, SEXP stationary_max_percentileSEXP, SEXP stationary_max_fraction_of_nSEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
     Rcpp::RNGScope rcpp_rngScope_gen;
@@ -32,17 +32,19 @@ BEGIN_RCPP
     Rcpp::traits::input_parameter< SEXP >::type block_length_spec(block_length_specSEXP);
     Rcpp::traits::input_parameter< SEXP >::type num_blocks_spec(num_blocks_specSEXP);
     Rcpp::traits::input_parameter< const int >::type num_boots(num_bootsSEXP);
-    Rcpp::traits::input_parameter< const std::string& >::type block_type(block_typeSEXP);
+    Rcpp::traits::input_parameter< const std::string& >::type type(typeSEXP);
     Rcpp::traits::input_parameter< SEXP >::type p(pSEXP);
     Rcpp::traits::input_parameter< const bool >::type overlap(overlapSEXP);
-    rcpp_result_gen = Rcpp::wrap(blockBootstrap_cpp(xSEXP, n_boot_spec, block_length_spec, num_blocks_spec, num_boots, block_type, p, overlap));
+    Rcpp::traits::input_parameter< const double >::type stationary_max_percentile(stationary_max_percentileSEXP);
+    Rcpp::traits::input_parameter< const double >::type stationary_max_fraction_of_n(stationary_max_fraction_of_nSEXP);
+    rcpp_result_gen = Rcpp::wrap(blockBootstrap_cpp(xSEXP, n_boot_spec, block_length_spec, num_blocks_spec, num_boots, type, p, overlap, stationary_max_percentile, stationary_max_fraction_of_n));
     return rcpp_result_gen;
 END_RCPP
 }
 
 static const R_CallMethodDef CallEntries[] = {
     {"_tsbs_compute_default_block_length", (DL_FUNC) &_tsbs_compute_default_block_length, 1},
-    {"_tsbs_blockBootstrap_cpp", (DL_FUNC) &_tsbs_blockBootstrap_cpp, 8},
+    {"_tsbs_blockBootstrap_cpp", (DL_FUNC) &_tsbs_blockBootstrap_cpp, 10},
     {NULL, NULL, 0}
 };
 
