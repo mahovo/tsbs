@@ -1,15 +1,23 @@
 #' Flexible Block Bootstrap for Time Series
 #'
 #' Generates block bootstrap replicates of a numeric time series or multivariate 
-#' time series. Supports moving, stationary, HMM, MSAR, and wild block types.
+#' time series. Supports moving, stationary, HMM, MSAR, and wild bootstrap types.
 #'
 #' @param x Numeric vector, matrix, or data frame of time series observations 
 #'   (rows = time points, cols = variables).
 #' @param n_boot Integer, optional desired length of each bootstrap replicate.
-#' @param block_length Integer length of each block; if `-1`, an automatic h
-#'   euristic is used.
-#' @param type Bootstrap type. Character string: one of `"moving"`, 
+#' @param block_length Integer length of each block; if `NULL`, an automatic 
+#'   heuristic is used. For stationary bootstrap, `block_length` is the expected
+#'   block length, when `p_method="1/n"`.
+#' @param bs_type Bootstrap type. Character string: One of `"moving"`, 
 #'   `"stationary"`, `"hmm"`, `"msar"`, or `"wild"`. See details below.
+#' @param block_type Block type. Character string: One of `"non-overlapping"`, 
+#'   `"overlapping"`, or `"tapered"`. Only affects `bs_type="moving"` and 
+#'   `bs_type="stationary"`. `block_type="tapered"` will smooth out transitions
+#'   between blocks. It follows that `block_type="tapered"` can not be used when
+#'   `block_length=1`.
+#' @param taper_type Tapering window function. Character. One of `"cosine"`, 
+#'   `"bartlett"`, or `"tukey"`.
 #' @param num_blocks Integer number of blocks per bootstrap replicate.
 #' @param num_boots Integer number of bootstrap replicates.
 #' @param func A summary function to apply to each bootstrap replicate or column.
@@ -19,7 +27,7 @@
 #'   parameter: `"1/n"`, `"plugin"`, or `"cross validation"`.
 #' @param p Optional numeric value for stationary bootstrap `p`.
 #' @param overlap Logical indicating if overlapping blocks are allowed.
-#' @param ar_order Integer AR order for MSAR (`type="msar"`).
+#' @param ar_order Integer AR order for MSAR (`bs_type="msar"`).
 #' @param num_states Integer number of states for HMM or MSAR.
 #' @param model_func Model-fitting function for cross-validation.
 #' @param score_func Scoring function for cross-validation.
@@ -27,11 +35,11 @@
 #' @param stationary_max_fraction_of_n Stationary max fraction of n.
 #' 
 #' @datails
-#' `type="moving"`: If `n_boot` is set, the last block will be truncated
+#' `bs_type="moving"`: If `n_boot` is set, the last block will be truncated
 #'   when necessary to match the length (`n_boot`) of the bootstrap series. If 
 #'   `n_boot` is not set, `block_length` and `num_blocks` must be set, and  
 #'   `n_boot` will automatically be set to `block_length * num_blocks`.
-#' `type="stationary"`, `type="hmm"`, `type="msar"`: If 
+#' `bs_type="stationary"`, `bs_type="hmm"`, `bs_type="msar"`: If 
 #'   `n_boot` is set, the last block will be truncated when necessary to match 
 #'   the length (`n_boot`) of the bootstrap series. This is the only way to 
 #'   ensure equal length of all bootstrap series, as the length of each block is 
@@ -40,7 +48,7 @@
 #'   random lengths of the individual blocks for that particular series. Note 
 #'   that this typically results in bootstrap series of different lengths.
 #' : 
-#' `type="wild"`: 
+#' `bs_type="wild"`: 
 #'   
 #'
 #' @return A list containing:
@@ -55,7 +63,7 @@
 #' result <- tsbs(
 #'   x = x,
 #'   block_length = 10,
-#'   type = "stationary",
+#'   bs_type = "stationary",
 #'   num_blocks = 5,
 #'   num_boots = 10,
 #'   func = mean,
@@ -71,7 +79,10 @@ tsbs <- function(
     x,
     n_boot = NULL,
     block_length = NULL,
-    type = c("moving", "stationary", "hmm", "msar", "wild"),
+    bs_type = c("moving", "stationary", "hmm", "msar", "wild"),
+    block_type = c("overlapping", "non-overlapping", "tapered"),
+    taper_type = c("cosine", "bartlett", "tukey"),
+    tukey_alpha = 0.5, ## Only applies to block_type=tapered with taper_type=tukey
     num_blocks = NULL,
     num_boots = 100L,
     func = mean,
@@ -91,9 +102,11 @@ tsbs <- function(
   
   ## --- Validation ---
   ## match.arg() picks the first element in the vector as default
-  type <- match.arg(type)
+  bs_type <- match.arg(bs_type)
   apply_func_to <- match.arg(apply_func_to)
   p_method <- match.arg(p_method)
+  block_type <- match.arg(block_type)
+  taper_type <- match.arg(taper_type)
   
   if(.invalid_length(x))
     stop("No valued x value provided.")
@@ -155,18 +168,20 @@ tsbs <- function(
       x, 
       n_boot, 
       block_length, 
+      bs_type,
+      block_type,
+      taper_type,
+      tukey_alpha,
       num_blocks, 
       num_boots, 
-      type, 
       p, 
-      overlap,
       stationary_max_percentile,
       stationary_max_fraction_of_n
     )
   }
 
   bootstrap_series <- switch(
-    type,
+    bs_type,
     moving = {
       .blockBootstrap()
       #blockBootstrap(x, n_boot, block_length, num_blocks, num_boots, "moving", p, overlap)
@@ -182,7 +197,7 @@ tsbs <- function(
                                  num_blocks = num_blocks, num_boots = num_boots),
                   function(s) matrix(s, ncol = 1)),
     wild = wild_bootstrap(x, num_boots),
-    stop("Unsupported type.")
+    stop("Unsupported bootstrap type.")
   )
   
   func_outs <- lapply(bootstrap_series, function(sampled) {
@@ -249,11 +264,11 @@ tsbs <- function(
 }
 
 
-#' Estimate p
+#' Estimate geometric distribution parameter p for stationary bootstrap
 #'
 #' @param x x
 #' @param p_method p estimation method
-#' @param block_length Block length
+#' @param block_length Expected block length
 #' @param model_func Model function for k fold cross validation
 #' @param score_func Score function for k fold cross validation
 #'

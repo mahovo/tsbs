@@ -2,7 +2,7 @@
 % Please edit documentation in R/tsbs.R
 \name{.estimate_p}
 \alias{.estimate_p}
-\title{Estimate p}
+\title{Estimate geometric distribution parameter p for stationary bootstrap}
 \usage{
 .estimate_p(x, p_method, block_length, model_func, score_func)
 }
@@ -11,7 +11,7 @@
 
 \item{p_method}{p estimation method}
 
-\item{block_length}{Block length}
+\item{block_length}{Expected block length}
 
 \item{model_func}{Model function for k fold cross validation}
 
@@ -21,5 +21,5 @@
 p
 }
 \description{
-Estimate p
+Estimate geometric distribution parameter p for stationary bootstrap
 }

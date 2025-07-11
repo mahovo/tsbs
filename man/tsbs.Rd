@@ -8,7 +8,10 @@ tsbs(
   x,
   n_boot = NULL,
   block_length = NULL,
-  type = c("moving", "stationary", "hmm", "msar", "wild"),
+  bs_type = c("moving", "stationary", "hmm", "msar", "wild"),
+  block_type = c("overlapping", "non-overlapping", "tapered"),
+  taper_type = c("cosine", "bartlett", "tukey"),
+  tukey_alpha = 0.5,
   num_blocks = NULL,
   num_boots = 100L,
   func = mean,
@@ -30,11 +33,21 @@ tsbs(
 
 \item{n_boot}{Integer, optional desired length of each bootstrap replicate.}
 
-\item{block_length}{Integer length of each block; if \code{-1}, an automatic h
-euristic is used.}
+\item{block_length}{Integer length of each block; if \code{NULL}, an automatic
+heuristic is used. For stationary bootstrap, \code{block_length} is the expected
+block length, when \code{p_method="1/n"}.}
 
-\item{type}{Bootstrap type. Character string: one of \code{"moving"},
+\item{bs_type}{Bootstrap type. Character string: One of \code{"moving"},
 \code{"stationary"}, \code{"hmm"}, \code{"msar"}, or \code{"wild"}. See details below.}
+
+\item{block_type}{Block type. Character string: One of \code{"non-overlapping"},
+\code{"overlapping"}, or \code{"tapered"}. Only affects \code{bs_type="moving"} and
+\code{bs_type="stationary"}. \code{block_type="tapered"} will smooth out transitions
+between blocks. It follows that \code{block_type="tapered"} can not be used when
+\code{block_length=1}.}
+
+\item{taper_type}{Tapering window function. Character. One of \code{"cosine"},
+\code{"bartlett"}, or \code{"tukey"}.}
 
 \item{num_blocks}{Integer number of blocks per bootstrap replicate.}
 
@@ -52,7 +65,7 @@ parameter: \code{"1/n"}, \code{"plugin"}, or \code{"cross validation"}.}
 
 \item{overlap}{Logical indicating if overlapping blocks are allowed.}
 
-\item{ar_order}{Integer AR order for MSAR (\code{type="msar"}).}
+\item{ar_order}{Integer AR order for MSAR (\code{bs_type="msar"}).}
 
 \item{num_states}{Integer number of states for HMM or MSAR.}
 
@@ -74,7 +87,7 @@ A list containing:
 }
 \description{
 Generates block bootstrap replicates of a numeric time series or multivariate
-time series. Supports moving, stationary, HMM, MSAR, and wild block types.
+time series. Supports moving, stationary, HMM, MSAR, and wild bootstrap types.
 }
 \examples{
 set.seed(123)
@@ -82,7 +95,7 @@ x <- arima.sim(n = 100, list(ar = 0.8))
 result <- tsbs(
   x = x,
   block_length = 10,
-  type = "stationary",
+  bs_type = "stationary",
   num_blocks = 5,
   num_boots = 10,
   func = mean,

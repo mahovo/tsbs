@@ -8,44 +8,54 @@ blockBootstrap(
   x,
   n_boot = NULL,
   block_length = NULL,
+  bs_type = "moving",
+  block_type = "overlapping",
+  taper_type = "cosine",
+  tukey_alpha = 0.5,
   num_blocks = NULL,
   num_boots = 20L,
-  type = "stationary",
   p = 0.1,
-  overlap = TRUE,
   stationary_max_percentile = 0.99,
   stationary_max_fraction_of_n = 0.1
 )
 }
 \arguments{
-\item{x}{A numeric matrix with rows representing time points and columns representing variables.}
+\item{x}{A numeric matrix with rows representing time points and columns
+representing variables.}
+
+\item{bs_type}{Character. Bootstrap type. Either \code{"moving"} (Moving Block
+Bootstrap) or \code{"stationary"} (Stationary Bootstrap).}
+
+\item{block_type}{Character. Block type. Either \code{"non-overlapping"},
+\code{"overlapping"} or \code{"tapered"}.}
+
+\item{taper_type}{Tapering window function. Character. One of \code{"cosine"},
+\code{"bartlett"}, or \code{"tukey"}.}
 
 \item{num_boots}{Number of bootstrap replicates to generate.}
 
-\item{type}{Character. Either \code{"moving"} (Moving Block Bootstrap) or
-\code{"stationary"} (Stationary Bootstrap).}
-
-\item{p}{Probability parameter for the geometric block length (used in Stationary Bootstrap).}
-
-\item{overlap}{Logical. If \code{FALSE}, stationary blocks are chosen from
-non-overlapping segments.}
+\item{p}{Probability parameter for the geometric block length (used in
+Stationary Bootstrap).}
 
 \item{stationary_max_percentile}{Stationary max percentile.}
 
 \item{stationary_max_fraction_of_n}{Stationary max fraction of n.}
 
-\item{n_length_spec}{Integer or \code{NA}. Desired number of time points in the bootstrap sample.
-If \code{NA}, the original series length is used.}
+\item{n_length_spec}{Integer or \code{NA}. Desired number of time points in the
+bootstrap sample. If \code{NA}, the original series length is used.}
 
-\item{block_length_spec}{Integer or \code{NA}. Length of each block.
-If \code{NA}, a heuristic is used based on the average lag-1 autocorrelation across variables.}
+\item{block_length_spec}{Integer or \code{NA}. Length of each block. If \code{NA}, a
+heuristic is used based on the average lag-1 autocorrelation across variables.}
 
-\item{num_blocks_spec}{Integer or \code{NA}. Number of blocks to use.
-If \code{NA}, this is inferred from \code{n_length_spec}.}
+\item{num_blocks_spec}{Integer or \code{NA}. Number of blocks to use. If \code{NA},
+this is inferred from \code{n_length_spec}.}
+
+\item{overlap}{Logical. If \code{FALSE}, stationary blocks are chosen from
+non-overlapping segments.}
 }
 \value{
-A list of matrices, each one a bootstrap replicate with dimensions approximately
-\code{n_length_spec} × \code{ncol(x)}.
+A list of matrices, each one a bootstrap replicate with dimensions
+approximately \code{n_length_spec} × \code{ncol(x)}.
 }
 \description{
 Generates bootstrap replicates of a multivariate time series using either the
