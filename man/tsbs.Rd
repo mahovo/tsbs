@@ -24,7 +24,9 @@ tsbs(
   model_func = default_model_func,
   score_func = mse,
   stationary_max_percentile = 0.99,
-  stationary_max_fraction_of_n = 0.1
+  stationary_max_fraction_of_n = 0.1,
+  parallel = FALSE,
+  num_cores = NULL
 )
 }
 \arguments{
@@ -76,6 +78,10 @@ parameter: \code{"1/n"}, \code{"plugin"}, or \code{"cross validation"}.}
 \item{stationary_max_percentile}{Stationary max percentile.}
 
 \item{stationary_max_fraction_of_n}{Stationary max fraction of n.}
+
+\item{parallel}{Parallelize computation? \code{TRUE} or \code{FALSE}.}
+
+\item{num_cores}{Number of cores.}
 }
 \value{
 A list containing:

@@ -33,6 +33,8 @@
 #' @param score_func Scoring function for cross-validation.
 #' @param stationary_max_percentile Stationary max percentile.
 #' @param stationary_max_fraction_of_n Stationary max fraction of n.
+#' @param parallel Parallelize computation? `TRUE` or `FALSE`.
+#' @param num_cores Number of cores.
 #' 
 #' @datails
 #' `bs_type="moving"`: If `n_boot` is set, the last block will be truncated
@@ -95,12 +97,14 @@ tsbs <- function(
     model_func = default_model_func,
     score_func = mse,
     stationary_max_percentile = 0.99,
-    stationary_max_fraction_of_n = 0.10
+    stationary_max_fraction_of_n = 0.10,
+    parallel = FALSE,
+    num_cores = NULL
 ) {
   
  
   
-  ## --- Validation ---
+  ## ---- Validation ----
   ## match.arg() picks the first element in the vector as default
   bs_type <- match.arg(bs_type)
   apply_func_to <- match.arg(apply_func_to)
@@ -109,7 +113,7 @@ tsbs <- function(
   taper_type <- match.arg(taper_type)
   
   if(.invalid_length(x))
-    stop("No valued x value provided.")
+    stop("No valid x value provided.")
   if (is.vector(x) || is.data.frame(x) || is.ts(x)) x <- as.matrix(x)
 
   n <- nrow(x)
@@ -162,6 +166,42 @@ tsbs <- function(
     stop("`stationary_max_fraction_of_n` must be a single number in (0,1) or NULL.")
   }
   
+  ## --- Parallel Backend Setup ---
+  
+  if (parallel) {
+    # Check for Suggested Packages
+    if (!requireNamespace("foreach", quietly = TRUE) || !requireNamespace("doParallel", quietly = TRUE)) {
+      stop(
+        "To use parallel = TRUE, please install the 'foreach' and 'doParallel' packages.",
+        call. = FALSE
+      )
+    }
+    
+    if (is.null(num_cores)) {
+      stop("To run in parallel, you must specify 'num_cores'.", call. = FALSE)
+    }
+    
+    if (num_cores > 1) {
+      # Use the :: operator for all external functions
+      cl <- parallel::makeCluster(num_cores)
+      doParallel::registerDoParallel(cl)
+      
+      # on.exit is base R, but the function inside it needs the prefix
+      on.exit(parallel::stopCluster(cl), add = TRUE)
+    } else {
+      foreach::registerDoSEQ()
+    }
+    
+  } else {
+    foreach::registerDoSEQ()
+  }
+  
+
+  ## The `%dopar%` operator from foreach is special and needs to be imported
+  ## or defined. Define it locally if the package is found.
+  `%dopar%` <- if (parallel && num_cores > 1) foreach::`%dopar%` else foreach::`%do%`
+  
+  ## ---- Bootstrap ----
   
   .blockBootstrap <- function() {
     blockBootstrap(
@@ -191,22 +231,51 @@ tsbs <- function(
       .blockBootstrap()
       #blockBootstrap(x, n_boot, block_length, num_blocks, num_boots, "stationary", p, overlap)
     },
-    hmm = lapply(hmm_bootstrap(x[,1], num_states = num_states, num_blocks = num_blocks, num_boots = num_boots),
-                 function(s) matrix(s, ncol = 1)),
-    msar = lapply(msar_bootstrap(x[,1], ar_order = ar_order, num_states = num_states,
-                                 num_blocks = num_blocks, num_boots = num_boots),
-                  function(s) matrix(s, ncol = 1)),
+    # hmm = lapply(hmm_bootstrap(x[,1], num_states = num_states, num_blocks = num_blocks, num_boots = num_boots),
+    #              function(s) matrix(s, ncol = 1)),
+    hmm = {
+      foreach::foreach(
+        i = 1:num_boots,
+        .packages = "depmixS4" # <-- Tell workers to load this package
+      ) %dopar% {
+        matrix(hmm_bootstrap(x[,1], num_states = num_states, num_blocks = num_blocks, num_boots = 1)[[1]], ncol = 1)
+      }
+    },
+    # msar = lapply(msar_bootstrap(x[,1], ar_order = ar_order, num_states = num_states,
+    #                              num_blocks = num_blocks, num_boots = num_boots),
+    #               function(s) matrix(s, ncol = 1)),
+    msar = {
+      foreach::foreach(
+        i = 1:num_boots,
+        .packages = c("MSwM", "dplyr") # <-- Load all needed packages
+      ) %dopar% {
+        matrix(msar_bootstrap(x[,1], ar_order = ar_order, num_states = num_states, num_blocks = num_blocks, num_boots = 1)[[1]], ncol = 1)
+      }
+    },
     wild = wild_bootstrap(x, num_boots),
     stop("Unsupported bootstrap type.")
   )
   
-  func_outs <- lapply(bootstrap_series, function(sampled) {
+  # func_outs <- lapply(bootstrap_series, function(sampled) {
+  #   if (apply_func_to == "df") {
+  #     func(as.data.frame(sampled))
+  #   } else {
+  #     apply(sampled, 2, func)
+  #   }
+  # })
+  
+  ## --- Parallel Application of `func` ---
+  func_outs <- foreach::foreach(sampled = bootstrap_series) %dopar% {
     if (apply_func_to == "df") {
       func(as.data.frame(sampled))
     } else {
       apply(sampled, 2, func)
     }
-  })
+  }
+  
+  
+  
+  # The cluster is automatically stopped here by on.exit() when the function returns.
   
   func_out_means <- Reduce(`+`, func_outs) / length(func_outs)
   

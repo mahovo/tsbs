@@ -116,7 +116,9 @@ result <- tsbs(
   num_boots = 100L,
   func = mean,
   apply_func_to = "cols",
-  p_method = "plugin"
+  p_method = "plugin",
+  parallel = TRUE,
+  num_cores = 2
 )
 print(result$func_out_means)
 ```

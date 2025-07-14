@@ -16,6 +16,9 @@ Imports:
     Rcpp,
     stats,
     utils
+Suggests:
+    foreach,
+    doParallel
 LinkingTo: Rcpp
 Encoding: UTF-8
 License: GPL-3
