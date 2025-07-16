@@ -9,7 +9,9 @@ hmm_bootstrap(
   n_boot = NULL,
   num_states = 2,
   num_blocks = 100,
-  num_boots = 100
+  num_boots = 100,
+  parallel = FALSE,
+  num_cores = 1L
 )
 }
 \arguments{
@@ -22,6 +24,10 @@ hmm_bootstrap(
 \item{num_blocks}{Integer number of blocks to sample for each bootstrap replicate.}
 
 \item{num_boots}{Integer number of bootstrap replicates to generate.}
+
+\item{parallel}{Parallelize computation? \code{TRUE} or \code{FALSE}.}
+
+\item{num_cores}{Number of cores.}
 }
 \value{
 A list of numeric vectors, each one a bootstrap replicate.

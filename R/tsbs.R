@@ -93,16 +93,14 @@ tsbs <- function(
     p = NULL,
     overlap = TRUE,
     ar_order = 1,
-    num_states = 2,
+    num_states = 2L,
     model_func = default_model_func,
     score_func = mse,
     stationary_max_percentile = 0.99,
     stationary_max_fraction_of_n = 0.10,
     parallel = FALSE,
-    num_cores = NULL
+    num_cores = 1L
 ) {
-  
- 
   
   ## ---- Validation ----
   ## match.arg() picks the first element in the vector as default
@@ -166,40 +164,44 @@ tsbs <- function(
     stop("`stationary_max_fraction_of_n` must be a single number in (0,1) or NULL.")
   }
   
-  ## --- Parallel Backend Setup ---
+  ## ---- Parallel Backend Setup ----
   
-  if (parallel) {
-    # Check for Suggested Packages
-    if (!requireNamespace("foreach", quietly = TRUE) || !requireNamespace("doParallel", quietly = TRUE)) {
-      stop(
-        "To use parallel = TRUE, please install the 'foreach' and 'doParallel' packages.",
-        call. = FALSE
-      )
-    }
-    
-    if (is.null(num_cores)) {
-      stop("To run in parallel, you must specify 'num_cores'.", call. = FALSE)
-    }
-    
-    if (num_cores > 1) {
-      # Use the :: operator for all external functions
-      cl <- parallel::makeCluster(num_cores)
-      doParallel::registerDoParallel(cl)
-      
-      # on.exit is base R, but the function inside it needs the prefix
-      on.exit(parallel::stopCluster(cl), add = TRUE)
-    } else {
-      foreach::registerDoSEQ()
-    }
-    
-  } else {
-    foreach::registerDoSEQ()
-  }
+  # if (parallel) {
+  #   # Check for Suggested Packages
+  #   if (!requireNamespace("foreach", quietly = TRUE) || !requireNamespace("doParallel", quietly = TRUE)) {
+  #     stop(
+  #       "To use parallel = TRUE, please install the 'foreach' and 'doParallel' packages.",
+  #       call. = FALSE
+  #     )
+  #   }
+  #   
+  #   if (is.null(num_cores)) {
+  #     stop(
+  #       paste0("To run in parallel, you must specify 'num_cores'.
+  #      The number of cores on your machine is ", as.character(parallel::detectCores()), "."), 
+  #       call. = FALSE
+  #     )
+  #   }
+  #   
+  #   if (num_cores > 1) {
+  #     cl <- parallel::makeCluster(num_cores)
+  #     doParallel::registerDoParallel(cl)
+  #     
+  #     on.exit(parallel::stopCluster(cl), add = TRUE)
+  #   } else {
+  #     ## Prevent a warning message from being issued if the ⁠%dopar%⁠ function i
+  #     ## s called and no parallel backend has been registered.
+  #     foreach::registerDoSEQ()
+  #   }
+  #   
+  # } else {
+  #   foreach::registerDoSEQ()
+  # }
   
 
   ## The `%dopar%` operator from foreach is special and needs to be imported
   ## or defined. Define it locally if the package is found.
-  `%dopar%` <- if (parallel && num_cores > 1) foreach::`%dopar%` else foreach::`%do%`
+  # `%dopar%` <- if (parallel && num_cores > 1) foreach::`%dopar%` else foreach::`%do%`
   
   ## ---- Bootstrap ----
   
@@ -233,45 +235,64 @@ tsbs <- function(
     },
     # hmm = lapply(hmm_bootstrap(x[,1], num_states = num_states, num_blocks = num_blocks, num_boots = num_boots),
     #              function(s) matrix(s, ncol = 1)),
-    hmm = {
-      foreach::foreach(
-        i = 1:num_boots,
-        .packages = "depmixS4" # <-- Tell workers to load this package
-      ) %dopar% {
-        matrix(hmm_bootstrap(x[,1], num_states = num_states, num_blocks = num_blocks, num_boots = 1)[[1]], ncol = 1)
-      }
-    },
+    hmm = hmm_bootstrap(
+      x[,1], 
+      num_states = num_states, 
+      num_blocks = num_blocks, 
+      num_boots = num_boots, 
+      parallel = parallel, 
+      num_cores = num_cores
+    ),
+    # hmm = {
+    #   foreach::foreach(
+    #     i = 1:num_boots,
+    #     .packages = "depmixS4" # <-- Tell workers to load this package
+    #   ) %dopar% {
+    #     matrix(hmm_bootstrap(x[,1], num_states = num_states, num_blocks = num_blocks, num_boots = 1)[[1]], ncol = 1)
+    #   }
+    # },
     # msar = lapply(msar_bootstrap(x[,1], ar_order = ar_order, num_states = num_states,
     #                              num_blocks = num_blocks, num_boots = num_boots),
     #               function(s) matrix(s, ncol = 1)),
-    msar = {
-      foreach::foreach(
-        i = 1:num_boots,
-        .packages = c("MSwM", "dplyr") # <-- Load all needed packages
-      ) %dopar% {
-        matrix(msar_bootstrap(x[,1], ar_order = ar_order, num_states = num_states, num_blocks = num_blocks, num_boots = 1)[[1]], ncol = 1)
-      }
-    },
-    wild = wild_bootstrap(x, num_boots),
+    msar = msar_bootstrap(
+      x[,1], 
+      ar_order = ar_order, 
+      num_states = num_states,
+      num_blocks = num_blocks, 
+      num_boots = num_boots, 
+      parallel = parallel, 
+      num_cores = num_cores
+    ),
+    # msar = {
+    #   foreach::foreach(
+    #     i = 1:num_boots,
+    #     .packages = c("MSwM", "dplyr") # <-- Load all needed packages
+    #   ) %dopar% {
+    #     matrix(msar_bootstrap(x[,1], ar_order = ar_order, num_states = num_states, num_blocks = num_blocks, num_boots = 1)[[1]], ncol = 1)
+    #   }
+    # },
+    # wild = wild_bootstrap(x, num_boots),
+    wild = wild_bootstrap(x, num_boots, parallel = parallel, num_cores = num_cores),
     stop("Unsupported bootstrap type.")
   )
   
-  # func_outs <- lapply(bootstrap_series, function(sampled) {
-  #   if (apply_func_to == "df") {
-  #     func(as.data.frame(sampled))
-  #   } else {
-  #     apply(sampled, 2, func)
-  #   }
-  # })
   
-  ## --- Parallel Application of `func` ---
-  func_outs <- foreach::foreach(sampled = bootstrap_series) %dopar% {
+  func_outs <- lapply(bootstrap_series, function(sampled) {
     if (apply_func_to == "df") {
       func(as.data.frame(sampled))
     } else {
       apply(sampled, 2, func)
     }
-  }
+  })
+  
+  # ## ---- Parallel Application of `func` ----
+  # func_outs <- foreach::foreach(sampled = bootstrap_series) %dopar% {
+  #   if (apply_func_to == "df") {
+  #     func(as.data.frame(sampled))
+  #   } else {
+  #     apply(sampled, 2, func)
+  #   }
+  # }
   
   
   

@@ -20,13 +20,13 @@ tsbs(
   p = NULL,
   overlap = TRUE,
   ar_order = 1,
-  num_states = 2,
+  num_states = 2L,
   model_func = default_model_func,
   score_func = mse,
   stationary_max_percentile = 0.99,
   stationary_max_fraction_of_n = 0.1,
   parallel = FALSE,
-  num_cores = NULL
+  num_cores = 1L
 )
 }
 \arguments{

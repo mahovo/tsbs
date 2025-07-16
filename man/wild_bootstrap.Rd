@@ -10,6 +10,10 @@ wild_bootstrap(x, num_boots = 100)
 \item{x}{Numeric vector or matrix of residuals.}
 
 \item{num_boots}{Integer number of bootstrap replicates.}
+
+\item{parallel}{Parallelize computation? \code{TRUE} or \code{FALSE}.}
+
+\item{num_cores}{Number of cores.}
 }
 \value{
 A list of numeric matrices, each one a wild bootstrap replicate.

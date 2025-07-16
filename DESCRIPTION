@@ -8,17 +8,16 @@ Authors@R:
 Description: Provides advanced block bootstrap algorithms for time series data, including moving, stationary, wild, HMM-based, and MSAR-based bootstraps. Includes automatic parameter tuning and high-performance C++ routines.
 Depends: R (>= 4.0.0)
 Imports:
-    depmixS4,
-    dplyr,
-    MSwM,
     zoo,
-    parallel,
     Rcpp,
     stats,
     utils
 Suggests:
     foreach,
-    doParallel
+    doParallel,
+    depmixS4,
+    dplyr,
+    MSwM
 LinkingTo: Rcpp
 Encoding: UTF-8
 License: GPL-3

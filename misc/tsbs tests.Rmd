@@ -108,7 +108,7 @@ result <- tsbs(
   x = x,
   n_boot = 100L,
   block_length = 10,
-  bs_type = "stationary",
+  bs_type = "hmm",
   block_type = "tapered",
   taper_type = "tukey",
   tukey_alpha = 0.2,

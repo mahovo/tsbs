@@ -10,7 +10,9 @@ msar_bootstrap(
   num_states = 2,
   n_boot = NULL,
   num_blocks = 100,
-  num_boots = 100
+  num_boots = 100,
+  parallel = FALSE,
+  num_cores = 1L
 )
 }
 \arguments{
@@ -25,6 +27,10 @@ msar_bootstrap(
 \item{num_blocks}{Integer number of blocks to sample per bootstrap replicate.}
 
 \item{num_boots}{Integer number of bootstrap replicates.}
+
+\item{parallel}{Parallelize computation? \code{TRUE} or \code{FALSE}.}
+
+\item{num_cores}{Number of cores.}
 }
 \value{
 A list of numeric vectors, each a bootstrap replicate.
