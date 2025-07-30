@@ -103,17 +103,18 @@ str(boot_out)
 
 ```{r}
 set.seed(42)
-x <- arima.sim(n = 100, list(ar = 0.8))
+#x <- arima.sim(n = 100, list(ar = 0.8))
+x <- as.matrix(data.frame("a" = arima.sim(n = 100, list(ar = 0.8)), "b" = arima.sim(n = 100, list(ar = 0.8))))
 result <- tsbs(
   x = x,
   n_boot = 100L,
   block_length = 10,
-  bs_type = "hmm",
+  bs_type = "msar",
   block_type = "tapered",
   taper_type = "tukey",
   tukey_alpha = 0.2,
   num_blocks = 5,
-  num_boots = 100L,
+  num_boots = 10L,
   func = mean,
   apply_func_to = "cols",
   p_method = "plugin",
@@ -122,5 +123,8 @@ result <- tsbs(
 )
 print(result$func_out_means)
 ```
+
+
+
 
 

@@ -235,8 +235,8 @@ tsbs <- function(
     },
     # hmm = lapply(hmm_bootstrap(x[,1], num_states = num_states, num_blocks = num_blocks, num_boots = num_boots),
     #              function(s) matrix(s, ncol = 1)),
-    hmm = hmm_bootstrap(
-      x[,1], 
+    hmm = hmm_bootstrap_mv(
+      x, 
       num_states = num_states, 
       num_blocks = num_blocks, 
       num_boots = num_boots, 
@@ -254,8 +254,8 @@ tsbs <- function(
     # msar = lapply(msar_bootstrap(x[,1], ar_order = ar_order, num_states = num_states,
     #                              num_blocks = num_blocks, num_boots = num_boots),
     #               function(s) matrix(s, ncol = 1)),
-    msar = msar_bootstrap(
-      x[,1], 
+    msar = msar_bootstrap_mv(
+      x, 
       ar_order = ar_order, 
       num_states = num_states,
       num_blocks = num_blocks, 

@@ -72,6 +72,46 @@ hmm_bootstrap <- function(
 }
 
 
+
+#' @details
+#' For multivariate series (matrices or data frames), the function fits a single
+#' HMM where all variables are assumed to depend on the same underlying hidden
+#' state sequence. The returned bootstrap samples are matrices with the same
+#' number of columns as the input `x`.
+#' @export
+hmm_bootstrap_mv <- function(
+    x, # Now accepts a matrix
+    n_boot = NULL,
+    num_states = 2,
+    num_blocks = 100,
+    num_boots = 100,
+    parallel = FALSE,
+    num_cores = 1L
+) {
+  if (!requireNamespace("depmixS4", quietly = TRUE)) {
+    stop("depmixS4 package required for HMM bootstrap.")
+  }
+  x <- as.matrix(x)
+  
+  ## Create a multivariate formula for depmixS4
+  df <- as.data.frame(x)
+  colnames(df) <- paste0("V", seq_len(ncol(df)))
+  formula <- as.formula(paste("cbind(", paste(colnames(df), collapse = ","), ") ~ 1"))
+  
+  model <- depmixS4::depmix(formula, data = df, nstates = num_states, family = gaussian())
+  fit <- depmixS4::fit(model, verbose = FALSE)
+  states <- depmixS4::posterior(fit, type = "viterbi")$state
+  
+  ## Call the multivariate-aware sampling function
+  .sample_blocks_mv(
+    x, n_boot, num_blocks, states, num_boots,
+    parallel = parallel,
+    num_cores = num_cores
+  )
+}
+
+
+
 #' Markov-Switching Autoregressive (MSAR) Bootstrap for Time Series
 #'
 #' Fits a Markov-switching autoregressive model (MSAR) to a univariate time series
@@ -127,7 +167,7 @@ msar_bootstrap <- function(
     num_cores = 1L
   ) {
 
-  ## Prepare lagged design matrix
+  ## ---- Check for required packages ----
   if (!requireNamespace("dplyr", quietly = TRUE)) {
     stop("dplyr package required for MSAR bootstrap.")
   }
@@ -135,22 +175,23 @@ msar_bootstrap <- function(
     stop("MSwM package required for MSAR bootstrap.")
   }
   
+  ## ---- Prepare lagged design matrix ----
   df <- data.frame(y = x)
   
   for (i in seq_len(ar_order)) df[[paste0("lag", i)]] <- dplyr::lag(x, i)
   df <- na.omit(df)
   
-  ## Fit base AR model
+  ## ---- Fit base AR model ----
   base_model <- lm(y ~ ., data = df)
   
-  ## Fit MSAR model
+  ## ---- Fit MSAR model ----
   ms_model <- MSwM::msmFit(base_model, k = num_states, sw = rep(TRUE, length(coef(base_model)) + 1))
   
-  ## State sequence
+  ## ---- State sequence ----
   states <- ms_model@Fit@smoProb
   state_seq <- apply(states, 1, which.max)
   
-  ## Sample bootstraps
+  ## ---- Sample bootstraps ----
   .sample_blocks(
     x, 
     n_boot, 
@@ -161,6 +202,85 @@ msar_bootstrap <- function(
     num_cores = num_cores
   )
 }
+
+
+#' Multivariate Markov-Switching AutoRegressive Bootstrap
+#'
+#' @param x A numeric matrix or data.frame where columns are the time series.
+#' @param ar_order Integer. The order of the autoregressive model.
+#' @param num_states Integer. The number of hidden Markov states.
+#' @param n_boot Integer. The desired length of each bootstrapped series.
+#' @param num_blocks Integer. The number of blocks to sample for each series.
+#' @param num_boots Integer. The number of bootstrap samples to generate.
+#' @param parallel Logical. Whether to use parallel processing.
+#' @param num_cores Integer. The number of cores for parallel execution.
+#' @return A list of bootstrapped multivariate series (matrices).
+msar_bootstrap_mv <- function(
+    x,
+    ar_order = 1,
+    num_states = 2,
+    n_boot = NULL,
+    num_blocks = 100,
+    num_boots = 100,
+    parallel = FALSE,
+    num_cores = 1L
+) {
+  
+  ## ---- Check for required packages ----
+  if (!requireNamespace("dplyr", quietly = TRUE) || !requireNamespace("MSwM", quietly = TRUE)) {
+    stop("Packages 'dplyr' and 'MSwM' are required.")
+  }
+
+  ## ---- Prepare lagged design matrix for VAR ----
+  ## Ensure x is a data.frame for easy formula creation
+  if (!is.data.frame(x)) x <- as.data.frame(x)
+  series_names <- colnames(x)
+  
+  df <- x
+  for (i in seq_len(ar_order)) {
+    ## Lag all columns
+    lagged_df <- dplyr::lag(x, i)
+    colnames(lagged_df) <- paste0(series_names, "_lag", i)
+    df <- cbind(df, lagged_df)
+  }
+  df <- na.omit(df)
+  
+  ## ---- Fit base VAR model ----
+  ## Create formula for a multivariate response (VAR)
+  lhs <- paste0("cbind(", paste(series_names, collapse = ", "), ")")
+  rhs <- paste(grep("_lag", colnames(df), value = TRUE), collapse = " + ")
+  formula_str <- paste(lhs, "~", rhs)
+  formula_obj <- as.formula(formula_str)
+  
+  base_model <- lm(formula_obj, data = df)
+  
+  ## ---- Fit MS-VAR model ----
+  ## The msmFit function handles the multivariate response automatically
+  ms_model <- MSwM::msmFit(
+    base_model,
+    k = num_states,
+    sw = rep(TRUE, length(coef(base_model)) + ncol(x)) # All coefficients and variances switch
+  )
+  
+  ## ---- State sequence ----
+  # This part is the same, as there is one state sequence for the whole system
+  states <- ms_model@Fit@smoProb
+  state_seq <- apply(states, 1, which.max)
+  
+  ## ---- Sample bootstraps ----
+  .sample_blocks_mv(
+    as.matrix(x), ## Pass original data as a matrix
+    n_boot,
+    num_blocks,
+    state_seq,
+    num_boots,
+    parallel = parallel,
+    num_cores = num_cores
+  )
+}
+
+
+
 
 
 #' Wild Bootstrap for Time Series Residuals
@@ -371,5 +491,78 @@ wild_bootstrap <- function(x, num_boots = 100) {
     }
   }
 
+  sampled_series
+}
+
+
+#' Helper function to sample blocks from a multivariate series
+.sample_blocks_mv <- function(
+    x,
+    n_boot,
+    num_blocks,
+    states,
+    num_boots,
+    parallel = FALSE,
+    num_cores = 1L
+) {
+  
+  ## ---- Identify blocks ----
+  r <- rle(states)
+  ends <- cumsum(r$lengths)
+  ## The state blocks are identified from the original series length,
+  ## so we need to account for the rows lost to lagging.
+  n_orig <- nrow(x)
+  n_states <- length(states)
+  offset <- n_orig - n_states
+  
+  starts <- c(1, head(ends, -1) + 1)
+  blocks <- Map(
+    function(s, e) list(start = s + offset, end = e + offset),
+    starts, ends
+  )
+  
+  get_block <- function(b) {
+    x[b$start:b$end, , drop = FALSE]
+  }
+  
+  ## ---- Parallel Backend Setup ----
+  `%dopar%` <- foreach::`%do%`
+  if (parallel) {
+    if (!requireNamespace("foreach", quietly = TRUE) || !requireNamespace("doParallel", quietly = TRUE)) {
+      stop("Packages 'foreach' and 'doParallel' are required for parallel execution.", call. = FALSE)
+    }
+    if (is.null(num_cores) || num_cores < 1) {
+      stop("To run in parallel, you must specify a positive 'num_cores'.", call. = FALSE)
+    }
+    if (num_cores > 1) {
+      cl <- parallel::makeCluster(num_cores)
+      doParallel::registerDoParallel(cl)
+      on.exit(parallel::stopCluster(cl), add = TRUE)
+      `%dopar%` <- foreach::`%dopar%`
+    }
+  }
+  if (is.null(n_boot) && is.null(num_blocks)) {
+    stop("Must provide a valid value for either n_boot or num_blocks")
+  }
+  if (!is.null(n_boot) && !is.null(num_blocks)) {
+    warning("`num_blocks` is ignored when `n_boot` is set.")
+  }
+  
+  sampled_series <- foreach::foreach(i = seq_len(num_boots)) %dopar% {
+    if (!is.null(n_boot)) {
+      ## Initialize an empty matrix and use rbind
+      bootstrap_series <- x[0, , drop = FALSE]
+      while (nrow(bootstrap_series) < n_boot) {
+        sampled_block <- sample(blocks, 1, replace = TRUE)[[1]]
+        bootstrap_series <- rbind(bootstrap_series, get_block(sampled_block))
+      }
+      bootstrap_series[seq_len(n_boot), , drop = FALSE]
+    } else {
+      ## Sample blocks and combine with do.call(rbind, ...)
+      bootstrap_blocks <- lapply(sample(blocks, num_blocks, replace = TRUE), get_block)
+      do.call(rbind, bootstrap_blocks)
+    }
+  }
+  
   sampled_series
 }
