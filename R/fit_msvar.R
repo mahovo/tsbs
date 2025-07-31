@@ -1,4 +1,4 @@
-#' Fit a 2-State Markov-Switching Vector Autoregressive Model
+#' Fit a 2-State Markov-Switching Vector Autoregressive Model (MS-VAR)
 #'
 #' This function fits a 2-state MS-VAR(1) model using a C++ implementation of 
 #' the Expectation-Maximization (EM) algorithm. 
@@ -44,9 +44,9 @@ fit_msvar <- function(y, max_iter = 100, tol = 1e-6) {
   
   # Call the C++ function directly
   # Rcpp creates the R bindings automatically during package compilation.
-  results <- fit_msvar_em_cpp(y, max_iter, tol)
+  results <- fit_msvar_cpp(y, max_iter, tol)
   
-  # Add variable names to coefficients and matrices for better output
+  # Add variable names to coefficients and matrices if column names are missing
   var_names <- colnames(y)
   if (is.null(var_names)) {
     var_names <- paste0("y", 1:ncol(y))

@@ -125,6 +125,25 @@ print(result$func_out_means)
 ```
 
 
+## Test `fit_msvar()`
+```{r}
+# Generate sample data
+set.seed(123)
+T_obs <- 250
+y1 <- arima.sim(model = list(ar = 0.7), n = T_obs)
+y2 <- 0.5 * y1 + arima.sim(model = list(ar = 0.3), n = T_obs)
+sample_data <- cbind(y1, y2)
 
+# Fit the model (assuming the package is loaded)
+msvar_fit <- fit_msvar(sample_data)
+```
+
+
+```{r}
+# View results
+print(msvar_fit$P)
+plot(msvar_fit$smoothed_probabilities[, 1], type = 'l',
+    main = "Smoothed Probability of State 1", ylab = "Probability")
+```
 
 

@@ -28,7 +28,7 @@ const double log2pi = std::log(2.0 * M_PI);
  //' @param tol Convergence tolerance for the log-likelihood.
  //' @return A list with estimated parameters.
  // [[Rcpp::export]]
- Rcpp::List fit_msvar_em_cpp(const arma::mat& y, int max_iter = 100, double tol = 1e-6) {
+ Rcpp::List fit_msvar_cpp(const arma::mat& y, int max_iter = 100, double tol = 1e-6) {
    
    // --- 1. Setup & Initialization ---
    int T = y.n_rows;
@@ -75,6 +75,7 @@ const double log2pi = std::log(2.0 * M_PI);
    double log_lik_old = -std::numeric_limits<double>::infinity();
    
    // --- 2. EM Algorithm Loop ---
+   arma::mat smooth_probs(T_eff, 2);
    for (int i = 0; i < max_iter; ++i) {
      
      // --- E-STEP: Hamilton Filter & Kim Smoother ---
@@ -107,7 +108,6 @@ const double log2pi = std::log(2.0 * M_PI);
      }
      
      // Kim Smoother (Backward Pass)
-     arma::mat smooth_probs(T_eff, 2);
      smooth_probs.row(T_eff - 1) = filt_probs.row(T_eff - 1);
      for (int t = T_eff - 2; t >= 0; --t) {
        arma::vec ratio = smooth_probs.row(t + 1).t() / pred_probs.row(t + 1).t();
@@ -141,7 +141,8 @@ const double log2pi = std::log(2.0 * M_PI);
      P = trans_mat.each_col() / arma::sum(trans_mat, 1);
      
      // --- 3. Check Convergence ---
-     double log_lik_new = arma::sum(arma::log(lik_contrib));
+     // double log_lik_new = arma::sum(arma::log(lik_contrib));
+     double log_lik_new = arma::as_scalar(arma::sum(arma::log(lik_contrib)));
      if (std::abs(log_lik_new - log_lik_old) < tol) {
        break;
      }

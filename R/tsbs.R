@@ -74,6 +74,7 @@
 #' print(result$func_out_means)
 #'
 #' @importFrom stats acf ar
+#' @importFrom Rcpp sourceCpp
 #' 
 #' @useDynLib tsbs, .registration = TRUE
 #' @export
