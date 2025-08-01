@@ -37,22 +37,51 @@
 #' #      main = "Smoothed Probability of State 1", ylab = "Probability")
 fit_msvar <- function(y, max_iter = 100, tol = 1e-6) {
   
-  # Ensure y is a matrix
+  ################################################################################
+  ## Validation
+  ################################################################################
+  
+  ## This block prevents non-numeric data from reaching the C++ code.
+  if (!is.matrix(y) && !is.data.frame(y)) {
+    stop("Input 'y' must be a numeric matrix or data frame.")
+  }
+  
+  ## Convert data.frame to matrix for subsequent checks
   if (!is.matrix(y)) {
     y <- as.matrix(y)
   }
   
-  # Call the C++ function directly
-  # Rcpp creates the R bindings automatically during package compilation.
+  ## This is the most critical check. It catches cases where as.matrix()
+  ## has coerced columns to character type.
+  if (!is.numeric(y)) {
+    stop("Input 'y' must be numeric. Character or other non-numeric data is not allowed.")
+  }
+  
+  ## Check for non-finite values
+  if (any(!is.finite(y))) {
+    stop("Input matrix 'y' contains non-finite values (NA, NaN, Inf).")
+  }
+  
+  ## Check for sufficient number of observations for a VAR(1) model
+  p <- 1
+  if (nrow(y) < p + 1) {
+    stop(paste0("Input matrix 'y' must have at least ", p + 1, " rows for a VAR(", p, ") model."))
+  }
+
+  ################################################################################
+  ## Call the C++ function
+  ################################################################################  
+  ## Call the C++ function directly
+  ## Rcpp creates the R bindings automatically during package compilation.
   results <- fit_msvar_cpp(y, max_iter, tol)
   
-  # Add variable names to coefficients and matrices if column names are missing
+  ## Add variable names to coefficients and matrices if column names are missing
   var_names <- colnames(y)
   if (is.null(var_names)) {
     var_names <- paste0("y", 1:ncol(y))
   }
   
-  # Assumes a VAR(1) model as in the C++ implementation
+  ## Assumes a VAR(1) model as in the C++ implementation
   lag_names <- paste0(rep(var_names, each = 1), "_lag1")
   param_names <- c("const", lag_names)
   
