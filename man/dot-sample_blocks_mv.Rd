@@ -2,7 +2,7 @@
 % Please edit documentation in R/bootstrap_functions.R
 \name{.sample_blocks_mv}
 \alias{.sample_blocks_mv}
-\title{Helper function to sample blocks from a multivariate series}
+\title{Helper Function for Multivariate Stationary Block Bootstrap}
 \usage{
 .sample_blocks_mv(
   x,
@@ -14,6 +14,25 @@
   num_cores = 1L
 )
 }
-\description{
-Helper function to sample blocks from a multivariate series
+\arguments{
+\item{x}{The original multivariate time series as a matrix.}
+
+\item{n_boot}{The target length for each bootstrap sample.}
+
+\item{num_blocks}{The number of blocks to sample.}
+
+\item{states}{A vector of integer states corresponding to each row of x.}
+
+\item{num_boots}{The number of bootstrap series to generate.}
+
+\item{parallel}{Logical, whether to use parallel processing.}
+
+\item{num_cores}{The number of cores for parallel processing.}
 }
+\value{
+A list of bootstrapped series.
+}
+\description{
+Helper Function for Multivariate Stationary Block Bootstrap
+}
+\keyword{internal}

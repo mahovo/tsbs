@@ -36,5 +36,5 @@ msar_bootstrap_mv(
 A list of bootstrapped multivariate series (matrices).
 }
 \description{
-Multivariate Markov-Switching AutoRegressive Bootstrap
+Deprecated. Use \code{msvar_bootstrap()} instead.
 }

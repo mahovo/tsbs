@@ -146,4 +146,151 @@ plot(msvar_fit$smoothed_probabilities[, 1], type = 'l',
     main = "Smoothed Probability of State 1", ylab = "Probability")
 ```
 
+## Test 
+```{r}
+## Generate sample data
+set.seed(123)
+T_obs <- 250
+y1 <- arima.sim(model = list(ar = 0.7), n = T_obs)
+y2 <- 0.5 * y1 + arima.sim(model = list(ar = 0.3), n = T_obs)
+sample_data <- cbind(y1, y2)
+
+## Run the bootstrap function (assuming fit_msvar is loaded)
+bootstrap_results <- msvar_bootstrap(sample_data, num_boots = 5)
+
+# View results
+str(bootstrap_results)
+```
+
+```{r}
+## Visualize the first original series against the first bootstrapped series
+plot(sample_data[, 1], type = 'l', col = 'black',
+    main = "Original vs. Bootstrapped Series",
+    ylab = "Value", xlab = "Time", ylim = range(c(sample_data[,1], bootstrap_results[[1]][,1])))
+lines(bootstrap_results[[1]][, 1], col = 'red', lty = 2)
+legend("topright", legend = c("Original", "Bootstrap"),
+      col = c("black", "red"), lty = c(1, 2))
+```
+
+```{r}
+#' Advanced Visualization for MS-VAR Model and Bootstrap Results
+#'
+#' This script demonstrates how to visualize the output of an MS-VAR model
+#' by plotting the time series with background colors (ribbons) indicating
+#' the estimated underlying state. It shows this for both the original data
+#' and for a single bootstrapped series.
+
+## --- 1. Generate Sample Data ---
+set.seed(123)
+T_obs <- 100
+num_resampled_blocks <- 20 # Number of blocks to build the new series
+y1 <- arima.sim(model = list(ar = 0.7), n = T_obs)
+#y2 <- 0.5 * y1 + arima.sim(model = list(ar = 0.5), n = T_obs)
+y2 <- arima.sim(model = list(ar = 0.1), n = T_obs)
+original_data <- cbind(y1, y2)
+
+
+## --- 2. Fit Model and Get Original State Sequence ---
+message("Fitting model to original data...")
+ms_model_fit <- fit_msvar(original_data)
+original_probs <- ms_model_fit$smoothed_probabilities
+original_states_short <- apply(original_probs, 1, which.max)
+
+## Align state sequence with the full original data
+original_states <- c(original_states_short[1], original_states_short)
+
+
+## --- 3. Manually Perform One Bootstrap to Track States ---
+message("Performing one bootstrap iteration manually...")
+
+## a) Identify the blocks of data corresponding to each state run
+state_runs <- rle(original_states)
+state_ends <- cumsum(state_runs$lengths)
+state_starts <- c(1, head(state_ends, -1) + 1)
+
+## b) Create a list of data blocks and a parallel list of their states
+data_blocks <- lapply(1:length(state_starts), function(i) {
+  original_data[state_starts[i]:state_ends[i], , drop = FALSE]
+})
+block_states <- lapply(1:length(state_starts), function(i) {
+  rep(state_runs$values[i], state_runs$lengths[i])
+})
+
+## c) Resample blocks to create a new series and its state sequence
+#num_resampled_blocks <- 20 # Number of blocks to build the new series
+resampled_indices <- sample(1:length(data_blocks), num_resampled_blocks, replace = TRUE)
+
+bootstrapped_series <- do.call(rbind, data_blocks[resampled_indices])
+bootstrapped_states <- do.call(c, block_states[resampled_indices])
+
+
+## --- 4. Create a Reusable Plotting Function ---
+#' Plot a time series with colored ribbons for states
+#'
+#' @param series A vector representing the time series to plot.
+#' @param states A vector of the same length as `series` with integer states.
+#' @param title A title for the plot.
+plot_with_states <- function(series, states, title) {
+  plot(series, type = 'n', main = title, ylab = "Value", xlab = "Time")
+  
+  # Define colors for the state ribbons
+  state_colors <- c(rgb(0.8, 0.8, 0.8, 0.4), rgb(0.6, 0.8, 1, 0.4))
+  
+  # Add ribbons
+  state_runs <- rle(states)
+  state_ends <- cumsum(state_runs$lengths)
+  state_starts <- c(1, head(state_ends, -1) + 1)
+  
+  for (i in 1:length(state_starts)) {
+    rect(
+      xleft = state_starts[i],
+      ybottom = par("usr")[3], # Bottom of the plot area
+      xright = state_ends[i],
+      ytop = par("usr")[4],    # Top of the plot area
+      col = state_colors[state_runs$values[i]],
+      border = NA
+    )
+  }
+  
+  # Add vertical lines at the start of each block
+  abline(v = state_starts, col = "red", lty = 2, lwd = 1.5)
+  
+  # Add the time series line on top
+  lines(series, col = 'black', lwd = 1.5)
+  
+  # Add a legend
+  legend(
+    "topright",
+    legend = c("State 1", "State 2", "Block Start"),
+    pch = c(15, 15, NA),      # Solid square for states
+    lty = c(NA, NA, 2),       # Dashed line for block start
+    col = c(state_colors, "red"), # Colors for pch and lty
+    pt.cex = c(2.5, 2.5, 1),  # Size of the legend points
+    lwd = c(NA, NA, 1.5),     # Line width for the legend
+    bty = "n"
+  )
+}
+
+# --- 5. Generate the Plots ---
+message("Generating plots...")
+# Set up a 2-panel plot layout
+par(mfrow = c(2, 1), mar = c(4, 4, 3, 2))
+
+# Plot the original series with its estimated states
+plot_with_states(
+  series = original_data[, 1],
+  states = original_states,
+  title = "Original Series (y1) with Estimated States"
+)
+
+# Plot the bootstrapped series with its reconstructed states
+plot_with_states(
+  series = bootstrapped_series[, 1],
+  states = bootstrapped_states,
+  title = "Bootstrapped Series (y1) with Reconstructed States"
+)
+
+# Reset plotting device to default
+par(mfrow = c(1, 1))
+```
 

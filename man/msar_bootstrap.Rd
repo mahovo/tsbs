@@ -36,10 +36,12 @@ msar_bootstrap(
 A list of numeric vectors, each a bootstrap replicate.
 }
 \description{
-Fits a Markov-switching autoregressive model (MSAR) to a univariate time series
-and generates bootstrap replicates by resampling regime-specific blocks.
+Deprecated. Use \code{msvar_bootstrap()} instead.
 }
 \details{
+Fits a Markov-switching autoregressive model (MSAR) to a univariate time series
+and generates bootstrap replicates by resampling regime-specific blocks.
+
 This function:
 \itemize{
 \item Fits a Markov-switching autoregressive model using \code{MSwM::msmFit()} on an \code{lm()} fit of \code{x}.
