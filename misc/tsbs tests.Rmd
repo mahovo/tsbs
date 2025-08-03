@@ -172,21 +172,26 @@ legend("topright", legend = c("Original", "Bootstrap"),
       col = c("black", "red"), lty = c(1, 2))
 ```
 
+
+
+
 ```{r}
-#' Advanced Visualization for MS-VAR Model and Bootstrap Results
+#' Visualization for MS-VAR Model and Bootstrap Results
 #'
-#' This script demonstrates how to visualize the output of an MS-VAR model
+#' Demonstrates how to visualize the output of an MS-VAR model
 #' by plotting the time series with background colors (ribbons) indicating
 #' the estimated underlying state. It shows this for both the original data
 #' and for a single bootstrapped series.
 
+## --- 0. Setup and Dependencies ---
+## Ensure the core functions are available. For this standalone script,
+## we will use dummy versions. In a real package, they would be loaded.
+
 ## --- 1. Generate Sample Data ---
 set.seed(123)
-T_obs <- 100
-num_resampled_blocks <- 20 # Number of blocks to build the new series
+T_obs <- 300
 y1 <- arima.sim(model = list(ar = 0.7), n = T_obs)
-#y2 <- 0.5 * y1 + arima.sim(model = list(ar = 0.5), n = T_obs)
-y2 <- arima.sim(model = list(ar = 0.1), n = T_obs)
+y2 <- 0.5 * y1 + arima.sim(model = list(ar = 0.3), n = T_obs)
 original_data <- cbind(y1, y2)
 
 
@@ -200,7 +205,7 @@ original_states_short <- apply(original_probs, 1, which.max)
 original_states <- c(original_states_short[1], original_states_short)
 
 
-## --- 3. Manually Perform One Bootstrap to Track States ---
+## --- 3. Manually Perform One Bootstrap to Track States and Block Starts ---
 message("Performing one bootstrap iteration manually...")
 
 ## a) Identify the blocks of data corresponding to each state run
@@ -217,11 +222,15 @@ block_states <- lapply(1:length(state_starts), function(i) {
 })
 
 ## c) Resample blocks to create a new series and its state sequence
-#num_resampled_blocks <- 20 # Number of blocks to build the new series
+num_resampled_blocks <- 20
 resampled_indices <- sample(1:length(data_blocks), num_resampled_blocks, replace = TRUE)
 
 bootstrapped_series <- do.call(rbind, data_blocks[resampled_indices])
 bootstrapped_states <- do.call(c, block_states[resampled_indices])
+
+## d) Calculate the start index of each resampled block in the new series
+resampled_block_lengths <- sapply(data_blocks[resampled_indices], nrow)
+bootstrapped_block_starts <- c(1, head(cumsum(resampled_block_lengths), -1) + 1)
 
 
 ## --- 4. Create a Reusable Plotting Function ---
@@ -230,13 +239,14 @@ bootstrapped_states <- do.call(c, block_states[resampled_indices])
 #' @param series A vector representing the time series to plot.
 #' @param states A vector of the same length as `series` with integer states.
 #' @param title A title for the plot.
-plot_with_states <- function(series, states, title) {
+#' @param v_lines A numeric vector of x-coordinates for vertical lines.
+plot_with_states <- function(series, states, title, v_lines) {
   plot(series, type = 'n', main = title, ylab = "Value", xlab = "Time")
   
-  # Define colors for the state ribbons
+  ## Define colors for the state ribbons
   state_colors <- c(rgb(0.8, 0.8, 0.8, 0.4), rgb(0.6, 0.8, 1, 0.4))
   
-  # Add ribbons
+  ## Add ribbons
   state_runs <- rle(states)
   state_ends <- cumsum(state_runs$lengths)
   state_starts <- c(1, head(state_ends, -1) + 1)
@@ -244,53 +254,69 @@ plot_with_states <- function(series, states, title) {
   for (i in 1:length(state_starts)) {
     rect(
       xleft = state_starts[i],
-      ybottom = par("usr")[3], # Bottom of the plot area
+      ybottom = par("usr")[3], ## Bottom of the plot area
       xright = state_ends[i],
-      ytop = par("usr")[4],    # Top of the plot area
+      ytop = par("usr")[4],    ## Top of the plot area
       col = state_colors[state_runs$values[i]],
       border = NA
     )
   }
   
-  # Add vertical lines at the start of each block
-  abline(v = state_starts, col = "red", lty = 2, lwd = 1.5)
+  ## Add vertical lines at specified locations
+  if (!is.null(v_lines)) {
+    abline(v = v_lines, col = "red", lty = 2, lwd = 1.5)
+  }
   
-  # Add the time series line on top
+  ## Add the time series line on top
   lines(series, col = 'black', lwd = 1.5)
   
-  # Add a legend
+  ## Add a legend
+  par(xpd=TRUE) ## Allow legend outside plotting area
   legend(
-    "topright",
+    #"topright",
+    0,
+    -4.5,
     legend = c("State 1", "State 2", "Block Start"),
     pch = c(15, 15, NA),      # Solid square for states
     lty = c(NA, NA, 2),       # Dashed line for block start
     col = c(state_colors, "red"), # Colors for pch and lty
-    pt.cex = c(2.5, 2.5, 1),  # Size of the legend points
+    cex = 0.8,
+    pt.cex = c(1, 1, 1),  # Size of the legend points
     lwd = c(NA, NA, 1.5),     # Line width for the legend
     bty = "n"
   )
 }
 
-# --- 5. Generate the Plots ---
+## --- 5. Generate the Plots ---
 message("Generating plots...")
-# Set up a 2-panel plot layout
-par(mfrow = c(2, 1), mar = c(4, 4, 3, 2))
+## Set up a 2-panel plot layout
+#par(mfrow = c(2, 1), mar = c(4, 4, 3, 2))
+```
 
-# Plot the original series with its estimated states
+```{r}
+## Plot the original series with its estimated states
+## The vertical lines mark the start of each STATE run.
 plot_with_states(
   series = original_data[, 1],
   states = original_states,
-  title = "Original Series (y1) with Estimated States"
+  title = "Original Series (y1) with Estimated State Runs",
+  v_lines = state_starts
 )
+```
 
-# Plot the bootstrapped series with its reconstructed states
+```{r}
+## Plot the bootstrapped series with its reconstructed states
+#3 The vertical lines now mark the start of each RESAMPLED BLOCK.
 plot_with_states(
   series = bootstrapped_series[, 1],
   states = bootstrapped_states,
-  title = "Bootstrapped Series (y1) with Reconstructed States"
+  title = "Bootstrapped Series (y1) with Reconstructed Blocks",
+  v_lines = bootstrapped_block_starts
 )
+```
 
-# Reset plotting device to default
+```{r}
+## Reset plotting device to default
 par(mfrow = c(1, 1))
 ```
 
