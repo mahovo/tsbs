@@ -1,0 +1,837 @@
+---
+title: "Test fit_ms_varma_garch_cpp"
+output: html_document
+date: "2025-08-10"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Test 1: Simplified helper functions
+
+```{r}
+# ===================================================================
+# Testing Script for the MS-ARMA-GARCH Fitting Procedure
+# ===================================================================
+
+# --- 1. Load Libraries and Source Code ---
+
+# Ensure you have these packages installed:
+# install.packages(c("Rcpp", "tsgarch", "tsmarch"))
+library(Rcpp)
+library(tsgarch)
+library(tsmarch)
+library(xts)
+
+# Source the C++ file containing the EM orchestrator.
+# Make sure the path is correct.
+Rcpp::sourceCpp("~/R work/tsbs/src/ms_varma_garch_fitter.cpp")
+```
+
+```{r}
+# --- 2. R Helper Functions ---
+# The R Helper Functions  functions must be in the global environment so the C++
+# code can call them.
+#' @title Calculate the Log-Likelihood Vector (R Helper)
+calculate_loglik_vector_r <- function(y, current_pars, spec, model_type = "univariate") {
+  if (model_type == "univariate") {
+    arma_order <- spec$arma_order
+    arma_pars <- current_pars$arma_pars
+    model_residuals <- stats::arima(y, order = c(arma_order[1], 0, arma_order[2]),
+                                    fixed = arma_pars, include.mean = FALSE)$residuals
+    
+    residuals_xts <- xts::xts(model_residuals, order.by = Sys.Date() - (length(model_residuals):1))
+    
+    garch_spec_obj <- tsgarch::garch_modelspec(y = residuals_xts,
+                                               model = spec$garch_model,
+                                               garch_order = spec$garch_order,
+                                               distribution = spec$distribution)
+    
+    fixed_garch_pars <- current_pars$garch_pars
+    for (par_name in names(fixed_garch_pars)) {
+        garch_spec_obj$parmatrix[parameter == par_name, value := fixed_garch_pars[[par_name]]]
+        garch_spec_obj$parmatrix[parameter == par_name, estimate := 0]
+    }
+
+    garch_model_fit <- tsfilter(garch_spec_obj)
+    
+    res <- as.numeric(garch_model_fit$residuals)
+    sig <- as.numeric(garch_model_fit$sigma)
+    
+    ll_vector <- dnorm(res, mean = 0, sd = sig, log = TRUE)
+
+  } else {
+    # Multivariate logic...
+    var_order <- spec$var_order
+    k <- ncol(y)
+    T_obs <- nrow(y)
+    X_lagged <- matrix(1, nrow = T_obs - var_order, ncol = 1 + k * var_order)
+    for (i in 1:var_order) {
+        X_lagged[, (2 + (i-1)*k):(1 + i*k)] <- y[(var_order-i+1):(T_obs-i), ]
+    }
+    y_target <- y[(var_order+1):T_obs, ]
+    beta_mat <- matrix(current_pars$var_pars, nrow = 1 + k * var_order, ncol = k)
+    model_residuals <- y_target - X_lagged %*% beta_mat
+    
+    residuals_xts <- xts::xts(model_residuals, order.by = Sys.Date() - (nrow(model_residuals):1))
+    
+    spec_fun_name <- spec$garch_spec_fun
+    spec_fun <- get(spec_fun_name, asNamespace("tsmarch"))
+    spec_args <- c(list(y = residuals_xts), spec$garch_spec_args)
+    garch_spec_obj <- do.call(spec_fun, spec_args)
+
+    fixed_garch_pars <- current_pars$garch_pars
+    for (par_name in names(fixed_garch_pars)) {
+        garch_spec_obj$parmatrix[parameter == par_name, value := fixed_garch_pars[[par_name]]]
+        garch_spec_obj$parmatrix[parameter == par_name, estimate := 0]
+    }
+
+    garch_model_fit <- tsfilter(garch_spec_obj)
+    ll_vector <- rep(mean(dnorm(garch_model_fit$residuals, log = TRUE), na.rm = TRUE), nrow(garch_model_fit$residuals))
+
+  }
+  
+  ll_vector[!is.finite(ll_vector)] <- 0
+  
+  if (length(ll_vector) < NROW(y)) {
+      padding <- NROW(y) - length(ll_vector)
+      ll_vector <- c(rep(0, padding), ll_vector)
+  }
+  
+  return(ll_vector)
+}
+
+#' @title Estimate Conditional Mean Parameters (R Helper)
+estimate_arma_weighted_r <- function(y, weights, spec, model_type = "univariate") {
+  if (model_type == "univariate") {
+    y_target <- y[-1]
+    x_lagged <- y[-length(y)]
+    w_target <- weights[-1]
+    
+    # --- FIX: More direct and robust error handling for WLS ---
+    # Try to get coefficients, but fall back immediately on any error or non-finite result.
+    coeffs <- try(coef(lm(y_target ~ x_lagged - 1, weights = w_target)), silent = TRUE)
+    
+    if (inherits(coeffs, "try-error") || any(!is.finite(coeffs))) {
+        # On any failure, revert to the safe starting parameters for this state.
+        estimated_coeffs <- unlist(spec$start_pars$arma_pars)
+    } else {
+        names(coeffs) <- "ar1"
+        estimated_coeffs <- coeffs
+    }
+    # --- END FIX ---
+    
+    ar_coeff_val <- as.numeric(estimated_coeffs)
+    final_residuals <- y_target - ar_coeff_val * x_lagged
+    
+    final_residuals <- as.matrix(final_residuals)
+
+  } else {
+    # Multivariate VAR(p) logic...
+    var_order <- spec$var_order
+    k <- ncol(y)
+    T_obs <- nrow(y)
+    padding <- var_order
+    X_lagged <- matrix(1, nrow = T_obs - padding, ncol = 1 + k * var_order)
+    for (i in 1:var_order) {
+        X_lagged[, (2 + (i-1)*k):(1 + i*k)] <- y[(padding-i+1):(T_obs-i), ]
+    }
+    y_target <- y[(padding+1):T_obs, ]
+    w_target <- weights[(padding+1):T_obs]
+    X_w <- X_lagged * sqrt(w_target)
+    y_w <- y_target * sqrt(w_target)
+    beta_mat <- solve(crossprod(X_w), crossprod(X_w, y_w))
+    estimated_coeffs <- as.vector(beta_mat)
+    final_residuals <- y_target - X_lagged %*% beta_mat
+  }
+  return(list(coefficients = estimated_coeffs, residuals = final_residuals))
+}
+
+#' @title Estimate GARCH Parameters (R Helper)
+estimate_garch_weighted_r <- function(residuals, weights, spec, model_type = "univariate") {
+  start_pars <- spec$start_pars$garch_pars
+  padding <- NROW(residuals) - length(weights)
+  w_target <- weights 
+  if(padding > 0) w_target <- weights[(padding+1):length(weights)]
+
+  temp_residuals_xts <- xts::xts(residuals, order.by = Sys.Date() - (length(residuals):1))
+  temp_spec_obj <- tsgarch::garch_modelspec(y = temp_residuals_xts, model = spec$garch_model, garch_order = spec$garch_order)
+  
+  parmatrix <- temp_spec_obj$parmatrix
+  pars_to_estimate <- names(start_pars)
+  bounds_matrix <- parmatrix[parameter %in% pars_to_estimate]
+  bounds_matrix <- bounds_matrix[match(pars_to_estimate, parameter),]
+  
+  lower_bounds <- bounds_matrix$lower
+  upper_bounds <- bounds_matrix$upper
+
+  weighted_garch_loglik <- function(params, residuals_data, w, spec, model_type) {
+    param_list <- as.list(params)
+    names(param_list) <- names(spec$start_pars$garch_pars)
+    
+    residuals_xts <- xts::xts(residuals_data, order.by = Sys.Date() - (length(residuals_data):1))
+    
+    if (model_type == "univariate") {
+        garch_spec_obj <- tsgarch::garch_modelspec(y = residuals_xts, model = spec$garch_model, garch_order = spec$garch_order, distribution = spec$distribution)
+        for (par_name in names(param_list)) {
+            garch_spec_obj$parmatrix[parameter == par_name, value := param_list[[par_name]]]
+        }
+        fit <- try(estimate(garch_spec_obj), silent = TRUE)
+    } else {
+        spec_fun_name <- spec$garch_spec_fun
+        spec_fun <- get(spec_fun_name, asNamespace("tsmarch"))
+        spec_args <- c(list(y = residuals_xts), spec$garch_spec_args)
+        garch_spec_obj <- do.call(spec_fun, spec_args)
+        for (par_name in names(param_list)) {
+            garch_spec_obj$parmatrix[parameter == par_name, value := param_list[[par_name]]]
+        }
+        fit <- try(estimate(garch_spec_obj), silent = TRUE)
+    }
+    if (inherits(fit, "try-error")) return(1e10)
+    
+    if ("TMB_OBJECT" %in% names(fit)) {
+        ll_vector <- fit$TMB_OBJECT$report()$ll_vector
+    } else {
+        res <- as.numeric(fit$residuals)
+        sig <- as.numeric(fit$sigma)
+        ll_vector <- dnorm(res, mean = 0, sd = sig, log = TRUE)
+    }
+    return(-sum(w * ll_vector, na.rm = TRUE))
+  }
+  
+  opt_result <- stats::optim(par = unlist(start_pars), 
+                             fn = weighted_garch_loglik,
+                             lower = lower_bounds,
+                             upper = upper_bounds,
+                             method = "L-BFGS-B",
+                             residuals_data = residuals, 
+                             w = w_target, 
+                             spec = spec, 
+                             model_type = model_type)
+  
+  estimated_coeffs <- as.list(opt_result$par)
+  names(estimated_coeffs) <- names(start_pars)
+  
+  return(list(coefficients = estimated_coeffs))
+}
+```
+
+```{r}
+# --- 3. Simulate Data ---
+set.seed(123)
+T_obs <- 1000
+# Define a transition matrix
+P_true <- matrix(c(0.98, 0.02, 0.03, 0.97), nrow = 2, byrow = TRUE)
+
+# Simulate the state sequence
+states <- numeric(T_obs)
+states[1] <- 1
+for (t in 2:T_obs) {
+  states[t] <- sample(1:2, size = 1, prob = P_true[states[t-1], ])
+}
+
+# Define parameters for each state
+# Create a dummy xts object for the spec function
+dummy_y <- xts::xts(rep(0, 10), order.by = Sys.Date() - (10:1))
+# State 1: Low volatility, positive AR
+spec1_true <- tsgarch::garch_modelspec(y = dummy_y, fixed_pars = list(mu = 0, ar1 = 0.5, omega = 0.1, alpha1 = 0.1, beta1 = 0.8))
+# State 2: High volatility, negative AR
+spec2_true <- tsgarch::garch_modelspec(y = dummy_y, fixed_pars = list(mu = 0, ar1 = -0.2, omega = 0.5, alpha1 = 0.3, beta1 = 0.6))
+
+
+# Simulate the time series
+y <- numeric(T_obs)
+sim1 <- stats::simulate(spec1_true, n.sim = T_obs)
+sim2 <- stats::simulate(spec2_true, n.sim = T_obs)
+
+# The simulated data is in the 'series' element of the output object
+y[states == 1] <- sim1$series[states == 1]
+y[states == 2] <- sim2$series[states == 2]
+
+
+# --- 4. Define Model Specification for Fitting ---
+# This tells our function what kind of model to fit.
+spec <- list()
+
+# State 1 spec
+spec[[1]] <- list(
+  arma_order = c(1, 0),
+  garch_model = "garch",
+  garch_order = c(1, 1),
+  distribution = "norm",
+  start_pars = list(
+    arma_pars = list(ar1 = 0.1),
+    garch_pars = list(omega = 0.1, alpha1 = 0.05, beta1 = 0.9)
+  )
+)
+
+# State 2 spec
+spec[[2]] <- list(
+  arma_order = c(1, 0),
+  garch_model = "garch",
+  garch_order = c(1, 1),
+  distribution = "norm",
+  start_pars = list(
+    arma_pars = list(ar1 = 0.1),
+    garch_pars = list(omega = 0.1, alpha1 = 0.05, beta1 = 0.9)
+  )
+)
+
+
+# --- 5. Run the Fitter ---
+message("Starting the MS-ARMA-GARCH model fitting...")
+
+# Define control parameters
+control_params <- list(max_iter = 50, tol = 1e-5)
+
+# Call the C++ function
+fit_results <- fit_ms_varma_garch_cpp(
+  y = as.matrix(y),
+  M = 2,
+  spec = spec,
+  model_type = "univariate",
+  control = control_params
+)
+
+message("Fitting complete.")
+```
+
+
+
+
+```{r}
+# --- 6. Print Results ---
+print("--- MS-ARMA-GARCH Model Fit Results ---")
+print("Estimated Transition Matrix (P):")
+print(fit_results$P)
+
+print("Final Log-Likelihood:")
+print(fit_results$log_likelihood)
+
+print("Estimated Parameters for State 1:")
+print(fit_results$model_fits[[1]])
+
+print("Estimated Parameters for State 2:")
+print(fit_results$model_fits[[2]])
+```
+
+
+
+```{r}
+# Compare smoothed probabilities to true states
+plot(fit_results$smoothed_probabilities[,1], type = 'l', col = 'blue', ylim = c(0,1), ylab = "Probability", main = "Smoothed Probability of State 1")
+lines(states-1, col = 'red', lty = 2) # True states (0 or 1)
+legend("topright", legend = c("Smoothed Prob (State 1)", "True State (1)"), col = c("blue", "red"), lty = 1:2)
+```
+
+
+## Test 2: Generalized
+
+```{r}
+# ===================================================================
+# Testing Script for the MS-ARMA-GARCH Fitting Procedure
+# ===================================================================
+
+# --- 1. Load Libraries and Source Code ---
+
+# Ensure you have these packages installed:
+# install.packages(c("Rcpp", "tsgarch", "tsmarch"))
+library(Rcpp)
+library(tsgarch)
+library(tsmarch)
+library(xts)
+
+# Source the C++ file containing the EM orchestrator.
+# Make sure the path is correct.
+Rcpp::sourceCpp("~/R work/tsbs/src/ms_varma_garch_fitter.cpp")
+```
+
+```{r}
+# --- 2. R Helper Functions ---
+# The R Helper Functions  functions must be in the global environment so the C++
+# code can call them.
+#' @title Calculate the Log-Likelihood Vector (R Helper)
+# ===================================================================
+# Generalized R Helper Functions for MS-ARMA-GARCH Fitting
+# ===================================================================
+# These functions are designed to be called from the C++ EM orchestrator.
+# They contain the full logic for handling general ARMA(p,q) and VAR(p)
+# models, and interface with the tsgarch/tsmarch packages.
+
+#' @title Calculate the Log-Likelihood Vector (R Helper)
+#' @description Calculates the vector of log-likelihood contributions for a given
+#' set of mean and variance parameters. Called during the E-step.
+calculate_loglik_vector_r <- function(y, current_pars, spec, model_type = "univariate") {
+  
+  # 1. Get Residuals from the Conditional Mean Model
+  if (model_type == "univariate") {
+    arma_order <- spec$arma_order
+    arma_pars <- current_pars$arma_pars
+    model_residuals <- stats::arima(y, order = c(arma_order[1], 0, arma_order[2]),
+                                    fixed = arma_pars, include.mean = FALSE)$residuals
+  } else {
+    # Multivariate case: VAR(p) residuals
+    var_order <- spec$var_order
+    k <- ncol(y)
+    T_obs <- nrow(y)
+    X_lagged <- matrix(1, nrow = T_obs - var_order, ncol = 1 + k * var_order)
+    for (i in 1:var_order) {
+        X_lagged[, (2 + (i-1)*k):(1 + i*k)] <- y[(var_order-i+1):(T_obs-i), ]
+    }
+    y_target <- y[(var_order+1):T_obs, ]
+    beta_mat <- matrix(current_pars$var_pars, nrow = 1 + k * var_order, ncol = k)
+    model_residuals <- y_target - X_lagged %*% beta_mat
+  }
+
+  # 2. Get GARCH log-likelihood from the residuals
+  if (model_type == "univariate") {
+    if (!requireNamespace("tsgarch", quietly = TRUE)) stop("The 'tsgarch' package is required.")
+    residuals_xts <- xts::xts(model_residuals, order.by = Sys.Date() - (length(model_residuals):1))
+    garch_spec_obj <- tsgarch::garch_modelspec(y = residuals_xts, model = spec$garch_model,
+                                               garch_order = spec$garch_order, distribution = spec$distribution)
+    
+    fixed_garch_pars <- current_pars$garch_pars
+    for (par_name in names(fixed_garch_pars)) {
+        garch_spec_obj$parmatrix[parameter == par_name, value := fixed_garch_pars[[par_name]]]
+        garch_spec_obj$parmatrix[parameter == par_name, estimate := 0]
+    }
+    garch_model_fit <- tsfilter(garch_spec_obj)
+    res <- as.numeric(garch_model_fit$residuals)
+    sig <- as.numeric(garch_model_fit$sigma)
+    ll_vector <- dnorm(res, mean = 0, sd = sig, log = TRUE)
+
+  } else {
+    if (!requireNamespace("tsmarch", quietly = TRUE)) stop("The 'tsmarch' package is required.")
+    residuals_xts <- xts::xts(model_residuals, order.by = Sys.Date() - (nrow(model_residuals):1))
+    spec_fun_name <- spec$garch_spec_fun
+    spec_fun <- get(spec_fun_name, asNamespace("tsmarch"))
+    spec_args <- c(list(y = residuals_xts), spec$garch_spec_args)
+    garch_spec_obj <- do.call(spec_fun, spec_args)
+    
+    fixed_garch_pars <- current_pars$garch_pars
+    for (par_name in names(fixed_garch_pars)) {
+        garch_spec_obj$parmatrix[parameter == par_name, value := fixed_garch_pars[[par_name]]]
+        garch_spec_obj$parmatrix[parameter == par_name, estimate := 0]
+    }
+    garch_model_fit <- tsfilter(garch_spec_obj)
+    # Placeholder for multivariate log-likelihood calculation
+    ll_vector <- rep(mean(dnorm(garch_model_fit$residuals, log = TRUE), na.rm = TRUE), nrow(garch_model_fit$residuals))
+  }
+  
+  # Sanitize and pad the vector before returning to C++
+  ll_vector[!is.finite(ll_vector)] <- 0
+  if (length(ll_vector) < NROW(y)) {
+      padding <- NROW(y) - length(ll_vector)
+      ll_vector <- c(rep(0, padding), ll_vector)
+  }
+  return(ll_vector)
+}
+
+
+#' @title Estimate Conditional Mean Parameters (R Helper)
+#' @description Estimates ARMA(p,q) or VAR(p) parameters using a weighted
+#' objective function. Called during the M-step.
+estimate_mean_weighted_r <- function(y, weights, spec, model_type = "univariate") {
+  if (model_type == "univariate") {
+    # --- Full ARMA(p,q) implementation ---
+    arma_order <- spec$arma_order
+    start_pars <- unlist(spec$start_pars$arma_pars)
+
+    # Objective function for optim, using Kalman Filter for likelihood
+    weighted_arma_loglik <- function(params, y_data, arma_order, w) {
+      p <- arma_order[1]
+      q <- arma_order[2]
+      ar_params <- if (p > 0) params[1:p] else numeric(0)
+      ma_params <- if (q > 0) params[(p+1):(p+q)] else numeric(0)
+      
+      mod <- try(stats::KalmanRun(y_data, model = list(AR = ar_params, MA = ma_params)), silent = TRUE)
+      if (inherits(mod, "try-error")) return(1e10)
+      
+      ll_vec <- dnorm(mod$resid, mean = 0, sd = sqrt(mod$var), log = TRUE)
+      return(-sum(w * ll_vec, na.rm = TRUE))
+    }
+
+    # Run optimization
+    opt_result <- try(stats::optim(par = start_pars,
+                                   fn = weighted_arma_loglik,
+                                   y_data = y,
+                                   arma_order = arma_order,
+                                   w = weights,
+                                   method = "BFGS"), silent = TRUE)
+    
+    if (inherits(opt_result, "try-error")) {
+        estimated_coeffs <- start_pars
+    } else {
+        estimated_coeffs <- opt_result$par
+    }
+    
+    # Get final residuals
+    final_residuals <- stats::arima(y, order = c(arma_order[1], 0, arma_order[2]),
+                                    fixed = estimated_coeffs, include.mean = FALSE)$residuals
+    final_residuals <- as.matrix(final_residuals)
+
+  } else {
+    # Multivariate: Weighted Least Squares for VAR(p)
+    var_order <- spec$var_order
+    k <- ncol(y)
+    T_obs <- nrow(y)
+    padding <- var_order
+    X_lagged <- matrix(1, nrow = T_obs - padding, ncol = 1 + k * var_order)
+    for (i in 1:var_order) {
+        X_lagged[, (2 + (i-1)*k):(1 + i*k)] <- y[(padding-i+1):(T_obs-i), ]
+    }
+    y_target <- y[(padding+1):T_obs, ]
+    w_target <- weights[(padding+1):T_obs]
+    
+    X_w <- X_lagged * sqrt(w_target)
+    y_w <- y_target * sqrt(w_target)
+    
+    beta_mat <- try(solve(crossprod(X_w), crossprod(X_w, y_w)), silent = TRUE)
+    if (inherits(beta_mat, "try-error")) {
+        # Fallback if matrix is singular
+        beta_mat <- matrix(0, nrow = 1 + k*var_order, ncol = k)
+    }
+    
+    estimated_coeffs <- as.vector(beta_mat)
+    final_residuals <- y_target - X_lagged %*% beta_mat
+  }
+  return(list(coefficients = estimated_coeffs, residuals = final_residuals))
+}
+
+
+#' @title Estimate GARCH Parameters (R Helper)
+#' @description Estimates GARCH parameters using weighted maximum likelihood on
+#' a given series of residuals. Called during the M-step.
+estimate_garch_weighted_r <- function(residuals, weights, spec, model_type = "univariate") {
+  start_pars <- spec$start_pars$garch_pars
+  padding <- NROW(residuals) - length(weights)
+  w_target <- weights 
+  if(padding > 0) w_target <- weights[(padding+1):length(weights)]
+
+  # Get parameter bounds from a temporary spec object
+  temp_residuals_xts <- xts::xts(residuals, order.by = Sys.Date() - (length(residuals):1))
+  if (model_type == "univariate") {
+      temp_spec_obj <- tsgarch::garch_modelspec(y = temp_residuals_xts, model = spec$garch_model, garch_order = spec$garch_order)
+  } else {
+      spec_fun_name <- spec$garch_spec_fun
+      spec_fun <- get(spec_fun_name, asNamespace("tsmarch"))
+      spec_args <- c(list(y = temp_residuals_xts), spec$garch_spec_args)
+      temp_spec_obj <- do.call(spec_fun, spec_args)
+  }
+  
+  parmatrix <- temp_spec_obj$parmatrix
+  pars_to_estimate <- names(start_pars)
+  bounds_matrix <- parmatrix[parameter %in% pars_to_estimate]
+  bounds_matrix <- bounds_matrix[match(pars_to_estimate, parameter),]
+  
+  lower_bounds <- bounds_matrix$lower
+  upper_bounds <- bounds_matrix$upper
+
+  # Weighted likelihood objective function for optim
+  weighted_garch_loglik <- function(params, residuals_data, w, spec, model_type) {
+    param_list <- as.list(params)
+    names(param_list) <- names(spec$start_pars$garch_pars)
+    
+    residuals_xts <- xts::xts(residuals_data, order.by = Sys.Date() - (length(residuals_data):1))
+    
+    if (model_type == "univariate") {
+        garch_spec_obj <- tsgarch::garch_modelspec(y = residuals_xts, model = spec$garch_model, garch_order = spec$garch_order, distribution = spec$distribution)
+        for (par_name in names(param_list)) {
+            garch_spec_obj$parmatrix[parameter == par_name, value := param_list[[par_name]]]
+        }
+        fit <- try(estimate(garch_spec_obj), silent = TRUE)
+    } else {
+        spec_fun_name <- spec$garch_spec_fun
+        spec_fun <- get(spec_fun_name, asNamespace("tsmarch"))
+        spec_args <- c(list(y = residuals_xts), spec$garch_spec_args)
+        garch_spec_obj <- do.call(spec_fun, spec_args)
+        for (par_name in names(param_list)) {
+            garch_spec_obj$parmatrix[parameter == par_name, value := param_list[[par_name]]]
+        }
+        fit <- try(estimate(garch_spec_obj), silent = TRUE)
+    }
+    if (inherits(fit, "try-error")) return(1e10)
+    
+    if ("TMB_OBJECT" %in% names(fit)) {
+        ll_vector <- fit$TMB_OBJECT$report()$ll_vector
+    } else {
+        res <- as.numeric(fit$residuals)
+        sig <- as.numeric(fit$sigma)
+        ll_vector <- dnorm(res, mean = 0, sd = sig, log = TRUE)
+    }
+    return(-sum(w * ll_vector, na.rm = TRUE))
+  }
+  
+  # Run optimization
+  opt_result <- stats::optim(par = unlist(start_pars), 
+                             fn = weighted_garch_loglik,
+                             lower = lower_bounds,
+                             upper = upper_bounds,
+                             method = "L-BFGS-B",
+                             residuals_data = residuals, 
+                             w = w_target, 
+                             spec = spec, 
+                             model_type = model_type)
+  
+  estimated_coeffs <- as.list(opt_result$par)
+  names(estimated_coeffs) <- names(start_pars)
+  
+  return(list(coefficients = estimated_coeffs))
+}
+```
+
+```{r}
+# --- 3. Simulate Data ---
+set.seed(123)
+T_obs <- 1000
+# Define a transition matrix
+P_true <- matrix(c(0.98, 0.02, 0.03, 0.97), nrow = 2, byrow = TRUE)
+
+# Simulate the state sequence
+states <- numeric(T_obs)
+states[1] <- 1
+for (t in 2:T_obs) {
+  states[t] <- sample(1:2, size = 1, prob = P_true[states[t-1], ])
+}
+
+# Define parameters for each state
+# Create a dummy xts object for the spec function
+dummy_y <- xts::xts(rep(0, 10), order.by = Sys.Date() - (10:1))
+# State 1: Low volatility, positive AR
+spec1_true <- tsgarch::garch_modelspec(y = dummy_y, fixed_pars = list(mu = 0, ar1 = 0.5, omega = 0.1, alpha1 = 0.1, beta1 = 0.8))
+# State 2: High volatility, negative AR
+spec2_true <- tsgarch::garch_modelspec(y = dummy_y, fixed_pars = list(mu = 0, ar1 = -0.2, omega = 0.5, alpha1 = 0.3, beta1 = 0.6))
+
+
+# Simulate the time series
+y <- numeric(T_obs)
+sim1 <- stats::simulate(spec1_true, n.sim = T_obs)
+sim2 <- stats::simulate(spec2_true, n.sim = T_obs)
+
+# The simulated data is in the 'series' element of the output object
+y[states == 1] <- sim1$series[states == 1]
+y[states == 2] <- sim2$series[states == 2]
+
+
+# --- 4. Define Model Specification for Fitting ---
+# This tells our function what kind of model to fit.
+spec <- list()
+
+# State 1 spec
+spec[[1]] <- list(
+  arma_order = c(1, 0),
+  garch_model = "garch",
+  garch_order = c(1, 1),
+  distribution = "norm",
+  start_pars = list(
+    arma_pars = list(ar1 = 0.1),
+    garch_pars = list(omega = 0.1, alpha1 = 0.05, beta1 = 0.9)
+  )
+)
+
+# State 2 spec
+spec[[2]] <- list(
+  arma_order = c(1, 0),
+  garch_model = "garch",
+  garch_order = c(1, 1),
+  distribution = "norm",
+  start_pars = list(
+    arma_pars = list(ar1 = 0.1),
+    garch_pars = list(omega = 0.1, alpha1 = 0.05, beta1 = 0.9)
+  )
+)
+
+
+# --- 5. Run the Fitter ---
+message("Starting the MS-ARMA-GARCH model fitting...")
+
+# Define control parameters
+control_params <- list(max_iter = 50, tol = 1e-5)
+
+# Call the C++ function
+fit_results <- fit_ms_varma_garch_cpp(
+  y = as.matrix(y),
+  M = 2,
+  spec = spec,
+  model_type = "univariate",
+  control = control_params
+)
+
+message("Fitting complete.")
+```
+
+```{r}
+# --- 6. Print Results ---
+print("--- MS-ARMA-GARCH Model Fit Results ---")
+print("Estimated Transition Matrix (P):")
+print(fit_results$P)
+
+print("Final Log-Likelihood:")
+print(fit_results$log_likelihood)
+
+print("Estimated Parameters for State 1:")
+print(fit_results$model_fits[[1]])
+
+print("Estimated Parameters for State 2:")
+print(fit_results$model_fits[[2]])
+```
+
+
+
+```{r}
+# Compare smoothed probabilities to true states
+plot(fit_results$smoothed_probabilities[,1], type = 'l', col = 'blue', ylim = c(0,1), ylab = "Probability", main = "Smoothed Probability of State 1")
+lines(states-1, col = 'red', lty = 2) # True states (0 or 1)
+legend("topright", legend = c("Smoothed Prob (State 1)", "True State (1)"), col = c("blue", "red"), lty = 1:2)
+```
+
+
+
+## Test 3: Multivariate
+```{r}
+## ===================================================================
+## Multivariate Testing Script for the MS-VARMA-GARCH Fitting Procedure
+## ===================================================================
+
+## --- 1. Load Libraries and Source Code ---
+library(mvtnorm)
+library(xts)
+library(tsgarch)
+library(tsmarch)
+
+
+## --- 2. Simulate Multivariate Data ---
+set.seed(456)
+T_obs <- 1500
+k_vars <- 2 # Number of variables
+
+## True transition matrix
+P_true <- matrix(c(0.98, 0.02, 0.03, 0.97), nrow = 2, byrow = TRUE)
+
+## Simulate the state sequence
+states <- numeric(T_obs)
+states[1] <- 1
+for (t in 2:T_obs) {
+  states[t] <- sample(1:2, size = 1, prob = P_true[states[t-1], ])
+}
+
+## --- Define State-Specific Models ---
+
+## State 1: Low volatility, low correlation
+## VAR(1) parameters (intercept, y1_lag1, y2_lag1)
+beta1_true <- matrix(c(0.01, 0.4, 0.1,  ## Equation for y1
+                       0.01, 0.1, 0.5), ## Equation for y2
+                     nrow = 3, byrow = FALSE) # Corrected to be column-major
+## GARCH parameters (DCC model)
+garch_spec1 <- tsgarch::garch_modelspec(y = xts::xts(rnorm(100), order.by = Sys.Date()-(100:1)), garch_order = c(1,1), fixed_pars = list(omega=0.1, alpha1=0.1, beta1=0.8))
+dummy_mv_y <- xts::xts(matrix(rnorm(100 * k_vars), ncol = k_vars), order.by = Sys.Date()-(100:1))
+dcc_spec1_true <- tsmarch::dcc_modelspec(y = dummy_mv_y, garch_model = list(garch_spec1, garch_spec1), dcc_order = c(1,1), distribution = "mvt", fixed_pars = list(dcc_alpha = 0.05, dcc_beta = 0.9))
+
+## State 2: High volatility, high correlation
+beta2_true <- matrix(c(0.00, 0.1, -0.2, ## Equation for y1
+                       0.00, -0.1, 0.2), ## Equation for y2
+                     nrow = 3, byrow = FALSE) # Corrected to be column-major
+garch_spec2 <- tsgarch::garch_modelspec(y = xts::xts(rnorm(100), order.by = Sys.Date()-(100:1)), garch_order = c(1,1), fixed_pars = list(omega=0.3, alpha1=0.2, beta1=0.6))
+dcc_spec2_true <- tsmarch::dcc_modelspec(y = dummy_mv_y, garch_model = list(garch_spec2, garch_spec2), dcc_order = c(1,1), distribution = "mvt", fixed_pars = list(dcc_alpha = 0.2, dcc_beta = 0.75))
+
+
+## --- Simulate the time series manually ---
+y <- matrix(0, nrow = T_obs, ncol = k_vars)
+## Simulate innovations from each DCC spec
+sim1 <- simulate(dcc_spec1_true, n.sim = T_obs)
+sim2 <- simulate(dcc_spec2_true, n.sim = T_obs)
+
+innovations <- matrix(0, nrow = T_obs, ncol = k_vars)
+innovations[states == 1, ] <- sim1$series[states == 1, ]
+innovations[states == 2, ] <- sim2$series[states == 2, ]
+
+## Generate series using the VAR equations
+for (t in 2:T_obs) {
+  x_lagged <- c(1, y[t-1, 1], y[t-1, 2])
+  if (states[t] == 1) {
+    y[t, ] <- t(beta1_true) %*% x_lagged + innovations[t, ]
+  } else {
+    y[t, ] <- t(beta2_true) %*% x_lagged + innovations[t, ]
+  }
+}
+
+
+## --- 3. Define Model Specification for Fitting ---
+spec <- list()
+
+## State 1 spec
+spec[[1]] <- list(
+  var_order = 1,
+  garch_spec_fun = "dcc_modelspec",
+  garch_spec_args = list(
+      garch_model = list(
+          tsgarch::garch_modelspec(garch_order = c(1,1)),
+          tsgarch::garch_modelspec(garch_order = c(1,1))
+      ),
+      dcc_order = c(1,1),
+      distribution = "mvt"
+  ),
+  start_pars = list(
+    var_pars = as.vector(beta1_true * 0.8), ## Start near true values
+    garch_pars = list(dcc_alpha = 0.05, dcc_beta = 0.90)
+  )
+)
+
+## State 2 spec
+spec[[2]] <- list(
+  var_order = 1,
+  garch_spec_fun = "dcc_modelspec",
+  garch_spec_args = list(
+      garch_model = list(
+          tsgarch::garch_modelspec(garch_order = c(1,1)),
+          tsgarch::garch_modelspec(garch_order = c(1,1))
+      ),
+      dcc_order = c(1,1),
+      distribution = "mvt"
+  ),
+  start_pars = list(
+    var_pars = as.vector(beta2_true * 0.8), ## Start near true values
+    garch_pars = list(dcc_alpha = 0.1, dcc_beta = 0.8)
+  )
+)
+
+
+## --- 4. Run the Fitter ---
+message("Starting the MULTIVARIATE MS-VAR-GARCH model fitting...")
+
+control_params <- list(max_iter = 50, tol = 1e-5)
+
+fit_results <- fit_ms_varma_garch_cpp(
+  y = y,
+  M = 2,
+  spec = spec,
+  model_type = "multivariate",
+  control = control_params
+)
+
+message("Fitting complete.")
+
+
+## --- 5. Print Results ---
+print("--- MULTIVARIATE MS-VAR-GARCH Model Fit Results ---")
+print("Estimated Transition Matrix (P):")
+print(fit_results$P)
+
+print("Final Log-Likelihood:")
+print(fit_results$log_likelihood)
+
+print("Estimated Parameters for State 1 (VAR coeffs are vectorized):")
+print(fit_results$model_fits[[1]])
+
+print("Estimated Parameters for State 2 (VAR coeffs are vectorized):")
+print(fit_results$model_fits[[2]])
+
+## Compare smoothed probabilities to true states
+plot(fit_results$smoothed_probabilities[,1], type = 'l', col = 'blue', ylim = c(0,1), ylab = "Probability", main = "Smoothed Probability of State 1")
+lines(states-1, col = 'red', lty = 2)
+legend("topright", legend = c("Smoothed Prob (State 1)", "True State (1)"), col = c("blue", "red"), lty = 1:2)
+
+
+```
+
