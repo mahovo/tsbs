@@ -1,10 +1,12 @@
 // [[Rcpp::depends(RcppArmadillo)]]
 
 #include <RcppArmadillo.h>
+#include <chrono> // For timing
+#include <iomanip> // For std::setw and std::setfill
 
-// --- MAIN C++ FITTING FUNCTION ---
+// ---- MAIN C++ FITTING FUNCTION ----
 
-//' @title Fit a general MS-VARMA-GARCH model via the EM Algorithm in C++
+//' @title Fit a general MS-ARMA-GARCH model via the EM Algorithm in C++
  //' @description Internal C++ function to orchestrate the EM estimation.
  //'              This version delegates all statistical calculations (likelihood,
  //'              parameter estimation) to helper functions in R to correctly
@@ -23,7 +25,7 @@
      std::string model_type,
      Rcpp::List control
  ) {
-   // --- 1. SETUP & INITIALIZATION ---
+   // ---- 1. SETUP & INITIALIZATION ----
    int T = y.n_rows;
    int k = y.n_cols;
    int max_iter = Rcpp::as<int>(control["max_iter"]);
@@ -33,6 +35,7 @@
    Rcpp::List model_fits(M);
    arma::mat P(M, M);
    arma::mat smooth_probs(T, M);
+   Rcpp::List all_warnings;
    
    // Initialize parameters
    P.fill(1.0 / M);
@@ -52,16 +55,17 @@
    Rcpp::Function estimate_arma_weighted_r = global["estimate_arma_weighted_r"];
    Rcpp::Function estimate_garch_weighted_r = global["estimate_garch_weighted_r"];
    
-   // --- 2. EM ALGORITHM LOOP ---
+   // ---- 2. EM ALGORITHM LOOP ----
    for (int iter = 0; iter < max_iter; ++iter) {
+     auto start = std::chrono::high_resolution_clock::now();
+     
      Rcpp::checkUserInterrupt();
      
-     // --- E-STEP: Calculate Likelihoods in R, Filter/Smooth in C++ ---
+     // ---- E-STEP: Calculate Likelihoods in R, Filter/Smooth in C++ ----
      arma::mat cond_logliks(T, M, arma::fill::zeros);
      
      for (int j = 0; j < M; ++j) {
-       // Call R helper to get the log-likelihood vector for state j
-       arma::vec ll_vec = Rcpp::as<arma::vec>(calculate_loglik_vector_r(y, model_fits[j], spec[j]));
+       arma::vec ll_vec = Rcpp::as<arma::vec>(calculate_loglik_vector_r(y, model_fits[j], spec[j], model_type));
        cond_logliks.col(j) = ll_vec;
      }
      arma::mat cond_dens = arma::exp(cond_logliks);
@@ -88,7 +92,7 @@
        smooth_probs.row(t) = filt_probs.row(t) % (P * ratio).t();
      }
      
-     // --- M-STEP (2-Step via R calls): Update Parameters ---
+     // ---- M-STEP (2-Step via R calls): Update Parameters ----
      // Update transition matrix P
      arma::mat trans_mat(M, M, arma::fill::zeros);
      for (int t = 0; t < T - 1; ++t) {
@@ -101,20 +105,47 @@
        arma::vec weights_j = smooth_probs.col(j);
        Rcpp::List state_spec_j = Rcpp::as<Rcpp::List>(spec[j]);
        
-       // M-Step 1: Update Mean Parameters by calling R helper
-       Rcpp::List new_arma_fit = Rcpp::as<Rcpp::List>(estimate_arma_weighted_r(y, weights_j, state_spec_j));
+       Rcpp::List new_arma_fit = Rcpp::as<Rcpp::List>(estimate_arma_weighted_r(y, weights_j, state_spec_j, model_type));
        
-       // M-Step 2: Update Variance Parameters by calling R helper
        arma::mat residuals = Rcpp::as<arma::mat>(new_arma_fit["residuals"]);
-       Rcpp::List new_garch_fit = Rcpp::as<Rcpp::List>(estimate_garch_weighted_r(residuals, weights_j, state_spec_j));
+       
+       Rcpp::List new_garch_fit = Rcpp::as<Rcpp::List>(estimate_garch_weighted_r(residuals, weights_j, state_spec_j, model_type));
+       
+       // Capture warnings from the GARCH estimation ----
+       Rcpp::List iteration_warnings = Rcpp::as<Rcpp::List>(new_garch_fit["warnings"]);
+       if (iteration_warnings.size() > 0) {
+         std::string name = "iter_" + std::to_string(iter + 1) + "_state_" + std::to_string(j + 1);
+         all_warnings[name] = iteration_warnings;
+       }
        
        // Update the full parameter set for the state
-       Rcpp::as<Rcpp::List>(model_fits[j])["arma_pars"] = new_arma_fit["coefficients"];
+       if (model_type == "univariate") {
+         Rcpp::as<Rcpp::List>(model_fits[j])["arma_pars"] = new_arma_fit["coefficients"];
+       } else {
+         Rcpp::as<Rcpp::List>(model_fits[j])["var_pars"] = new_arma_fit["coefficients"];
+       }
        Rcpp::as<Rcpp::List>(model_fits[j])["garch_pars"] = new_garch_fit["coefficients"];
      }
      
-     // --- 3. CHECK CONVERGENCE ---
+     // ---- 3. CHECK CONVERGENCE & PROVIDE FEEDBACK ----
      double log_lik_new = arma::sum(arma::log(lik_contrib));
+     
+     auto end = std::chrono::high_resolution_clock::now();
+     std::chrono::duration<double> elapsed = end - start;
+     
+     int total_seconds = static_cast<int>(elapsed.count());
+     int hours = total_seconds / 3600;
+     int minutes = (total_seconds % 3600) / 60;
+     int seconds = total_seconds % 60;
+     
+     // Print progress to the R console with formatted duration
+     Rcpp::Rcout << "EM Iteration: " << iter + 1 
+                 << ", Log-Likelihood: " << log_lik_new 
+                 << ", Duration: "
+                 << std::setw(2) << std::setfill('0') << hours << ":"
+                 << std::setw(2) << std::setfill('0') << minutes << ":"
+                 << std::setw(2) << std::setfill('0') << seconds << std::endl;
+     
      if (std::abs(log_lik_new - log_lik_old) < tol) {
        log_lik_old = log_lik_new;
        break;
@@ -122,12 +153,13 @@
      log_lik_old = log_lik_new;
    }
    
-   // --- 4. RETURN RESULTS ---
+   // ---- 4. RETURN RESULTS ----
    return Rcpp::List::create(
      Rcpp::Named("model_fits") = model_fits,
      Rcpp::Named("P") = P,
      Rcpp::Named("log_likelihood") = log_lik_old,
      Rcpp::Named("smoothed_probabilities") = smooth_probs,
-     Rcpp::Named("convergence") = Rcpp::List::create(Rcpp::Named("final_loglik") = log_lik_old)
+     Rcpp::Named("convergence") = Rcpp::List::create(Rcpp::Named("final_loglik") = log_lik_old),
+     Rcpp::Named("warnings") = all_warnings
    );
  }
