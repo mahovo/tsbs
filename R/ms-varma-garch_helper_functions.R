@@ -7,9 +7,9 @@
 
 
 #' @title Create a GARCH Specification Object (Convenience Function)
-#' @description This is a new convenience function that handles the complex,
-#' model-specific logic for creating both univariate and multivariate GARCH
-#' specification objects. It isolates the complexity of the tsmarch workflow.
+#' @description This is a convenience function that handles the complex,
+#'   model-specific logic for creating both univariate and multivariate GARCH
+#'   specification objects.
 create_garch_spec_object_r <- function(residuals, spec, model_type) {
   residuals_xts <- xts::xts(residuals, order.by = Sys.Date() - (NROW(residuals):1))
   

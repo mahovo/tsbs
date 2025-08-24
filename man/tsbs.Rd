@@ -8,7 +8,7 @@ tsbs(
   x,
   n_boot = NULL,
   block_length = NULL,
-  bs_type = c("moving", "stationary", "hmm", "msar", "wild"),
+  bs_type = c("moving", "stationary", "hmm", "msar", "ms_varma_garch", "wild"),
   block_type = c("overlapping", "non-overlapping", "tapered"),
   taper_type = c("cosine", "bartlett", "tukey"),
   tukey_alpha = 0.5,
@@ -19,14 +19,14 @@ tsbs(
   p_method = c("1/n", "plugin", "cross validation"),
   p = NULL,
   overlap = TRUE,
-  ar_order = 1,
   num_states = 2L,
-  model_func = default_model_func,
-  score_func = mse,
-  stationary_max_percentile = 0.99,
-  stationary_max_fraction_of_n = 0.1,
+  d = 0,
+  spec = NULL,
+  model_type = c("univariate", "multivariate"),
+  control = list(),
   parallel = FALSE,
-  num_cores = 1L
+  num_cores = 1L,
+  ...
 )
 }
 \arguments{
@@ -36,17 +36,13 @@ tsbs(
 \item{n_boot}{Integer, optional desired length of each bootstrap replicate.}
 
 \item{block_length}{Integer length of each block; if \code{NULL}, an automatic
-heuristic is used. For stationary bootstrap, \code{block_length} is the expected
-block length, when \code{p_method="1/n"}.}
+heuristic is used.}
 
 \item{bs_type}{Bootstrap type. Character string: One of \code{"moving"},
-\code{"stationary"}, \code{"hmm"}, \code{"msar"}, or \code{"wild"}. See details below.}
+\code{"stationary"}, \code{"hmm"}, \code{"msar"}, \code{"ms_varma_garch"}, or \code{"wild"}.}
 
 \item{block_type}{Block type. Character string: One of \code{"non-overlapping"},
-\code{"overlapping"}, or \code{"tapered"}. Only affects \code{bs_type="moving"} and
-\code{bs_type="stationary"}. \code{block_type="tapered"} will smooth out transitions
-between blocks. It follows that \code{block_type="tapered"} can not be used when
-\code{block_length=1}.}
+\code{"overlapping"}, or \code{"tapered"}.}
 
 \item{taper_type}{Tapering window function. Character. One of \code{"cosine"},
 \code{"bartlett"}, or \code{"tukey"}.}
@@ -60,53 +56,33 @@ between blocks. It follows that \code{block_type="tapered"} can not be used when
 \item{apply_func_to}{Character string: \code{"cols"} to apply columnwise or \code{"df"}
 to apply on the full data frame.}
 
-\item{p_method}{Character string to choose method for stationary bootstrap
-parameter: \code{"1/n"}, \code{"plugin"}, or \code{"cross validation"}.}
+\item{p_method}{Method for stationary bootstrap parameter: \code{"1/n"}, \code{"plugin"},
+or \code{"cross validation"}.}
 
 \item{p}{Optional numeric value for stationary bootstrap \code{p}.}
 
 \item{overlap}{Logical indicating if overlapping blocks are allowed.}
 
-\item{ar_order}{Integer AR order for MSAR (\code{bs_type="msar"}).}
+\item{num_states}{Integer number of states for HMM, MSAR, or MS-VARMA-GARCH models.}
 
-\item{num_states}{Integer number of states for HMM or MSAR.}
+\item{d}{Integer differencing order for the MS-VARMA-GARCH model.}
 
-\item{model_func}{Model-fitting function for cross-validation.}
+\item{spec}{A list of model specifications for the MS-VARMA-GARCH model.}
 
-\item{score_func}{Scoring function for cross-validation.}
+\item{model_type}{Character string for MS-VARMA-GARCH: \code{"univariate"} or \code{"multivariate"}.}
 
-\item{stationary_max_percentile}{Stationary max percentile.}
-
-\item{stationary_max_fraction_of_n}{Stationary max fraction of n.}
+\item{control}{A list of control parameters for the MS-VARMA-GARCH EM algorithm.}
 
 \item{parallel}{Parallelize computation? \code{TRUE} or \code{FALSE}.}
 
 \item{num_cores}{Number of cores.}
+
+\item{...}{Additional arguments passed to bootstrap functions (not used by all).}
 }
 \value{
-A list containing:
-\describe{
-\item{bootstrap_series}{List of bootstrap replicate matrices.}
-\item{func_outs}{List of computed function outputs for each replicate.}
-\item{func_out_means}{Mean of the computed outputs across replicates.}
-}
+A list containing the bootstrapped series and summary statistics.
 }
 \description{
 Generates block bootstrap replicates of a numeric time series or multivariate
-time series. Supports moving, stationary, HMM, MSAR, and wild bootstrap types.
-}
-\examples{
-set.seed(123)
-x <- arima.sim(n = 100, list(ar = 0.8))
-result <- tsbs(
-  x = x,
-  block_length = 10,
-  bs_type = "stationary",
-  num_blocks = 5,
-  num_boots = 10,
-  func = mean,
-  apply_func_to = "cols"
-)
-print(result$func_out_means)
-
+time series. Supports a wide range of bootstrap types.
 }

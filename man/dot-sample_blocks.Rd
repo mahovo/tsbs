@@ -30,5 +30,8 @@
 \item{num_cores}{Number of cores}
 }
 \description{
+Deprecated. Use \code{.sample_blocks_mv()} instead.
+}
+\details{
 Internal helper function.
 }

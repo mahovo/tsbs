@@ -8,10 +8,10 @@
 
 //' @title Fit a general MS-ARMA-GARCH model via the EM Algorithm in C++
  //' @description Internal C++ function to orchestrate the EM estimation.
- //'              This version delegates all statistical calculations (likelihood,
- //'              parameter estimation) to helper functions in R to correctly
- //'              interface with TMB-based packages like tsgarch.
- //' @param y A (T x k) matrix of (potentially differenced) time series data.
+ //'              Delegates all statistical calculations (likelihood,
+ //'              parameter estimation) to helper functions in R to interface
+ //'              with TMB-based packages like tsgarch.
+ //' @param y A (T x k) matrix of (differenced) time series data.
  //' @param M The number of states.
  //' @param spec A list of model specifications from R.
  //' @param model_type "univariate" or "multivariate".
@@ -27,7 +27,6 @@
  ) {
    // ---- 1. SETUP & INITIALIZATION ----
    int T = y.n_rows;
-   int k = y.n_cols;
    int max_iter = Rcpp::as<int>(control["max_iter"]);
    double tol = Rcpp::as<double>(control["tol"]);
    

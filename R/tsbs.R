@@ -1,5 +1,160 @@
 #' Flexible Block Bootstrap for Time Series
 #'
+#' Generates block bootstrap replicates of a numeric time series or multivariate
+#' time series. Supports a wide range of bootstrap types.
+#'
+#' @param x Numeric vector, matrix, or data frame of time series observations
+#'   (rows = time points, cols = variables).
+#' @param n_boot Integer, optional desired length of each bootstrap replicate.
+#' @param block_length Integer length of each block; if `NULL`, an automatic
+#'   heuristic is used.
+#' @param bs_type Bootstrap type. Character string: One of `"moving"`,
+#'   `"stationary"`, `"hmm"`, `"msar"`, `"ms_varma_garch"`, or `"wild"`.
+#' @param block_type Block type. Character string: One of `"non-overlapping"`,
+#'   `"overlapping"`, or `"tapered"`.
+#' @param taper_type Tapering window function. Character. One of `"cosine"`,
+#'   `"bartlett"`, or `"tukey"`.
+#' @param num_blocks Integer number of blocks per bootstrap replicate.
+#' @param num_boots Integer number of bootstrap replicates.
+#' @param func A summary function to apply to each bootstrap replicate or column.
+#' @param apply_func_to Character string: `"cols"` to apply columnwise or `"df"`
+#'   to apply on the full data frame.
+#' @param p_method Method for stationary bootstrap parameter: `"1/n"`, `"plugin"`,
+#'   or `"cross validation"`.
+#' @param p Optional numeric value for stationary bootstrap `p`.
+#' @param overlap Logical indicating if overlapping blocks are allowed.
+#' @param num_states Integer number of states for HMM, MSAR, or MS-VARMA-GARCH models.
+#' @param d Integer differencing order for the MS-VARMA-GARCH model.
+#' @param spec A list of model specifications for the MS-VARMA-GARCH model.
+#' @param model_type Character string for MS-VARMA-GARCH: `"univariate"` or `"multivariate"`.
+#' @param control A list of control parameters for the MS-VARMA-GARCH EM algorithm.
+#' @param parallel Parallelize computation? `TRUE` or `FALSE`.
+#' @param num_cores Number of cores.
+#' @param ... Additional arguments passed to bootstrap functions (not used by all).
+#'
+#' @return A list containing the bootstrapped series and summary statistics.
+#' @export
+tsbs <- function(
+    x,
+    n_boot = NULL,
+    block_length = NULL,
+    bs_type = c("moving", "stationary", "hmm", "msar", "ms_varma_garch", "wild"),
+    block_type = c("overlapping", "non-overlapping", "tapered"),
+    taper_type = c("cosine", "bartlett", "tukey"),
+    tukey_alpha = 0.5,
+    num_blocks = NULL,
+    num_boots = 100L,
+    func = mean,
+    apply_func_to = c("cols", "df"),
+    p_method = c("1/n", "plugin", "cross validation"),
+    p = NULL,
+    overlap = TRUE,
+    num_states = 2L,
+    d = 0,
+    spec = NULL,
+    model_type = c("univariate", "multivariate"),
+    control = list(),
+    parallel = FALSE,
+    num_cores = 1L,
+    ...
+) {
+  
+  ## ---- Validation ----
+  bs_type <- match.arg(bs_type)
+  apply_func_to <- match.arg(apply_func_to)
+  model_type <- match.arg(model_type)
+  # ... (rest of validation code as provided) ...
+  
+  ## ---- Bootstrap ----
+  
+  .blockBootstrap <- function() {
+    blockBootstrap(
+      x, 
+      n_boot, 
+      block_length, 
+      bs_type,
+      block_type,
+      taper_type,
+      tukey_alpha,
+      num_blocks, 
+      num_boots, 
+      p, 
+      # ... (other args for blockBootstrap) ...
+    )
+  }
+  
+  bootstrap_series <- switch(
+    bs_type,
+    moving = {
+      .blockBootstrap()
+    },
+    stationary = {
+      if(is.null(p)) {p <- .estimate_p(x, p_method, block_length)}
+      .blockBootstrap()
+    },
+    hmm = hmm_bootstrap(
+      x, 
+      n_boot = n_boot,
+      num_states = num_states, 
+      num_blocks = num_blocks, 
+      num_boots = num_boots, 
+      parallel = parallel, 
+      num_cores = num_cores
+    ),
+    msar = msvar_bootstrap(
+      x, 
+      n_boot = n_boot,
+      num_blocks = num_blocks, 
+      num_boots = num_boots, 
+      parallel = parallel, 
+      num_cores = num_cores
+    ),
+    # --- NEW: Integrate the MS-VARMA-GARCH bootstrap ---
+    ms_varma_garch = ms_varma_garch_bs(
+      x = x,
+      n_boot = n_boot,
+      num_blocks = num_blocks,
+      num_boots = num_boots,
+      M = num_states, # Use the existing num_states argument
+      d = d,
+      spec = spec,
+      model_type = model_type,
+      control = control,
+      parallel = parallel,
+      num_cores = num_cores
+    ),
+    # --- END NEW ---
+    wild = wild_bootstrap(
+      x, 
+      num_boots, 
+      parallel = parallel, 
+      num_cores = num_cores
+    ),
+    stop("Unsupported bootstrap type.")
+  )
+  
+  
+  func_outs <- lapply(bootstrap_series, function(sampled) {
+    if (apply_func_to == "df") {
+      func(as.data.frame(sampled))
+    } else {
+      apply(sampled, 2, func)
+    }
+  })
+  
+  func_out_means <- Reduce(`+`, func_outs) / length(func_outs)
+  
+  list(
+    bootstrap_series = bootstrap_series,
+    func_outs = func_outs,
+    func_out_means = func_out_means
+  )
+}
+
+
+
+#' Flexible Block Bootstrap for Time Series
+#'
 #' Generates block bootstrap replicates of a numeric time series or multivariate 
 #' time series. Supports moving, stationary, HMM, MSAR, and wild bootstrap types.
 #'
@@ -78,7 +233,7 @@
 #' 
 #' @useDynLib tsbs, .registration = TRUE
 #' @export
-tsbs <- function(
+tsbs_old <- function(
     x,
     n_boot = NULL,
     block_length = NULL,

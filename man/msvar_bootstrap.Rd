@@ -2,7 +2,7 @@
 % Please edit documentation in R/bootstrap_functions.R
 \name{msvar_bootstrap}
 \alias{msvar_bootstrap}
-\title{Perform Stationary Bootstrap for a 2-State MS-VAR(1) Model}
+\title{Stationary Bootstrap for a 2-State MS-VAR(1) Model}
 \usage{
 msvar_bootstrap(
   x,

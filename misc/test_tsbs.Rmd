@@ -1,0 +1,136 @@
+---
+title: "test_tsbs"
+output: html_document
+date: "2025-08-24"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+# ===================================================================
+# Full Integration Test for tsbs() with bs_type = "ms_varma_garch"
+# ===================================================================
+
+# --- 1. Load Libraries and Source All Necessary Files ---
+
+# Ensure you have these packages installed:
+# install.packages(c("Rcpp", "tsgarch", "tsmarch", "xts", "data.table", "mvtnorm"))
+library(Rcpp)
+library(tsgarch)
+library(tsmarch)
+library(xts)
+library(data.table)
+library(mvtnorm)
+
+# This script assumes all required functions are loaded.
+# In your package development workflow, this would be handled by devtools::load_all()
+# or by sourcing the files directly.
+
+# Source the C++ file containing the EM orchestrator.
+Rcpp::sourceCpp("~/R work/tsbs/src/ms_varma_garch_fitter.cpp")
+
+# Source the R helper functions.
+source("~/R work/tsbs/R/ms-varma-garch_helper_functions.R")
+
+# Source the main bootstrap functions, including the new ms_varma_garch_bs
+# and the top-level tsbs() function.
+# (Assuming they are in a file like the one below)
+# source("~/R work/tsbs/R/bootstrap_functions.R")
+
+
+# --- 2. Simulate Data for Testing ---
+set.seed(123)
+T_obs <- 1000 # Using a slightly smaller sample for a quicker test run
+P_true <- matrix(c(0.98, 0.02, 0.03, 0.97), nrow = 2, byrow = TRUE)
+
+states <- numeric(T_obs)
+states[1] <- 1
+for (t in 2:T_obs) {
+  states[t] <- sample(1:2, size = 1, prob = P_true[states[t-1], ])
+}
+
+dummy_y <- xts::xts(rep(0, 10), order.by = Sys.Date() - (10:1))
+spec1_true <- tsgarch::garch_modelspec(y = dummy_y, fixed_pars = list(mu = 0, ar1 = 0.5, omega = 0.1, alpha1 = 0.1, beta1 = 0.8))
+spec2_true <- tsgarch::garch_modelspec(y = dummy_y, fixed_pars = list(mu = 0, ar1 = -0.2, omega = 0.5, alpha1 = 0.3, beta1 = 0.6))
+
+y <- numeric(T_obs)
+sim1 <- simulate(spec1_true, n.sim = T_obs)
+sim2 <- simulate(spec2_true, n.sim = T_obs)
+
+y[states == 1] <- sim1$series[states == 1]
+y[states == 2] <- sim2$series[states == 2]
+
+
+# --- 3. Define Model Specification for Fitting ---
+# This spec is passed through tsbs() to the underlying ms_varma_garch_bs() function.
+spec_to_fit <- list()
+
+# State 1 spec
+spec_to_fit[[1]] <- list(
+  arma_order = c(1, 0),
+  garch_model = "garch",
+  garch_order = c(1, 1),
+  distribution = "norm",
+  start_pars = list(
+    arma_pars = list(ar1 = 0.1),
+    garch_pars = list(omega = 0.1, alpha1 = 0.05, beta1 = 0.9)
+  )
+)
+
+# State 2 spec
+spec_to_fit[[2]] <- list(
+  arma_order = c(1, 0),
+  garch_model = "garch",
+  garch_order = c(1, 1),
+  distribution = "norm",
+  start_pars = list(
+    arma_pars = list(ar1 = 0.1),
+    garch_pars = list(omega = 0.1, alpha1 = 0.05, beta1 = 0.9)
+  )
+)
+
+
+# --- 4. Run the Top-Level tsbs() Function ---
+message("Starting the full tsbs() bootstrap with bs_type = 'ms_varma_garch'...")
+
+# Define control parameters for the fitter
+control_params <- list(max_iter = 50, tol = 1e-5)
+
+# Call the user-facing function
+bootstrap_results <- tsbs(
+  x = as.matrix(y),
+  n_boot = T_obs, # Bootstrap series of the same length
+  num_boots = 5,   # A small number of bootstrap replicates for a quick test
+  bs_type = "ms_varma_garch",
+  
+  # --- MS-VARMA-GARCH specific arguments ---
+  num_states = 2,
+  d = 0,
+  spec = spec_to_fit,
+  model_type = "univariate",
+  control = control_params,
+  # --- End specific arguments ---
+  
+  func = function(x) c(mean = mean(x), sd = sd(x)), # Example summary function
+  apply_func_to = "cols"
+)
+
+message("tsbs() execution complete.")
+
+
+# --- 5. Print Results ---
+print("--- tsbs() with MS-VARMA-GARCH Results ---")
+
+print("Structure of the returned object:")
+str(bootstrap_results, max.level = 2)
+
+print("\nMean of summary statistics across all bootstrap replicates:")
+print(bootstrap_results$func_out_means)
+
+print("\nSummary statistics for the first bootstrap replicate:")
+print(bootstrap_results$func_outs[[1]])
+
+```
+

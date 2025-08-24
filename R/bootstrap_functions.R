@@ -74,12 +74,41 @@ hmm_bootstrap_univariate <- function(
 }
 
 
-
+#' Hidden Markov Model (HMM) Bootstrap for Multivariate Time Series
+#'
+#' Fits a Gaussian Hidden Markov Model (HMM) to a multivariate time series
+#'   and generates bootstrap replicates by resampling regime-specific blocks.
+#'
+#' @param x Numeric vector representing the time series.
+#' @param n_boot Length of bootstrap series.
+#' @param num_states Integer number of hidden states for the HMM.
+#' @param num_blocks Integer number of blocks to sample for each bootstrap replicate.
+#' @param num_boots Integer number of bootstrap replicates to generate.
+#' @param parallel Parallelize computation? `TRUE` or `FALSE`.
+#' @param num_cores Number of cores.
+#'
+#' @return A list of numeric vectors, each one a bootstrap replicate.
+#'
 #' @details
+#' This function:
+#' \itemize{
+#'   \item Fits a Gaussian HMM to `x` using `depmixS4::depmix()` and 
+#'     `depmixS4::fit()`.
+#'   \item Uses Viterbi decoding (`posterior(fit, type = "viterbi")$state`)
+#'     to assign each observation to a state.
+#'   \item Samples contiguous blocks of observations belonging to each state.
+#' }
+#' If `n_boot` is set, the last block will be truncated when necessary to match 
+#'   the length (`n_boot`) of the bootstrap series. This is the only way to 
+#'   ensure equal length of all bootstrap series, as the length of each block is 
+#'   random. If `n_boot` is not set, `num_blocks` must be set, and the length of 
+#'   each bootstrap series will be determined by the number of blocks and the 
+#'   random lengths of the individual blocks for that particular series. This 
+#'   almost certainly results in bootstrap series of different lengths.
 #' For multivariate series (matrices or data frames), the function fits a single
-#' HMM where all variables are assumed to depend on the same underlying hidden
-#' state sequence. The returned bootstrap samples are matrices with the same
-#' number of columns as the input `x`.
+#'   HMM where all variables are assumed to depend on the same underlying hidden
+#'   state sequence. The returned bootstrap samples are matrices with the same
+#'   number of columns as the input `x`.
 #' @export
 hmm_bootstrap <- function(
     x, # Now accepts a matrix
@@ -288,7 +317,7 @@ msar_bootstrap_mv <- function(
 }
 
 
-#' Perform Stationary Bootstrap for a 2-State MS-VAR(1) Model
+#' Stationary Bootstrap for a 2-State MS-VAR(1) Model
 #'
 #' This function first fits a 2-state Markov-Switching Vector Autoregressive
 #' (MS-VAR) model of order 1 to the provided multivariate time series data.
@@ -338,27 +367,115 @@ msvar_bootstrap <- function(
     num_cores = 1L
 ) {
   
-  # --- 1. Fit the MS-VAR(1) Model ---
-  # The fit_msvar function handles data validation (e.g., converting to matrix)
-  # and all internal model fitting steps.
-  # It is hardcoded for a 2-state, VAR(1) model, simplifying this wrapper.
+  ## ---- 1. Fit the MS-VAR(1) Model ----
+  ## The fit_msvar function handles data validation (e.g., converting to matrix)
+  ## and all internal model fitting steps.
+  ## It is hardcoded for a 2-state, VAR(1) model, simplifying this wrapper.
   message("Fitting the MS-VAR(1) model...")
   ms_model <- fit_msvar(x)
   
-  # --- 2. Determine the Most Likely State Sequence ---
-  # The output from fit_msvar contains the smoothed probabilities for each state.
-  # We find the most likely state for each time point (row).
+  ## ---- 2. Determine the Most Likely State Sequence ----
+  ## The output from fit_msvar contains the smoothed probabilities for each state.
+  ## We find the most likely state for each time point (row).
   smoothed_probs <- ms_model$smoothed_probabilities
   state_seq <- apply(smoothed_probs, 1, which.max)
   
-  # The state sequence is one observation shorter than the original series
-  # because the VAR model requires an initial lag. We prepend the first state
-  # to align the sequence with the original data's length.
+  ## The state sequence is one observation shorter than the original series
+  ## because the VAR model requires an initial lag. We prepend the first state
+  ## to align the sequence with the original data's length.
   state_seq_aligned <- c(state_seq[1], state_seq)
   
+  ## ---- 3. Generate Bootstrap Samples ----
+  ## This part calls a helper function that performs the actual stationary
+  ## block bootstrap based on the state sequence.
+  message("Generating bootstrap samples...")
+  
+  ## Ensure x is a matrix for the helper function
+  if (!is.matrix(x)) {
+    x <- as.matrix(x)
+  }
+  
+  bootstrap_samples <- .sample_blocks_mv(
+    x = x,
+    n_boot = n_boot,
+    num_blocks = num_blocks,
+    states = state_seq_aligned, ## Use 'states' to match the helper function's parameter
+    num_boots = num_boots,
+    parallel = parallel,
+    num_cores = num_cores
+  )
+  
+  return(bootstrap_samples)
+}
+
+
+#' Stationary Bootstrap for a General MS-VARMA-GARCH Model
+#'
+#' This function fits a flexible N-state Markov-Switching model and then uses
+#' the estimated state sequence to perform a stationary block bootstrap. This
+#' generates resampled time series that preserve the state-dependent properties
+#' of the original data.
+#'
+#' @param x A numeric matrix or data frame where rows are observations and
+#'   columns are the time series variables.
+#' @param n_boot An integer specifying the length of each bootstrapped series.
+#'   If NULL (the default), the length of the original series is used.
+#' @param num_blocks An integer specifying the number of blocks to sample for
+#'   the bootstrap. Defaults to 100.
+#' @param num_boots An integer specifying the total number of bootstrap samples
+#'   to generate. Defaults to 100.
+#' @param M An integer specifying the number of states in the Markov chain.
+#' @param d An integer specifying the order of differencing for the ARIMA model.
+#' @param spec A list of model specifications, one for each of the M states.
+#' @param model_type A character string, either "univariate" or "multivariate".
+#' @param control A list of control parameters for the EM algorithm.
+#' @param parallel A logical value indicating whether to use parallel processing.
+#' @param num_cores An integer specifying the number of cores for parallel processing.
+#'
+#' @return A list of bootstrapped time series matrices.
+#'
+#' @export
+ms_varma_garch_bs <- function(
+    x,
+    n_boot = NULL,
+    num_blocks = 100,
+    num_boots = 100,
+    M,
+    d = 0,
+    spec,
+    model_type = c("univariate", "multivariate"),
+    control = list(),
+    parallel = FALSE,
+    num_cores = 1L
+) {
+  
+  # --- 1. Fit the MS-VARMA-GARCH Model ---
+  # This function handles all data validation and model fitting.
+  ms_model <- fit_ms_varma_garch(
+    y = x,
+    M = M,
+    d = d,
+    spec = spec,
+    model_type = model_type,
+    control = control
+  )
+  
+  # --- 2. Determine the Most Likely State Sequence ---
+  # The smoothed_probabilities from the fit object are already aligned
+  # with the original data 'x', but may have leading NAs if d > 0.
+  smoothed_probs <- ms_model$smoothed_probabilities
+  state_seq <- apply(smoothed_probs, 1, which.max)
+  
+  # Handle potential leading NAs from differencing by forward-filling the first valid state.
+  if (anyNA(state_seq)) {
+    first_valid_state_idx <- min(which(!is.na(state_seq)))
+    first_valid_state <- state_seq[first_valid_state_idx]
+    state_seq[1:(first_valid_state_idx - 1)] <- first_valid_state
+  }
+  
   # --- 3. Generate Bootstrap Samples ---
-  # This part calls a helper function that performs the actual stationary
-  # block bootstrap based on the state sequence.
+  # This part calls the existing helper function that performs the actual
+  # stationary block bootstrap based on the state sequence.
   message("Generating bootstrap samples...")
   
   # Ensure x is a matrix for the helper function
@@ -370,7 +487,7 @@ msvar_bootstrap <- function(
     x = x,
     n_boot = n_boot,
     num_blocks = num_blocks,
-    states = state_seq_aligned, # Use 'states' to match the helper function's parameter
+    states = state_seq,
     num_boots = num_boots,
     parallel = parallel,
     num_cores = num_cores
@@ -378,8 +495,6 @@ msvar_bootstrap <- function(
   
   return(bootstrap_samples)
 }
-
-
 
 
 
@@ -483,6 +598,8 @@ wild_bootstrap <- function(x, num_boots = 100) {
 
 
 #' Sample bootstrap blocks
+#' 
+#' Deprecated. Use `.sample_blocks_mv()` instead.
 #' 
 #' Internal helper function.
 #'

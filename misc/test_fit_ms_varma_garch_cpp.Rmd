@@ -29,7 +29,7 @@ library(tsmarch)
 Rcpp::sourceCpp("~/R work/tsbs/src/ms_varma_garch_fitter.cpp")
 
 # --- 2. R Helper Functions ---
-# The R Helper Functions  functions must be in the global environment so the C++
+# The R helper functions must be in the global environment so the C++
 # code can call them.
 source("~/R work/tsbs/R/ms-varma-garch_helper_functions.R")
 ```
@@ -150,7 +150,7 @@ spec[[2]] <- list(
 # --- 4. Run the Fitter ---
 message("Starting the MULTIVARIATE MS-VAR-GARCH model fitting...")
 
-control_params <- list(max_iter = 50, tol = 1e-5)
+control_params <- list(max_iter = 5, tol = 1e-5)
 
 fit_results <- fit_ms_varma_garch_cpp(
   y = y,
@@ -190,6 +190,10 @@ print("Estimated Parameters for State 2:")
 print("VAR coeffs:")
 print(matrix(fit_results$model_fits[[2]]$var_pars, nrow = 3, byrow = FALSE))
 print(fit_results$model_fits[[2]]$garch_pars)
+
+# Print a summary of captured warnings
+warning_count <- length(unlist(fit_results$warnings))
+message(paste("\nTotal warnings captured during GARCH estimation:", warning_count))
 
 # Compare smoothed probabilities to true states
 plot(fit_results$smoothed_probabilities[,1], type = 'l', col = 'blue', ylim = c(0,1), ylab = "Probability", main = "Smoothed Probability of State 1")

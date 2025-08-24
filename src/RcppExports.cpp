@@ -57,11 +57,27 @@ BEGIN_RCPP
     return rcpp_result_gen;
 END_RCPP
 }
+// fit_ms_varma_garch_cpp
+Rcpp::List fit_ms_varma_garch_cpp(const arma::mat& y, int M, Rcpp::List spec, std::string model_type, Rcpp::List control);
+RcppExport SEXP _tsbs_fit_ms_varma_garch_cpp(SEXP ySEXP, SEXP MSEXP, SEXP specSEXP, SEXP model_typeSEXP, SEXP controlSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< const arma::mat& >::type y(ySEXP);
+    Rcpp::traits::input_parameter< int >::type M(MSEXP);
+    Rcpp::traits::input_parameter< Rcpp::List >::type spec(specSEXP);
+    Rcpp::traits::input_parameter< std::string >::type model_type(model_typeSEXP);
+    Rcpp::traits::input_parameter< Rcpp::List >::type control(controlSEXP);
+    rcpp_result_gen = Rcpp::wrap(fit_ms_varma_garch_cpp(y, M, spec, model_type, control));
+    return rcpp_result_gen;
+END_RCPP
+}
 
 static const R_CallMethodDef CallEntries[] = {
     {"_tsbs_compute_default_block_length", (DL_FUNC) &_tsbs_compute_default_block_length, 1},
     {"_tsbs_blockBootstrap_cpp", (DL_FUNC) &_tsbs_blockBootstrap_cpp, 12},
     {"_tsbs_fit_msvar_cpp", (DL_FUNC) &_tsbs_fit_msvar_cpp, 3},
+    {"_tsbs_fit_ms_varma_garch_cpp", (DL_FUNC) &_tsbs_fit_ms_varma_garch_cpp, 5},
     {NULL, NULL, 0}
 };
 

@@ -16,3 +16,10 @@ fit_msvar_cpp <- function(y, max_iter = 100L, tol = 1e-6) {
     .Call(`_tsbs_fit_msvar_cpp`, y, max_iter, tol)
 }
 
+#' @title Fit a general MS-ARMA-GARCH model via the EM Algorithm in C++
+NULL
+
+fit_ms_varma_garch_cpp <- function(y, M, spec, model_type, control) {
+    .Call(`_tsbs_fit_ms_varma_garch_cpp`, y, M, spec, model_type, control)
+}
+
