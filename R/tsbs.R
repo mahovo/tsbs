@@ -1,38 +1,87 @@
 #' Flexible Block Bootstrap for Time Series
 #'
-#' Generates block bootstrap replicates of a numeric time series or multivariate
-#' time series. Supports a wide range of bootstrap types.
+#' Generates block bootstrap replicates of a numeric time series or multivariate 
+#' time series. Supports moving, stationary, HMM, MSAR, MS VARMA GARCH and wild 
+#' bootstrap types.
 #'
-#' @param x Numeric vector, matrix, or data frame of time series observations
+#' @param x Numeric vector, matrix, or data frame of time series observations 
 #'   (rows = time points, cols = variables).
 #' @param n_boot Integer, optional desired length of each bootstrap replicate.
-#' @param block_length Integer length of each block; if `NULL`, an automatic
-#'   heuristic is used.
-#' @param bs_type Bootstrap type. Character string: One of `"moving"`,
-#'   `"stationary"`, `"hmm"`, `"msar"`, `"ms_varma_garch"`, or `"wild"`.
-#' @param block_type Block type. Character string: One of `"non-overlapping"`,
-#'   `"overlapping"`, or `"tapered"`.
-#' @param taper_type Tapering window function. Character. One of `"cosine"`,
+#' @param block_length Integer length of each block; if `NULL`, an automatic 
+#'   heuristic is used. For stationary bootstrap, `block_length` is the expected
+#'   block length, when `p_method="1/n"`.
+#' @param bs_type Bootstrap type. Character string: One of `"moving"`, 
+#'   `"stationary"`, `"hmm"`, `"msar"`, `"ms_varma_garch"`, or `"wild"`. See details below.
+#' @param block_type Block type. Character string: One of `"non-overlapping"`, 
+#'   `"overlapping"`, or `"tapered"`. Only affects `bs_type="moving"` and 
+#'   `bs_type="stationary"`. `block_type="tapered"` will smooth out transitions
+#'   between blocks. It follows that `block_type="tapered"` can not be used when
+#'   `block_length=1`.
+#' @param taper_type Tapering window function. Character. One of `"cosine"`, 
 #'   `"bartlett"`, or `"tukey"`.
 #' @param num_blocks Integer number of blocks per bootstrap replicate.
 #' @param num_boots Integer number of bootstrap replicates.
 #' @param func A summary function to apply to each bootstrap replicate or column.
-#' @param apply_func_to Character string: `"cols"` to apply columnwise or `"df"`
+#' @param apply_func_to Character string: `"cols"` to apply columnwise or `"df"` 
 #'   to apply on the full data frame.
-#' @param p_method Method for stationary bootstrap parameter: `"1/n"`, `"plugin"`,
-#'   or `"cross validation"`.
+#' @param p_method Character string to choose method for stationary bootstrap 
+#'   parameter: `"1/n"`, `"plugin"`, or `"cross validation"`.
 #' @param p Optional numeric value for stationary bootstrap `p`.
 #' @param overlap Logical indicating if overlapping blocks are allowed.
-#' @param num_states Integer number of states for HMM, MSAR, or MS-VARMA-GARCH models.
+#' @param num_states Integer number of states for HMM, MSAR, or 
+#'        MS-VARMA-GARCH models.
 #' @param d Integer differencing order for the MS-VARMA-GARCH model.
 #' @param spec A list of model specifications for the MS-VARMA-GARCH model.
 #' @param model_type Character string for MS-VARMA-GARCH: `"univariate"` or `"multivariate"`.
 #' @param control A list of control parameters for the MS-VARMA-GARCH EM algorithm.
 #' @param parallel Parallelize computation? `TRUE` or `FALSE`.
 #' @param num_cores Number of cores.
-#' @param ... Additional arguments passed to bootstrap functions (not used by all).
+#' @param model_func Model-fitting function for cross-validation.
+#' @param score_func Scoring function for cross-validation.
+#' @param stationary_max_percentile Stationary max percentile.
+#' @param stationary_max_fraction_of_n Stationary max fraction of n.
+#' 
+#' @datails
+#' `bs_type="moving"`: If `n_boot` is set, the last block will be truncated
+#'   when necessary to match the length (`n_boot`) of the bootstrap series. If 
+#'   `n_boot` is not set, `block_length` and `num_blocks` must be set, and  
+#'   `n_boot` will automatically be set to `block_length * num_blocks`.
+#' `bs_type="stationary"`, `bs_type="hmm"`, `bs_type="msar"`: If 
+#'   `n_boot` is set, the last block will be truncated when necessary to match 
+#'   the length (`n_boot`) of the bootstrap series. This is the only way to 
+#'   ensure equal length of all bootstrap series, as the length of each block is 
+#'   random. If `n_boot` is not set, `num_blocks` must be set, and the length of 
+#'   each bootstrap series will be determined by the number of blocks and the 
+#'   random lengths of the individual blocks for that particular series. Note 
+#'   that this typically results in bootstrap series of different lengths.
+#' : 
+#' `bs_type="wild"`: 
+#'   
 #'
-#' @return A list containing the bootstrapped series and summary statistics.
+#' @return A list containing:
+#' \describe{
+#'   \item{bootstrap_series}{List of bootstrap replicate matrices.}
+#'   \item{func_outs}{List of computed function outputs for each replicate.}
+#'   \item{func_out_means}{Mean of the computed outputs across replicates.}
+#' }
+#' @examples
+#' set.seed(123)
+#' x <- arima.sim(n = 100, list(ar = 0.8))
+#' result <- tsbs(
+#'   x = x,
+#'   block_length = 10,
+#'   bs_type = "stationary",
+#'   num_blocks = 5,
+#'   num_boots = 10,
+#'   func = mean,
+#'   apply_func_to = "cols"
+#' )
+#' print(result$func_out_means)
+#'
+#' @importFrom stats acf ar
+#' @importFrom Rcpp sourceCpp
+#' 
+#' @useDynLib tsbs, .registration = TRUE
 #' @export
 tsbs <- function(
     x,
@@ -41,7 +90,7 @@ tsbs <- function(
     bs_type = c("moving", "stationary", "hmm", "msar", "ms_varma_garch", "wild"),
     block_type = c("overlapping", "non-overlapping", "tapered"),
     taper_type = c("cosine", "bartlett", "tukey"),
-    tukey_alpha = 0.5,
+    tukey_alpha = 0.5, ## Only applies to block_type=tapered with taper_type=tukey
     num_blocks = NULL,
     num_boots = 100L,
     func = mean,
@@ -60,10 +109,65 @@ tsbs <- function(
 ) {
   
   ## ---- Validation ----
+  ## match.arg() picks the first element in the vector as default
   bs_type <- match.arg(bs_type)
   apply_func_to <- match.arg(apply_func_to)
-  model_type <- match.arg(model_type)
-  # ... (rest of validation code as provided) ...
+  p_method <- match.arg(p_method)
+  block_type <- match.arg(block_type)
+  taper_type <- match.arg(taper_type)
+  
+  if(.invalid_length(x))
+    stop("No valid x value provided.")
+  if (is.vector(x) || is.data.frame(x) || is.ts(x)) x <- as.matrix(x)
+  
+  n <- nrow(x)
+  
+  if (!is.function(func))
+    stop("`func` must be a valid function.")
+  
+  ## Note: If NULL, value is calculated automatically below
+  if (.invalid_length(n_boot))
+    stop("`n_boot` must be a positive integer or NULL.")
+  if (.invalid_length(block_length))
+    stop("`block_length` must be a positive integer or NULL.")
+  if (.invalid_length(num_blocks))
+    stop("`num_blocks` must be a positive integer or NULL.")
+  
+  ## Need to provide either n_boot or num_blocks.
+  ## If missing, block_length will be calculated automatically.
+  ## n_boot = block_length * num_blocks.
+  if(.invalid_length(n_boot) && .invalid_length(num_blocks)) {
+    stop("Must provide either n_boot or num_blocks.")
+  } 
+  if(.invalid_length(n_boot)) {
+    if (is.null(block_length)) {block_length <- compute_default_block_length(x)}
+    n_boot <- num_blocks * block_length
+  }
+  if(.invalid_length(num_blocks)) {
+    if (is.null(block_length)) {block_length <- compute_default_block_length(x)}
+    num_blocks <- n_boot / block_length
+  }
+  
+  
+  ## Fails if NULL. Value is not calculated automatically.
+  if(.invalid_length(num_states, allow_null = FALSE))
+    stop("`num_states` must be a positive integer.")
+  if(.invalid_length(num_boots, allow_null = FALSE))
+    stop("`num_boots` must be a positive integer.")
+  
+  ## Validate p
+  if(.invalid_percentage(p, allow_null = TRUE) ) {
+    stop("`p` must be a single number in (0,1) or NULL.")
+  }
+  
+  ## Validate max block length for stationary bootstrap
+  # if(.invalid_percentage(stationary_max_percentile, allow_null = FALSE) ) {
+  #   stop("`stationary_max_percentile` must be a single number in (0,1) or NULL.")
+  # }
+  # if(.invalid_percentage(stationary_max_fraction_of_n, allow_null = FALSE) ) {
+  #   stop("`stationary_max_fraction_of_n` must be a single number in (0,1) or NULL.")
+  # }
+  
   
   ## ---- Bootstrap ----
   
@@ -79,7 +183,9 @@ tsbs <- function(
       num_blocks, 
       num_boots, 
       p, 
-      # ... (other args for blockBootstrap) ...
+      #stationary_max_percentile,
+      #stationary_max_fraction_of_n
+      ...
     )
   }
   
@@ -109,13 +215,12 @@ tsbs <- function(
       parallel = parallel, 
       num_cores = num_cores
     ),
-    # --- NEW: Integrate the MS-VARMA-GARCH bootstrap ---
     ms_varma_garch = ms_varma_garch_bs(
       x = x,
       n_boot = n_boot,
       num_blocks = num_blocks,
       num_boots = num_boots,
-      M = num_states, # Use the existing num_states argument
+      M = num_states,
       d = d,
       spec = spec,
       model_type = model_type,
@@ -123,7 +228,6 @@ tsbs <- function(
       parallel = parallel,
       num_cores = num_cores
     ),
-    # --- END NEW ---
     wild = wild_bootstrap(
       x, 
       num_boots, 
@@ -156,7 +260,8 @@ tsbs <- function(
 #' Flexible Block Bootstrap for Time Series
 #'
 #' Generates block bootstrap replicates of a numeric time series or multivariate 
-#' time series. Supports moving, stationary, HMM, MSAR, and wild bootstrap types.
+#' time series. Supports moving, stationary, HMM, MSAR, MS VARMA GARCH and wild 
+#' bootstrap types.
 #'
 #' @param x Numeric vector, matrix, or data frame of time series observations 
 #'   (rows = time points, cols = variables).
@@ -165,7 +270,7 @@ tsbs <- function(
 #'   heuristic is used. For stationary bootstrap, `block_length` is the expected
 #'   block length, when `p_method="1/n"`.
 #' @param bs_type Bootstrap type. Character string: One of `"moving"`, 
-#'   `"stationary"`, `"hmm"`, `"msar"`, or `"wild"`. See details below.
+#'   `"stationary"`, `"hmm"`, `"msar"`, `"ms_varma_garch"`, or `"wild"`. See details below.
 #' @param block_type Block type. Character string: One of `"non-overlapping"`, 
 #'   `"overlapping"`, or `"tapered"`. Only affects `bs_type="moving"` and 
 #'   `bs_type="stationary"`. `block_type="tapered"` will smooth out transitions
@@ -182,14 +287,18 @@ tsbs <- function(
 #'   parameter: `"1/n"`, `"plugin"`, or `"cross validation"`.
 #' @param p Optional numeric value for stationary bootstrap `p`.
 #' @param overlap Logical indicating if overlapping blocks are allowed.
-#' @param ar_order Integer AR order for MSAR (`bs_type="msar"`).
-#' @param num_states Integer number of states for HMM or MSAR.
+#' @param num_states Integer number of states for HMM, MSAR, or 
+#'        MS-VARMA-GARCH models.
+#' @param d Integer differencing order for the MS-VARMA-GARCH model.
+#' @param spec A list of model specifications for the MS-VARMA-GARCH model.
+#' @param model_type Character string for MS-VARMA-GARCH: `"univariate"` or `"multivariate"`.
+#' @param control A list of control parameters for the MS-VARMA-GARCH EM algorithm.
+#' @param parallel Parallelize computation? `TRUE` or `FALSE`.
+#' @param num_cores Number of cores.
 #' @param model_func Model-fitting function for cross-validation.
 #' @param score_func Scoring function for cross-validation.
 #' @param stationary_max_percentile Stationary max percentile.
 #' @param stationary_max_fraction_of_n Stationary max fraction of n.
-#' @param parallel Parallelize computation? `TRUE` or `FALSE`.
-#' @param num_cores Number of cores.
 #' 
 #' @datails
 #' `bs_type="moving"`: If `n_boot` is set, the last block will be truncated
@@ -269,12 +378,12 @@ tsbs_old <- function(
   if(.invalid_length(x))
     stop("No valid x value provided.")
   if (is.vector(x) || is.data.frame(x) || is.ts(x)) x <- as.matrix(x)
-
+  
   n <- nrow(x)
   
   if (!is.function(func))
     stop("`func` must be a valid function.")
-
+  
   ## Note: If NULL, value is calculated automatically below
   if (.invalid_length(n_boot))
     stop("`n_boot` must be a positive integer or NULL.")
@@ -282,7 +391,7 @@ tsbs_old <- function(
     stop("`block_length` must be a positive integer or NULL.")
   if (.invalid_length(num_blocks))
     stop("`num_blocks` must be a positive integer or NULL.")
-
+  
   ## Need to provide either n_boot or num_blocks.
   ## If missing, block_length will be calculated automatically.
   ## n_boot = block_length * num_blocks.
@@ -298,7 +407,7 @@ tsbs_old <- function(
     num_blocks <- n_boot / block_length
   }
   
-    
+  
   ## Fails if NULL. Value is not calculated automatically.
   if(.invalid_length(ar_order, allow_null = FALSE))
     stop("`ar_order` must be a positive integer.")
@@ -311,7 +420,7 @@ tsbs_old <- function(
   if(.invalid_percentage(p, allow_null = TRUE) ) {
     stop("`p` must be a single number in (0,1) or NULL.")
   }
-
+  
   ## Validate max block length for stationary bootstrap
   if(.invalid_percentage(stationary_max_percentile, allow_null = FALSE) ) {
     stop("`stationary_max_percentile` must be a single number in (0,1) or NULL.")
@@ -354,7 +463,7 @@ tsbs_old <- function(
   #   foreach::registerDoSEQ()
   # }
   
-
+  
   ## The `%dopar%` operator from foreach is special and needs to be imported
   ## or defined. Define it locally if the package is found.
   # `%dopar%` <- if (parallel && num_cores > 1) foreach::`%dopar%` else foreach::`%do%`
@@ -377,7 +486,7 @@ tsbs_old <- function(
       stationary_max_fraction_of_n
     )
   }
-
+  
   bootstrap_series <- switch(
     bs_type,
     moving = {
@@ -419,7 +528,7 @@ tsbs_old <- function(
       parallel = parallel, 
       num_cores = num_cores
     ),
-  
+    
     # msar = {
     #   foreach::foreach(
     #     i = 1:num_boots,
@@ -484,13 +593,13 @@ tsbs_old <- function(
   ## deparse(substitute(x)) converts variable name to string.
   
   !exists(deparse(substitute(x)), where = parent.frame()) || 
-  if(allow_null) {
-    !is.null(x) && (!is.numeric(x) || length(x) < 1) 
-  } else {
-    !is.numeric(x) || length(x) < 1
-  } || 
-  any(is.na(x)) || 
-  any(!is.finite(x))
+    if(allow_null) {
+      !is.null(x) && (!is.numeric(x) || length(x) < 1) 
+    } else {
+      !is.numeric(x) || length(x) < 1
+    } || 
+    any(is.na(x)) || 
+    any(!is.finite(x))
 }
 
 
@@ -506,8 +615,8 @@ tsbs_old <- function(
 .invalid_percentage <- function(p, allow_null = TRUE) {
   
   .invalid_length(p, allow_null = allow_null) ||
-  length(p) > 1 || 
-  !is.null(p) && (p <= 0 || p >= 1)
+    length(p) > 1 || 
+    !is.null(p) && (p <= 0 || p >= 1)
 }
 
 

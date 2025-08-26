@@ -17,8 +17,16 @@ fit_msvar_cpp <- function(y, max_iter = 100L, tol = 1e-6) {
 }
 
 #' @title Fit a general MS-ARMA-GARCH model via the EM Algorithm in C++
-NULL
-
+#' @description Internal C++ function to orchestrate the EM estimation.
+#'              Delegates all statistical calculations (likelihood,
+#'              parameter estimation) to helper functions in R to interface
+#'              with TMB-based packages like tsgarch.
+#' @param y A (T x k) matrix of (differenced) time series data.
+#' @param M The number of states.
+#' @param spec A list of model specifications from R.
+#' @param model_type "univariate" or "multivariate".
+#' @param control A list with max_iter and tol.
+#' @return A raw list with estimated parameters and results.
 fit_ms_varma_garch_cpp <- function(y, M, spec, model_type, control) {
     .Call(`_tsbs_fit_ms_varma_garch_cpp`, y, M, spec, model_type, control)
 }

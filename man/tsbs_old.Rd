@@ -40,7 +40,7 @@ heuristic is used. For stationary bootstrap, \code{block_length} is the expected
 block length, when \code{p_method="1/n"}.}
 
 \item{bs_type}{Bootstrap type. Character string: One of \code{"moving"},
-\code{"stationary"}, \code{"hmm"}, \code{"msar"}, or \code{"wild"}. See details below.}
+\code{"stationary"}, \code{"hmm"}, \code{"msar"}, \code{"ms_varma_garch"}, or \code{"wild"}. See details below.}
 
 \item{block_type}{Block type. Character string: One of \code{"non-overlapping"},
 \code{"overlapping"}, or \code{"tapered"}. Only affects \code{bs_type="moving"} and
@@ -67,9 +67,8 @@ parameter: \code{"1/n"}, \code{"plugin"}, or \code{"cross validation"}.}
 
 \item{overlap}{Logical indicating if overlapping blocks are allowed.}
 
-\item{ar_order}{Integer AR order for MSAR (\code{bs_type="msar"}).}
-
-\item{num_states}{Integer number of states for HMM or MSAR.}
+\item{num_states}{Integer number of states for HMM, MSAR, or
+MS-VARMA-GARCH models.}
 
 \item{model_func}{Model-fitting function for cross-validation.}
 
@@ -82,6 +81,14 @@ parameter: \code{"1/n"}, \code{"plugin"}, or \code{"cross validation"}.}
 \item{parallel}{Parallelize computation? \code{TRUE} or \code{FALSE}.}
 
 \item{num_cores}{Number of cores.}
+
+\item{d}{Integer differencing order for the MS-VARMA-GARCH model.}
+
+\item{spec}{A list of model specifications for the MS-VARMA-GARCH model.}
+
+\item{model_type}{Character string for MS-VARMA-GARCH: \code{"univariate"} or \code{"multivariate"}.}
+
+\item{control}{A list of control parameters for the MS-VARMA-GARCH EM algorithm.}
 }
 \value{
 A list containing:
@@ -93,7 +100,8 @@ A list containing:
 }
 \description{
 Generates block bootstrap replicates of a numeric time series or multivariate
-time series. Supports moving, stationary, HMM, MSAR, and wild bootstrap types.
+time series. Supports moving, stationary, HMM, MSAR, MS VARMA GARCH and wild
+bootstrap types.
 }
 \examples{
 set.seed(123)
