@@ -252,6 +252,7 @@ msar_bootstrap <- function(
 #' @param parallel Logical. Whether to use parallel processing.
 #' @param num_cores Integer. The number of cores for parallel execution.
 #' @return A list of bootstrapped multivariate series (matrices).
+#' #' @export
 msar_bootstrap_mv <- function(
     x,
     ar_order = 1,
@@ -449,8 +450,17 @@ ms_varma_garch_bs <- function(
     num_cores = 1L
 ) {
   
-  # --- 1. Fit the MS-VARMA-GARCH Model ---
-  # This function handles all data validation and model fitting.
+  ## ---- 1. Input Validation ----
+  model_type <- match.arg(model_type)
+  if (is.null(num_boots) || !is.numeric(num_boots) || num_boots < 1) {
+    stop("num_boots must be a positive integer.", call. = FALSE)
+  }
+  if (is.null(n_boot) && is.null(num_blocks)) {
+    stop("Must provide a valid value for either n_boot or num_blocks", call. = FALSE)
+  }
+  
+  ## ---- 2. Fit the MS-VARMA-GARCH Model ----
+  ## This function handles all data validation and model fitting.
   ms_model <- fit_ms_varma_garch(
     y = x,
     M = M,
@@ -460,25 +470,25 @@ ms_varma_garch_bs <- function(
     control = control
   )
   
-  # --- 2. Determine the Most Likely State Sequence ---
-  # The smoothed_probabilities from the fit object are already aligned
-  # with the original data 'x', but may have leading NAs if d > 0.
+  ## ---- 3. Determine the Most Likely State Sequence ----
+  ## The smoothed_probabilities from the fit object are already aligned
+  ## with the original data 'x', but may have leading NAs if d > 0.
   smoothed_probs <- ms_model$smoothed_probabilities
   state_seq <- apply(smoothed_probs, 1, which.max)
   
-  # Handle potential leading NAs from differencing by forward-filling the first valid state.
+  ## Handle potential leading NAs from differencing by forward-filling the first valid state.
   if (anyNA(state_seq)) {
     first_valid_state_idx <- min(which(!is.na(state_seq)))
     first_valid_state <- state_seq[first_valid_state_idx]
     state_seq[1:(first_valid_state_idx - 1)] <- first_valid_state
   }
   
-  # --- 3. Generate Bootstrap Samples ---
-  # This part calls the existing helper function that performs the actual
-  # stationary block bootstrap based on the state sequence.
+  ## ---- 4. Generate Bootstrap Samples ----
+  ## This part calls the existing helper function that performs the actual
+  ## stationary block bootstrap based on the state sequence.
   message("Generating bootstrap samples...")
   
-  # Ensure x is a matrix for the helper function
+  ## Ensure x is a matrix for the helper function
   if (!is.matrix(x)) {
     x <- as.matrix(x)
   }

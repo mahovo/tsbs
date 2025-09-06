@@ -52,9 +52,12 @@ Rcpp::List fit_ms_varma_garch_cpp(
   
   double log_lik_old = -std::numeric_limits<double>::infinity();
   
-  Rcpp::Environment global = Rcpp::Environment::global_env();
-  Rcpp::Function calculate_loglik_vector_r = global["calculate_loglik_vector_r"];
-  Rcpp::Function perform_m_step_parallel_r = global["perform_m_step_parallel_r"];
+  // Rcpp::Environment global = Rcpp::Environment::global_env();
+  // Rcpp::Function calculate_loglik_vector_r = global["calculate_loglik_vector_r"];
+  // Rcpp::Function perform_m_step_parallel_r = global["perform_m_step_parallel_r"];
+  Rcpp::Environment pkg_env = Rcpp::Environment::namespace_env("tsbs");
+  Rcpp::Function calculate_loglik_vector_r = pkg_env["calculate_loglik_vector_r"];
+  Rcpp::Function perform_m_step_parallel_r = pkg_env["perform_m_step_parallel_r"];
   
   // --- 2. EM ALGORITHM LOOP ---
   for (int iter = 0; iter < max_iter; ++iter) {
@@ -100,9 +103,8 @@ Rcpp::List fit_ms_varma_garch_cpp(
     }
     P = trans_mat.each_col() / arma::sum(trans_mat, 1);
     
-    // --- FIX: Call the single parallel R function for the M-step ---
+    // --- Call the single parallel R function for the M-step ---
     model_fits = Rcpp::as<Rcpp::List>(perform_m_step_parallel_r(y, smooth_probs, spec, model_type));
-    // --- END FIX ---
     
     // --- 3. CHECK CONVERGENCE & PROVIDE FEEDBACK (Unchanged) ---
     double log_lik_new = arma::sum(arma::log(lik_contrib));

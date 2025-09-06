@@ -34,6 +34,7 @@ msar_bootstrap_mv(
 }
 \value{
 A list of bootstrapped multivariate series (matrices).
+#' @export
 }
 \description{
 Deprecated. Use \code{msvar_bootstrap()} instead.

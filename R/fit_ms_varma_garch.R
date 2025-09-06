@@ -35,6 +35,7 @@
 #'   estimation, including model fits for each state, the transition matrix,
 #'   smoothed probabilities, and information criteria.
 #'
+#' @export
 fit_ms_varma_garch <- function(y, M, d = 0, spec,
                                model_type = c("univariate", "multivariate"),
                                control = list(),
@@ -74,13 +75,18 @@ fit_ms_varma_garch <- function(y, M, d = 0, spec,
   ctrl[names(control)] <- control 
   
   ## --- 3. Pre-processing: Handle Differencing ---
-  y_orig <- as.matrix(y)
+  y_orig <- y_mat
   T_orig <- nrow(y_orig)
+  
   if (d > 0) {
+    if (T_orig <= d) {
+      stop("The number of observations must be greater than the differencing order 'd'.")
+    }
     y_effective <- as.matrix(diff(y_orig, differences = d))
   } else {
     y_effective <- y_orig
   }
+  
   T_eff <- nrow(y_effective)
   
   ## --- 4. Call the C++ Backend ---
@@ -175,6 +181,7 @@ fit_ms_varma_garch <- function(y, M, d = 0, spec,
 #'   estimation, including model fits for each state, the transition matrix,
 #'   smoothed probabilities, and information criteria.
 #'
+#' @export
 fit_ms_varma_garch_old <- function(y, M, d = 0, spec,
                                model_type = c("univariate", "multivariate"),
                                control = list()) {

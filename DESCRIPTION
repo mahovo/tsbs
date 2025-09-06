@@ -9,15 +9,22 @@ Description: Provides advanced block bootstrap algorithms for time series data, 
 Depends: R (>= 4.0.0)
 Imports:
     zoo,
+    xts,
     Rcpp,
     stats,
-    utils
-Suggests:
+    utils,
     foreach,
     doParallel,
     depmixS4,
     dplyr,
-    MSwM
+    MSwM,
+    tsgarch,
+    tsmarch,
+    tsmethods,
+    data.table,
+    future,
+    future.apply,
+    mvtnorm
 LinkingTo: Rcpp, RcppArmadillo
 Encoding: UTF-8
 License: GPL-3

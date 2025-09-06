@@ -37,9 +37,9 @@
 #' #      main = "Smoothed Probability of State 1", ylab = "Probability")
 fit_msvar <- function(y, max_iter = 100, tol = 1e-6) {
   
-  ################################################################################
+  ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### 
   ## Validation
-  ################################################################################
+  ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### 
   
   ## This block prevents non-numeric data from reaching the C++ code.
   if (!is.matrix(y) && !is.data.frame(y)) {
@@ -68,9 +68,9 @@ fit_msvar <- function(y, max_iter = 100, tol = 1e-6) {
     stop(paste0("Input matrix 'y' must have at least ", p + 1, " rows for a VAR(", p, ") model."))
   }
 
-  ################################################################################
+  ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### 
   ## Call the C++ function
-  ################################################################################  
+  ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ###  
   ## Call the C++ function directly
   ## Rcpp creates the R bindings automatically during package compilation.
   results <- fit_msvar_cpp(y, max_iter, tol)

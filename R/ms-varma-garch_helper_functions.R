@@ -1,6 +1,6 @@
-## ===================================================================
+## === === === === === === === === === === === === === === === === === 
 ## Generalized R Helper Functions for MS-ARMA-GARCH Fitting
-## ===================================================================
+## === === === === === === === === === === === === === === === === === 
 ## These functions are designed to be called from the C++ EM orchestrator.
 ## They contain the full logic for handling general ARMA(p,q) and VAR(p)
 ## models, and interface with the tsgarch/tsmarch packages.
@@ -51,6 +51,8 @@ create_garch_spec_object_r <- function(residuals, spec, model_type) {
 
 
 #' @title Calculate the Log-Likelihood Vector (R Helper)
+#' @import data.table
+#' @importFrom tsmethods tsfilter
 calculate_loglik_vector_r <- function(y, current_pars, spec, model_type = "univariate") {
   
   ## 1. Get Residuals from the Conditional Mean Model
@@ -81,7 +83,7 @@ calculate_loglik_vector_r <- function(y, current_pars, spec, model_type = "univa
   }
   
   if (model_type == "univariate") {
-    garch_model_fit <- tsfilter(garch_spec_obj)
+    garch_model_fit <- tsmethods::tsfilter(garch_spec_obj)
     res <- as.numeric(garch_model_fit$residuals)
     sig <- as.numeric(garch_model_fit$sigma)
     ll_vector <- dnorm(res, mean = 0, sd = sig, log = TRUE)
@@ -163,6 +165,7 @@ estimate_garch_weighted_r <- function(residuals, weights, spec, model_type = "un
   
   parmatrix <- temp_spec_obj$parmatrix
   pars_to_estimate <- names(start_pars)
+  
   bounds_matrix <- parmatrix[parameter %in% pars_to_estimate]
   bounds_matrix <- bounds_matrix[match(pars_to_estimate, parameter),]
   
@@ -225,7 +228,7 @@ estimate_garch_weighted_r <- function(residuals, weights, spec, model_type = "un
 #' @param spec The full list of model specifications.
 #' @param model_type "univariate" or "multivariate".
 #' @return A list of length M containing the updated model fits for each state.
-perform_m_step_parallel_r <- function(y, weights, spec, model_type) {
+perform_m_step_parallel_r_old <- function(y, weights, spec, model_type) {
   
   ## future_lapply will iterate from 1 to M (the number of states) in parallel.
   ## Each worker gets the index 'j' for the state it's responsible for.
@@ -264,6 +267,72 @@ perform_m_step_parallel_r <- function(y, weights, spec, model_type) {
       ))
     }
   }, future.seed = TRUE) ## future.seed = TRUE ensures reproducibility
+  
+  return(updated_fits)
+}
+
+
+#' @title Perform the M-Step in Parallel (R Helper)
+#' @description This function is called once per EM iteration from C++. It uses
+#' the 'future' framework to estimate the parameters for all M states in parallel.
+#' @param y The time series data.
+#' @param weights The (T x M) matrix of smoothed probabilities from the E-step.
+#' @param spec The full list of model specifications.
+#' @param model_type "univariate" or "multivariate".
+#' @return A list of length M containing the updated model fits for each state.
+perform_m_step_parallel_r <- function(y, weights, spec, model_type) {
+  
+  ## --- Tell the parallel workers which packages to load ---
+  ## The data.table syntax (e.g., parmatrix[parameter == ...]) and the
+  ## tsgarch/tsmarch functions must be available on each worker.
+  required_packages <- c("data.table", "tsgarch", "tsmarch", "xts")
+  
+  ## future_lapply will iterate from 1 to M (the number of states) in parallel.
+  ## Each worker gets the index 'j' for the state it's responsible for.
+  updated_fits <- future.apply::future_lapply(1:length(spec), function(j) {
+    
+    ## --- Explicitly load packages on each parallel worker ---
+    ## This is a more robust approach than relying on future.packages, as it
+    ## ensures the packages are fully attached, making special syntax like
+    ## data.table's `[...]` available.
+    library(data.table)
+    library(tsgarch)
+    library(tsmarch)
+    library(xts)
+    
+    ## Extract the data for this specific state
+    state_weights <- weights[, j]
+    state_spec <- spec[[j]]
+    
+    ## M-Step 1: Update Mean Parameters
+    new_arma_fit <- estimate_arma_weighted_r(
+      y = y,
+      weights = state_weights,
+      spec = state_spec,
+      model_type = model_type
+    )
+    
+    ## M-Step 2: Update Variance Parameters
+    new_garch_fit <- estimate_garch_weighted_r(
+      residuals = new_arma_fit$residuals,
+      weights = state_weights,
+      spec = state_spec,
+      model_type = model_type
+    )
+    
+    ## Combine the results for this state into a single list
+    if (model_type == "univariate") {
+      return(list(
+        arma_pars = new_arma_fit$coefficients,
+        garch_pars = new_garch_fit$coefficients
+      ))
+    } else {
+      return(list(
+        var_pars = new_arma_fit$coefficients,
+        garch_pars = new_garch_fit$coefficients
+      ))
+    }
+  }, future.seed = TRUE, future.packages = required_packages) ## <-- Pass the packages here
   
   return(updated_fits)
 }
