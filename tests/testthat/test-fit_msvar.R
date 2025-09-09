@@ -48,9 +48,9 @@ test_data <- cbind(y1, y2)
 univar_data <- matrix(y1, ncol = 1)
 
 
-### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### 
+## == == == == == == == == == == == == == == == == == == == == == == ==
 ## Section 1: Input Validation and Error Handling
-### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### 
+## == == == == == == == == == == == == == == == == == == == == == == ==
 
 context("Input Validation and Error Handling")
 
@@ -87,9 +87,9 @@ test_that("Function handles insufficient data", {
 })
 
 
-### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### 
+## == == == == == == == == == == == == == == == == == == == == == == ==
 ## Section 2: Output Structure and Formatting
-### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### 
+## == == == == == == == == == == == == == == == == == == == == == == ==
 
 context("Output Structure and Formatting")
 
@@ -133,9 +133,9 @@ test_that("Output matrices have correct dimensions and names", {
 })
 
 
-### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### 
+## == == == == == == == == == == == == == == == == == == == == == == ==
 ## Section 3: Mathematical Properties of the Output
-### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### 
+## == == == == == == == == == == == == == == == == == == == == == == ==
 
 context("Mathematical Properties of Output")
 
@@ -177,9 +177,9 @@ test_that("Log-likelihood increases or stays constant with each iteration", {
 })
 
 
-### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### 
+## == == == == == == == == == == == == == == == == == == == == == == ==
 ## Section 4: Core Algorithm Correctness (Simulation)
-### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### 
+## == == == == == == == == == == == == == == == == == == == == == == ==
 
 context("Core Algorithm Correctness (Simulation)")
 
@@ -253,9 +253,9 @@ test_that("Fitter recovers known parameters from simulated data", {
 })
 
 
-### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### 
+## == == == == == == == == == == == == == == == == == == == == == == ==
 ## Section 5: Comparison with a Reference Implementation
-### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### 
+## == == == == == == == == == == == == == == == == == == == == == == ==
 
 context("Comparison with a Reference Implementation (MSwM)")
 

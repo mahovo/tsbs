@@ -32,6 +32,7 @@
 #'        MS-VARMA-GARCH models.
 #' @param d Integer differencing order for the MS-VARMA-GARCH model.
 #' @param spec A list of model specifications for the MS-VARMA-GARCH model.
+#'   In the multivariate case, the valid distributions are `"mvn"` and `"mvt"`.
 #' @param model_type Character string for MS-VARMA-GARCH: `"univariate"` or `"multivariate"`.
 #' @param control A list of control parameters for the MS-VARMA-GARCH EM algorithm.
 #' @param parallel Parallelize computation? `TRUE` or `FALSE`.

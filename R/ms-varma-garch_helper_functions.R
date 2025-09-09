@@ -37,9 +37,22 @@ create_garch_spec_object_r <- function(residuals, spec, model_type) {
       garch_model_est <- to_multi_estimate(univariate_models)
       names(garch_model_est) <- paste0("series_", 1:ncol(residuals_xts))
       
-      final_args <- c(list(object = garch_model_est), 
-                      spec_args[names(spec_args) != "garch_model"])
+      unnamed_arg <- garch_model_est
+      named_args <- spec_args[names(spec_args) != "garch_model"]
+      
+      ## Workaround for tsmarch bug where default distribution is invalid
+      if (is.null(named_args$distribution)) {
+        ## If user did not specify a distribution, provide a valid default ("mvn")
+        ## to prevent tsmarch from using its own invalid default ("mvnorm").
+        named_args$distribution <- "mvn"
+      }
+      
+      final_args <- c(list(unnamed_arg), named_args)
       garch_spec_obj <- do.call(spec_fun, final_args)
+      
+      # final_args <- c(list(object = garch_model_est), 
+      #                 spec_args[names(spec_args) != "garch_model"])
+      # garch_spec_obj <- do.call(spec_fun, final_args)
       
     } else {
       final_args <- c(list(y = residuals_xts), spec_args)
@@ -88,7 +101,8 @@ calculate_loglik_vector_r <- function(y, current_pars, spec, model_type = "univa
     sig <- as.numeric(garch_model_fit$sigma)
     ll_vector <- dnorm(res, mean = 0, sd = sig, log = TRUE)
   } else {
-    garch_model_fit <- estimate(garch_spec_obj)
+    ## Suppress non-critical warnings during filtering
+    garch_model_fit <- suppressWarnings(estimate(garch_spec_obj))
     k <- ncol(model_residuals)
     T_res <- nrow(model_residuals)
     ll_vector <- numeric(T_res)
@@ -158,6 +172,12 @@ estimate_arma_weighted_r <- function(y, weights, spec, model_type = "univariate"
 #' @title Estimate GARCH Parameters (R Helper)
 estimate_garch_weighted_r <- function(residuals, weights, spec, model_type = "univariate") {
   start_pars <- spec$start_pars$garch_pars
+  
+  ## Handle case where there are no GARCH parameters to estimate
+  if (length(start_pars) == 0) {
+    return(list(coefficients = list(), warnings = list()))
+  }
+  
   padding <- NROW(residuals) - length(weights)
   w_target <- if(padding > 0) weights[(padding+1):length(weights)] else weights
   
@@ -217,6 +237,7 @@ estimate_garch_weighted_r <- function(residuals, weights, spec, model_type = "un
   
   return(list(coefficients = estimated_coeffs, warnings = warnings_list))
 }
+
 
 
 
