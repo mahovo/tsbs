@@ -72,11 +72,68 @@ MS-VARMA-GARCH models.}
 
 \item{d}{Integer differencing order for the MS-VARMA-GARCH model.}
 
-\item{spec}{A list of model specifications for the MS-VARMA-GARCH model.}
+\item{spec}{A list defining the state-specific models for the MS-VARMA-GARCH
+bootstrap (bs_type = "ms_varma_garch"). This argument is required for
+this bootstrap type and must be a list of length num_states. Each element
+of the list is itself a list specifying the model for that state. The
+structure depends on whether the model is univariate or multivariate.
 
-\item{model_type}{Character string for MS-VARMA-GARCH: \code{"univariate"} or \code{"multivariate"}.}
+\strong{For univariate models (one-column x):}
+Each element spec[\link{j}] must be a list with the following components. For a
+complete list of all possible arguments (e.g., for different GARCH model
+flavors), please refer to the documentation for tsgarch::garch_modelspec.
+\itemize{
+\item \code{arma_order}: A numeric vector c(p,q) for the ARMA(p,q) order.
+\item \code{garch_model}: A character string for the GARCH model type
+(e.g., "garch", "egarch").
+\item \code{garch_order}: A numeric vector c(g,h) for the GARCH(g,h) order.
+\item \code{distribution}: A character string for the conditional
+distribution (e.g., "norm", "std").
+\item \code{start_pars}: A list containing the starting parameters for
+the optimization, with two named elements:
+\itemize{
+\item \code{arma_pars}: A named numeric vector for the ARMA parameters
+(e.g., c(ar1 = 0.5)).
+\item \code{garch_pars}: A named list for the GARCH parameters (e.g.,
+list(omega = 0.1, alpha1 = 0.1, beta1 = 0.8)).
+}
+}
 
-\item{control}{A list of control parameters for the MS-VARMA-GARCH EM algorithm.}
+\strong{For multivariate models (multi-column x):}
+Each element spec[\link{j}] must be a list with the following components. For a
+complete list of all possible arguments, please refer to the documentation
+for the relevant tsmarch specification function (e.g., ?tsmarch::dcc_modelspec).
+\itemize{
+\item \code{var_order}: An integer p for the VAR(p) order.
+\item \code{garch_spec_fun}: A character string with the name of the
+tsmarch specification function to use (e.g., "dcc_modelspec",
+"gogarch_modelspec").
+\item \code{garch_spec_args}: A list of arguments to pass to the function
+specified in garch_spec_fun. Key arguments include:
+\itemize{
+\item \code{distribution}: The multivariate distribution. Valid
+choices are "mvn" (for multivariate normal) and "mvt" (for
+multivariate Student's t).
+\item For models like DCC or CGARCH, this list must also contain a
+\code{garch_model} definition for the underlying univariate GARCH
+fits.
+}
+\item \code{start_pars}: A list containing the starting parameters, with
+two named elements:
+\itemize{
+\item \code{var_pars}: A numeric vector for the VAR parameters,
+stacked column by column (intercept, lags for eq1, intercept, lags
+for eq2, ...).
+\item \code{garch_pars}: A named list for the multivariate GARCH
+parameters (e.g., list(dcc_alpha = 0.05, dcc_beta = 0.9)).
+}
+}}
+
+\item{model_type}{Character string for MS-VARMA-GARCH: \code{"univariate"} or
+\code{"multivariate"}.}
+
+\item{control}{A list of control parameters for the MS-VARMA-GARCH EM
+algorithm.}
 
 \item{parallel}{Parallelize computation? \code{TRUE} or \code{FALSE}.}
 
