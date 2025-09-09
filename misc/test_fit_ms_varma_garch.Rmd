@@ -1,0 +1,316 @@
+---
+title: "test_fit_ms_varma_garch"
+output: html_document
+date: "2025-08-23"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+## Univariate test
+```{r}
+## ===================================================================
+## Full Test Script for the fit_ms_varma_garch R Wrapper
+## ===================================================================
+
+## --- 1. Load Libraries and Source Code ---
+## install.packages(c("Rcpp", "tsgarch", "tsmarch", "xts", "data.table", "mvtnorm"))
+library(Rcpp)
+library(tsgarch)
+library(tsmarch)
+library(xts)
+library(data.table)
+library(mvtnorm)
+
+
+## Source the C++ file containing the EM orchestrator.
+## Make sure the path is correct.
+Rcpp::sourceCpp("~/R work/tsbs/src/ms_varma_garch_fitter.cpp")
+
+## The R helper functions must be in the global environment so the C++
+## code can call them.
+source("~/R work/tsbs/R/ms-varma-garch_helper_functions.R")
+source("~/R work/tsbs/R/fit_ms_varma_garch.R")
+
+
+## --- 3. Simulate Data for Testing ---
+set.seed(123)
+T_obs <- 1000
+P_true <- matrix(c(0.98, 0.02, 0.03, 0.97), nrow = 2, byrow = TRUE)
+
+states <- numeric(T_obs)
+states[1] <- 1
+for (t in 2:T_obs) {
+  states[t] <- sample(1:2, size = 1, prob = P_true[states[t-1], ])
+}
+
+dummy_y <- xts::xts(rep(0, 10), order.by = Sys.Date() - (10:1))
+spec1_true <- tsgarch::garch_modelspec(y = dummy_y, fixed_pars = list(mu = 0, ar1 = 0.5, omega = 0.1, alpha1 = 0.1, beta1 = 0.8))
+spec2_true <- tsgarch::garch_modelspec(y = dummy_y, fixed_pars = list(mu = 0, ar1 = -0.2, omega = 0.5, alpha1 = 0.3, beta1 = 0.6))
+
+y <- numeric(T_obs)
+sim1 <- simulate(spec1_true, n.sim = T_obs)
+sim2 <- simulate(spec2_true, n.sim = T_obs)
+
+y[states == 1] <- sim1$series[states == 1]
+y[states == 2] <- sim2$series[states == 2]
+
+
+## --- 4. Define Model Specification for Fitting ---
+spec <- list()
+
+spec[[1]] <- list(
+  arma_order = c(1, 0),
+  garch_model = "garch",
+  garch_order = c(1, 1),
+  distribution = "norm",
+  start_pars = list(
+    arma_pars = list(ar1 = 0.1),
+    garch_pars = list(omega = 0.1, alpha1 = 0.05, beta1 = 0.9)
+  )
+)
+
+spec[[2]] <- list(
+  arma_order = c(1, 0),
+  garch_model = "garch",
+  garch_order = c(1, 1),
+  distribution = "norm",
+  start_pars = list(
+    arma_pars = list(ar1 = 0.1),
+    garch_pars = list(omega = 0.1, alpha1 = 0.05, beta1 = 0.9)
+  )
+)
+
+
+## --- 5. Run the Fitter ---
+message("Starting the MS-ARMA-GARCH model fitting...")
+
+control_params <- list(max_iter = 5, tol = 1e-5)
+
+## Call the user-facing R wrapper function
+fit_results <- fit_ms_varma_garch(
+  y = as.matrix(y),
+  M = 2,
+  spec = spec,
+  model_type = "univariate",
+  control = control_params
+)
+
+message("Fitting complete.")
+
+
+## --- 6. Print Results ---
+print("--- MS-ARMA-GARCH Model Fit Results ---")
+print("True Transition Matrix (P):")
+print(P_true)
+print("Estimated Transition Matrix (P):")
+print(fit_results$P)
+
+print("Final Log-Likelihood:")
+print(fit_results$log_likelihood)
+
+## --- Print true parameters for comparison ---
+print("--- State 1 ---")
+print("True Parameters for State 1:")
+print(list(arma_pars = list(ar1 = 0.5), garch_pars = list(omega = 0.1, alpha1 = 0.1, beta1 = 0.8)))
+print("Estimated Parameters for State 1:")
+print(fit_results$model_fits[[1]])
+
+print("--- State 2 ---")
+print("True Parameters for State 2:")
+print(list(arma_pars = list(ar1 = -0.2), garch_pars = list(omega = 0.5, alpha1 = 0.3, beta1 = 0.6)))
+print("Estimated Parameters for State 2:")
+print(fit_results$model_fits[[2]])
+
+## Print a summary of captured warnings
+warning_count <- length(unlist(fit_results$warnings))
+message(paste("\nTotal warnings captured during GARCH estimation:", warning_count))
+
+
+## Compare smoothed probabilities to true states
+plot(fit_results$smoothed_probabilities[,1], type = 'l', col = 'blue', ylim = c(0,1), ylab = "Probability", main = "Smoothed Probability of State 1")
+lines(states-1, col = 'red', lty = 2) # True states (0 or 1)
+legend("topright", legend = c("Smoothed Prob (State 1)", "True State (1)"), col = c("blue", "red"), lty = 1:2)
+
+```
+
+
+## Multivariate test
+```{r}
+## ===================================================================
+## Multivariate Test Script for the fit_ms_varma_garch R Wrapper
+## ===================================================================
+
+## --- 1. Load Libraries ---
+## This script assumes the C++ code and R helper functions have already
+## been sourced into the environment.
+
+library(Rcpp)
+library(tsgarch)
+library(tsmarch)
+library(xts)
+library(data.table)
+library(mvtnorm)
+
+## Source the C++ file containing the EM orchestrator.
+## Make sure the path is correct.
+Rcpp::sourceCpp("~/R work/tsbs/src/ms_varma_garch_fitter.cpp")
+
+## The R helper functions must be in the global environment so the C++
+## code can call them.
+source("~/R work/tsbs/R/ms-varma-garch_helper_functions.R")
+source("~/R work/tsbs/R/fit_ms_varma_garch.R")
+```
+
+
+```{r}
+## --- 2. Simulate Multivariate Data ---
+set.seed(456)
+T_obs <- 1500
+k_vars <- 2 # Number of variables
+
+## True transition matrix
+P_true <- matrix(c(0.98, 0.02, 0.03, 0.97), nrow = 2, byrow = TRUE)
+
+## Simulate the state sequence
+states <- numeric(T_obs)
+states[1] <- 1
+for (t in 2:T_obs) {
+  states[t] <- sample(1:2, size = 1, prob = P_true[states[t-1], ])
+}
+
+## --- Define State-Specific Models for Simulation ---
+dummy_mv_y_long <- xts::xts(matrix(rnorm(T_obs * k_vars), ncol = k_vars), order.by = Sys.Date()-(T_obs:1))
+
+## State 1: Low volatility
+garch_spec1a <- tsgarch::garch_modelspec(y = dummy_mv_y_long[,1], garch_order = c(1,1), fixed_pars = list(omega=0.1, alpha1=0.1, beta1=0.8))
+garch_spec1b <- tsgarch::garch_modelspec(y = dummy_mv_y_long[,2], garch_order = c(1,1), fixed_pars = list(omega=0.1, alpha1=0.1, beta1=0.8))
+garch_model1 <- to_multi_estimate(list(estimate(garch_spec1a, keep_tmb = TRUE), estimate(garch_spec1b, keep_tmb = TRUE)))
+dcc_fit1_true <- tsmarch::dcc_modelspec(object = garch_model1, dcc_order = c(1,1), distribution = "mvt", fixed_pars = list(dcc_alpha = 0.05, dcc_beta = 0.9)) |>
+  estimate()
+
+## State 2: High volatility
+garch_spec2a <- tsgarch::garch_modelspec(y = dummy_mv_y_long[,1], garch_order = c(1,1), fixed_pars = list(omega=0.3, alpha1=0.2, beta1=0.6))
+garch_spec2b <- tsgarch::garch_modelspec(y = dummy_mv_y_long[,2], garch_order = c(1,1), fixed_pars = list(omega=0.3, alpha1=0.2, beta1=0.6))
+garch_model2 <- to_multi_estimate(list(estimate(garch_spec2a, keep_tmb = TRUE), estimate(garch_spec2b, keep_tmb = TRUE)))
+dcc_fit2_true <- tsmarch::dcc_modelspec(object = garch_model2, dcc_order = c(1,1), distribution = "mvt", fixed_pars = list(dcc_alpha = 0.2, dcc_beta = 0.75)) |>
+  estimate()
+
+## VAR(1) parameters
+beta1_true <- matrix(c(0.01, 0.4, 0.1, 0.01, 0.1, 0.5), nrow = 3, byrow = FALSE)
+beta2_true <- matrix(c(0.00, 0.1, -0.2, 0.00, -0.1, 0.2), nrow = 3, byrow = FALSE)
+
+
+## --- Simulate the time series manually ---
+y <- matrix(0, nrow = T_obs, ncol = k_vars)
+
+n_state1 <- sum(states == 1)
+n_state2 <- sum(states == 2)
+
+sim1 <- simulate(dcc_fit1_true, nsim = 1, h = n_state1)
+sim2 <- simulate(dcc_fit2_true, nsim = 1, h = n_state2)
+
+innovations <- matrix(0, nrow = T_obs, ncol = k_vars)
+sim1_series_mat <- t(rbind(as.matrix(sim1$garch_sim[[1]]$series), as.matrix(sim1$garch_sim[[2]]$series)))
+sim2_series_mat <- t(rbind(as.matrix(sim2$garch_sim[[1]]$series), as.matrix(sim2$garch_sim[[2]]$series)))
+
+innovations[states == 1, ] <- sim1_series_mat
+innovations[states == 2, ] <- sim2_series_mat
+
+for (t in 2:T_obs) {
+  x_lagged <- c(1, y[t-1, 1], y[t-1, 2])
+  if (states[t] == 1) {
+    y[t, ] <- t(beta1_true) %*% x_lagged + innovations[t, ]
+  } else {
+    y[t, ] <- t(beta2_true) %*% x_lagged + innovations[t, ]
+  }
+}
+
+
+## --- 3. Define Model Specification for Fitting ---
+spec <- list()
+dummy_mv_y_short <- xts::xts(matrix(rnorm(100 * k_vars), ncol = k_vars), order.by = Sys.Date()-(100:1))
+univariate_spec_template <- list(model = "garch", garch_order = c(1,1))
+
+## State 1 spec
+spec[[1]] <- list(
+  var_order = 1,
+  garch_spec_fun = "dcc_modelspec",
+  garch_spec_args = list(
+      garch_model = list(univariate = list(univariate_spec_template, univariate_spec_template)), 
+      dcc_order = c(1,1),
+      distribution = "mvt"
+  ),
+  start_pars = list(
+    var_pars = as.vector(beta1_true * 0.8),
+    garch_pars = list(dcc_alpha = 0.05, dcc_beta = 0.90)
+  )
+)
+
+## State 2 spec
+spec[[2]] <- list(
+  var_order = 1,
+  garch_spec_fun = "dcc_modelspec",
+  garch_spec_args = list(
+      garch_model = list(univariate = list(univariate_spec_template, univariate_spec_template)),
+      dcc_order = c(1,1),
+      distribution = "mvt"
+  ),
+  start_pars = list(
+    var_pars = as.vector(beta2_true * 0.8),
+    garch_pars = list(dcc_alpha = 0.1, dcc_beta = 0.8)
+  )
+)
+
+
+## --- 4. Run the Fitter ---
+message("Starting the MULTIVARIATE MS-VAR-GARCH model fitting...")
+
+control_params <- list(max_iter = 5, tol = 1e-5)
+
+## Call the user-facing R wrapper function
+fit_results <- fit_ms_varma_garch(
+  y = y,
+  M = 2,
+  spec = spec,
+  model_type = "multivariate",
+  control = control_params
+)
+
+message("Fitting complete.")
+
+
+## --- 5. Print Results ---
+print("--- MULTIVARIATE MS-VAR-GARCH Model Fit Results ---")
+print("True Transition Matrix (P):")
+print(P_true)
+print("Estimated Transition Matrix (P):")
+print(fit_results$P)
+
+print("Final Log-Likelihood:")
+print(fit_results$log_likelihood)
+
+print("--- State 1 ---")
+print("True Parameters for State 1 (VAR coeffs are vectorized):")
+print(list(var_pars = as.vector(beta1_true), garch_pars = list(dcc_alpha = 0.05, dcc_beta = 0.9)))
+print("Estimated Parameters for State 1:")
+print(fit_results$model_fits[[1]])
+
+print("--- State 2 ---")
+print("True Parameters for State 2 (VAR coeffs are vectorized):")
+print(list(var_pars = as.vector(beta2_true), garch_pars = list(dcc_alpha = 0.2, dcc_beta = 0.75)))
+print("Estimated Parameters for State 2:")
+print(fit_results$model_fits[[2]])
+
+warning_count <- length(unlist(fit_results$warnings))
+message(paste("\nTotal warnings captured during GARCH estimation:", warning_count))
+
+## Compare smoothed probabilities to true states
+plot(fit_results$smoothed_probabilities[,1], type = 'l', col = 'blue', ylim = c(0,1), ylab = "Probability", main = "Smoothed Probability of State 1")
+lines(states-1, col = 'red', lty = 2)
+legend("topright", legend = c("Smoothed Prob (State 1)", "True State (1)"), col = c("blue", "red"), lty = 1:2)
+
+```
+

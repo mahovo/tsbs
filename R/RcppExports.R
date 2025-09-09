@@ -9,3 +9,25 @@ blockBootstrap_cpp <- function(xSEXP, n_boot_spec, block_length_spec, bs_type, b
     .Call(`_tsbs_blockBootstrap_cpp`, xSEXP, n_boot_spec, block_length_spec, bs_type, block_type, taper_type, tukey_alpha, num_blocks_spec, num_boots, p, stationary_max_percentile, stationary_max_fraction_of_n)
 }
 
+#' Calculate the log-density of a multivariate normal distribution
+NULL
+
+fit_msvar_cpp <- function(y, max_iter = 100L, tol = 1e-6) {
+    .Call(`_tsbs_fit_msvar_cpp`, y, max_iter, tol)
+}
+
+#' @title Fit a general MS-ARMA-GARCH model via the EM Algorithm in C++
+#' @description Internal C++ function to orchestrate the EM estimation.
+#'              Delegates all statistical calculations (likelihood,
+#'              parameter estimation) to helper functions in R to interface
+#'              with TMB-based packages like tsgarch.
+#' @param y A (T x k) matrix of (differenced) time series data.
+#' @param M The number of states.
+#' @param spec A list of model specifications from R.
+#' @param model_type "univariate" or "multivariate".
+#' @param control A list with max_iter and tol.
+#' @return A raw list with estimated parameters and results.
+fit_ms_varma_garch_cpp <- function(y, M, spec, model_type, control) {
+    .Call(`_tsbs_fit_ms_varma_garch_cpp`, y, M, spec, model_type, control)
+}
+

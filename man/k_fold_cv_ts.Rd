@@ -14,29 +14,33 @@ k_fold_cv_ts(
 )
 }
 \arguments{
-\item{x}{Numeric matrix or vector of time series data (rows = time points, columns = variables).}
+\item{x}{Numeric matrix or vector of time series data (rows = time points,
+columns = variables).}
 
-\item{y}{Numeric vector of target values to predict (must match number of rows of \code{x}).}
+\item{y}{Numeric vector of target values to predict (must match number of
+rows of \code{x}).}
 
 \item{k}{Integer number of folds.}
 
 \item{p_grid}{Numeric vector of candidate \code{p} values to evaluate.}
 
-\item{model_func}{A function that accepts training \code{x_train}, \code{y_train} and returns a fitted model object.}
+\item{model_func}{A function that accepts training \code{x_train}, \code{y_train} and
+returns a fitted model object.}
 
-\item{score_func}{A scoring function of the form \verb{function(preds, y_val)} returning a numeric score.}
+\item{score_func}{A scoring function of the form \verb{function(preds, y_val)}
+returning a numeric score.}
 }
 \value{
 Optimal \code{p} value that minimizes the average validation score.
 }
 \description{
-Perform time-series-aware k-fold cross-validation over a grid of candidate \code{p} values,
-using a user-specified model and scoring function.
+Time-series-aware k-fold cross-validation over a grid of candidate \code{p}
+values, using a user-specified model and scoring function.
 }
 \details{
 This function partitions the time series into contiguous validation folds,
-fits the model on the training set for each fold, and evaluates the predictive
-performance on the validation set using \code{score_func}.
+fits the model on the training set for each fold, and evaluates the
+predictive performance on the validation set using \code{score_func}.
 }
 \examples{
 # Generate toy time-series data

@@ -1,4 +1,5 @@
 test_that("tsbs returns list with model and score results", {
+  skip_on_cran()
   x <- rnorm(50)
   result <- tsbs(x)
   expect_true(is.list(result))
@@ -6,6 +7,7 @@ test_that("tsbs returns list with model and score results", {
 })
 
 test_that("tsbs respects user-supplied model_func and score_func", {
+  skip_on_cran()
   x <- rnorm(50)
   result <- tsbs(
     x,
@@ -16,6 +18,7 @@ test_that("tsbs respects user-supplied model_func and score_func", {
 })
 
 test_that("bootstrap returns list with num_boots elements", {
+  skip_on_cran()
   x <- matrix(rnorm(100), ncol = 2)
   out <- tsbs(
     x, num_boots = 2, block_length = 5, func = mean,
@@ -26,6 +29,7 @@ test_that("bootstrap returns list with num_boots elements", {
 })
 
 test_that("bootstrap supports p_method options", {
+  skip_on_cran()
   x <- matrix(rnorm(100), ncol = 2)
   expect_silent(
     tsbs(x, num_boots = 3, p_method = "percentile")
@@ -37,6 +41,7 @@ test_that("bootstrap supports p_method options", {
 })
 
 test_that("bootstrap stops on non-matrix x", {
+  skip_on_cran()
   x <- data.frame(matrix(rnorm(100), ncol = 2))
   expect_error(
     tsbs(x, num_boots = 2), "Not a matrix"

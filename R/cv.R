@@ -1,12 +1,16 @@
 #' K-Fold Cross-Validation for Time Series
 #'
-#' Perform time-series-aware k-fold cross-validation over a grid of candidate `p` values,
-#' using a user-specified model and scoring function.
+#' Time-series-aware k-fold cross-validation over a grid of candidate `p` 
+#'   values, using a user-specified model and scoring function.
 #'
-#' @param x Numeric matrix or vector of time series data (rows = time points, columns = variables).
-#' @param y Numeric vector of target values to predict (must match number of rows of `x`).
-#' @param model_func A function that accepts training `x_train`, `y_train` and returns a fitted model object.
-#' @param score_func A scoring function of the form `function(preds, y_val)` returning a numeric score.
+#' @param x Numeric matrix or vector of time series data (rows = time points, 
+#'   columns = variables).
+#' @param y Numeric vector of target values to predict (must match number of 
+#'   rows of `x`).
+#' @param model_func A function that accepts training `x_train`, `y_train` and 
+#'   returns a fitted model object.
+#' @param score_func A scoring function of the form `function(preds, y_val)` 
+#'   returning a numeric score.
 #' @param k Integer number of folds.
 #' @param p_grid Numeric vector of candidate `p` values to evaluate.
 #'
@@ -14,8 +18,8 @@
 #'
 #' @details
 #' This function partitions the time series into contiguous validation folds,
-#' fits the model on the training set for each fold, and evaluates the predictive
-#' performance on the validation set using `score_func`.
+#'   fits the model on the training set for each fold, and evaluates the 
+#'   predictive performance on the validation set using `score_func`.
 #'
 #' @examples
 #' # Generate toy time-series data
