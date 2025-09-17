@@ -3,7 +3,11 @@
 
 const double log2pi = std::log(2.0 * M_PI);
 
-//' Calculate the log-density of a multivariate normal distribution
+ //' Calculate the log-density of a multivariate normal distribution
+ //' @param x vector
+ //' @param mean vector 
+ //' @param sigma matrix
+ //' @return Log-density value
  //' @keywords internal
  double dmvnorm_arma_log(const arma::vec& x, const arma::vec& mean, const arma::mat& sigma) {
    int k = x.n_elem;

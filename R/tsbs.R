@@ -1,17 +1,20 @@
-#' Flexible Block Bootstrap for Time Series
+#' Advanced Bootstrap for Time Series
 #'
-#' Generates block bootstrap replicates of a numeric time series or multivariate 
-#' time series. Supports moving, stationary, HMM, MSAR, MS VARMA GARCH and wild 
-#' bootstrap types.
+#' Generates bootstrap replicates of multivariate or (multiple) univariate time
+#' series. Supports moving and stationary block, HMM, MSVAR, MS VARMA GARCH and 
+#' wild bootstrap types.
 #'
 #' @param x Numeric vector, matrix, or data frame of time series observations 
 #'   (rows = time points, cols = variables).
 #' @param n_boot Integer, optional desired length of each bootstrap replicate.
+#'   See details below.
 #' @param block_length Integer length of each block; if `NULL`, an automatic 
 #'   heuristic is used. For stationary bootstrap, `block_length` is the expected
 #'   block length, when `p_method="1/n"`.
 #' @param bs_type Bootstrap type. Character string: One of `"moving"`, 
-#'   `"stationary"`, `"hmm"`, `"msar"`, `"ms_varma_garch"`, or `"wild"`. See details below.
+#'   `"stationary"`, `"hmm"`, `"msvar"`, `"ms_varma_garch"`, or `"wild"`. 
+#'   `"msvar"` is a lightweight special case of `"ms_varma_garch"`. See details 
+#'   below.
 #' @param block_type Block type. Character string: One of `"non-overlapping"`, 
 #'   `"overlapping"`, or `"tapered"`. Only affects `bs_type="moving"` and 
 #'   `bs_type="stationary"`. `block_type="tapered"` will smooth out transitions
@@ -28,7 +31,7 @@
 #'   parameter: `"1/n"`, `"plugin"`, or `"cross validation"`.
 #' @param p Optional numeric value for stationary bootstrap `p`.
 #' @param overlap Logical indicating if overlapping blocks are allowed.
-#' @param num_states Integer number of states for HMM, MSAR, or 
+#' @param num_states Integer number of states for HMM, MSVAR, or 
 #'        MS-VARMA-GARCH models.
 #' @param d Integer differencing order for the MS-VARMA-GARCH model.
 #' @param spec A list defining the state-specific models for the MS-VARMA-GARCH
@@ -98,21 +101,26 @@
 #' @param stationary_max_percentile Stationary max percentile.
 #' @param stationary_max_fraction_of_n Stationary max fraction of n.
 #' 
-#' @datails
+#' @details
 #' `bs_type="moving"`: If `n_boot` is set, the last block will be truncated
 #'   when necessary to match the length (`n_boot`) of the bootstrap series. If 
 #'   `n_boot` is not set, `block_length` and `num_blocks` must be set, and  
-#'   `n_boot` will automatically be set to `block_length * num_blocks`.
-#' `bs_type="stationary"`, `bs_type="hmm"`, `bs_type="msar"`: If 
+#'   `n_boot` will automatically be set to `block_length * num_blocks`.  
+#' `bs_type="stationary"`, `bs_type="hmm"`, `bs_type="msvar"`: If 
 #'   `n_boot` is set, the last block will be truncated when necessary to match 
 #'   the length (`n_boot`) of the bootstrap series. This is the only way to 
 #'   ensure equal length of all bootstrap series, as the length of each block is 
 #'   random. If `n_boot` is not set, `num_blocks` must be set, and the length of 
 #'   each bootstrap series will be determined by the number of blocks and the 
 #'   random lengths of the individual blocks for that particular series. Note 
-#'   that this typically results in bootstrap series of different lengths.
-#' : 
-#' `bs_type="wild"`: 
+#'   that this typically results in bootstrap series of different lengths. For 
+#'   stationary bootstrap, `block_length` is the expected block length, when 
+#'   `p_method="1/n"`.  
+#' `bs_type="wild"`: `n_boot`, `block_length` and `num_blocks` are ignored. The
+#'   length of the bootstrap series is always the same as the original series.  
+#' See documentation for the individual bootstrap functions: [hmm_bootstrap()], 
+#'   [msvar_bootstrap()], [ms_varma_garch_bs()] and [wild_bootstrap()]. For
+#'   moving or stationary block bootstraps, see [blockBootstrap()].  
 #'   
 #'
 #' @return A list containing:
@@ -145,10 +153,11 @@ tsbs <- function(
     x,
     n_boot = NULL,
     block_length = NULL,
-    bs_type = c("moving", "stationary", "hmm", "msar", "ms_varma_garch", "wild"),
+    bs_type = c("moving", "stationary", "hmm", "msvar", "ms_varma_garch", "wild"),
     block_type = c("overlapping", "non-overlapping", "tapered"),
     taper_type = c("cosine", "bartlett", "tukey"),
-    tukey_alpha = 0.5, ## Only applies to block_type=tapered with taper_type=tukey
+    tukey_alpha = 0.5, ## Only applies to block_type="tapered" with 
+                       ## taper_type="tukey"
     num_blocks = NULL,
     num_boots = 100L,
     func = mean,
@@ -169,12 +178,13 @@ tsbs <- function(
   ## ---- Validation ----
   ## match.arg() picks the first element in the vector as default
   bs_type <- match.arg(bs_type)
-  apply_func_to <- match.arg(apply_func_to)
-  p_method <- match.arg(p_method)
   block_type <- match.arg(block_type)
   taper_type <- match.arg(taper_type)
+  apply_func_to <- match.arg(apply_func_to)
+  p_method <- match.arg(p_method)
+  model_type <- match.arg(model_type)
   
-  if(.invalid_length(x))
+  if(.is_invalid_data(x))
     stop("No valid x value provided.")
   if (is.vector(x) || is.data.frame(x) || is.ts(x)) x <- as.matrix(x)
   
@@ -184,45 +194,45 @@ tsbs <- function(
     stop("`func` must be a valid function.")
   
   ## Note: If NULL, value is calculated automatically below
-  if (.invalid_length(n_boot))
+  if (.is_invalid_count(n_boot))
     stop("`n_boot` must be a positive integer or NULL.")
-  if (.invalid_length(block_length))
+  if (.is_invalid_count(block_length))
     stop("`block_length` must be a positive integer or NULL.")
-  if (.invalid_length(num_blocks))
+  if (.is_invalid_count(num_blocks))
     stop("`num_blocks` must be a positive integer or NULL.")
   
   ## Need to provide either n_boot or num_blocks.
   ## If missing, block_length will be calculated automatically.
   ## n_boot = block_length * num_blocks.
-  if(.invalid_length(n_boot) && .invalid_length(num_blocks)) {
+  if(.is_invalid_count(n_boot) && .is_invalid_count(num_blocks)) {
     stop("Must provide either n_boot or num_blocks.")
   } 
-  if(.invalid_length(n_boot)) {
+  if(.is_invalid_count(n_boot)) {
     if (is.null(block_length)) {block_length <- compute_default_block_length(x)}
     n_boot <- num_blocks * block_length
   }
-  if(.invalid_length(num_blocks)) {
+  if(.is_invalid_count(num_blocks)) {
     if (is.null(block_length)) {block_length <- compute_default_block_length(x)}
     num_blocks <- n_boot / block_length
   }
   
   
   ## Fails if NULL. Value is not calculated automatically.
-  if(.invalid_length(num_states, allow_null = FALSE))
+  if(.is_invalid_count(num_states, allow_null = FALSE))
     stop("`num_states` must be a positive integer.")
-  if(.invalid_length(num_boots, allow_null = FALSE))
+  if(.is_invalid_count(num_boots, allow_null = FALSE))
     stop("`num_boots` must be a positive integer.")
   
   ## Validate p
-  if(.invalid_percentage(p, allow_null = TRUE) ) {
+  if(.is_invalid_fraction(p, allow_null = TRUE) ) {
     stop("`p` must be a single number in (0,1) or NULL.")
   }
   
   ## Validate max block length for stationary bootstrap
-  # if(.invalid_percentage(stationary_max_percentile, allow_null = FALSE) ) {
+  # if(.is_invalid_fraction(stationary_max_percentile, allow_null = FALSE) ) {
   #   stop("`stationary_max_percentile` must be a single number in (0,1) or NULL.")
   # }
-  # if(.invalid_percentage(stationary_max_fraction_of_n, allow_null = FALSE) ) {
+  # if(.is_invalid_fraction(stationary_max_fraction_of_n, allow_null = FALSE) ) {
   #   stop("`stationary_max_fraction_of_n` must be a single number in (0,1) or NULL.")
   # }
   
@@ -265,7 +275,7 @@ tsbs <- function(
       parallel = parallel, 
       num_cores = num_cores
     ),
-    msar = msvar_bootstrap(
+    msvar = msvar_bootstrap(
       x, 
       n_boot = n_boot,
       num_blocks = num_blocks, 
@@ -314,367 +324,218 @@ tsbs <- function(
 }
 
 
-
-#' Flexible Block Bootstrap for Time Series
+#' Check if expression or variable exists and is evaluable
 #'
-#' Generates block bootstrap replicates of a numeric time series or multivariate 
-#' time series. Supports moving, stationary, HMM, MSAR, MS VARMA GARCH and wild 
-#' bootstrap types.
+#' Helper function that distinguishes between:
+#' 1. Expressions that evaluate successfully (e.g., numeric(0), 1+1)
+#' 2. Undefined variables (e.g., nonexistent_var)
+#' 3. Expressions that fail to evaluate for other reasons
 #'
-#' @param x Numeric vector, matrix, or data frame of time series observations 
-#'   (rows = time points, cols = variables).
-#' @param n_boot Integer, optional desired length of each bootstrap replicate.
-#' @param block_length Integer length of each block; if `NULL`, an automatic 
-#'   heuristic is used. For stationary bootstrap, `block_length` is the expected
-#'   block length, when `p_method="1/n"`.
-#' @param bs_type Bootstrap type. Character string: One of `"moving"`, 
-#'   `"stationary"`, `"hmm"`, `"msar"`, `"ms_varma_garch"`, or `"wild"`. See details below.
-#' @param block_type Block type. Character string: One of `"non-overlapping"`, 
-#'   `"overlapping"`, or `"tapered"`. Only affects `bs_type="moving"` and 
-#'   `bs_type="stationary"`. `block_type="tapered"` will smooth out transitions
-#'   between blocks. It follows that `block_type="tapered"` can not be used when
-#'   `block_length=1`.
-#' @param taper_type Tapering window function. Character. One of `"cosine"`, 
-#'   `"bartlett"`, or `"tukey"`.
-#' @param num_blocks Integer number of blocks per bootstrap replicate.
-#' @param num_boots Integer number of bootstrap replicates.
-#' @param func A summary function to apply to each bootstrap replicate or column.
-#' @param apply_func_to Character string: `"cols"` to apply columnwise or `"df"` 
-#'   to apply on the full data frame.
-#' @param p_method Character string to choose method for stationary bootstrap 
-#'   parameter: `"1/n"`, `"plugin"`, or `"cross validation"`.
-#' @param p Optional numeric value for stationary bootstrap `p`.
-#' @param overlap Logical indicating if overlapping blocks are allowed.
-#' @param num_states Integer number of states for HMM, MSAR, or 
-#'        MS-VARMA-GARCH models.
-#' @param d Integer differencing order for the MS-VARMA-GARCH model.
-#' @param spec A list of model specifications for the MS-VARMA-GARCH model.
-#' @param model_type Character string for MS-VARMA-GARCH: `"univariate"` or `"multivariate"`.
-#' @param control A list of control parameters for the MS-VARMA-GARCH EM algorithm.
-#' @param parallel Parallelize computation? `TRUE` or `FALSE`.
-#' @param num_cores Number of cores.
-#' @param model_func Model-fitting function for cross-validation.
-#' @param score_func Scoring function for cross-validation.
-#' @param stationary_max_percentile Stationary max percentile.
-#' @param stationary_max_fraction_of_n Stationary max fraction of n.
-#' 
-#' @datails
-#' `bs_type="moving"`: If `n_boot` is set, the last block will be truncated
-#'   when necessary to match the length (`n_boot`) of the bootstrap series. If 
-#'   `n_boot` is not set, `block_length` and `num_blocks` must be set, and  
-#'   `n_boot` will automatically be set to `block_length * num_blocks`.
-#' `bs_type="stationary"`, `bs_type="hmm"`, `bs_type="msar"`: If 
-#'   `n_boot` is set, the last block will be truncated when necessary to match 
-#'   the length (`n_boot`) of the bootstrap series. This is the only way to 
-#'   ensure equal length of all bootstrap series, as the length of each block is 
-#'   random. If `n_boot` is not set, `num_blocks` must be set, and the length of 
-#'   each bootstrap series will be determined by the number of blocks and the 
-#'   random lengths of the individual blocks for that particular series. Note 
-#'   that this typically results in bootstrap series of different lengths.
-#' : 
-#' `bs_type="wild"`: 
-#'   
+#' @param x The expression/variable to check (as substitute() result)
+#' @param parent_env The parent environment to check for variable existence
 #'
-#' @return A list containing:
-#' \describe{
-#'   \item{bootstrap_series}{List of bootstrap replicate matrices.}
-#'   \item{func_outs}{List of computed function outputs for each replicate.}
-#'   \item{func_out_means}{Mean of the computed outputs across replicates.}
-#' }
-#' @examples
-#' set.seed(123)
-#' x <- arima.sim(n = 100, list(ar = 0.8))
-#' result <- tsbs(
-#'   x = x,
-#'   block_length = 10,
-#'   bs_type = "stationary",
-#'   num_blocks = 5,
-#'   num_boots = 10,
-#'   func = mean,
-#'   apply_func_to = "cols"
-#' )
-#' print(result$func_out_means)
-#'
-#' @importFrom stats acf ar
-#' @importFrom Rcpp sourceCpp
-#' 
-#' @useDynLib tsbs, .registration = TRUE
-#' @export
-tsbs_old <- function(
-    x,
-    n_boot = NULL,
-    block_length = NULL,
-    bs_type = c("moving", "stationary", "hmm", "msar", "wild"),
-    block_type = c("overlapping", "non-overlapping", "tapered"),
-    taper_type = c("cosine", "bartlett", "tukey"),
-    tukey_alpha = 0.5, ## Only applies to block_type=tapered with taper_type=tukey
-    num_blocks = NULL,
-    num_boots = 100L,
-    func = mean,
-    apply_func_to = c("cols", "df"),
-    p_method = c("1/n", "plugin", "cross validation"),
-    p = NULL,
-    overlap = TRUE,
-    ar_order = 1,
-    num_states = 2L,
-    model_func = default_model_func,
-    score_func = mse,
-    stationary_max_percentile = 0.99,
-    stationary_max_fraction_of_n = 0.10,
-    parallel = FALSE,
-    num_cores = 1L
-) {
+#' @returns TRUE if the expression/variable is invalid/non-existent, FALSE otherwise
+.check_expression_validity <- function(expr_sub, parent_env = parent.frame()) {
   
-  ## ---- Validation ----
-  ## match.arg() picks the first element in the vector as default
-  bs_type <- match.arg(bs_type)
-  apply_func_to <- match.arg(apply_func_to)
-  p_method <- match.arg(p_method)
-  block_type <- match.arg(block_type)
-  taper_type <- match.arg(taper_type)
-  
-  if(.invalid_length(x))
-    stop("No valid x value provided.")
-  if (is.vector(x) || is.data.frame(x) || is.ts(x)) x <- as.matrix(x)
-  
-  n <- nrow(x)
-  
-  if (!is.function(func))
-    stop("`func` must be a valid function.")
-  
-  ## Note: If NULL, value is calculated automatically below
-  if (.invalid_length(n_boot))
-    stop("`n_boot` must be a positive integer or NULL.")
-  if (.invalid_length(block_length))
-    stop("`block_length` must be a positive integer or NULL.")
-  if (.invalid_length(num_blocks))
-    stop("`num_blocks` must be a positive integer or NULL.")
-  
-  ## Need to provide either n_boot or num_blocks.
-  ## If missing, block_length will be calculated automatically.
-  ## n_boot = block_length * num_blocks.
-  if(.invalid_length(n_boot) && .invalid_length(num_blocks)) {
-    stop("Must provide either n_boot or num_blocks.")
-  } 
-  if(.invalid_length(n_boot)) {
-    if (is.null(block_length)) {block_length <- compute_default_block_length(x)}
-    n_boot <- num_blocks * block_length
-  }
-  if(.invalid_length(num_blocks)) {
-    if (is.null(block_length)) {block_length <- compute_default_block_length(x)}
-    num_blocks <- n_boot / block_length
-  }
-  
-  
-  ## Fails if NULL. Value is not calculated automatically.
-  if(.invalid_length(ar_order, allow_null = FALSE))
-    stop("`ar_order` must be a positive integer.")
-  if(.invalid_length(num_states, allow_null = FALSE))
-    stop("`num_states` must be a positive integer.")
-  if(.invalid_length(num_boots, allow_null = FALSE))
-    stop("`num_boots` must be a positive integer.")
-  
-  ## Validate p
-  if(.invalid_percentage(p, allow_null = TRUE) ) {
-    stop("`p` must be a single number in (0,1) or NULL.")
-  }
-  
-  ## Validate max block length for stationary bootstrap
-  if(.invalid_percentage(stationary_max_percentile, allow_null = FALSE) ) {
-    stop("`stationary_max_percentile` must be a single number in (0,1) or NULL.")
-  }
-  if(.invalid_percentage(stationary_max_fraction_of_n, allow_null = FALSE) ) {
-    stop("`stationary_max_fraction_of_n` must be a single number in (0,1) or NULL.")
-  }
-  
-  ## ---- Parallel Backend Setup ----
-  
-  # if (parallel) {
-  #   # Check for Suggested Packages
-  #   if (!requireNamespace("foreach", quietly = TRUE) || !requireNamespace("doParallel", quietly = TRUE)) {
-  #     stop(
-  #       "To use parallel = TRUE, please install the 'foreach' and 'doParallel' packages.",
-  #       call. = FALSE
-  #     )
-  #   }
-  #   
-  #   if (is.null(num_cores)) {
-  #     stop(
-  #       paste0("To run in parallel, you must specify 'num_cores'.
-  #      The number of cores on your machine is ", as.character(parallel::detectCores()), "."), 
-  #       call. = FALSE
-  #     )
-  #   }
-  #   
-  #   if (num_cores > 1) {
-  #     cl <- parallel::makeCluster(num_cores)
-  #     doParallel::registerDoParallel(cl)
-  #     
-  #     on.exit(parallel::stopCluster(cl), add = TRUE)
-  #   } else {
-  #     ## Prevent a warning message from being issued if the ⁠%dopar%⁠ function i
-  #     ## s called and no parallel backend has been registered.
-  #     foreach::registerDoSEQ()
-  #   }
-  #   
-  # } else {
-  #   foreach::registerDoSEQ()
-  # }
-  
-  
-  ## The `%dopar%` operator from foreach is special and needs to be imported
-  ## or defined. Define it locally if the package is found.
-  # `%dopar%` <- if (parallel && num_cores > 1) foreach::`%dopar%` else foreach::`%do%`
-  
-  ## ---- Bootstrap ----
-  
-  .blockBootstrap <- function() {
-    blockBootstrap(
-      x, 
-      n_boot, 
-      block_length, 
-      bs_type,
-      block_type,
-      taper_type,
-      tukey_alpha,
-      num_blocks, 
-      num_boots, 
-      p, 
-      stationary_max_percentile,
-      stationary_max_fraction_of_n
-    )
-  }
-  
-  bootstrap_series <- switch(
-    bs_type,
-    moving = {
-      .blockBootstrap()
-      #blockBootstrap(x, n_boot, block_length, num_blocks, num_boots, "moving", p, overlap)
-    },
-    stationary = {
-      if(is.null(p)) {p <- .estimate_p(x, p_method, block_length, model_func, score_func)}
-      .blockBootstrap()
-      #blockBootstrap(x, n_boot, block_length, num_blocks, num_boots, "stationary", p, overlap)
-    },
-    # hmm = lapply(hmm_bootstrap(x[,1], num_states = num_states, num_blocks = num_blocks, num_boots = num_boots),
-    #              function(s) matrix(s, ncol = 1)),
-    hmm = hmm_bootstrap(
-      x, 
-      num_states = num_states, 
-      num_blocks = num_blocks, 
-      num_boots = num_boots, 
-      parallel = parallel, 
-      num_cores = num_cores
-    ),
-    # hmm = {
-    #   foreach::foreach(
-    #     i = 1:num_boots,
-    #     .packages = "depmixS4" # <-- Tell workers to load this package
-    #   ) %dopar% {
-    #     matrix(hmm_bootstrap(x[,1], num_states = num_states, num_blocks = num_blocks, num_boots = 1)[[1]], ncol = 1)
-    #   }
-    # },
-    # msar = lapply(msar_bootstrap(x[,1], ar_order = ar_order, num_states = num_states,
-    #                              num_blocks = num_blocks, num_boots = num_boots),
-    #               function(s) matrix(s, ncol = 1)),
-    msar = msvar_bootstrap(
-      x, 
-      #ar_order = ar_order, ## Currently not implemented
-      #num_states = num_states, ## Currently not implemented
-      num_blocks = num_blocks, 
-      num_boots = num_boots, 
-      parallel = parallel, 
-      num_cores = num_cores
-    ),
+  ## First, try to evaluate the expression in the parent environment
+  tryCatch({
+    ## Try to evaluate the substituted expression
+    eval(expr_sub, envir = parent_env)
+    return(FALSE)  ## Expression evaluated successfully
+  }, error = function(e) {
+    ## Evaluation failed - check if it's a simple undefined variable
+    var_name <- deparse(expr_sub)
     
-    # msar = {
-    #   foreach::foreach(
-    #     i = 1:num_boots,
-    #     .packages = c("MSwM", "dplyr") # <-- Load all needed packages
-    #   ) %dopar% {
-    #     matrix(msar_bootstrap(x[,1], ar_order = ar_order, num_states = num_states, num_blocks = num_blocks, num_boots = 1)[[1]], ncol = 1)
-    #   }
-    # },
-    # wild = wild_bootstrap(x, num_boots),
-    wild = wild_bootstrap(x, num_boots, parallel = parallel, num_cores = num_cores),
-    stop("Unsupported bootstrap type.")
-  )
-  
-  
-  func_outs <- lapply(bootstrap_series, function(sampled) {
-    if (apply_func_to == "df") {
-      func(as.data.frame(sampled))
+    ## Check if this looks like a simple variable name (not a complex expression)
+    is_simple_name <- grepl("^[a-zA-Z][a-zA-Z0-9_.]*$", var_name)
+    
+    if (is_simple_name && !exists(var_name, where = parent_env)) {
+      return(TRUE)  ## Simple variable name that doesn't exist
     } else {
-      apply(sampled, 2, func)
+      ## Either it's a complex expression that failed, or a variable that exists 
+      ## but evaluation failed for other reasons. Re-throw the original error.
+      stop(e)
     }
   })
-  
-  # ## ---- Parallel Application of `func` ----
-  # func_outs <- foreach::foreach(sampled = bootstrap_series) %dopar% {
-  #   if (apply_func_to == "df") {
-  #     func(as.data.frame(sampled))
-  #   } else {
-  #     apply(sampled, 2, func)
-  #   }
-  # }
-  
-  
-  
-  # The cluster is automatically stopped here by on.exit() when the function returns.
-  
-  func_out_means <- Reduce(`+`, func_outs) / length(func_outs)
-  
-  list(
-    bootstrap_series = bootstrap_series,
-    func_outs = func_outs,
-    func_out_means = func_out_means
-  )
 }
 
-
-
-#' Invalid Length
+#' Invalid input data
 #'
+#' Returns TRUE if input data is not valid, FALSE otherwise.
+#' 
 #' @param x x, vector, matrix or data.frame
 #' @param allow_null NULL value may be allowed when functions calculates value
 #'   of x automatically.
-#' 
-#' @details
-#' As long as exists() is before the first "or", this will return TRUE,
-#' when x doesn't exist.
+#' @param fail_mode How to handle validation errors: "predictably" (fail fast) 
+#'   or "gracefully" (return FALSE on error)
 #'
-#' @returns
+#' @returns boolean
 #' @export
-#'
-#' @examples
-.invalid_length <- function(x, allow_null = TRUE) {
-  ## deparse(substitute(x)) converts variable name to string.
+.is_invalid_data <- function(x, allow_null = TRUE, fail_mode = c("predictably", "gracefully")) {
   
-  !exists(deparse(substitute(x)), where = parent.frame()) || 
-    if(allow_null) {
-      !is.null(x) && (!is.numeric(x) || length(x) < 1) 
+  fail_mode <- match.arg(fail_mode)
+  
+  ## Check if expression/variable is valid and evaluable
+  if (.check_expression_validity(substitute(x), parent.frame())) {
+    return(TRUE)
+  }
+  
+  ## Handle NULL values based on allow_null parameter
+  if (is.null(x)) {
+    return(!allow_null)
+  }
+  
+  ## Helper function to handle errors based on fail_mode
+  safe_check <- function(expr) {
+    if (fail_mode == "predictably") {
+      ## Let errors bubble up
+      expr
     } else {
-      !is.numeric(x) || length(x) < 1
-    } || 
-    any(is.na(x)) || 
-    any(!is.finite(x))
+      ## Handle errors gracefully
+      tryCatch(expr, error = function(e) FALSE)
+    }
+  }
+  
+  ## Check if x is numeric (for vectors, matrices, or data frames)
+  if (is.vector(x) || is.matrix(x)) {
+    if (!is.numeric(x)) return(TRUE)
+  } else if (is.data.frame(x)) {
+    ## Check if all columns are numeric and data frame is not empty
+    if (!all(sapply(x, is.numeric)) || nrow(x) < 1 || ncol(x) < 1) {
+      return(TRUE)
+    }
+    
+    ## Check for NA values in data frame
+    if (safe_check(any(is.na(x)))) return(TRUE)
+    
+    ## Check for non-finite values in data frame
+    if (safe_check(any(!sapply(x, function(col) all(is.finite(col)))))) return(TRUE)
+  } else {
+    ## For other object types, consider them invalid
+    return(TRUE)
+  }
+  
+  ## Handle remaining checks based on object type
+  if (is.data.frame(x)) {
+    ## Data frame specific checks (already handled NA and finite above)
+    if (safe_check(any(sapply(x, is.null)))) return(TRUE)
+  } else {
+    ## Vector and matrix checks - ultra-consolidated
+    if (safe_check({
+      any(is.null(x)) || any(is.na(x)) || (is.numeric(x) && any(!is.finite(x)))
+    })) return(TRUE)
+  }
+  
+  ## If we reach here, all checks passed
+  return(FALSE)
 }
 
-
-#' Invalid percentage
+#' Invalid input count
 #'
+#' Returns TRUE if input count is not valid, FALSE otherwise.
+#' 
+#' @param n Count value to validate
+#' @param allow_null NULL value may be allowed when functions calculates value
+#'   of n automatically.
+#' @param fail_mode How to handle validation errors: "predictably" (fail fast) 
+#'   or "gracefully" (return FALSE on error)
+#'
+#' @returns boolean
+#' @export
+.is_invalid_count <- function(n, allow_null = TRUE, fail_mode = c("predictably", "gracefully")) {
+  
+  fail_mode <- match.arg(fail_mode)
+  
+  ## Check if expression/variable is valid and evaluable
+  if (.check_expression_validity(substitute(n), parent.frame())) {
+    return(TRUE)
+  }
+  
+  ## Handle NULL values based on allow_null parameter
+  if (is.null(n)) {
+    return(!allow_null)
+  }
+  
+  ## Helper function to handle errors based on fail_mode
+  safe_check <- function(expr) {
+    if (fail_mode == "predictably") {
+      expr
+    } else {
+      tryCatch(expr, error = function(e) FALSE)
+    }
+  }
+  
+  ## Check if n is numeric and has length 1
+  if (!is.numeric(n) || length(n) != 1) {
+    return(TRUE)
+  }
+  
+  ## NA, non-finite, non-integer, non-positive
+  if (safe_check({
+    is.na(n) || !is.finite(n) || n <= 0 || 
+      ## Use trunc(n) rather than as.integer(n) which may return NA due to
+      ## integer overflow.
+      ## trunc(n) never fails - it just truncates to the integer part.
+      ## .Machine$integer.max is the largest representable integer 
+      ## (usually 2,147,483,647)
+      n != trunc(n) || n > .Machine$integer.max
+  })) {
+    return(TRUE)
+  }
+  
+  ## If we reach here, all checks passed
+  return(FALSE)
+}
+
+#' Invalid percentage in decimal fraction form
+#'
+#' Returns TRUE if input percentage is not a valid decimal fraction, FALSE 
+#' otherwise.
+#' 
 #' @param p Percentage (decimal fraction) to validate
 #' @param allow_null Allow null?
+#' @param fail_mode How to handle validation errors: "predictably" (fail fast) 
+#'   or "gracefully" (return FALSE on error)
 #'
-#' @returns
+#' @returns boolean
 #' @export
-#'
-#' @examples
-.invalid_percentage <- function(p, allow_null = TRUE) {
+.is_invalid_fraction <- function(p, allow_null = TRUE, fail_mode = c("predictably", "gracefully")) {
   
-  .invalid_length(p, allow_null = allow_null) ||
-    length(p) > 1 || 
-    !is.null(p) && (p <= 0 || p >= 1)
+  fail_mode <- match.arg(fail_mode)
+  
+  ## Check if expression/variable is valid and evaluable
+  if (.check_expression_validity(substitute(p), parent.frame())) {
+    return(TRUE)
+  }
+  
+  ## Handle NULL values based on allow_null parameter
+  if (is.null(p)) {
+    return(!allow_null)
+  }
+  
+  ## Helper function to handle errors based on fail_mode
+  safe_check <- function(expr) {
+    if (fail_mode == "predictably") {
+      expr
+    } else {
+      tryCatch(expr, error = function(e) FALSE)
+    }
+  }
+  
+  ## Check if p is numeric and has length 1
+  if (!is.numeric(p) || length(p) != 1) {
+    return(TRUE)
+  }
+  
+  ## Ultra-consolidated checks: NA, non-finite, out of valid range (0,1)
+  if (safe_check({
+    is.na(p) || !is.finite(p) || p <= 0 || p >= 1
+  })) {
+    return(TRUE)
+  }
+  
+  ## If we reach here, all checks passed
+  return(FALSE)
 }
 
 
@@ -687,8 +548,6 @@ tsbs_old <- function(
 #' @param score_func Score function for k fold cross validation
 #'
 #' @returns p
-#'
-#' @examples
 .estimate_p <- function(x, p_method, block_length, model_func, score_func) {
   if (p_method == "1/n") {
     p <- 1 / if (is.null(block_length)) compute_default_block_length(x) else block_length

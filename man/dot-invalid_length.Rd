@@ -12,10 +12,13 @@
 \item{allow_null}{NULL value may be allowed when functions calculates value
 of x automatically.}
 }
+\value{
+boolean
+}
 \description{
 Invalid Length
 }
 \details{
-As long as exists() is before the first "or", this will return TRUE,
+As long as \code{exists()} is before the first "or", this will return TRUE,
 when x doesn't exist.
 }

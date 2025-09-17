@@ -11,6 +11,9 @@
 
 \item{allow_null}{Allow null?}
 }
+\value{
+boolean
+}
 \description{
 Invalid percentage
 }

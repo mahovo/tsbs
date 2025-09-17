@@ -64,7 +64,7 @@ Rcpp::List fit_ms_varma_garch_cpp(
     auto start = std::chrono::high_resolution_clock::now();
     Rcpp::checkUserInterrupt();
     
-    // --- E-STEP (Unchanged) ---
+    // --- E-STEP ---
     arma::mat cond_logliks(T, M, arma::fill::zeros);
     for (int j = 0; j < M; ++j) {
       arma::vec ll_vec = Rcpp::as<arma::vec>(calculate_loglik_vector_r(y, model_fits[j], spec[j], model_type));
@@ -72,7 +72,7 @@ Rcpp::List fit_ms_varma_garch_cpp(
     }
     arma::mat cond_dens = arma::exp(cond_logliks);
     
-    // Hamilton Filter & Kim Smoother (Unchanged)
+    // Hamilton Filter & Kim Smoother
     arma::mat filt_probs(T, M);
     arma::mat pred_probs(T, M);
     arma::vec lik_contrib(T);
@@ -95,7 +95,7 @@ Rcpp::List fit_ms_varma_garch_cpp(
     }
     
     // --- M-STEP ---
-    // Update transition matrix P (Unchanged)
+    // Update transition matrix P
     arma::mat trans_mat(M, M, arma::fill::zeros);
     for (int t = 0; t < T - 1; ++t) {
       arma::mat num = P % (filt_probs.row(t).t() * (smooth_probs.row(t + 1) / pred_probs.row(t + 1)));
@@ -106,7 +106,7 @@ Rcpp::List fit_ms_varma_garch_cpp(
     // --- Call the single parallel R function for the M-step ---
     model_fits = Rcpp::as<Rcpp::List>(perform_m_step_parallel_r(y, smooth_probs, spec, model_type));
     
-    // --- 3. CHECK CONVERGENCE & PROVIDE FEEDBACK (Unchanged) ---
+    // --- 3. CHECK CONVERGENCE & PROVIDE FEEDBACK ---
     double log_lik_new = arma::sum(arma::log(lik_contrib));
     auto end = std::chrono::high_resolution_clock::now();
     std::chrono::duration<double> elapsed = end - start;
@@ -129,7 +129,7 @@ Rcpp::List fit_ms_varma_garch_cpp(
     log_lik_old = log_lik_new;
   }
   
-  // --- 4. RETURN RESULTS (Unchanged) ---
+  // --- 4. RETURN RESULTS ---
   return Rcpp::List::create(
     Rcpp::Named("model_fits") = model_fits,
     Rcpp::Named("P") = P,

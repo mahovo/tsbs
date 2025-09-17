@@ -106,13 +106,40 @@ Rcpp::List blockBootstrap_cpp(
   //
   // then that allows us to accept the NULL input, compute a valid value if NULL, 
   // and specify integer type at that point for further processing.
-  int block_length = Rf_isNull(block_length_spec)
-    ? compute_default_block_length(x)
-      : Rcpp::as<int>(block_length_spec);
+  // int block_length = Rf_isNull(block_length_spec)
+  //   ? compute_default_block_length(x)
+  //     : Rcpp::as<int>(block_length_spec);
+  // 
+  // if (TYPEOF(block_length) != INTSXP) {
+  //   stop("block_length must be a positive integer");
+  // }
+  
+  
+  int block_length;
+  if (Rf_isNull(block_length_spec)) {
+    block_length = compute_default_block_length(x);
+  } else {
+    // Check the SEXP type before conversion
+    if (TYPEOF(block_length_spec) != INTSXP && TYPEOF(block_length_spec) != REALSXP) {
+      stop("block_length_spec must be a positive integer");
+    }
+    
+    block_length = Rcpp::as<int>(block_length_spec);
+    
+    // Now check the converted value
+    if (block_length <= 0) {
+      stop("block_length_spec must be a positive integer");
+    }
+  }
+  
+  if (block_length < 1) {
+    Rcpp::stop("block_length must be a positive integer");
+  }
   
   if (block_length == 1 && block_type == "tapered") {
-   Rcpp::stop("Can not use block type \"tapered\" when block length is 1. See `?tsbs::tsbs`");
+    Rcpp::stop("Can not use block type \"tapered\" when block length is 1. See `?tsbs::tsbs`");
   }
+  
 
   // Final output length
   int n_boot;

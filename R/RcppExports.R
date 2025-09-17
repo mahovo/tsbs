@@ -9,9 +9,6 @@ blockBootstrap_cpp <- function(xSEXP, n_boot_spec, block_length_spec, bs_type, b
     .Call(`_tsbs_blockBootstrap_cpp`, xSEXP, n_boot_spec, block_length_spec, bs_type, block_type, taper_type, tukey_alpha, num_blocks_spec, num_boots, p, stationary_max_percentile, stationary_max_fraction_of_n)
 }
 
-#' Calculate the log-density of a multivariate normal distribution
-NULL
-
 fit_msvar_cpp <- function(y, max_iter = 100L, tol = 1e-6) {
     .Call(`_tsbs_fit_msvar_cpp`, y, max_iter, tol)
 }

@@ -23,8 +23,8 @@ blockBootstrap(
 \item{x}{A numeric matrix with rows representing time points and columns
 representing variables.}
 
-\item{bs_type}{Character. Bootstrap type. Either \code{"moving"} (Moving Block
-Bootstrap) or \code{"stationary"} (Stationary Bootstrap).}
+\item{bs_type}{Bootstrap type. Character string: One of \code{"moving"},
+\code{"stationary"}, \code{"hmm"}, \code{"msar"}, \code{"ms_varma_garch"}, or \code{"wild"}.}
 
 \item{block_type}{Character. Block type. Either \code{"non-overlapping"},
 \code{"overlapping"} or \code{"tapered"}.}

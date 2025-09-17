@@ -2,13 +2,13 @@
 % Please edit documentation in R/tsbs.R
 \name{tsbs}
 \alias{tsbs}
-\title{Flexible Block Bootstrap for Time Series}
+\title{Advanced Bootstrap for Time Series}
 \usage{
 tsbs(
   x,
   n_boot = NULL,
   block_length = NULL,
-  bs_type = c("moving", "stationary", "hmm", "msar", "ms_varma_garch", "wild"),
+  bs_type = c("moving", "stationary", "hmm", "msvar", "ms_varma_garch", "wild"),
   block_type = c("overlapping", "non-overlapping", "tapered"),
   taper_type = c("cosine", "bartlett", "tukey"),
   tukey_alpha = 0.5,
@@ -33,14 +33,17 @@ tsbs(
 \item{x}{Numeric vector, matrix, or data frame of time series observations
 (rows = time points, cols = variables).}
 
-\item{n_boot}{Integer, optional desired length of each bootstrap replicate.}
+\item{n_boot}{Integer, optional desired length of each bootstrap replicate.
+See details below.}
 
 \item{block_length}{Integer length of each block; if \code{NULL}, an automatic
 heuristic is used. For stationary bootstrap, \code{block_length} is the expected
 block length, when \code{p_method="1/n"}.}
 
 \item{bs_type}{Bootstrap type. Character string: One of \code{"moving"},
-\code{"stationary"}, \code{"hmm"}, \code{"msar"}, \code{"ms_varma_garch"}, or \code{"wild"}. See details below.}
+\code{"stationary"}, \code{"hmm"}, \code{"msvar"}, \code{"ms_varma_garch"}, or \code{"wild"}.
+\code{"msvar"} is a lightweight special case of \code{"ms_varma_garch"}. See details
+below.}
 
 \item{block_type}{Block type. Character string: One of \code{"non-overlapping"},
 \code{"overlapping"}, or \code{"tapered"}. Only affects \code{bs_type="moving"} and
@@ -67,7 +70,7 @@ parameter: \code{"1/n"}, \code{"plugin"}, or \code{"cross validation"}.}
 
 \item{overlap}{Logical indicating if overlapping blocks are allowed.}
 
-\item{num_states}{Integer number of states for HMM, MSAR, or
+\item{num_states}{Integer number of states for HMM, MSVAR, or
 MS-VARMA-GARCH models.}
 
 \item{d}{Integer differencing order for the MS-VARMA-GARCH model.}
@@ -156,9 +159,30 @@ A list containing:
 }
 }
 \description{
-Generates block bootstrap replicates of a numeric time series or multivariate
-time series. Supports moving, stationary, HMM, MSAR, MS VARMA GARCH and wild
-bootstrap types.
+Generates bootstrap replicates of multivariate or (multiple) univariate time
+series. Supports moving and stationary block, HMM, MSVAR, MS VARMA GARCH and
+wild bootstrap types.
+}
+\details{
+\code{bs_type="moving"}: If \code{n_boot} is set, the last block will be truncated
+when necessary to match the length (\code{n_boot}) of the bootstrap series. If
+\code{n_boot} is not set, \code{block_length} and \code{num_blocks} must be set, and
+\code{n_boot} will automatically be set to \code{block_length * num_blocks}.
+\code{bs_type="stationary"}, \code{bs_type="hmm"}, \code{bs_type="msvar"}: If
+\code{n_boot} is set, the last block will be truncated when necessary to match
+the length (\code{n_boot}) of the bootstrap series. This is the only way to
+ensure equal length of all bootstrap series, as the length of each block is
+random. If \code{n_boot} is not set, \code{num_blocks} must be set, and the length of
+each bootstrap series will be determined by the number of blocks and the
+random lengths of the individual blocks for that particular series. Note
+that this typically results in bootstrap series of different lengths. For
+stationary bootstrap, \code{block_length} is the expected block length, when
+\code{p_method="1/n"}.
+\code{bs_type="wild"}: \code{n_boot}, \code{block_length} and \code{num_blocks} are ignored. The
+length of the bootstrap series is always the same as the original series.
+See documentation for the individual bootstrap functions: \code{\link[=hmm_bootstrap]{hmm_bootstrap()}},
+\code{\link[=msvar_bootstrap]{msvar_bootstrap()}}, \code{\link[=ms_varma_garch_bs]{ms_varma_garch_bs()}} and \code{\link[=wild_bootstrap]{wild_bootstrap()}}. For
+moving or stationary block bootstraps, see \code{\link[=blockBootstrap]{blockBootstrap()}}.
 }
 \examples{
 set.seed(123)
