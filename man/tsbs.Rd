@@ -26,6 +26,7 @@ tsbs(
   control = list(),
   parallel = FALSE,
   num_cores = 1L,
+  fail_mode = c("predictably", "gracefully"),
   ...
 )
 }
@@ -37,7 +38,12 @@ tsbs(
 See details below.}
 
 \item{block_length}{Integer length of each block; if \code{NULL}, an automatic
-heuristic is used. For stationary bootstrap, \code{block_length} is the expected
+heuristic is used: The method first calculates the average absolute
+first-order autocorrelation (\eqn{\rho_1}) across all time series columns. A
+candidate block length is then calculated based on this persistence measure
+using the formula \eqn{⌊10/(1−\rho_1)⌋}. The final block length is constrained to be
+between 5 and the square root of the series length, ensuring a reasonable
+value is chosen. For stationary bootstrap, \code{block_length} is the expected
 block length, when \code{p_method="1/n"}.}
 
 \item{bs_type}{Bootstrap type. Character string: One of \code{"moving"},
@@ -142,6 +148,10 @@ algorithm.}
 
 \item{num_cores}{Number of cores.}
 
+\item{fail_mode}{Character string. One of \code{"predictably"} (development/
+debugging - fail fast on any unexpected behavior) or \code{"gracefully"}
+(production/robust pipelines - continue despite validation errors).}
+
 \item{model_func}{Model-fitting function for cross-validation.}
 
 \item{score_func}{Scoring function for cross-validation.}
@@ -198,4 +208,31 @@ result <- tsbs(
 )
 print(result$func_out_means)
 
+}
+\references{
+\strong{Stationary Bootstrap}
+
+Politis, D., & Romano, J. (1994). The Stationary Bootstrap. Journal of the
+American Statistical Association, 89, 1303-1313.
+\url{http://dx.doi.org/10.1080/01621459.1994.10476870}
+
+\strong{Hidden Markov Model}
+
+Holst, U., Lindgren, G., Holst, J. and Thuvesholmen, M. (1994), Recursive
+Estimation In Switching Autoregressions With A Markov Regime. Journal of
+Time Series Analysis, 15: 489-506.
+\url{https://doi.org/10.1111/j.1467-9892.1994.tb00206.x}
+
+\strong{ARMA-APARCH}
+
+Natatou Moutari, D. et al. (2021). Dependence Modeling and Risk Assessment
+of a Financial Portfolio with ARMA-APARCH-EVT models based on HACs.
+\href{http://arxiv.org/abs/2105.09473}{arXiv:2105.09473}
+
+\strong{Wild Bootstrap}
+
+A. Colin Cameron & Jonah B. Gelbach & Douglas L. Miller, 2008.
+"Bootstrap-Based Improvements for Inference with Clustered Errors",
+The Review of Economics and Statistics, MIT Press, vol. 90(3), pages
+414-427, August.
 }

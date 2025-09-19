@@ -23,14 +23,20 @@ blockBootstrap(
 \item{x}{A numeric matrix with rows representing time points and columns
 representing variables.}
 
+\item{block_length}{Integer or \code{NA}. Length of each block. If \code{NA}, a
+heuristic is used based on the average lag-1 autocorrelation across variables.}
+
 \item{bs_type}{Bootstrap type. Character string: One of \code{"moving"},
 \code{"stationary"}, \code{"hmm"}, \code{"msar"}, \code{"ms_varma_garch"}, or \code{"wild"}.}
 
 \item{block_type}{Character. Block type. Either \code{"non-overlapping"},
-\code{"overlapping"} or \code{"tapered"}.}
+\code{"overlapping"} or \code{"tapered"}. Default \code{"overlapping"}.}
 
 \item{taper_type}{Tapering window function. Character. One of \code{"cosine"},
 \code{"bartlett"}, or \code{"tukey"}.}
+
+\item{num_blocks}{Integer or \code{NA}. Number of blocks to use. If \code{NA},
+this is inferred from \code{n_length}.}
 
 \item{num_boots}{Number of bootstrap replicates to generate.}
 
@@ -41,21 +47,12 @@ Stationary Bootstrap).}
 
 \item{stationary_max_fraction_of_n}{Stationary max fraction of n.}
 
-\item{n_length_spec}{Integer or \code{NA}. Desired number of time points in the
+\item{n_length}{Integer or \code{NA}. Desired number of time points in the
 bootstrap sample. If \code{NA}, the original series length is used.}
-
-\item{block_length_spec}{Integer or \code{NA}. Length of each block. If \code{NA}, a
-heuristic is used based on the average lag-1 autocorrelation across variables.}
-
-\item{num_blocks_spec}{Integer or \code{NA}. Number of blocks to use. If \code{NA},
-this is inferred from \code{n_length_spec}.}
-
-\item{overlap}{Logical. If \code{FALSE}, stationary blocks are chosen from
-non-overlapping segments.}
 }
 \value{
 A list of matrices, each one a bootstrap replicate with dimensions
-approximately \code{n_length_spec} × \code{ncol(x)}.
+approximately \code{n_length} × \code{ncol(x)}.
 }
 \description{
 Generates bootstrap replicates of a multivariate time series using either the
@@ -71,8 +68,8 @@ non-overlap constraints.
 
 If \code{block_length_spec} is \code{NA}, an automatic heuristic is used that depends
 on the average lag-1 autocorrelation across variables. The function
-supports flexible specifications of output length (\code{n_length_spec}) and
-block structure (\code{num_blocks_spec}).
+supports flexible specifications of output length (\code{n_length}) and
+block structure (\code{num_blocks}).
 }
 \examples{
 set.seed(123)

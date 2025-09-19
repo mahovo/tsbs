@@ -8,9 +8,14 @@
 #'   (rows = time points, cols = variables).
 #' @param n_boot Integer, optional desired length of each bootstrap replicate.
 #'   See details below.
-#' @param block_length Integer length of each block; if `NULL`, an automatic 
-#'   heuristic is used. For stationary bootstrap, `block_length` is the expected
-#'   block length, when `p_method="1/n"`.
+#' @param block_length Integer, length of each block. If `NULL`, an automatic 
+#'   heuristic is used: The method first calculates the average absolute 
+#'   first-order autocorrelation (\eqn{\rho_1}) across all time series columns. 
+#'   A candidate block length is then calculated based on this persistence 
+#'   measure using the formula \eqn{⌊10/(1−\rho_1)⌋}. The final block length is 
+#'   constrained to be between 5 and the square root of the series length, 
+#'   ensuring a reasonable value is chosen. For stationary bootstrap, 
+#'   `block_length` is the expected block length, when `p_method="1/n"`.
 #' @param bs_type Bootstrap type. Character string: One of `"moving"`, 
 #'   `"stationary"`, `"hmm"`, `"msvar"`, `"ms_varma_garch"`, or `"wild"`. 
 #'   `"msvar"` is a lightweight special case of `"ms_varma_garch"`. See details 
@@ -100,6 +105,10 @@
 #' @param score_func Scoring function for cross-validation.
 #' @param stationary_max_percentile Stationary max percentile.
 #' @param stationary_max_fraction_of_n Stationary max fraction of n.
+#' @param fail_mode Character string. One of `"predictably"` (development/
+#'   debugging - fail fast on any unexpected behavior) or `"gracefully"` 
+#'   (production/robust pipelines - continue despite validation errors). 
+#'   
 #' 
 #' @details
 #' `bs_type="moving"`: If `n_boot` is set, the last block will be truncated
@@ -129,6 +138,35 @@
 #'   \item{func_outs}{List of computed function outputs for each replicate.}
 #'   \item{func_out_means}{Mean of the computed outputs across replicates.}
 #' }
+#' 
+#' @references
+#' 
+#' **Stationary Bootstrap**  
+#' 
+#' Politis, D., & Romano, J. (1994). The Stationary Bootstrap. Journal of the 
+#'   American Statistical Association, 89, 1303-1313.
+#'   [http://dx.doi.org/10.1080/01621459.1994.10476870](http://dx.doi.org/10.1080/01621459.1994.10476870)
+#' 
+#' **Hidden Markov Model**  
+#' 
+#' Holst, U., Lindgren, G., Holst, J. and Thuvesholmen, M. (1994), Recursive 
+#'   Estimation In Switching Autoregressions With A Markov Regime. Journal of 
+#'   Time Series Analysis, 15: 489-506. 
+#'   [https://doi.org/10.1111/j.1467-9892.1994.tb00206.x](https://doi.org/10.1111/j.1467-9892.1994.tb00206.x)
+#' 
+#' **ARMA-APARCH**  
+#' 
+#' Natatou Moutari, D. et al. (2021). Dependence Modeling and Risk Assessment 
+#'   of a Financial Portfolio with ARMA-APARCH-EVT models based on HACs. 
+#'   [arXiv:2105.09473](http://arxiv.org/abs/2105.09473)
+#'   
+#' **Wild Bootstrap**  
+#' 
+#' A. Colin Cameron & Jonah B. Gelbach & Douglas L. Miller, 2008. 
+#'   "Bootstrap-Based Improvements for Inference with Clustered Errors", 
+#'   The Review of Economics and Statistics, MIT Press, vol. 90(3), pages 
+#'   414-427, August.
+#' 
 #' @examples
 #' set.seed(123)
 #' x <- arima.sim(n = 100, list(ar = 0.8))
@@ -172,6 +210,7 @@ tsbs <- function(
     control = list(),
     parallel = FALSE,
     num_cores = 1L,
+    fail_mode = c("predictably", "gracefully"),
     ...
 ) {
   
@@ -183,8 +222,9 @@ tsbs <- function(
   apply_func_to <- match.arg(apply_func_to)
   p_method <- match.arg(p_method)
   model_type <- match.arg(model_type)
+  fail_mode <- match.arg(fail_mode)
   
-  if(.is_invalid_data(x))
+  if(.is_invalid_data(x, fail_mode = fail_mode))
     stop("No valid x value provided.")
   if (is.vector(x) || is.data.frame(x) || is.ts(x)) x <- as.matrix(x)
   
@@ -194,37 +234,38 @@ tsbs <- function(
     stop("`func` must be a valid function.")
   
   ## Note: If NULL, value is calculated automatically below
-  if (.is_invalid_count(n_boot))
+  if (.is_invalid_count(n_boot, fail_mode = fail_mode))
     stop("`n_boot` must be a positive integer or NULL.")
-  if (.is_invalid_count(block_length))
+  if (.is_invalid_count(block_length, fail_mode = fail_mode))
     stop("`block_length` must be a positive integer or NULL.")
-  if (.is_invalid_count(num_blocks))
+  if (.is_invalid_count(num_blocks, fail_mode = fail_mode))
     stop("`num_blocks` must be a positive integer or NULL.")
   
   ## Need to provide either n_boot or num_blocks.
   ## If missing, block_length will be calculated automatically.
   ## n_boot = block_length * num_blocks.
-  if(.is_invalid_count(n_boot) && .is_invalid_count(num_blocks)) {
+  if(.is_invalid_count(n_boot, fail_mode = fail_mode) && 
+     .is_invalid_count(num_blocks, fail_mode = fail_mode)) {
     stop("Must provide either n_boot or num_blocks.")
   } 
-  if(.is_invalid_count(n_boot)) {
+  if(.is_invalid_count(n_boot, fail_mode = fail_mode)) {
     if (is.null(block_length)) {block_length <- compute_default_block_length(x)}
     n_boot <- num_blocks * block_length
   }
-  if(.is_invalid_count(num_blocks)) {
+  if(.is_invalid_count(num_blocks, fail_mode = fail_mode)) {
     if (is.null(block_length)) {block_length <- compute_default_block_length(x)}
     num_blocks <- n_boot / block_length
   }
   
   
   ## Fails if NULL. Value is not calculated automatically.
-  if(.is_invalid_count(num_states, allow_null = FALSE))
+  if(.is_invalid_count(num_states, allow_null = FALSE, fail_mode = fail_mode))
     stop("`num_states` must be a positive integer.")
-  if(.is_invalid_count(num_boots, allow_null = FALSE))
+  if(.is_invalid_count(num_boots, allow_null = FALSE, fail_mode = fail_mode))
     stop("`num_boots` must be a positive integer.")
   
   ## Validate p
-  if(.is_invalid_fraction(p, allow_null = TRUE) ) {
+  if(.is_invalid_fraction(p, allow_null = TRUE, fail_mode = fail_mode) ) {
     stop("`p` must be a single number in (0,1) or NULL.")
   }
   
