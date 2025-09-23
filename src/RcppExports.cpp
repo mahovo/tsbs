@@ -22,6 +22,40 @@ BEGIN_RCPP
     return rcpp_result_gen;
 END_RCPP
 }
+// cosine_weights
+Rcpp::NumericVector cosine_weights(int block_length);
+RcppExport SEXP _tsbs_cosine_weights(SEXP block_lengthSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< int >::type block_length(block_lengthSEXP);
+    rcpp_result_gen = Rcpp::wrap(cosine_weights(block_length));
+    return rcpp_result_gen;
+END_RCPP
+}
+// bartlett_weights
+Rcpp::NumericVector bartlett_weights(int block_length);
+RcppExport SEXP _tsbs_bartlett_weights(SEXP block_lengthSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< int >::type block_length(block_lengthSEXP);
+    rcpp_result_gen = Rcpp::wrap(bartlett_weights(block_length));
+    return rcpp_result_gen;
+END_RCPP
+}
+// tukey_weights
+Rcpp::NumericVector tukey_weights(int block_length, double alpha);
+RcppExport SEXP _tsbs_tukey_weights(SEXP block_lengthSEXP, SEXP alphaSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< int >::type block_length(block_lengthSEXP);
+    Rcpp::traits::input_parameter< double >::type alpha(alphaSEXP);
+    rcpp_result_gen = Rcpp::wrap(tukey_weights(block_length, alpha));
+    return rcpp_result_gen;
+END_RCPP
+}
 // blockBootstrap_cpp
 Rcpp::List blockBootstrap_cpp(SEXP xSEXP, SEXP n_boot_spec, SEXP block_length_spec, const std::string& bs_type, const std::string& block_type, const std::string& taper_type, const double& tukey_alpha, SEXP num_blocks_spec, const int num_boots, SEXP p, const double stationary_max_percentile, const double stationary_max_fraction_of_n);
 RcppExport SEXP _tsbs_blockBootstrap_cpp(SEXP xSEXPSEXP, SEXP n_boot_specSEXP, SEXP block_length_specSEXP, SEXP bs_typeSEXP, SEXP block_typeSEXP, SEXP taper_typeSEXP, SEXP tukey_alphaSEXP, SEXP num_blocks_specSEXP, SEXP num_bootsSEXP, SEXP pSEXP, SEXP stationary_max_percentileSEXP, SEXP stationary_max_fraction_of_nSEXP) {
@@ -75,6 +109,9 @@ END_RCPP
 
 static const R_CallMethodDef CallEntries[] = {
     {"_tsbs_compute_default_block_length", (DL_FUNC) &_tsbs_compute_default_block_length, 1},
+    {"_tsbs_cosine_weights", (DL_FUNC) &_tsbs_cosine_weights, 1},
+    {"_tsbs_bartlett_weights", (DL_FUNC) &_tsbs_bartlett_weights, 1},
+    {"_tsbs_tukey_weights", (DL_FUNC) &_tsbs_tukey_weights, 2},
     {"_tsbs_blockBootstrap_cpp", (DL_FUNC) &_tsbs_blockBootstrap_cpp, 12},
     {"_tsbs_fit_msvar_cpp", (DL_FUNC) &_tsbs_fit_msvar_cpp, 3},
     {"_tsbs_fit_ms_varma_garch_cpp", (DL_FUNC) &_tsbs_fit_ms_varma_garch_cpp, 5},

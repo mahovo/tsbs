@@ -5,6 +5,18 @@ compute_default_block_length <- function(x) {
     .Call(`_tsbs_compute_default_block_length`, x)
 }
 
+cosine_weights <- function(block_length) {
+    .Call(`_tsbs_cosine_weights`, block_length)
+}
+
+bartlett_weights <- function(block_length) {
+    .Call(`_tsbs_bartlett_weights`, block_length)
+}
+
+tukey_weights <- function(block_length, alpha = 0.5) {
+    .Call(`_tsbs_tukey_weights`, block_length, alpha)
+}
+
 blockBootstrap_cpp <- function(xSEXP, n_boot_spec, block_length_spec, bs_type, block_type, taper_type, tukey_alpha, num_blocks_spec, num_boots, p, stationary_max_percentile, stationary_max_fraction_of_n) {
     .Call(`_tsbs_blockBootstrap_cpp`, xSEXP, n_boot_spec, block_length_spec, bs_type, block_type, taper_type, tukey_alpha, num_blocks_spec, num_boots, p, stationary_max_percentile, stationary_max_fraction_of_n)
 }

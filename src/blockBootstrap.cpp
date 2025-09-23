@@ -26,10 +26,11 @@ int compute_default_block_length(const Rcpp::NumericMatrix &x) {
 
 // +++++++++++++ Compute weights for tapered blocks +++++++++++++
 // Cosine tapering window function.
-Rcpp::NumericVector cosine_weights(int len) {
-  Rcpp::NumericVector w(len);
-  for (int i = 0; i < len; ++i) {
-    w[i] = 0.5 * (1 - std::cos(2 * M_PI * i / (len - 1)));
+// [[Rcpp::export]]
+Rcpp::NumericVector cosine_weights(int block_length) {
+  Rcpp::NumericVector w(block_length);
+  for (int i = 0; i < block_length; ++i) {
+    w[i] = 0.5 * (1 - std::cos(2 * M_PI * i / (block_length - 1)));
   }
   return w;
 }
@@ -37,6 +38,7 @@ Rcpp::NumericVector cosine_weights(int len) {
 
 // Bartlett (triangular) window. 
 // Linearly tapers from 1 in the center to 0 at both ends.
+// [[Rcpp::export]]
 Rcpp::NumericVector bartlett_weights(int block_length) {
   Rcpp::NumericVector w(block_length);
   double N = static_cast<double>(block_length - 1);
@@ -51,6 +53,7 @@ Rcpp::NumericVector bartlett_weights(int block_length) {
 // Allows tuning of the taper via alpha ∈ [0, 1]:
 // alpha = 0 → rectangular (no taper)
 // alpha = 1 → Hann (fully tapered) 
+// [[Rcpp::export]]
 Rcpp::NumericVector tukey_weights(int block_length, double alpha = 0.5) {
   Rcpp::NumericVector w(block_length);
   double N = static_cast<double>(block_length - 1);

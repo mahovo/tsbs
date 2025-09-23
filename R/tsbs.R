@@ -26,7 +26,11 @@
 #'   between blocks. It follows that `block_type="tapered"` can not be used when
 #'   `block_length=1`.
 #' @param taper_type Tapering window function. Character. One of `"cosine"`, 
-#'   `"bartlett"`, or `"tukey"`.
+#'   `"bartlett"`, or `"tukey"`. Only affects `block_type="tapered"`. See
+#'   details below.
+#' @param tukey_alpha alpha parameter for `taper_type = "tukey"`. \eqn{\alpha} 
+#'   is the fraction of the window length tapered at each end, using indices 
+#'   \eqn{0 \dots n−1}, where \eqn{n} is the block length.
 #' @param num_blocks Integer number of blocks per bootstrap replicate.
 #' @param num_boots Integer number of bootstrap replicates.
 #' @param func A summary function to apply to each bootstrap replicate or column.
@@ -115,22 +119,63 @@
 #'   when necessary to match the length (`n_boot`) of the bootstrap series. If 
 #'   `n_boot` is not set, `block_length` and `num_blocks` must be set, and  
 #'   `n_boot` will automatically be set to `block_length * num_blocks`.  
-#' `bs_type="stationary"`, `bs_type="hmm"`, `bs_type="msvar"`: If 
-#'   `n_boot` is set, the last block will be truncated when necessary to match 
-#'   the length (`n_boot`) of the bootstrap series. This is the only way to 
-#'   ensure equal length of all bootstrap series, as the length of each block is 
-#'   random. If `n_boot` is not set, `num_blocks` must be set, and the length of 
-#'   each bootstrap series will be determined by the number of blocks and the 
-#'   random lengths of the individual blocks for that particular series. Note 
-#'   that this typically results in bootstrap series of different lengths. For 
-#'   stationary bootstrap, `block_length` is the expected block length, when 
+#' 
+#' `bs_type="stationary"`, `bs_type="hmm"`, `bs_type="msvar"`: If  `n_boot` is 
+#'   set, the last block will be truncated when necessary to match the length 
+#'   (`n_boot`) of the bootstrap series. This is the only way to ensure equal 
+#'   length of all bootstrap series, as the length of each block is random. If 
+#'   `n_boot` is not set, `num_blocks` must be set, and the length of each 
+#'   bootstrap series will be determined by the number of blocks and the random 
+#'   lengths of the individual blocks for that particular series. Note that this 
+#'   typically results in bootstrap series of different lengths. For stationary 
+#'   bootstrap, `block_length` is the expected block length, when 
 #'   `p_method="1/n"`.  
+#' 
 #' `bs_type="wild"`: `n_boot`, `block_length` and `num_blocks` are ignored. The
 #'   length of the bootstrap series is always the same as the original series.  
+#' 
 #' See documentation for the individual bootstrap functions: [hmm_bootstrap()], 
 #'   [msvar_bootstrap()], [ms_varma_garch_bs()] and [wild_bootstrap()]. For
 #'   moving or stationary block bootstraps, see [blockBootstrap()].  
 #'   
+#' `taper_type` when `block_type="tapered"`:  
+#' For block length \eqn{n}, and index \eqn{i} within the block, and \eqn{0 \leq i \leq n},
+#' - `"cosine"`: Hann window 
+#'     \deqn{w(i) = \dfrac{1}{2} \left(1 - \cos \left( \dfrac{2 \pi i}{n - i} \right ) \right)}
+#' - `"bartlett"`: Triangular window  
+#'     \deqn{w(i) = 1 - \left | \dfrac{i - (n - 1) / 2}{(n - 1) / 2} \right |,\ \ \ \alpha \in [0, 1]}
+#' - `"tukey"`: Cosine tapered window. At \eqn{\alpha = 0} it becomes 
+#'     rectangular, and at \eqn{\alpha = 1} it becomes a Hann window. 
+#'     
+#'     We implement the Tukey (tapered cosine) window using the convention 
+#'     \eqn{i = 0, \dots, n-1} for a window of length \eqn{n} and taper 
+#'     parameter \eqn{\alpha \in [0,1]}, consistent with common numerical 
+#'     libraries such as MATLAB and SciPy (see MATLAB tukeywin, 
+#'     SciPy scipy.signal.windows.tukey). After index shift and reflection this 
+#'     is algebraically equivalent to the classical definition in Harris (1978), 
+#'     which instead centers the index symmetrically around zero.  
+#'     
+#'     Let \eqn{N = n - 1} be the last index of the block, and let the running 
+#'     index be \eqn{i = 0, 1, \dots, N}.
+#'
+#'     The window weights \eqn{w[i]} are defined piecewise as follows:
+#'
+#'     1. Left taper region (\eqn{0 \le i < \alpha N / 2}): 
+#'     \eqn{
+#'       w[i] = \frac{1}{2} \left[ 1 + \cos\left( \pi \left( \frac{2 i}{\alpha N} - 1 \right) \right) \right]
+#'     }
+#'
+#'     2. Central (non-tapered) region (\eqn{\alpha N / 2 \le i \le N (1 - \alpha/2)}):
+#'     \eqn{
+#'       w[i] = 1
+#'     }
+#'
+#'     3. Right taper region (\eqn{N (1 - \alpha/2) < i \le N}):
+#'     \eqn{
+#'       w[i] = \frac{1}{2} \left[ 1 + \cos\left( \pi \left( \frac{2 i}{\alpha N} - \frac{2}{\alpha} + 1 \right) \right) \right]
+#'     }  
+#'     
+#' (Harris, 1978)
 #'
 #' @return A list containing:
 #' \describe{
@@ -140,6 +185,10 @@
 #' }
 #' 
 #' @references
+#' 
+#' Harris, F. J. (1978). "On the Use of Windows for 
+#'   Harmonic Analysis with the Discrete Fourier Transform." (Proceedings of the 
+#'   IEEE, 66(1), pp. 66f)
 #' 
 #' **Stationary Bootstrap**  
 #' 
@@ -166,6 +215,7 @@
 #'   "Bootstrap-Based Improvements for Inference with Clustered Errors", 
 #'   The Review of Economics and Statistics, MIT Press, vol. 90(3), pages 
 #'   414-427, August.
+#'   
 #' 
 #' @examples
 #' set.seed(123)
