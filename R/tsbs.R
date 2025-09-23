@@ -221,7 +221,7 @@
 #' set.seed(123)
 #' x <- arima.sim(n = 100, list(ar = 0.8))
 #' result <- tsbs(
-#'   x = x,
+#'   x = as.matrix(x),
 #'   block_length = 10,
 #'   bs_type = "stationary",
 #'   num_blocks = 5,

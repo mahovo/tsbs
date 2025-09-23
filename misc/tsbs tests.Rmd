@@ -324,3 +324,18 @@ par(mfrow = c(1, 1))
 
 
 
+```{r}
+set.seed(123)
+x <- as.matrix(arima.sim(n = 100, list(ar = 0.8)))
+result <- tsbs(
+ x = x,
+ block_length = 10,
+ bs_type = "stationary",
+ num_blocks = 5,
+ num_boots = 10,
+ func = mean,
+ apply_func_to = "cols"
+)
+print(result$func_out_means)
+```
+
