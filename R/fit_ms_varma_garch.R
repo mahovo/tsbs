@@ -30,6 +30,8 @@
 #'   \item{Starting parameters: `start_pars`, a list containing `arma_pars` (or `var_pars`)
 #'     and `garch_pars`.}
 #' }
+#' 
+#' For mathematical expression of the model see [ms_varma_garch_bs()].
 #'
 #' @return An object of class `msm.fit` containing the full results of the
 #'   estimation, including model fits for each state, the transition matrix,

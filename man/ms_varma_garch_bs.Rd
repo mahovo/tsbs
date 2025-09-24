@@ -49,8 +49,48 @@ to generate. Defaults to 100.}
 A list of bootstrapped time series matrices.
 }
 \description{
-This function fits a flexible N-state Markov-Switching model and then uses
-the estimated state sequence to perform a stationary block bootstrap. This
-generates resampled time series that preserve the state-dependent properties
-of the original data.
+Fits a flexible \eqn{n}-state Markov-Switching Vector ARIMA\eqn{(p, d, q)}-
+GARCH model and then uses the estimated state sequence to perform a stationary
+block bootstrap. This generates resampled time series that preserve the
+state-dependent properties of the original data.
+}
+\details{
+The fitted model is defined as:
+
+Let \eqn{y_t} be the \eqn{k \times 1} vector of observations at time \eqn{t}.
+The model assumes that the data-generating process is governed by a latent
+(unobserved) state variable, \eqn{S_t}, which follows a first-order Markov
+chain with \eqn{M} states.
+
+\enumerate{
+\item \strong{State Process}: The evolution of the state is described by the
+\eqn{M \times M} transition probability matrix \eqn{P}, where the element
+\eqn{p_{ij}} is the probability of transitioning from state \eqn{i} to state \eqn{j}:
+\deqn{p_{ij} = P(S_t = j | S_{t-1} = i)}
+The matrix \eqn{P} is structured such that \eqn{P_{ij} = p_{ij}}, and its
+rows sum to one: \eqn{\sum_{j=1}^{M} p_{ij} = 1} for all \eqn{i=1, \dots, M}.
+
+\item \strong{Observation Process}: Conditional on the system being in state
+\eqn{S_t = j}, each of the \eqn{k} time series, \eqn{y_{i,t}} for
+\eqn{i=1, \dots, k}, is assumed to follow an independent
+ARIMA(\eqn{p_j, d_j, q_j})-GARCH(\eqn{q'_j, p'_j}) process. The parameters
+for both the mean and variance equations are specific to the state \eqn{j}.
+\itemize{
+\item \strong{Mean Equation (ARIMA)}:
+\deqn{\phi_j(L)(1-L)^{d_j} (y_{i,t} - \mu_j) = \theta_j(L) \varepsilon_{i,t}}
+where \eqn{\phi_j(L)} and \eqn{\theta_j(L)} are the AR and MA lag
+polynomials, \eqn{\mu_j} is the mean, and \eqn{\varepsilon_{i,t}} is the
+innovation term, all specific to state \eqn{j}.
+\item \strong{Variance Equation (GARCH)}: The innovations have a conditional
+variance \eqn{\sigma_{i,t}^2} that evolves according to:
+\deqn{\varepsilon_{i,t} = \sigma_{i,t} z_{i,t}, \quad z_{i,t} \sim \mathcal{N}(0,1)}
+\deqn{\sigma_{i,t}^2 = \omega_j + \sum_{l=1}^{q'_j} \alpha_{j,l} \varepsilon_{i,t-l}^2 + \sum_{l=1}^{p'_j} \beta_{j,l} \sigma_{i,t-l}^2}
+where \eqn{\omega_j, \alpha_{j,l}, \beta_{j,l}} are the GARCH parameters for state \eqn{j}.
+}
+}
+Let \eqn{\Psi_j = \{\mu_j, \phi_j, \theta_j, \omega_j, \alpha_j, \beta_j\}} be
+the complete set of ARIMA-GARCH parameters for state \eqn{j}, and let
+\eqn{\Psi = \{\Psi_1, \dots, \Psi_M, P\}} be the full parameter set for the
+entire model. The EM algorithm using a Hamilton Filter & Kim Smoother for the
+E-step is used to find the Maximum Likelihood Estimate (MLE) of \eqn{\Psi}.
 }
