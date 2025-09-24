@@ -38,6 +38,11 @@
 #' on the average lag-1 autocorrelation across variables. The function
 #' supports flexible specifications of output length (`n_length`) and
 #' block structure (`num_blocks`).
+#' 
+#' @references 
+#' Politis, D., & Romano, J. (1994). The Stationary Bootstrap. Journal of the 
+#'   American Statistical Association, 89, 1303-1313.
+#'   [http://dx.doi.org/10.1080/01621459.1994.10476870](http://dx.doi.org/10.1080/01621459.1994.10476870)
 #'
 #' @examples
 #' set.seed(123)

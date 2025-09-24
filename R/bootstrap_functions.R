@@ -53,6 +53,12 @@
 #' \eqn{\mathbb{P}(\mathbf{X}) = \sum_{\mathbf{S}} \mathbb{P}(\mathbf{X}, \mathbf{S})}
 #'   
 #' @return A list of numeric vectors, each one a bootstrap replicate.
+#' 
+#' @references
+#' Holst, U., Lindgren, G., Holst, J. and Thuvesholmen, M. (1994), Recursive 
+#'   Estimation In Switching Autoregressions With A Markov Regime. Journal of 
+#'   Time Series Analysis, 15: 489-506. 
+#'   [https://doi.org/10.1111/j.1467-9892.1994.tb00206.x](https://doi.org/10.1111/j.1467-9892.1994.tb00206.x)
 #'   
 #' @export
 hmm_bootstrap <- function(
@@ -261,8 +267,12 @@ msvar_bootstrap <- function(
 #' entire model. The EM algorithm using a Hamilton Filter & Kim Smoother for the 
 #' E-step is used to find the Maximum Likelihood Estimate (MLE) of \eqn{\Psi}.
 #' 
-#'
 #' @return A list of bootstrapped time series matrices.
+#' 
+#' @references
+#' Natatou Moutari, D. et al. (2021). Dependence Modeling and Risk Assessment 
+#'   of a Financial Portfolio with ARMA-APARCH-EVT models based on HACs. 
+#'   [arXiv:2105.09473](http://arxiv.org/abs/2105.09473)
 #'
 #' @export
 ms_varma_garch_bs <- function(
@@ -354,6 +364,12 @@ ms_varma_garch_bs <- function(
 #' when heteroskedasticity or other non-i.i.d. errors are present.
 #' Each replicate is constructed by multiplying every observation by +1 or -1,
 #' where the signs are drawn randomly with equal probability.
+#' 
+#' @references
+#' A. Colin Cameron & Jonah B. Gelbach & Douglas L. Miller, 2008. 
+#'   "Bootstrap-Based Improvements for Inference with Clustered Errors", 
+#'   The Review of Economics and Statistics, MIT Press, vol. 90(3), pages 
+#'   414-427, August.
 #'
 #' @examples
 #' set.seed(123)

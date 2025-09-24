@@ -78,3 +78,9 @@ Marginal probability of the observed data is obtained by summing over all possib
 
 \eqn{\mathbb{P}(\mathbf{X}) = \sum_{\mathbf{S}} \mathbb{P}(\mathbf{X}, \mathbf{S})}
 }
+\references{
+Holst, U., Lindgren, G., Holst, J. and Thuvesholmen, M. (1994), Recursive
+Estimation In Switching Autoregressions With A Markov Regime. Journal of
+Time Series Analysis, 15: 489-506.
+\url{https://doi.org/10.1111/j.1467-9892.1994.tb00206.x}
+}

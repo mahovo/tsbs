@@ -36,3 +36,9 @@ length(boot_reps)           # 5 replicates
 dim(boot_reps[[1]])         # 100 x 1 matrix
 
 }
+\references{
+A. Colin Cameron & Jonah B. Gelbach & Douglas L. Miller, 2008.
+"Bootstrap-Based Improvements for Inference with Clustered Errors",
+The Review of Economics and Statistics, MIT Press, vol. 90(3), pages
+414-427, August.
+}

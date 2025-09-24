@@ -94,3 +94,8 @@ the complete set of ARIMA-GARCH parameters for state \eqn{j}, and let
 entire model. The EM algorithm using a Hamilton Filter & Kim Smoother for the
 E-step is used to find the Maximum Likelihood Estimate (MLE) of \eqn{\Psi}.
 }
+\references{
+Natatou Moutari, D. et al. (2021). Dependence Modeling and Risk Assessment
+of a Financial Portfolio with ARMA-APARCH-EVT models based on HACs.
+\href{http://arxiv.org/abs/2105.09473}{arXiv:2105.09473}
+}

@@ -78,3 +78,8 @@ boots <- blockBootstrap(x, type = "stationary", num_boots = 5)
 dim(boots[[1]])
 
 }
+\references{
+Politis, D., & Romano, J. (1994). The Stationary Bootstrap. Journal of the
+American Statistical Association, 89, 1303-1313.
+\url{http://dx.doi.org/10.1080/01621459.1994.10476870}
+}

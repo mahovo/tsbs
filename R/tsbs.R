@@ -185,38 +185,10 @@
 #' }
 #' 
 #' @references
-#' 
 #' Harris, F. J. (1978). "On the Use of Windows for 
 #'   Harmonic Analysis with the Discrete Fourier Transform." (Proceedings of the 
 #'   IEEE, 66(1), pp. 66f)
-#' 
-#' **Stationary Bootstrap**  
-#' 
-#' Politis, D., & Romano, J. (1994). The Stationary Bootstrap. Journal of the 
-#'   American Statistical Association, 89, 1303-1313.
-#'   [http://dx.doi.org/10.1080/01621459.1994.10476870](http://dx.doi.org/10.1080/01621459.1994.10476870)
-#' 
-#' **Hidden Markov Model**  
-#' 
-#' Holst, U., Lindgren, G., Holst, J. and Thuvesholmen, M. (1994), Recursive 
-#'   Estimation In Switching Autoregressions With A Markov Regime. Journal of 
-#'   Time Series Analysis, 15: 489-506. 
-#'   [https://doi.org/10.1111/j.1467-9892.1994.tb00206.x](https://doi.org/10.1111/j.1467-9892.1994.tb00206.x)
-#' 
-#' **ARMA-APARCH**  
-#' 
-#' Natatou Moutari, D. et al. (2021). Dependence Modeling and Risk Assessment 
-#'   of a Financial Portfolio with ARMA-APARCH-EVT models based on HACs. 
-#'   [arXiv:2105.09473](http://arxiv.org/abs/2105.09473)
 #'   
-#' **Wild Bootstrap**  
-#' 
-#' A. Colin Cameron & Jonah B. Gelbach & Douglas L. Miller, 2008. 
-#'   "Bootstrap-Based Improvements for Inference with Clustered Errors", 
-#'   The Review of Economics and Statistics, MIT Press, vol. 90(3), pages 
-#'   414-427, August.
-#'   
-#' 
 #' @examples
 #' set.seed(123)
 #' x <- arima.sim(n = 100, list(ar = 0.8))
