@@ -31,7 +31,7 @@ tsbs(
 )
 }
 \arguments{
-\item{x}{Numeric vector, matrix, or data frame of time series observations
+\item{x}{Numeric vector, matrix, data frame or time series observations
 (rows = time points, cols = variables).}
 
 \item{n_boot}{Integer, optional desired length of each bootstrap replicate.

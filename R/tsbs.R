@@ -4,7 +4,7 @@
 #' series. Supports moving and stationary block, HMM, MSVAR, MS VARMA GARCH and 
 #' wild bootstrap types.
 #'
-#' @param x Numeric vector, matrix, or data frame of time series observations 
+#' @param x Numeric vector, matrix, data frame or time series observations 
 #'   (rows = time points, cols = variables).
 #' @param n_boot Integer, optional desired length of each bootstrap replicate.
 #'   See details below.
@@ -45,14 +45,17 @@
 #' @param d Integer differencing order for the MS-VARMA-GARCH model.
 #' @param spec A list defining the state-specific models for the MS-VARMA-GARCH
 #'   bootstrap (bs_type = "ms_varma_garch"). This argument is required for
-#'   this bootstrap type and must be a list of length num_states. Each element
+#'   this bootstrap type and must be a list of length `num_states`. Each element
 #'   of the list is itself a list specifying the model for that state. The
 #'   structure depends on whether the model is univariate or multivariate.
+#'   Fitting relies on the tsgarch or tsmarch packages, respectively.
+#'   
 #'
 #'   \strong{For univariate models (one-column x):}
 #'   Each element spec[[j]] must be a list with the following components. For a
 #'   complete list of all possible arguments (e.g., for different GARCH model
-#'   flavors), please refer to the documentation for tsgarch::garch_modelspec.
+#'   flavors), please refer to the documentation for the tsgarch package 
+#'   (`?tsgarch` and `vignette("garch_models", package = "tsgarch")`).
 #'   \itemize{
 #'     \item \code{arma_order}: A numeric vector c(p,q) for the ARMA(p,q) order.
 #'     \item \code{garch_model}: A character string for the GARCH model type 
@@ -73,7 +76,11 @@
 #'   \strong{For multivariate models (multi-column x):}
 #'   Each element spec[[j]] must be a list with the following components. For a
 #'   complete list of all possible arguments, please refer to the documentation
-#'   for the relevant tsmarch specification function (e.g., ?tsmarch::dcc_modelspec).
+#'   for the relevant tsmarch specification function. For a DCC model see 
+#'   `?dcc_modelspec.tsgarch.multi_estimate`, for a Copula GARCH model see 
+#'   `?cgarch_modelspec.tsgarch.multi_estimate`. (See also `?tsmarch`, 
+#'   `vignette("tsmarch_demo", package = "tsmarch")` and 
+#'   `vignette("feasible_multivariate_garch", package = "tsmarch")`.)
 #'   \itemize{
 #'     \item \code{var_order}: An integer p for the VAR(p) order.
 #'     \item \code{garch_spec_fun}: A character string with the name of the 
@@ -246,9 +253,11 @@ tsbs <- function(
   model_type <- match.arg(model_type)
   fail_mode <- match.arg(fail_mode)
   
-  if(.is_invalid_data(x, fail_mode = fail_mode))
-    stop("No valid x value provided.")
-  if (is.vector(x) || is.data.frame(x) || is.ts(x)) x <- as.matrix(x)
+  # if(.is_invalid_data(x, fail_mode = fail_mode))
+  #   stop("No valid x value provided.")
+  # if (is.vector(x) || is.data.frame(x) || is.ts(x)) x <- as.matrix(x)
+  
+  x <- .coerce_and_validate_data(x)
   
   n <- nrow(x)
   
@@ -388,6 +397,8 @@ tsbs <- function(
 
 
 #' Check if expression or variable exists and is evaluable
+#' 
+#' DEPRECATED. Only called by .is_invalid_data(), which is DEPRECATED.
 #'
 #' Helper function that distinguishes between:
 #' 1. Expressions that evaluate successfully (e.g., numeric(0), 1+1)
@@ -422,11 +433,89 @@ tsbs <- function(
   })
 }
 
+
+#' @title Coerce, Validate, and Prepare Time Series Data
+#' @description A robust helper function that takes a user-provided object,
+#' validates it, and coerces it into a clean, numeric matrix suitable for
+#' downstream analysis. It provides informative error messages or fails
+#' gracefully based on the specified mode.
+#'
+#' @param x The user-provided data (e.g., vector, matrix, data.frame, ts, xts, zoo).
+#' @param fail_mode How to handle validation errors: "predictably" (the default)
+#'   will stop with an informative error. "gracefully" will return NULL.
+#' @return A numeric matrix if the input is valid, otherwise stops or returns NULL.
+#' @keywords internal
+.coerce_and_validate_data <- function(x, fail_mode = c("predictably", "gracefully")) {
+  fail_mode <- match.arg(fail_mode)
+  x_name <- deparse(substitute(x))
+  
+  ## --- Internal handler for failing predictably or gracefully ---
+  handle_failure <- function(message) {
+    if (fail_mode == "predictably") {
+      stop(message, call. = FALSE)
+    } else {
+      return(NULL)
+    }
+  }
+  
+  ## --- 1. Initial NULL check ---
+  if (is.null(x)) {
+    return(handle_failure(paste0("Input '", x_name, "' is NULL.")))
+  }
+  
+  ## --- 2. Coercion based on type ---
+  data_matrix <- NULL
+  tryCatch({
+    if (inherits(x, c("xts", "zoo"))) {
+      data_matrix <- zoo::coredata(x)
+    } else if (is.matrix(x)) {
+      data_matrix <- x
+    } else if (is.data.frame(x)) {
+      data_matrix <- as.matrix(x)
+    } else if (is.ts(x)) {
+      data_matrix <- as.matrix(x)
+    } else if (is.vector(x) && !is.list(x)) { ## Explicitly exclude lists.
+                                              ## A vector in R is either an 
+                                              ## atomic vector i.e., one of the 
+                                              ## atomic types, or of type 
+                                              ## or mode list or expression.
+      data_matrix <- as.matrix(x)
+    } else {
+      ## This block now correctly catches lists and other unsupported types
+      return(handle_failure(paste0("Unsupported data type for '", x_name, "': '", class(x)[1], "'.")))
+    }
+  }, error = function(e) {
+    ## This catch is a final safety net for unexpected coercion errors
+    data_matrix <<- handle_failure(paste0("Failed to coerce '", x_name, "' to a matrix: ", e$message))
+  })
+  
+  ## If coercion failed gracefully, data_matrix will be NULL.
+  if (is.null(data_matrix)) return(NULL)
+  
+  
+  ## --- 3. Universal Validation on the resulting matrix ---
+  if (!is.numeric(data_matrix)) {
+    return(handle_failure(paste0("Input '", x_name, "' must be numeric.")))
+  }
+  if (any(!is.finite(data_matrix))) {
+    return(handle_failure(paste0("Input '", x_name, "' contains non-finite values (NA, NaN, Inf).")))
+  }
+  if (NROW(data_matrix) < 1 || NCOL(data_matrix) < 1) {
+    return(handle_failure(paste0("Input '", x_name, "' must not be empty.")))
+  }
+  
+  ## --- 4. Success ---
+  return(data_matrix)
+}
+
+
 #' Invalid input data
+#'
+#' DEPRECATED
 #'
 #' Returns TRUE if input data is not valid, FALSE otherwise.
 #' 
-#' @param x x, vector, matrix or data.frame
+#' @param x x, vector, matrix, data.frame or time series
 #' @param allow_null NULL value may be allowed when functions calculates value
 #'   of x automatically.
 #' @param fail_mode How to handle validation errors: "predictably" (fail fast) 
@@ -435,63 +524,133 @@ tsbs <- function(
 #' @returns boolean
 #' @export
 .is_invalid_data <- function(x, allow_null = TRUE, fail_mode = c("predictably", "gracefully")) {
-  
   fail_mode <- match.arg(fail_mode)
   
-  ## Check if expression/variable is valid and evaluable
+  ## Check if the expression/variable itself is valid and evaluable
   if (.check_expression_validity(substitute(x), parent.frame())) {
     return(TRUE)
   }
   
-  ## Handle NULL values based on allow_null parameter
+  ## Handle NULL values based on the allow_null parameter
   if (is.null(x)) {
     return(!allow_null)
   }
   
-  ## Helper function to handle errors based on fail_mode
-  safe_check <- function(expr) {
-    if (fail_mode == "predictably") {
-      ## Let errors bubble up
-      expr
+  ## --- Unified Validation Logic with fail_mode ---
+  
+  ## Define the core coercion logic in a helper function
+  perform_coercion <- function(input) {
+    if (inherits(input, c("xts", "zoo"))) {
+      return(zoo::coredata(input))
+    } else if (inherits(input, c("ts", "data.frame", "matrix"))) {
+      return(as.matrix(input))
+    } else if (is.vector(input)) {
+      return(as.matrix(input))
     } else {
-      ## Handle errors gracefully
-      tryCatch(expr, error = function(e) FALSE)
+      ## Return NULL for unsupported types, which signals an invalid state
+      return(NULL)
     }
   }
   
-  ## Check if x is numeric (for vectors, matrices, or data frames)
-  if (is.vector(x) || is.matrix(x)) {
-    if (!is.numeric(x)) return(TRUE)
-  } else if (is.data.frame(x)) {
-    ## Check if all columns are numeric and data frame is not empty
-    if (!all(sapply(x, is.numeric)) || nrow(x) < 1 || ncol(x) < 1) {
-      return(TRUE)
-    }
-    
-    ## Check for NA values in data frame
-    if (safe_check(any(is.na(x)))) return(TRUE)
-    
-    ## Check for non-finite values in data frame
-    if (safe_check(any(!sapply(x, function(col) all(is.finite(col)))))) return(TRUE)
+  data_to_check <- NULL
+  if (fail_mode == "gracefully") {
+    ## Graceful mode: Catch any errors during coercion and treat as invalid
+    data_to_check <- tryCatch(perform_coercion(x), error = function(e) NULL)
   } else {
-    ## For other object types, consider them invalid
+    ## Predictable mode: Let any coercion errors bubble up
+    data_to_check <- perform_coercion(x)
+  }
+  
+  ## If coercion failed or the type was unsupported, the data is invalid.
+  if (is.null(data_to_check)) {
     return(TRUE)
   }
   
-  ## Handle remaining checks based on object type
-  if (is.data.frame(x)) {
-    ## Data frame specific checks (already handled NA and finite above)
-    if (safe_check(any(sapply(x, is.null)))) return(TRUE)
+  ## Now, perform a single, universal check on the resulting matrix.
+  check_expression <- {
+    !is.numeric(data_to_check) ||
+      any(is.na(data_to_check)) ||
+      any(!is.finite(data_to_check))
+  }
+  
+  is_invalid <- FALSE
+  if (fail_mode == "gracefully") {
+    ## In graceful mode, if the check itself throws an error,
+    ## we treat the data as invalid.
+    is_invalid <- tryCatch(check_expression, error = function(e) TRUE)
   } else {
-    ## Vector and matrix checks - ultra-consolidated
-    if (safe_check({
-      any(is.null(x)) || any(is.na(x)) || (is.numeric(x) && any(!is.finite(x)))
-    })) return(TRUE)
+    ## In predictable mode, let any error from the check bubble up.
+    is_invalid <- check_expression
+  }
+  
+  if (is_invalid) {
+    return(TRUE)
   }
   
   ## If we reach here, all checks passed
   return(FALSE)
 }
+
+# .is_invalid_data <- function(x, allow_null = TRUE, fail_mode = c("predictably", "gracefully")) {
+#   
+#   fail_mode <- match.arg(fail_mode)
+#   
+#   ## Check if expression/variable is valid and evaluable
+#   if (.check_expression_validity(substitute(x), parent.frame())) {
+#     return(TRUE)
+#   }
+#   
+#   ## Handle NULL values based on allow_null parameter
+#   if (is.null(x)) {
+#     return(!allow_null)
+#   }
+#   
+#   ## Helper function to handle errors based on fail_mode
+#   safe_check <- function(expr) {
+#     if (fail_mode == "predictably") {
+#       ## Let errors bubble up
+#       expr
+#     } else {
+#       ## Handle errors gracefully
+#       tryCatch(expr, error = function(e) FALSE)
+#     }
+#   }
+#   
+#   ## Check if x is numeric (for vectors, matrices, or data frames)
+#   if (is.vector(x) || is.matrix(x)) {
+#     if (!is.numeric(x)) return(TRUE)
+#   } else if (is.data.frame(x)) {
+#     ## Check if all columns are numeric and data frame is not empty
+#     if (!all(sapply(x, is.numeric)) || nrow(x) < 1 || ncol(x) < 1) {
+#       return(TRUE)
+#     }
+#     
+#     ## Check for NA values in data frame
+#     if (safe_check(any(is.na(x)))) return(TRUE)
+#     
+#     ## Check for non-finite values in data frame
+#     if (safe_check(any(!sapply(x, function(col) all(is.finite(col)))))) return(TRUE)
+#   } else {
+#     ## For other object types, consider them invalid
+#     return(TRUE)
+#   }
+#   
+#   ## Handle remaining checks based on object type
+#   if (is.data.frame(x)) {
+#     ## Data frame specific checks (already handled NA and finite above)
+#     if (safe_check(any(sapply(x, is.null)))) return(TRUE)
+#   } else {
+#     ## Vector and matrix checks - ultra-consolidated
+#     if (safe_check({
+#       any(is.null(x)) || any(is.na(x)) || (is.numeric(x) && any(!is.finite(x)))
+#     })) return(TRUE)
+#   }
+#   
+#   ## If we reach here, all checks passed
+#   return(FALSE)
+# }
+
+
 
 #' Invalid input count
 #'
@@ -549,6 +708,7 @@ tsbs <- function(
   ## If we reach here, all checks passed
   return(FALSE)
 }
+
 
 #' Invalid percentage in decimal fraction form
 #'

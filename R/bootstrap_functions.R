@@ -22,17 +22,17 @@
 #' }
 #' 
 #' If `n_boot` is set, the last block will be truncated when necessary to match 
-#'   the length (`n_boot`) of the bootstrap series. This is the only way to 
-#'   ensure equal length of all bootstrap series, as the length of each block is 
-#'   random. If `n_boot` is not set, `num_blocks` must be set, and the length of 
-#'   each bootstrap series will be determined by the number of blocks and the 
-#'   random lengths of the individual blocks for that particular series. This 
-#'   almost certainly results in bootstrap series of different lengths.  
+#' the length (`n_boot`) of the bootstrap series. This is the only way to ensure 
+#' equal length of all bootstrap series, as the length of each block is random. 
+#' If `n_boot` is not set, `num_blocks` must be set, and the length of each 
+#' bootstrap series will be determined by the number of blocks and the random 
+#' lengths of the individual blocks for that particular series. This almost 
+#' certainly results in bootstrap series of different lengths.  
 #'   
 #' For multivariate series (matrices or data frames), the function fits a single
-#'   HMM where all variables are assumed to depend on the same underlying hidden
-#'   state sequence. The returned bootstrap samples are matrices with the same
-#'   number of columns as the input `x`.  
+#' HMM where all variables are assumed to depend on the same underlying hidden
+#' state sequence. The returned bootstrap samples are matrices with the same
+#' number of columns as the input `x`.  
 #'   
 #' Hidden Markov Model definition:  
 #' 
@@ -48,9 +48,14 @@
 #' 
 #' \eqn{\mathbb{P}(\mathbf{X}, \mathbf{S}) = \pi_{S_1} b_{S_1}(X_1) \prod_{t=2}^{T} a_{S_{t-1} S_t} b_{S_t}(X_t)}
 #'   
-#' Marginal probability of the observed data is obtained by summing over all possible hidden state sequences:  
+#' Marginal probability of the observed data is obtained by summing over all 
+#' possible hidden state sequences:  
 #' 
 #' \eqn{\mathbb{P}(\mathbf{X}) = \sum_{\mathbf{S}} \mathbb{P}(\mathbf{X}, \mathbf{S})}
+#' 
+#' (Beware of the "double use of data" problem: The bootstrap procedure relies 
+#'  on regime classification, but the regimes themselves are estimated from the 
+#'  same data and depend on the parameters being resampled.)
 #'   
 #' @return A list of numeric vectors, each one a bootstrap replicate.
 #' 

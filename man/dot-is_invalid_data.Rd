@@ -11,7 +11,7 @@
 )
 }
 \arguments{
-\item{x}{x, vector, matrix or data.frame}
+\item{x}{x, vector, matrix, data.frame or time series}
 
 \item{allow_null}{NULL value may be allowed when functions calculates value
 of x automatically.}
@@ -23,5 +23,8 @@ or "gracefully" (return FALSE on error)}
 boolean
 }
 \description{
+DEPRECATED
+}
+\details{
 Returns TRUE if input data is not valid, FALSE otherwise.
 }

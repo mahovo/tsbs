@@ -15,6 +15,9 @@
 TRUE if the expression/variable is invalid/non-existent, FALSE otherwise
 }
 \description{
+DEPRECATED. Only called by .is_invalid_data(), which is DEPRECATED.
+}
+\details{
 Helper function that distinguishes between:
 \enumerate{
 \item Expressions that evaluate successfully (e.g., numeric(0), 1+1)
