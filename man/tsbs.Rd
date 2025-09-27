@@ -88,14 +88,16 @@ MS-VARMA-GARCH models.}
 
 \item{spec}{A list defining the state-specific models for the MS-VARMA-GARCH
 bootstrap (bs_type = "ms_varma_garch"). This argument is required for
-this bootstrap type and must be a list of length num_states. Each element
+this bootstrap type and must be a list of length \code{num_states}. Each element
 of the list is itself a list specifying the model for that state. The
 structure depends on whether the model is univariate or multivariate.
+Fitting relies on the tsgarch or tsmarch packages, respectively.
 
 \strong{For univariate models (one-column x):}
 Each element spec[\link{j}] must be a list with the following components. For a
 complete list of all possible arguments (e.g., for different GARCH model
-flavors), please refer to the documentation for tsgarch::garch_modelspec.
+flavors), please refer to the documentation for the tsgarch package
+(\code{?tsgarch} and \code{vignette("garch_models", package = "tsgarch")}).
 \itemize{
 \item \code{arma_order}: A numeric vector c(p,q) for the ARMA(p,q) order.
 \item \code{garch_model}: A character string for the GARCH model type
@@ -116,7 +118,11 @@ list(omega = 0.1, alpha1 = 0.1, beta1 = 0.8)).
 \strong{For multivariate models (multi-column x):}
 Each element spec[\link{j}] must be a list with the following components. For a
 complete list of all possible arguments, please refer to the documentation
-for the relevant tsmarch specification function (e.g., ?tsmarch::dcc_modelspec).
+for the relevant tsmarch specification function. For a DCC model see
+\code{?dcc_modelspec.tsgarch.multi_estimate}, for a Copula GARCH model see
+\code{?cgarch_modelspec.tsgarch.multi_estimate}. (See also \code{?tsmarch},
+\code{vignette("tsmarch_demo", package = "tsmarch")} and
+\code{vignette("feasible_multivariate_garch", package = "tsmarch")}.)
 \itemize{
 \item \code{var_order}: An integer p for the VAR(p) order.
 \item \code{garch_spec_fun}: A character string with the name of the

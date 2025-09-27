@@ -494,15 +494,16 @@ tsbs <- function(
   
   
   ## --- 3. Universal Validation on the resulting matrix ---
+  if (NROW(data_matrix) < 1 || NCOL(data_matrix) < 1) {
+    return(handle_failure(paste0("Input '", x_name, "' must not be empty.")))
+  }
   if (!is.numeric(data_matrix)) {
     return(handle_failure(paste0("Input '", x_name, "' must be numeric.")))
   }
   if (any(!is.finite(data_matrix))) {
     return(handle_failure(paste0("Input '", x_name, "' contains non-finite values (NA, NaN, Inf).")))
   }
-  if (NROW(data_matrix) < 1 || NCOL(data_matrix) < 1) {
-    return(handle_failure(paste0("Input '", x_name, "' must not be empty.")))
-  }
+
   
   ## --- 4. Success ---
   return(data_matrix)

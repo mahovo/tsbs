@@ -2,29 +2,23 @@
 % Please edit documentation in R/tsbs.R
 \name{.coerce_and_validate_data}
 \alias{.coerce_and_validate_data}
-\title{Coerce and Validate Time Series Input}
+\title{Coerce, Validate, and Prepare Time Series Data}
 \usage{
-.coerce_and_validate_data(
-  x,
-  x_name = "x",
-  fail_mode = c("predictably", "gracefully")
-)
+.coerce_and_validate_data(x, fail_mode = c("predictably", "gracefully"))
 }
 \arguments{
-\item{x}{The user input to validate and coerce.}
-
-\item{x_name}{The name of the argument being checked (used for error messages).}
+\item{x}{The user-provided data (e.g., vector, matrix, data.frame, ts, xts, zoo).}
 
 \item{fail_mode}{How to handle validation errors: "predictably" (the default)
-stops with an error, while "gracefully" returns NULL.}
+will stop with an informative error. "gracefully" will return NULL.}
 }
 \value{
-A validated, numeric matrix, or NULL if validation fails and
-fail_mode is "gracefully".
+A numeric matrix if the input is valid, otherwise stops or returns NULL.
 }
 \description{
-Takes a user-provided object, attempts to coerce it into a numeric matrix,
-and performs comprehensive validation. Returns the clean matrix if successful,
-or stops with an informative error or returns NULL, depending on the fail_mode.
+A robust helper function that takes a user-provided object,
+validates it, and coerces it into a clean, numeric matrix suitable for
+downstream analysis. It provides informative error messages or fails
+gracefully based on the specified mode.
 }
 \keyword{internal}
