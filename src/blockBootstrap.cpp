@@ -26,10 +26,11 @@ int compute_default_block_length(const Rcpp::NumericMatrix &x) {
 
 // +++++++++++++ Compute weights for tapered blocks +++++++++++++
 // Cosine tapering window function.
-Rcpp::NumericVector cosine_weights(int len) {
-  Rcpp::NumericVector w(len);
-  for (int i = 0; i < len; ++i) {
-    w[i] = 0.5 * (1 - std::cos(2 * M_PI * i / (len - 1)));
+// [[Rcpp::export]]
+Rcpp::NumericVector cosine_weights(int block_length) {
+  Rcpp::NumericVector w(block_length);
+  for (int i = 0; i < block_length; ++i) {
+    w[i] = 0.5 * (1 - std::cos(2 * M_PI * i / (block_length - 1)));
   }
   return w;
 }
@@ -37,6 +38,7 @@ Rcpp::NumericVector cosine_weights(int len) {
 
 // Bartlett (triangular) window. 
 // Linearly tapers from 1 in the center to 0 at both ends.
+// [[Rcpp::export]]
 Rcpp::NumericVector bartlett_weights(int block_length) {
   Rcpp::NumericVector w(block_length);
   double N = static_cast<double>(block_length - 1);
@@ -51,6 +53,7 @@ Rcpp::NumericVector bartlett_weights(int block_length) {
 // Allows tuning of the taper via alpha ∈ [0, 1]:
 // alpha = 0 → rectangular (no taper)
 // alpha = 1 → Hann (fully tapered) 
+// [[Rcpp::export]]
 Rcpp::NumericVector tukey_weights(int block_length, double alpha = 0.5) {
   Rcpp::NumericVector w(block_length);
   double N = static_cast<double>(block_length - 1);
@@ -106,13 +109,40 @@ Rcpp::List blockBootstrap_cpp(
   //
   // then that allows us to accept the NULL input, compute a valid value if NULL, 
   // and specify integer type at that point for further processing.
-  int block_length = Rf_isNull(block_length_spec)
-    ? compute_default_block_length(x)
-      : Rcpp::as<int>(block_length_spec);
+  // int block_length = Rf_isNull(block_length_spec)
+  //   ? compute_default_block_length(x)
+  //     : Rcpp::as<int>(block_length_spec);
+  // 
+  // if (TYPEOF(block_length) != INTSXP) {
+  //   stop("block_length must be a positive integer");
+  // }
+  
+  
+  int block_length;
+  if (Rf_isNull(block_length_spec)) {
+    block_length = compute_default_block_length(x);
+  } else {
+    // Check the SEXP type before conversion
+    if (TYPEOF(block_length_spec) != INTSXP && TYPEOF(block_length_spec) != REALSXP) {
+      stop("block_length_spec must be a positive integer");
+    }
+    
+    block_length = Rcpp::as<int>(block_length_spec);
+    
+    // Now check the converted value
+    if (block_length <= 0) {
+      stop("block_length_spec must be a positive integer");
+    }
+  }
+  
+  if (block_length < 1) {
+    Rcpp::stop("block_length must be a positive integer");
+  }
   
   if (block_length == 1 && block_type == "tapered") {
-   Rcpp::stop("Can not use block type \"tapered\" when block length is 1. See `?tsbs::tsbs`");
+    Rcpp::stop("Can not use block type \"tapered\" when block length is 1. See `?tsbs::tsbs`");
   }
+  
 
   // Final output length
   int n_boot;

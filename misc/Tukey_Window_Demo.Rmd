@@ -1,0 +1,91 @@
+---
+title: "Tukey_Window_Demo"
+author: "Martin Hoshi Vognsen"
+output: html_document
+date: "`r Sys.Date()`"
+---
+
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, fig.width=7, fig.height=4)
+```
+
+```{r include=FALSE}
+library(Rcpp)
+library(ggplot2)
+```
+
+
+## 1. Verify Basic Properties
+
+The Tukey window interpolates between:
+
+Rectangular window when alpha = 0.
+
+Hann window when alpha = 1.
+
+Let’s test these cases.
+
+```{r}
+N <- 64
+
+w_rect <- .Call(`_tsbs_tukey_weights`, N, alpha = 0)
+w_hann <- .Call(`_tsbs_tukey_weights`, N, alpha = 1)
+
+par(mfrow=c(1,2))
+plot(w_rect, type="l", main="Rectangular (alpha = 0)",
+     xlab="Index", ylab="Weight", ylim=c(0,1))
+plot(w_hann, type="l", main="Hann (alpha = 1)",
+     xlab="Index", ylab="Weight", ylim=c(0,1))
+
+```
+
+You should see a flat-top rectangle and a smooth Hann window, confirming correctness.
+
+## 2. Demonstrate the Effect of Tapering
+
+We now show how different values of alpha gradually taper the window.
+
+```{r}
+alphas <- c(0, 0.25, 0.5, 0.75, 1.0)
+df <- data.frame()
+
+for (a in alphas) {
+  w <- tukey_weights(N, a)
+  df <- rbind(df, data.frame(
+    index = 0:(N-1),
+    weight = w,
+    alpha = paste("alpha =", a)
+  ))
+}
+
+ggplot(df, aes(x = index, y = weight, color = alpha)) +
+  geom_line(linewidth = 1) +
+  theme_minimal(base_size = 14) +
+  labs(title="Tukey (Tapered Cosine) Window",
+       x="Index",
+       y="Weight",
+       color="Alpha")
+```
+
+
+The plot shows:
+
+Alpha = 0: rectangular window
+
+Alpha = 1: Hann window
+
+Intermediate values: partial tapering, with flat central region and cosine-shaped edges
+
+## 3. Intuition
+
+The Tukey window is often used in time series and spectral analysis as a tradeoff between the rectangular and Hann windows:
+
+Small $\alpha$ → more data retained, but more leakage.
+
+Large $\alpha$ → stronger tapering, reduced leakage, but less effective sample size.
+
+$\alpha = 0.5$ is often a balanced choice.
+
+
+

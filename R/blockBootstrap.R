@@ -7,28 +7,26 @@
 #'
 #' @param x A numeric matrix with rows representing time points and columns 
 #'   representing variables.
-#' @param n_length_spec Integer or `NA`. Desired number of time points in the 
+#' @param n_length Integer or `NA`. Desired number of time points in the 
 #'   bootstrap sample. If `NA`, the original series length is used.
-#' @param block_length_spec Integer or `NA`. Length of each block. If `NA`, a 
+#' @param block_length Integer or `NA`. Length of each block. If `NA`, a 
 #'   heuristic is used based on the average lag-1 autocorrelation across variables.
-#' @param num_blocks_spec Integer or `NA`. Number of blocks to use. If `NA`, 
-#'   this is inferred from `n_length_spec`.
+#' @param num_blocks Integer or `NA`. Number of blocks to use. If `NA`, 
+#'   this is inferred from `n_length`.
 #' @param num_boots Number of bootstrap replicates to generate.
-#' @param bs_type Character. Bootstrap type. Either `"moving"` (Moving Block 
-#'   Bootstrap) or `"stationary"` (Stationary Bootstrap).
+#' @param bs_type Bootstrap type. Character string: One of `"moving"`, 
+#'   `"stationary"`, `"hmm"`, `"msar"`, `"ms_varma_garch"`, or `"wild"`. 
 #' @param block_type Character. Block type. Either `"non-overlapping"`, 
-#'   `"overlapping"` or `"tapered"`.
+#'   `"overlapping"` or `"tapered"`. Default `"overlapping"`.
 #' @param taper_type Tapering window function. Character. One of `"cosine"`, 
 #'   `"bartlett"`, or `"tukey"`.
 #' @param p Probability parameter for the geometric block length (used in 
 #'   Stationary Bootstrap).
-#' @param overlap Logical. If `FALSE`, stationary blocks are chosen from
-#'   non-overlapping segments.
 #' @param stationary_max_percentile Stationary max percentile.
 #' @param stationary_max_fraction_of_n Stationary max fraction of n.
 #'
 #' @return A list of matrices, each one a bootstrap replicate with dimensions 
-#'   approximately `n_length_spec` × `ncol(x)`.
+#'   approximately `n_length` × `ncol(x)`.
 #'
 #' @details
 #' The Moving Block Bootstrap (MBB) resamples fixed-length overlapping blocks
@@ -38,8 +36,13 @@
 #'
 #' If `block_length_spec` is `NA`, an automatic heuristic is used that depends
 #' on the average lag-1 autocorrelation across variables. The function
-#' supports flexible specifications of output length (`n_length_spec`) and
-#' block structure (`num_blocks_spec`).
+#' supports flexible specifications of output length (`n_length`) and
+#' block structure (`num_blocks`).
+#' 
+#' @references 
+#' Politis, D., & Romano, J. (1994). The Stationary Bootstrap. Journal of the 
+#'   American Statistical Association, 89, 1303-1313.
+#'   [http://dx.doi.org/10.1080/01621459.1994.10476870](http://dx.doi.org/10.1080/01621459.1994.10476870)
 #'
 #' @examples
 #' set.seed(123)

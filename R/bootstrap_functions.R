@@ -1,79 +1,3 @@
-#' Hidden Markov Model (HMM) Bootstrap for Time Series
-#'
-#' Deprecated. Use `hmm_bootstrap` instead.
-#'
-#' Fits a Gaussian Hidden Markov Model (HMM) to a univariate time series
-#' and generates bootstrap replicates by resampling regime-specific blocks.
-#'
-#' @param x Numeric vector representing the time series.
-#' @param n_boot Length of bootstrap series.
-#' @param num_states Integer number of hidden states for the HMM.
-#' @param num_blocks Integer number of blocks to sample for each bootstrap replicate.
-#' @param num_boots Integer number of bootstrap replicates to generate.
-#' @param parallel Parallelize computation? `TRUE` or `FALSE`.
-#' @param num_cores Number of cores.
-#'
-#' @return A list of numeric vectors, each one a bootstrap replicate.
-#'
-#' @details
-#' This function:
-#' \itemize{
-#'   \item Fits a Gaussian HMM to `x` using `depmixS4::depmix()` and `depmixS4::fit()`.
-#'   \item Uses Viterbi decoding (`posterior(fit, type = "viterbi")$state`)
-#'     to assign each observation to a state.
-#'   \item Samples contiguous blocks of observations belonging to each state.
-#' }
-#' If `n_boot` is set, the last block will be truncated when necessary to match 
-#'   the length (`n_boot`) of the bootstrap series. This is the only way to 
-#'   ensure equal length of all bootstrap series, as the length of each block is 
-#'   random. If `n_boot` is not set, `num_blocks` must be set, and the length of 
-#'   each bootstrap series will be determined by the number of blocks and the 
-#'   random lengths of the individual blocks for that particular series. Note 
-#'   that this almost certainly results in bootstrap series of different lengths.
-#'
-#' @examples
-#' set.seed(123)
-#' x <- arima.sim(n = 200, list(ar = 0.5))
-#' hmm_samples <- hmm_bootstrap(x, num_states = 2, num_blocks = 10, num_boots = 5)
-#' length(hmm_samples)     # 5 bootstrap replicates
-#' length(hmm_samples[[1]]) # length of one bootstrap series
-#'
-#' @importFrom depmixS4 depmix fit posterior
-#' @importFrom stats gaussian
-#' @export
-hmm_bootstrap_univariate <- function(
-    x, 
-    n_boot = NULL, 
-    num_states = 2, 
-    num_blocks = 100, 
-    num_boots = 100,
-    parallel = FALSE, 
-    num_cores = 1L
-  ) {
-  df <- data.frame(return = x)
-  
-  ## Fit HMM
-  if (!requireNamespace("depmixS4", quietly = TRUE)) {
-    stop("depmixS4 package required for HMM bootstrap.")
-  }
-  
-  model <- depmixS4::depmix(return ~ 1, data = df, nstates = num_states, family = gaussian())
-  fit <- depmixS4::fit(model, verbose = FALSE)
-  states <- depmixS4::posterior(fit, type = "viterbi")$state
-  
-  ## Sample bootstraps
-  .sample_blocks(
-    x, 
-    n_boot, 
-    num_blocks, 
-    states, 
-    num_boots,
-    parallel = parallel, 
-    num_cores = num_cores
-  )
-}
-
-
 #' Hidden Markov Model (HMM) Bootstrap for Multivariate Time Series
 #'
 #' Fits a Gaussian Hidden Markov Model (HMM) to a multivariate time series
@@ -87,8 +11,6 @@ hmm_bootstrap_univariate <- function(
 #' @param parallel Parallelize computation? `TRUE` or `FALSE`.
 #' @param num_cores Number of cores.
 #'
-#' @return A list of numeric vectors, each one a bootstrap replicate.
-#'
 #' @details
 #' This function:
 #' \itemize{
@@ -98,17 +20,51 @@ hmm_bootstrap_univariate <- function(
 #'     to assign each observation to a state.
 #'   \item Samples contiguous blocks of observations belonging to each state.
 #' }
+#' 
 #' If `n_boot` is set, the last block will be truncated when necessary to match 
-#'   the length (`n_boot`) of the bootstrap series. This is the only way to 
-#'   ensure equal length of all bootstrap series, as the length of each block is 
-#'   random. If `n_boot` is not set, `num_blocks` must be set, and the length of 
-#'   each bootstrap series will be determined by the number of blocks and the 
-#'   random lengths of the individual blocks for that particular series. This 
-#'   almost certainly results in bootstrap series of different lengths.
+#' the length (`n_boot`) of the bootstrap series. This is the only way to ensure 
+#' equal length of all bootstrap series, as the length of each block is random. 
+#' If `n_boot` is not set, `num_blocks` must be set, and the length of each 
+#' bootstrap series will be determined by the number of blocks and the random 
+#' lengths of the individual blocks for that particular series. This almost 
+#' certainly results in bootstrap series of different lengths.  
+#'   
 #' For multivariate series (matrices or data frames), the function fits a single
-#'   HMM where all variables are assumed to depend on the same underlying hidden
-#'   state sequence. The returned bootstrap samples are matrices with the same
-#'   number of columns as the input `x`.
+#' HMM where all variables are assumed to depend on the same underlying hidden
+#' state sequence. The returned bootstrap samples are matrices with the same
+#' number of columns as the input `x`.  
+#'   
+#' Hidden Markov Model definition:  
+#' 
+#' - \eqn{T}: sequence length  
+#' - \eqn{K}: number of hidden states  
+#' - \eqn{\mathbf{X} = (X_1, \dots, X_T)}: observed sequence  
+#' - \eqn{\mathbf{S} = (S_1, \dots, S_T)}: hidden (latent) state sequence  
+#' - \eqn{\pi_i = \mathbb{P}(S_1 = i)}: initial state distribution  
+#' - \eqn{A = [a_{ij}], \text{ where } a_{ij} = \mathbb{P}(S_{t+1} = j \mid S_t = i)}: transition matrix  
+#' - \eqn{b_j(x_t) = \mathbb{P}(X_t = x_t \mid S_t = j)}: output probability
+#' 
+#' Joint probability of the observations and the hidden states:  
+#' 
+#' \eqn{\mathbb{P}(\mathbf{X}, \mathbf{S}) = \pi_{S_1} b_{S_1}(X_1) \prod_{t=2}^{T} a_{S_{t-1} S_t} b_{S_t}(X_t)}
+#'   
+#' Marginal probability of the observed data is obtained by summing over all 
+#' possible hidden state sequences:  
+#' 
+#' \eqn{\mathbb{P}(\mathbf{X}) = \sum_{\mathbf{S}} \mathbb{P}(\mathbf{X}, \mathbf{S})}
+#' 
+#' (Beware of the "double use of data" problem: The bootstrap procedure relies 
+#'  on regime classification, but the regimes themselves are estimated from the 
+#'  same data and depend on the parameters being resampled.)
+#'   
+#' @return A list of numeric vectors, each one a bootstrap replicate.
+#' 
+#' @references
+#' Holst, U., Lindgren, G., Holst, J. and Thuvesholmen, M. (1994), Recursive 
+#'   Estimation In Switching Autoregressions With A Markov Regime. Journal of 
+#'   Time Series Analysis, 15: 489-506. 
+#'   [https://doi.org/10.1111/j.1467-9892.1994.tb00206.x](https://doi.org/10.1111/j.1467-9892.1994.tb00206.x)
+#'   
 #' @export
 hmm_bootstrap <- function(
     x, # Now accepts a matrix
@@ -134,188 +90,13 @@ hmm_bootstrap <- function(
   states <- depmixS4::posterior(fit, type = "viterbi")$state
   
   ## Call the multivariate-aware sampling function
-  .sample_blocks_mv(
+  .sample_blocks(
     x, n_boot, num_blocks, states, num_boots,
     parallel = parallel,
     num_cores = num_cores
   )
 }
 
-
-
-#' Markov-Switching Autoregressive (MSAR) Bootstrap for Time Series
-#' 
-#' Deprecated. Use `msvar_bootstrap()` instead.
-#'
-#' Fits a Markov-switching autoregressive model (MSAR) to a univariate time series
-#' and generates bootstrap replicates by resampling regime-specific blocks.
-#'
-#' @param x Numeric vector representing the time series.
-#' @param ar_order Integer order of the autoregressive model.
-#' @param num_states Integer number of regimes (hidden states) in the MSAR model.
-#' @param n_boot Length of bootstrap series.
-#' @param num_blocks Integer number of blocks to sample per bootstrap replicate.
-#' @param num_boots Integer number of bootstrap replicates.
-#' @param parallel Parallelize computation? `TRUE` or `FALSE`.
-#' @param num_cores Number of cores.
-#'
-#' @return A list of numeric vectors, each a bootstrap replicate.
-#'
-#' @details
-#' This function:
-#' \itemize{
-#'   \item Fits a Markov-switching autoregressive model using `MSwM::msmFit()` on an `lm()` fit of `x`.
-#'   \item Uses Viterbi decoding (`ms_model@Fit@smoProb`) to classify each observation into states.
-#'   \item Groups contiguous observations belonging to the same state into blocks.
-#'   \item Samples these regime-specific blocks with replacement to generate synthetic series.
-#' }
-#' If `n_boot` is set, the last block will be truncated when necessary to match 
-#'   the length (`n_boot`) of the bootstrap series. This is the only way to 
-#'   ensure equal length of all bootstrap series, as the length of each block is 
-#'   random. If `n_boot` is not set, `num_blocks` must be set, and the length of 
-#'   each bootstrap series will be determined by the number of blocks and the 
-#'   random lengths of the individual blocks for that particular series. Note 
-#'   that this almost certainly results in bootstrap series of different lengths.
-#'   Note that if `n_boot` and `num_blocks` are both set, `num_blocks` will be 
-#'   ignored. 
-#'
-#' @examples
-#' set.seed(123)
-#' x <- arima.sim(n = 200, list(ar = 0.7))
-#' msar_samples <- msar_bootstrap(x, ar_order = 1, num_states = 2, num_blocks = 10, num_boots = 5)
-#' length(msar_samples)     # 5 replicates
-#' length(msar_samples[[1]]) # length of one bootstrap series
-#'
-#' @importFrom MSwM msmFit
-#' @importFrom stats lm
-#' @export
-msar_bootstrap <- function(
-    x, 
-    ar_order = 1, 
-    num_states = 2, 
-    n_boot = NULL, 
-    num_blocks = 100, 
-    num_boots = 100,
-    parallel = FALSE, 
-    num_cores = 1L
-  ) {
-
-  ## ---- Check for required packages ----
-  if (!requireNamespace("dplyr", quietly = TRUE)) {
-    stop("dplyr package required for MSAR bootstrap.")
-  }
-  if (!requireNamespace("MSwM", quietly = TRUE)) {
-    stop("MSwM package required for MSAR bootstrap.")
-  }
-  
-  ## ---- Prepare lagged design matrix ----
-  df <- data.frame(y = x)
-  
-  for (i in seq_len(ar_order)) df[[paste0("lag", i)]] <- dplyr::lag(x, i)
-  df <- na.omit(df)
-  
-  ## ---- Fit base AR model ----
-  base_model <- lm(y ~ ., data = df)
-  
-  ## ---- Fit MSAR model ----
-  ms_model <- MSwM::msmFit(base_model, k = num_states, sw = rep(TRUE, length(coef(base_model)) + 1))
-  
-  ## ---- State sequence ----
-  states <- ms_model@Fit@smoProb
-  state_seq <- apply(states, 1, which.max)
-  
-  ## ---- Sample bootstraps ----
-  .sample_blocks(
-    x, 
-    n_boot, 
-    num_blocks, 
-    state_seq, 
-    num_boots,
-    parallel = parallel, 
-    num_cores = num_cores
-  )
-}
-
-
-
-
-#' Multivariate Markov-Switching AutoRegressive Bootstrap
-#' 
-#' Deprecated. Use `msvar_bootstrap()` instead.
-#'
-#' @param x A numeric matrix or data.frame where columns are the time series.
-#' @param ar_order Integer. The order of the autoregressive model.
-#' @param num_states Integer. The number of hidden Markov states.
-#' @param n_boot Integer. The desired length of each bootstrapped series.
-#' @param num_blocks Integer. The number of blocks to sample for each series.
-#' @param num_boots Integer. The number of bootstrap samples to generate.
-#' @param parallel Logical. Whether to use parallel processing.
-#' @param num_cores Integer. The number of cores for parallel execution.
-#' @return A list of bootstrapped multivariate series (matrices).
-#' #' @export
-msar_bootstrap_mv <- function(
-    x,
-    ar_order = 1,
-    num_states = 2,
-    n_boot = NULL,
-    num_blocks = 100,
-    num_boots = 100,
-    parallel = FALSE,
-    num_cores = 1L
-) {
-  
-  ## ---- Check for required packages ----
-  if (!requireNamespace("dplyr", quietly = TRUE) || !requireNamespace("MSwM", quietly = TRUE)) {
-    stop("Packages 'dplyr' and 'MSwM' are required.")
-  }
-
-  ## ---- Prepare lagged design matrix for VAR ----
-  ## Ensure x is a data.frame for easy formula creation
-  if (!is.data.frame(x)) x <- as.data.frame(x)
-  series_names <- colnames(x)
-  
-  df <- x
-  for (i in seq_len(ar_order)) {
-    ## Lag all columns
-    lagged_df <- dplyr::lag(x, i)
-    colnames(lagged_df) <- paste0(series_names, "_lag", i)
-    df <- cbind(df, lagged_df)
-  }
-  df <- na.omit(df)
-  
-  ## ---- Fit base VAR model ----
-  ## Create formula for a multivariate response (VAR)
-  lhs <- paste0("cbind(", paste(series_names, collapse = ", "), ")")
-  rhs <- paste(grep("_lag", colnames(df), value = TRUE), collapse = " + ")
-  formula_str <- paste(lhs, "~", rhs)
-  formula_obj <- as.formula(formula_str)
-  
-  base_model <- lm(formula_obj, data = df)
-  
-  ## ---- Fit MS-VAR model ----
-  ## The msmFit function handles the multivariate response automatically
-  ms_model <- MSwM::msmFit(
-    base_model,
-    k = num_states,
-    sw = rep(TRUE, length(coef(base_model)) + ncol(x)) # All coefficients and variances switch
-  )
-  
-  ## ---- State sequence ----
-  # This part is the same, as there is one state sequence for the whole system
-  states <- ms_model@Fit@smoProb
-  state_seq <- apply(states, 1, which.max)
-  
-  ## ---- Sample bootstraps ----
-  .sample_blocks_mv(
-    as.matrix(x), ## Pass original data as a matrix
-    n_boot,
-    num_blocks,
-    state_seq,
-    num_boots,
-    parallel = parallel,
-    num_cores = num_cores
-  )
-}
 
 
 #' Stationary Bootstrap for a 2-State MS-VAR(1) Model
@@ -325,9 +106,9 @@ msar_bootstrap_mv <- function(
 #' It then uses the estimated state sequence to perform a stationary bootstrap,
 #' generating resampled time series that preserve the state-dependent properties
 #' of the original data.
-#'
-#' Note: The bootstrap helper function requires the 'foreach' and 'doParallel'
-#' packages if `parallel = TRUE`.
+#' 
+#' For a stationary bootstrap based on a more general \eqn{n}-state MS-VECTOR
+#' ARIMA(\eqn{p, d, q})-GARCH model see [ms_varma_garch_bs()].
 #'
 #' @param x A numeric matrix or data frame where rows are observations and
 #'   columns are the time series variables.
@@ -341,6 +122,23 @@ msar_bootstrap_mv <- function(
 #'   for generating bootstrap samples. Defaults to FALSE.
 #' @param num_cores An integer specifying the number of cores to use for
 #'   parallel processing. Only used if `parallel` is TRUE. Defaults to 1.
+#'   
+#' @details
+#' - \eqn{y_t \in \mathbb{R}^K} be a **$K$-dimensional multivariate response vector** at time \eqn{t}
+#' - \eqn{S_t \in {1, \dots, M}} be a **latent Markov chain** with \eqn{M} discrete regimes
+#' - \eqn{p} be the **lag order** of the VAR model
+#' 
+#' \eqn{
+#'   y_t = \mu^{(S_t)} + \sum_{i=1}^{p} A_i^{(S_t)} y_{t-i} + \varepsilon_t, \quad \varepsilon_t \sim \mathcal{N}(0, \Sigma^{(S_t)})
+#' }
+#' 
+#' Where:
+#' - \eqn{\mu^{(S_t)} \in \mathbb{R}^K} is the regime-specific intercept vector
+#' - \eqn{A_i^{(S_t)} \in \mathbb{R}^{K \times K}} are the **regime-specific autoregressive coefficient matrices**
+#' - \eqn{\Sigma^{(S_t)} \in \mathbb{R}^{K \times K}} is the regime-specific error covariance matrix
+#' 
+#' Note: The bootstrap helper function requires the 'foreach' and 'doParallel'
+#' packages if `parallel = TRUE`.
 #'
 #' @return A list of bootstrapped time series matrices.
 #'
@@ -396,11 +194,12 @@ msvar_bootstrap <- function(
     x <- as.matrix(x)
   }
   
-  bootstrap_samples <- .sample_blocks_mv(
+  bootstrap_samples <- .sample_blocks(
     x = x,
     n_boot = n_boot,
     num_blocks = num_blocks,
-    states = state_seq_aligned, ## Use 'states' to match the helper function's parameter
+    states = state_seq_aligned, ## Use 'states' to match the helper function's 
+                                ## parameter
     num_boots = num_boots,
     parallel = parallel,
     num_cores = num_cores
@@ -412,10 +211,10 @@ msvar_bootstrap <- function(
 
 #' Stationary Bootstrap for a General MS-VARMA-GARCH Model
 #'
-#' This function fits a flexible N-state Markov-Switching model and then uses
-#' the estimated state sequence to perform a stationary block bootstrap. This
-#' generates resampled time series that preserve the state-dependent properties
-#' of the original data.
+#' Fits a flexible \eqn{n}-state Markov-Switching Vector ARIMA\eqn{(p, d, q)}-
+#' GARCH model and then uses the estimated state sequence to perform a stationary 
+#' block bootstrap. This generates resampled time series that preserve the 
+#' state-dependent properties of the original data.
 #'
 #' @param x A numeric matrix or data frame where rows are observations and
 #'   columns are the time series variables.
@@ -432,8 +231,53 @@ msvar_bootstrap <- function(
 #' @param control A list of control parameters for the EM algorithm.
 #' @param parallel A logical value indicating whether to use parallel processing.
 #' @param num_cores An integer specifying the number of cores for parallel processing.
+#' 
+#' @details
+#' The fitted model is defined as:  
+#' 
+#' Let \eqn{y_t} be the \eqn{k \times 1} vector of observations at time \eqn{t}.
+#' The model assumes that the data-generating process is governed by a latent
+#' (unobserved) state variable, \eqn{S_t}, which follows a first-order Markov
+#' chain with \eqn{M} states.
 #'
+#' \enumerate{
+#'   \item \strong{State Process}: The evolution of the state is described by the
+#'   \eqn{M \times M} transition probability matrix \eqn{P}, where the element
+#'   \eqn{p_{ij}} is the probability of transitioning from state \eqn{i} to state \eqn{j}:
+#'   \deqn{p_{ij} = P(S_t = j | S_{t-1} = i)}
+#'   The matrix \eqn{P} is structured such that \eqn{P_{ij} = p_{ij}}, and its
+#'   rows sum to one: \eqn{\sum_{j=1}^{M} p_{ij} = 1} for all \eqn{i=1, \dots, M}.
+#'
+#'   \item \strong{Observation Process}: Conditional on the system being in state
+#'   \eqn{S_t = j}, each of the \eqn{k} time series, \eqn{y_{i,t}} for
+#'   \eqn{i=1, \dots, k}, is assumed to follow an independent
+#'   ARIMA(\eqn{p_j, d_j, q_j})-GARCH(\eqn{q'_j, p'_j}) process. The parameters
+#'   for both the mean and variance equations are specific to the state \eqn{j}.
+#'   \itemize{
+#'     \item \strong{Mean Equation (ARIMA)}:
+#'       \deqn{\phi_j(L)(1-L)^{d_j} (y_{i,t} - \mu_j) = \theta_j(L) \varepsilon_{i,t}}
+#'       where \eqn{\phi_j(L)} and \eqn{\theta_j(L)} are the AR and MA lag
+#'       polynomials, \eqn{\mu_j} is the mean, and \eqn{\varepsilon_{i,t}} is the
+#'       innovation term, all specific to state \eqn{j}.
+#'     \item \strong{Variance Equation (GARCH)}: The innovations have a conditional
+#'       variance \eqn{\sigma_{i,t}^2} that evolves according to:
+#'       \deqn{\varepsilon_{i,t} = \sigma_{i,t} z_{i,t}, \quad z_{i,t} \sim \mathcal{N}(0,1)}
+#'       \deqn{\sigma_{i,t}^2 = \omega_j + \sum_{l=1}^{q'_j} \alpha_{j,l} \varepsilon_{i,t-l}^2 + \sum_{l=1}^{p'_j} \beta_{j,l} \sigma_{i,t-l}^2}
+#'       where \eqn{\omega_j, \alpha_{j,l}, \beta_{j,l}} are the GARCH parameters for state \eqn{j}.
+#'   }
+#' }
+#' Let \eqn{\Psi_j = \{\mu_j, \phi_j, \theta_j, \omega_j, \alpha_j, \beta_j\}} be
+#' the complete set of ARIMA-GARCH parameters for state \eqn{j}, and let
+#' \eqn{\Psi = \{\Psi_1, \dots, \Psi_M, P\}} be the full parameter set for the
+#' entire model. The EM algorithm using a Hamilton Filter & Kim Smoother for the 
+#' E-step is used to find the Maximum Likelihood Estimate (MLE) of \eqn{\Psi}.
+#' 
 #' @return A list of bootstrapped time series matrices.
+#' 
+#' @references
+#' Natatou Moutari, D. et al. (2021). Dependence Modeling and Risk Assessment 
+#'   of a Financial Portfolio with ARMA-APARCH-EVT models based on HACs. 
+#'   [arXiv:2105.09473](http://arxiv.org/abs/2105.09473)
 #'
 #' @export
 ms_varma_garch_bs <- function(
@@ -493,7 +337,7 @@ ms_varma_garch_bs <- function(
     x <- as.matrix(x)
   }
   
-  bootstrap_samples <- .sample_blocks_mv(
+  bootstrap_samples <- .sample_blocks(
     x = x,
     n_boot = n_boot,
     num_blocks = num_blocks,
@@ -525,6 +369,12 @@ ms_varma_garch_bs <- function(
 #' when heteroskedasticity or other non-i.i.d. errors are present.
 #' Each replicate is constructed by multiplying every observation by +1 or -1,
 #' where the signs are drawn randomly with equal probability.
+#' 
+#' @references
+#' A. Colin Cameron & Jonah B. Gelbach & Douglas L. Miller, 2008. 
+#'   "Bootstrap-Based Improvements for Inference with Clustered Errors", 
+#'   The Review of Economics and Statistics, MIT Press, vol. 90(3), pages 
+#'   414-427, August.
 #'
 #' @examples
 #' set.seed(123)
@@ -607,121 +457,6 @@ wild_bootstrap <- function(x, num_boots = 100) {
 }
 
 
-#' Sample bootstrap blocks
-#' 
-#' Deprecated. Use `.sample_blocks_mv()` instead.
-#' 
-#' Internal helper function.
-#'
-#' @param x x
-#' @param n_boot Length of bootstrap series
-#' @param num_blocks Number of blocks
-#' @param states States (see tsbs() help)
-#' @param num_boots Number of bootstraps
-#' @param parallel Boolean
-#' @param num_cores Number of cores
-#'
-#' @returns
-#' @importFrom foreach %dopar% foreach
-#' @importFrom doParallel registerDoParallel
-#' @importFrom parallel makeCluster stopCluster
-#'
-#' @examples
-.sample_blocks <- function(
-    x, 
-    n_boot, 
-    num_blocks, 
-    states, 
-    num_boots, 
-    parallel = FALSE,
-    num_cores = 1L
-  ) {
-  ## Get contiguous blocks per state
-  r <- rle(states)
-  ends <- cumsum(r$lengths)
-  starts <- c(1, head(ends, -1) + 1)
-  blocks <- Map(
-    function(s, e) list(start = s, end = e),
-    starts, ends
-  )
-  
-  ## Sample `num_blocks` blocks with replacement
-  get_block <- function(b) x[b$start:b$end]
-  
-  
-  ## ---- Parallel Backend Setup ----
-  `%dopar%` <- foreach::`%do%`
-  if (parallel) {
-    if (!requireNamespace("foreach", quietly = TRUE) || !requireNamespace("doParallel", quietly = TRUE)) {
-      stop("Packages 'foreach' and 'doParallel' are required for parallel execution.", call. = FALSE)
-    }
-    if (is.null(num_cores) || num_cores < 1) {
-      stop("To run in parallel, you must specify a positive 'num_cores'.", call. = FALSE)
-    }
-    if (num_cores > 1) {
-      cl <- parallel::makeCluster(num_cores)
-      doParallel::registerDoParallel(cl)
-      on.exit(parallel::stopCluster(cl), add = TRUE)
-      `%dopar%` <- foreach::`%dopar%`
-    }
-  }
-  
-  ## Sample num_blocks blocks per bootstrap
-  # sampled_series <- replicate(num_boots, {
-  #   sampled_blocks <- lapply(sample(blocks, num_blocks, replace = TRUE), get_block)
-  #   unlist(sampled_blocks)
-  # }, simplify = FALSE)
-  
-  # if(!is.null(n_boot)) {
-  #   if(!is.null(num_blocks)) {
-  #     warning("`num_blocks` is ingored when `n_boot` is set.")
-  #   }
-  #   sampled_series <- replicate(num_boots, {
-  #     bootstrap_series <- numeric(0)
-  #     while(length(bootstrap_series) < n_boot) {
-  #       sampled_block <- sample(blocks, 1, replace = TRUE)[[1]]
-  #       bootstrap_series <- c(bootstrap_series, get_block(sampled_block))
-  #     }
-  #     bootstrap_series <- bootstrap_series[seq_len(n_boot)]
-  #   }, simplify = FALSE)
-  # } else if(!is.null(num_blocks)) {
-  #   sampled_series <- replicate(num_boots, {
-  #     bootstrap_series <- lapply(sample(blocks, num_blocks, replace = TRUE), get_block)
-  #     unlist(bootstrap_series)
-  #   }, simplify = FALSE)
-  # } else {
-  #   stop("Must provide valid value for either n_boot or num_blocks")
-  # }
-  
-  ## ---- Parallelized sampling ----
-  
-  if (is.null(n_boot) && is.null(num_blocks)) {
-    stop("Must provide a valid value for either n_boot or num_blocks")
-  }
-  if (!is.null(n_boot) && !is.null(num_blocks)) {
-    warning("`num_blocks` is ignored when `n_boot` is set.")
-  }
-  
-  sampled_series <- foreach::foreach(i = seq_len(num_boots)) %dopar% {
-    if (!is.null(n_boot)) {
-      ## Generate series to a fixed length n_boot
-      bootstrap_series <- numeric(0)
-      while (length(bootstrap_series) < n_boot) {
-        sampled_block <- sample(blocks, 1, replace = TRUE)[[1]]
-        bootstrap_series <- c(bootstrap_series, get_block(sampled_block))
-      }
-      bootstrap_series[seq_len(n_boot)]
-    } else {
-      # Generate series from a fixed number of blocks
-      bootstrap_series <- lapply(sample(blocks, num_blocks, replace = TRUE), get_block)
-      unlist(bootstrap_series)
-    }
-  }
-
-  sampled_series
-}
-
-
 
 #' Helper Function for Multivariate Stationary Block Bootstrap
 #' @param x The original multivariate time series as a matrix.
@@ -733,7 +468,7 @@ wild_bootstrap <- function(x, num_boots = 100) {
 #' @param num_cores The number of cores for parallel processing.
 #' @return A list of bootstrapped series.
 #' @keywords internal
-.sample_blocks_mv <- function(
+.sample_blocks <- function(
     x,
     n_boot,
     num_blocks,

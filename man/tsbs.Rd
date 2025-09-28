@@ -2,13 +2,13 @@
 % Please edit documentation in R/tsbs.R
 \name{tsbs}
 \alias{tsbs}
-\title{Flexible Block Bootstrap for Time Series}
+\title{Advanced Bootstrap for Time Series}
 \usage{
 tsbs(
   x,
   n_boot = NULL,
   block_length = NULL,
-  bs_type = c("moving", "stationary", "hmm", "msar", "ms_varma_garch", "wild"),
+  bs_type = c("moving", "stationary", "hmm", "msvar", "ms_varma_garch", "wild"),
   block_type = c("overlapping", "non-overlapping", "tapered"),
   taper_type = c("cosine", "bartlett", "tukey"),
   tukey_alpha = 0.5,
@@ -26,21 +26,30 @@ tsbs(
   control = list(),
   parallel = FALSE,
   num_cores = 1L,
+  fail_mode = c("predictably", "gracefully"),
   ...
 )
 }
 \arguments{
-\item{x}{Numeric vector, matrix, or data frame of time series observations
+\item{x}{Numeric vector, matrix, data frame or time series observations
 (rows = time points, cols = variables).}
 
-\item{n_boot}{Integer, optional desired length of each bootstrap replicate.}
+\item{n_boot}{Integer, optional desired length of each bootstrap replicate.
+See details below.}
 
-\item{block_length}{Integer length of each block; if \code{NULL}, an automatic
-heuristic is used. For stationary bootstrap, \code{block_length} is the expected
-block length, when \code{p_method="1/n"}.}
+\item{block_length}{Integer, length of each block. If \code{NULL}, an automatic
+heuristic is used: The method first calculates the average absolute
+first-order autocorrelation (\eqn{\rho_1}) across all time series columns.
+A candidate block length is then calculated based on this persistence
+measure using the formula \eqn{⌊10/(1−\rho_1)⌋}. The final block length is
+constrained to be between 5 and the square root of the series length,
+ensuring a reasonable value is chosen. For stationary bootstrap,
+\code{block_length} is the expected block length, when \code{p_method="1/n"}.}
 
 \item{bs_type}{Bootstrap type. Character string: One of \code{"moving"},
-\code{"stationary"}, \code{"hmm"}, \code{"msar"}, \code{"ms_varma_garch"}, or \code{"wild"}. See details below.}
+\code{"stationary"}, \code{"hmm"}, \code{"msvar"}, \code{"ms_varma_garch"}, or \code{"wild"}.
+\code{"msvar"} is a lightweight special case of \code{"ms_varma_garch"}. See details
+below.}
 
 \item{block_type}{Block type. Character string: One of \code{"non-overlapping"},
 \code{"overlapping"}, or \code{"tapered"}. Only affects \code{bs_type="moving"} and
@@ -49,7 +58,12 @@ between blocks. It follows that \code{block_type="tapered"} can not be used when
 \code{block_length=1}.}
 
 \item{taper_type}{Tapering window function. Character. One of \code{"cosine"},
-\code{"bartlett"}, or \code{"tukey"}.}
+\code{"bartlett"}, or \code{"tukey"}. Only affects \code{block_type="tapered"}. See
+details below.}
+
+\item{tukey_alpha}{alpha parameter for \code{taper_type = "tukey"}. \eqn{\alpha}
+is the fraction of the window length tapered at each end, using indices
+\eqn{0 \dots n−1}, where \eqn{n} is the block length.}
 
 \item{num_blocks}{Integer number of blocks per bootstrap replicate.}
 
@@ -67,20 +81,87 @@ parameter: \code{"1/n"}, \code{"plugin"}, or \code{"cross validation"}.}
 
 \item{overlap}{Logical indicating if overlapping blocks are allowed.}
 
-\item{num_states}{Integer number of states for HMM, MSAR, or
+\item{num_states}{Integer number of states for HMM, MSVAR, or
 MS-VARMA-GARCH models.}
 
 \item{d}{Integer differencing order for the MS-VARMA-GARCH model.}
 
-\item{spec}{A list of model specifications for the MS-VARMA-GARCH model.}
+\item{spec}{A list defining the state-specific models for the MS-VARMA-GARCH
+bootstrap (bs_type = "ms_varma_garch"). This argument is required for
+this bootstrap type and must be a list of length \code{num_states}. Each element
+of the list is itself a list specifying the model for that state. The
+structure depends on whether the model is univariate or multivariate.
+Fitting relies on the tsgarch or tsmarch packages, respectively.
 
-\item{model_type}{Character string for MS-VARMA-GARCH: \code{"univariate"} or \code{"multivariate"}.}
+\strong{For univariate models (one-column x):}
+Each element spec[\link{j}] must be a list with the following components. For a
+complete list of all possible arguments (e.g., for different GARCH model
+flavors), please refer to the documentation for the tsgarch package
+(\code{?tsgarch} and \code{vignette("garch_models", package = "tsgarch")}).
+\itemize{
+\item \code{arma_order}: A numeric vector c(p,q) for the ARMA(p,q) order.
+\item \code{garch_model}: A character string for the GARCH model type
+(e.g., "garch", "egarch").
+\item \code{garch_order}: A numeric vector c(g,h) for the GARCH(g,h) order.
+\item \code{distribution}: A character string for the conditional
+distribution (e.g., "norm", "std").
+\item \code{start_pars}: A list containing the starting parameters for
+the optimization, with two named elements:
+\itemize{
+\item \code{arma_pars}: A named numeric vector for the ARMA parameters
+(e.g., c(ar1 = 0.5)).
+\item \code{garch_pars}: A named list for the GARCH parameters (e.g.,
+list(omega = 0.1, alpha1 = 0.1, beta1 = 0.8)).
+}
+}
 
-\item{control}{A list of control parameters for the MS-VARMA-GARCH EM algorithm.}
+\strong{For multivariate models (multi-column x):}
+Each element spec[\link{j}] must be a list with the following components. For a
+complete list of all possible arguments, please refer to the documentation
+for the relevant tsmarch specification function. For a DCC model see
+\code{?dcc_modelspec.tsgarch.multi_estimate}, for a Copula GARCH model see
+\code{?cgarch_modelspec.tsgarch.multi_estimate}. (See also \code{?tsmarch},
+\code{vignette("tsmarch_demo", package = "tsmarch")} and
+\code{vignette("feasible_multivariate_garch", package = "tsmarch")}.)
+\itemize{
+\item \code{var_order}: An integer p for the VAR(p) order.
+\item \code{garch_spec_fun}: A character string with the name of the
+tsmarch specification function to use (e.g., "dcc_modelspec",
+"gogarch_modelspec").
+\item \code{garch_spec_args}: A list of arguments to pass to the function
+specified in garch_spec_fun. Key arguments include:
+\itemize{
+\item \code{distribution}: The multivariate distribution. Valid
+choices are "mvn" (for multivariate normal) and "mvt" (for
+multivariate Student's t).
+\item For models like DCC or CGARCH, this list must also contain a
+\code{garch_model} definition for the underlying univariate GARCH
+fits.
+}
+\item \code{start_pars}: A list containing the starting parameters, with
+two named elements:
+\itemize{
+\item \code{var_pars}: A numeric vector for the VAR parameters,
+stacked column by column (intercept, lags for eq1, intercept, lags
+for eq2, ...).
+\item \code{garch_pars}: A named list for the multivariate GARCH
+parameters (e.g., list(dcc_alpha = 0.05, dcc_beta = 0.9)).
+}
+}}
+
+\item{model_type}{Character string for MS-VARMA-GARCH: \code{"univariate"} or
+\code{"multivariate"}.}
+
+\item{control}{A list of control parameters for the MS-VARMA-GARCH EM
+algorithm.}
 
 \item{parallel}{Parallelize computation? \code{TRUE} or \code{FALSE}.}
 
 \item{num_cores}{Number of cores.}
+
+\item{fail_mode}{Character string. One of \code{"predictably"} (development/
+debugging - fail fast on any unexpected behavior) or \code{"gracefully"}
+(production/robust pipelines - continue despite validation errors).}
 
 \item{model_func}{Model-fitting function for cross-validation.}
 
@@ -99,15 +180,79 @@ A list containing:
 }
 }
 \description{
-Generates block bootstrap replicates of a numeric time series or multivariate
-time series. Supports moving, stationary, HMM, MSAR, MS VARMA GARCH and wild
-bootstrap types.
+Generates bootstrap replicates of multivariate or (multiple) univariate time
+series. Supports moving and stationary block, HMM, MSVAR, MS VARMA GARCH and
+wild bootstrap types.
+}
+\details{
+\code{bs_type="moving"}: If \code{n_boot} is set, the last block will be truncated
+when necessary to match the length (\code{n_boot}) of the bootstrap series. If
+\code{n_boot} is not set, \code{block_length} and \code{num_blocks} must be set, and
+\code{n_boot} will automatically be set to \code{block_length * num_blocks}.
+
+\code{bs_type="stationary"}, \code{bs_type="hmm"}, \code{bs_type="msvar"}: If  \code{n_boot} is
+set, the last block will be truncated when necessary to match the length
+(\code{n_boot}) of the bootstrap series. This is the only way to ensure equal
+length of all bootstrap series, as the length of each block is random. If
+\code{n_boot} is not set, \code{num_blocks} must be set, and the length of each
+bootstrap series will be determined by the number of blocks and the random
+lengths of the individual blocks for that particular series. Note that this
+typically results in bootstrap series of different lengths. For stationary
+bootstrap, \code{block_length} is the expected block length, when
+\code{p_method="1/n"}.
+
+\code{bs_type="wild"}: \code{n_boot}, \code{block_length} and \code{num_blocks} are ignored. The
+length of the bootstrap series is always the same as the original series.
+
+See documentation for the individual bootstrap functions: \code{\link[=hmm_bootstrap]{hmm_bootstrap()}},
+\code{\link[=msvar_bootstrap]{msvar_bootstrap()}}, \code{\link[=ms_varma_garch_bs]{ms_varma_garch_bs()}} and \code{\link[=wild_bootstrap]{wild_bootstrap()}}. For
+moving or stationary block bootstraps, see \code{\link[=blockBootstrap]{blockBootstrap()}}.
+
+\code{taper_type} when \code{block_type="tapered"}:
+For block length \eqn{n}, and index \eqn{i} within the block, and \eqn{0 \leq i \leq n},
+\itemize{
+\item \code{"cosine"}: Hann window
+\deqn{w(i) = \dfrac{1}{2} \left(1 - \cos \left( \dfrac{2 \pi i}{n - i} \right ) \right)}
+\item \code{"bartlett"}: Triangular window
+\deqn{w(i) = 1 - \left | \dfrac{i - (n - 1) / 2}{(n - 1) / 2} \right |,\ \ \ \alpha \in [0, 1]}
+\item \code{"tukey"}: Cosine tapered window. At \eqn{\alpha = 0} it becomes
+rectangular, and at \eqn{\alpha = 1} it becomes a Hann window.
+
+We implement the Tukey (tapered cosine) window using the convention
+\eqn{i = 0, \dots, n-1} for a window of length \eqn{n} and taper
+parameter \eqn{\alpha \in [0,1]}, consistent with common numerical
+libraries such as MATLAB and SciPy (see MATLAB tukeywin,
+SciPy scipy.signal.windows.tukey). After index shift and reflection this
+is algebraically equivalent to the classical definition in Harris (1978),
+which instead centers the index symmetrically around zero.
+
+Let \eqn{N = n - 1} be the last index of the block, and let the running
+index be \eqn{i = 0, 1, \dots, N}.
+
+The window weights \eqn{w[i]} are defined piecewise as follows:
+\enumerate{
+\item Left taper region (\eqn{0 \le i < \alpha N / 2}):
+\eqn{
+      w[i] = \frac{1}{2} \left[ 1 + \cos\left( \pi \left( \frac{2 i}{\alpha N} - 1 \right) \right) \right]
+    }
+\item Central (non-tapered) region (\eqn{\alpha N / 2 \le i \le N (1 - \alpha/2)}):
+\eqn{
+      w[i] = 1
+    }
+\item Right taper region (\eqn{N (1 - \alpha/2) < i \le N}):
+\eqn{
+      w[i] = \frac{1}{2} \left[ 1 + \cos\left( \pi \left( \frac{2 i}{\alpha N} - \frac{2}{\alpha} + 1 \right) \right) \right]
+    }
+}
+}
+
+(Harris, 1978)
 }
 \examples{
 set.seed(123)
 x <- arima.sim(n = 100, list(ar = 0.8))
 result <- tsbs(
-  x = x,
+  x = as.matrix(x),
   block_length = 10,
   bs_type = "stationary",
   num_blocks = 5,
@@ -117,4 +262,9 @@ result <- tsbs(
 )
 print(result$func_out_means)
 
+}
+\references{
+Harris, F. J. (1978). "On the Use of Windows for
+Harmonic Analysis with the Discrete Fourier Transform." (Proceedings of the
+IEEE, 66(1), pp. 66f)
 }

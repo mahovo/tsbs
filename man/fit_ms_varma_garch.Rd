@@ -57,4 +57,6 @@ and \code{garch_spec_args}.}
 \item{Starting parameters: \code{start_pars}, a list containing \code{arma_pars} (or \code{var_pars})
 and \code{garch_pars}.}
 }
+
+For mathematical expression of the model see \code{\link[=ms_varma_garch_bs]{ms_varma_garch_bs()}}.
 }

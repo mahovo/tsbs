@@ -45,15 +45,47 @@ This function:
 to assign each observation to a state.
 \item Samples contiguous blocks of observations belonging to each state.
 }
+
 If \code{n_boot} is set, the last block will be truncated when necessary to match
-the length (\code{n_boot}) of the bootstrap series. This is the only way to
-ensure equal length of all bootstrap series, as the length of each block is
-random. If \code{n_boot} is not set, \code{num_blocks} must be set, and the length of
-each bootstrap series will be determined by the number of blocks and the
-random lengths of the individual blocks for that particular series. This
-almost certainly results in bootstrap series of different lengths.
+the length (\code{n_boot}) of the bootstrap series. This is the only way to ensure
+equal length of all bootstrap series, as the length of each block is random.
+If \code{n_boot} is not set, \code{num_blocks} must be set, and the length of each
+bootstrap series will be determined by the number of blocks and the random
+lengths of the individual blocks for that particular series. This almost
+certainly results in bootstrap series of different lengths.
+
 For multivariate series (matrices or data frames), the function fits a single
 HMM where all variables are assumed to depend on the same underlying hidden
 state sequence. The returned bootstrap samples are matrices with the same
 number of columns as the input \code{x}.
+
+Hidden Markov Model definition:
+\itemize{
+\item \eqn{T}: sequence length
+\item \eqn{K}: number of hidden states
+\item \eqn{\mathbf{X} = (X_1, \dots, X_T)}: observed sequence
+\item \eqn{\mathbf{S} = (S_1, \dots, S_T)}: hidden (latent) state sequence
+\item \eqn{\pi_i = \mathbb{P}(S_1 = i)}: initial state distribution
+\item \eqn{A = [a_{ij}], \text{ where } a_{ij} = \mathbb{P}(S_{t+1} = j \mid S_t = i)}: transition matrix
+\item \eqn{b_j(x_t) = \mathbb{P}(X_t = x_t \mid S_t = j)}: output probability
+}
+
+Joint probability of the observations and the hidden states:
+
+\eqn{\mathbb{P}(\mathbf{X}, \mathbf{S}) = \pi_{S_1} b_{S_1}(X_1) \prod_{t=2}^{T} a_{S_{t-1} S_t} b_{S_t}(X_t)}
+
+Marginal probability of the observed data is obtained by summing over all
+possible hidden state sequences:
+
+\eqn{\mathbb{P}(\mathbf{X}) = \sum_{\mathbf{S}} \mathbb{P}(\mathbf{X}, \mathbf{S})}
+
+(Beware of the "double use of data" problem: The bootstrap procedure relies
+on regime classification, but the regimes themselves are estimated from the
+same data and depend on the parameters being resampled.)
+}
+\references{
+Holst, U., Lindgren, G., Holst, J. and Thuvesholmen, M. (1994), Recursive
+Estimation In Switching Autoregressions With A Markov Regime. Journal of
+Time Series Analysis, 15: 489-506.
+\url{https://doi.org/10.1111/j.1467-9892.1994.tb00206.x}
 }

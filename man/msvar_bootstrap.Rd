@@ -43,6 +43,25 @@ generating resampled time series that preserve the state-dependent properties
 of the original data.
 }
 \details{
+For a stationary bootstrap based on a more general \eqn{n}-state MS-VECTOR
+ARIMA(\eqn{p, d, q})-GARCH model see \code{\link[=ms_varma_garch_bs]{ms_varma_garch_bs()}}.
+\itemize{
+\item \eqn{y_t \in \mathbb{R}^K} be a \strong{$K$-dimensional multivariate response vector} at time \eqn{t}
+\item \eqn{S_t \in {1, \dots, M}} be a \strong{latent Markov chain} with \eqn{M} discrete regimes
+\item \eqn{p} be the \strong{lag order} of the VAR model
+}
+
+\eqn{
+  y_t = \mu^{(S_t)} + \sum_{i=1}^{p} A_i^{(S_t)} y_{t-i} + \varepsilon_t, \quad \varepsilon_t \sim \mathcal{N}(0, \Sigma^{(S_t)})
+}
+
+Where:
+\itemize{
+\item \eqn{\mu^{(S_t)} \in \mathbb{R}^K} is the regime-specific intercept vector
+\item \eqn{A_i^{(S_t)} \in \mathbb{R}^{K \times K}} are the \strong{regime-specific autoregressive coefficient matrices}
+\item \eqn{\Sigma^{(S_t)} \in \mathbb{R}^{K \times K}} is the regime-specific error covariance matrix
+}
+
 Note: The bootstrap helper function requires the 'foreach' and 'doParallel'
 packages if \code{parallel = TRUE}.
 }
