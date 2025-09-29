@@ -227,3 +227,76 @@ test_that("tsbs() with ms_varma_garch runs without error (multivariate)", {
   
   expect_equal(ncol(result$bootstrap_series[[1]]), 2)
 })
+
+## == == == == == == == == == == == == == == == == == == == == == == ==
+## PART 3: Generalized Univariate Log-Likelihood Calculation
+## == == == == == == == == == == == == == == == == == == == == == == ==
+
+context("Generalized Univariate Log-Likelihood Calculation")
+
+test_that("calculate_loglik_vector_r works for 'norm' distribution", {
+  set.seed(123)
+  y_test <- arima.sim(model = list(ar = 0.5), n = 100)
+  
+  spec_norm <- list(
+    arma_order = c(1,0),
+    garch_model = "garch", garch_order = c(1,1),
+    distribution = "norm",
+    start_pars = list(dist_pars = NULL)
+  )
+  current_pars_norm <- list(
+    arma_pars = list(ar1 = 0.5),
+    garch_pars = list(omega = 0.1, alpha1 = 0.1, beta1 = 0.8),
+    dist_pars = NULL
+  )
+  
+  ll_vec_calculated <- calculate_loglik_vector_r(y_test, current_pars_norm, spec_norm, "univariate")
+  
+  # Ground truth
+  residuals <- stats::arima(y_test, order = c(1,0,0), fixed = 0.5, include.mean = FALSE)$residuals
+  garch_spec_obj <- tsgarch::garch_modelspec(xts::xts(residuals, Sys.Date()-(length(residuals):1)),
+                                             model="garch", garch_order = c(1,1), distribution = "norm")
+  garch_spec_obj$parmatrix[estimate == 1, value := c(0.1, 0.1, 0.8)]
+  fit_truth <- tsmethods::tsfilter(garch_spec_obj)
+  
+  # Use the 'residuals' variable we already have, not fit_truth$residuals
+  ll_vec_truth <- dnorm(residuals, 0, fit_truth$sigma, log = TRUE)
+  
+  T_eff <- length(ll_vec_truth)
+  T_orig <- length(ll_vec_calculated)
+  expect_equal(ll_vec_calculated[(T_orig - T_eff + 1):T_orig], as.numeric(ll_vec_truth), tolerance = 1e-6)
+})
+
+
+test_that("calculate_loglik_vector_r works for 'std' distribution", {
+  set.seed(123)
+  y_test <- arima.sim(model = list(ar = 0.5), n = 100)
+  
+  spec_std <- list(
+    arma_order = c(1,0),
+    garch_model = "garch", garch_order = c(1,1),
+    distribution = "std",
+    start_pars = list(dist_pars = list(shape = 8))
+  )
+  current_pars_std <- list(
+    arma_pars = list(ar1 = 0.5),
+    garch_pars = list(omega = 0.1, alpha1 = 0.1, beta1 = 0.8),
+    dist_pars = list(shape = 8.0)
+  )
+  
+  ll_vec_calculated <- calculate_loglik_vector_r(y_test, current_pars_std, spec_std, "univariate")
+  
+  # Ground truth
+  residuals <- stats::arima(y_test, order = c(1,0,0), fixed = 0.5, include.mean = FALSE)$residuals
+  garch_spec_obj <- tsgarch::garch_modelspec(xts::xts(residuals, Sys.Date()-(length(residuals):1)),
+                                             model="garch", garch_order = c(1,1), distribution = "std")
+  garch_spec_obj$parmatrix[estimate == 1, value := c(0.1, 0.1, 0.8, 8.0)]
+  fit_truth <- tsmethods::tsfilter(garch_spec_obj)
+  
+  # Use the 'residuals' variable we already have, not fit_truth$residuals
+  ll_vec_truth <- tsdistributions::dstd(residuals, 0, fit_truth$sigma, shape = 8.0, log = TRUE)
+  
+  T_eff <- length(ll_vec_truth)
+  T_orig <- length(ll_vec_calculated)
+  expect_equal(ll_vec_calculated[(T_orig - T_eff + 1):T_orig], as.numeric(ll_vec_truth), tolerance = 1e-6)
+})

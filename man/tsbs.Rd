@@ -104,7 +104,19 @@ flavors), please refer to the documentation for the tsgarch package
 (e.g., "garch", "egarch").
 \item \code{garch_order}: A numeric vector c(g,h) for the GARCH(g,h) order.
 \item \code{distribution}: A character string for the conditional
-distribution (e.g., "norm", "std").
+distribution.
+\itemize{
+\item \code{"norm"} = Normal
+\item \code{"snorm"} = Skew normal
+\item \code{"std"} = Student t
+\item "sstd" = Skew Student
+\item "ged"  = Generalized error
+\item "ged"  = Skew generalized error
+\item "ghyp"  = Generalized hyperbolic
+\item "ghst"  = Generalized hyperbolic skew Student
+\item "jsu"  = Johnson reparameterized SU
+}
+See \url{https://www.nopredict.com/packages/tsdistributions}.
 \item \code{start_pars}: A list containing the starting parameters for
 the optimization, with two named elements:
 \itemize{
@@ -112,6 +124,8 @@ the optimization, with two named elements:
 (e.g., c(ar1 = 0.5)).
 \item \code{garch_pars}: A named list for the GARCH parameters (e.g.,
 list(omega = 0.1, alpha1 = 0.1, beta1 = 0.8)).
+\item \code{dist_pars}: A named list for the starting values for
+univariate dist params (e.g. list(skew = 1.0, shape = 6.0)).
 }
 }
 

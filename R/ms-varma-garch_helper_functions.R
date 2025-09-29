@@ -1,9 +1,9 @@
 ## === === === === === === === === === === === === === === === === === 
 ## Generalized R Helper Functions for MS-ARMA-GARCH Fitting
 ## === === === === === === === === === === === === === === === === === 
-## These functions are designed to be called from the C++ EM orchestrator.
-## They contain the full logic for handling general ARMA(p,q) and VAR(p)
-## models, and interface with the tsgarch/tsmarch packages.
+## These functions are designed to be called from the C++ EM orchestrator
+## fit_ms_varma_garch_cpp(). They contain the full logic for handling general 
+## ARMA(p,q) and VAR(p) models, and interface with the tsgarch/tsmarch packages.
 
 
 #' @title Create a GARCH Specification Object (Convenience Function)
@@ -79,9 +79,9 @@ calculate_loglik_vector_r <- function(y, current_pars, spec, model_type = "univa
     T_obs <- nrow(y)
     X_lagged <- matrix(1, nrow = T_obs - var_order, ncol = 1 + k * var_order)
     for (i in 1:var_order) {
-      X_lagged[, (2 + (i-1)*k):(1 + i*k)] <- y[(var_order-i+1):(T_obs-i), ]
+      X_lagged[, (2 + (i - 1) * k):(1 + i * k)] <- y[(var_order - i + 1):(T_obs - i), ]
     }
-    y_target <- y[(var_order+1):T_obs, ]
+    y_target <- y[(var_order + 1):T_obs, ]
     beta_mat <- matrix(current_pars$var_pars, nrow = 1 + k * var_order, ncol = k)
     model_residuals <- y_target - X_lagged %*% beta_mat
   }
@@ -89,17 +89,60 @@ calculate_loglik_vector_r <- function(y, current_pars, spec, model_type = "univa
   ## 2. Get GARCH log-likelihood from the residuals
   garch_spec_obj <- create_garch_spec_object_r(model_residuals, spec, model_type)
   
-  fixed_garch_pars <- current_pars$garch_pars
-  for (par_name in names(fixed_garch_pars)) {
-    garch_spec_obj$parmatrix[parameter == par_name, value := fixed_garch_pars[[par_name]]]
-    garch_spec_obj$parmatrix[parameter == par_name, estimate := 0]
+  # fixed_garch_pars <- current_pars$garch_pars
+  # for (par_name in names(fixed_garch_pars)) {
+  #   garch_spec_obj$parmatrix[parameter == par_name, value := fixed_garch_pars[[par_name]]]
+  #   garch_spec_obj$parmatrix[parameter == par_name, estimate := 0]
+  # }
+  
+  ## --- Combine GARCH and Distribution parameters for fixing ---
+  all_fixed_pars <- c(current_pars$garch_pars, current_pars$dist_pars)
+  for (par_name in names(all_fixed_pars)) {
+    if (par_name %in% garch_spec_obj$parmatrix$parameter) {
+      garch_spec_obj$parmatrix[parameter == par_name, value := all_fixed_pars[[par_name]]]
+      garch_spec_obj$parmatrix[parameter == par_name, estimate := 0]
+    }
   }
   
   if (model_type == "univariate") {
+    ## garch_model_fit <- tsmethods::tsfilter(garch_spec_obj)
+    ## res <- as.numeric(garch_model_fit$residuals)
+    ## sig <- as.numeric(garch_model_fit$sigma)
+    ## ll_vector <- dnorm(res, mean = 0, sd = sig, log = TRUE)
+    
+    # Step 3a: Use tsfilter() to get the sigma path
     garch_model_fit <- tsmethods::tsfilter(garch_spec_obj)
-    res <- as.numeric(garch_model_fit$residuals)
     sig <- as.numeric(garch_model_fit$sigma)
-    ll_vector <- dnorm(res, mean = 0, sd = sig, log = TRUE)
+    
+    # Step 3b: Call the correct density function based on the distribution
+    dist_fun <- switch(spec$distribution,
+     "norm" = stats::dnorm, ## Normal
+     "snorm" = tsdistributions::dsnorm, ## Skew normal
+     "std"  = tsdistributions::dstd, ## Student t
+     "sstd" = tsdistributions::dsstd, ## Skew Student
+     "ged"  = tsdistributions::dged, ## Generalized error
+     "sged"  = tsdistributions::dsged, ## Skew generalized error
+     "ghyp"  = tsdistributions::dghyp, ## Generalized hyperbolic
+     "ghst"  = tsdistributions::dghst, ## Generalized hyperbolic skew Student
+     "jsu"  = tsdistributions::djsu, ## Johnson reparameterized SU
+     stop(paste("Unsupported univariate distribution:", spec$distribution))
+    )
+    
+    # Step 3c: Build the argument list specifically for the chosen distribution
+    if (spec$distribution == "norm") {
+      # Use the correct residuals from Step 1
+      dist_args <- list(x = model_residuals, mean = 0, sd = sig, log = TRUE)
+    } else {
+      dist_args <- c(
+        # Use the correct residuals from Step 1
+        list(x = model_residuals, mu = 0, sigma = sig, log = TRUE),
+        current_pars$dist_pars
+      )
+    }
+    
+    # The function will only use the arguments it needs (e.g., dnorm ignores 'sigma' and 'shape')
+    ll_vector <- do.call(dist_fun, dist_args)
+    
   } else {
     ## Suppress non-critical warnings during filtering
     garch_model_fit <- suppressWarnings(estimate(garch_spec_obj))
@@ -120,13 +163,76 @@ calculate_loglik_vector_r <- function(y, current_pars, spec, model_type = "univa
   }
   
   ## Sanitize and pad the vector before returning to C++
-  ll_vector[!is.finite(ll_vector)] <- 0
+  ll_vector[!is.finite(ll_vector)] <- -1e10 # 0
   if (length(ll_vector) < NROW(y)) {
     padding <- NROW(y) - length(ll_vector)
     ll_vector <- c(rep(0, padding), ll_vector)
   }
   return(ll_vector)
 }
+
+
+# calculate_loglik_vector_r <- function(y, current_pars, spec, model_type = "univariate") {
+#   
+#   ## 1. Get Residuals from the Conditional Mean Model
+#   if (model_type == "univariate") {
+#     arma_pars <- current_pars$arma_pars
+#     model_residuals <- stats::arima(y, order = c(spec$arma_order[1], 0, spec$arma_order[2]),
+#                                     fixed = arma_pars, include.mean = FALSE)$residuals
+#   } else {
+#     var_order <- spec$var_order
+#     k <- ncol(y)
+#     T_obs <- nrow(y)
+#     X_lagged <- matrix(1, nrow = T_obs - var_order, ncol = 1 + k * var_order)
+#     for (i in 1:var_order) {
+#       X_lagged[, (2 + (i - 1) * k):(1 + i * k)] <- y[(var_order - i + 1):(T_obs - i), ]
+#     }
+#     y_target <- y[(var_order+1):T_obs, ]
+#     beta_mat <- matrix(current_pars$var_pars, nrow = 1 + k * var_order, ncol = k)
+#     model_residuals <- y_target - X_lagged %*% beta_mat
+#   }
+#   
+#   ## 2. Get GARCH log-likelihood from the residuals
+#   garch_spec_obj <- create_garch_spec_object_r(model_residuals, spec, model_type)
+#   
+#   fixed_garch_pars <- current_pars$garch_pars
+#   for (par_name in names(fixed_garch_pars)) {
+#     garch_spec_obj$parmatrix[parameter == par_name, value := fixed_garch_pars[[par_name]]]
+#     garch_spec_obj$parmatrix[parameter == par_name, estimate := 0]
+#   }
+#   
+#   if (model_type == "univariate") {
+#     garch_model_fit <- tsmethods::tsfilter(garch_spec_obj)
+#     res <- as.numeric(garch_model_fit$residuals)
+#     sig <- as.numeric(garch_model_fit$sigma)
+#     ll_vector <- dnorm(res, mean = 0, sd = sig, log = TRUE)
+#   } else {
+#     ## Suppress non-critical warnings during filtering
+#     garch_model_fit <- suppressWarnings(estimate(garch_spec_obj))
+#     k <- ncol(model_residuals)
+#     T_res <- nrow(model_residuals)
+#     ll_vector <- numeric(T_res)
+#     
+#     H_vectorized <- garch_model_fit$H
+#     for (t in 1:T_res) {
+#       cov_mat <- matrix(0, k, k)
+#       cov_mat[upper.tri(cov_mat, diag = TRUE)] <- H_vectorized[t, ]
+#       cov_mat <- cov_mat + t(cov_mat)
+#       diag(cov_mat) <- diag(cov_mat) / 2
+#       
+#       ll_vector[t] <- mvtnorm::dmvnorm(model_residuals[t,], mean = rep(0, k), 
+#                                        sigma = cov_mat, log = TRUE)
+#     }
+#   }
+#   
+#   ## Sanitize and pad the vector before returning to C++
+#   ll_vector[!is.finite(ll_vector)] <- 0
+#   if (length(ll_vector) < NROW(y)) {
+#     padding <- NROW(y) - length(ll_vector)
+#     ll_vector <- c(rep(0, padding), ll_vector)
+#   }
+#   return(ll_vector)
+# }
 
 
 #' @title Estimate Conditional Mean Parameters (R Helper)
