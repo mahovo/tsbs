@@ -475,7 +475,7 @@ perform_m_step_parallel_r <- function(y, weights, spec, model_type) {
   ## --- Tell the parallel workers which packages to load ---
   ## The data.table syntax (e.g., parmatrix[parameter == ...]) and the
   ## tsgarch/tsmarch functions must be available on each worker.
-  required_packages <- c("data.table", "tsgarch", "tsmarch", "xts")
+  required_packages <- c("data.table", "xts", "tsgarch", "tsmarch", "tsdistributions")
   
   ## future_lapply will iterate from 1 to M (the number of states) in parallel.
   ## Each worker gets the index 'j' for the state it's responsible for.
@@ -486,9 +486,10 @@ perform_m_step_parallel_r <- function(y, weights, spec, model_type) {
     ## ensures the packages are fully attached, making special syntax like
     ## data.table's `[...]` available.
     library(data.table)
+    library(xts)
     library(tsgarch)
     library(tsmarch)
-    library(xts)
+    library(tsdistributions)
     
     ## Extract the data for this specific state
     state_weights <- weights[, j]
@@ -510,19 +511,51 @@ perform_m_step_parallel_r <- function(y, weights, spec, model_type) {
       model_type = model_type
     )
     
-    ## Combine the results for this state into a single list
+  #   ## Combine the results for this state into a single list
+  #   if (model_type == "univariate") {
+  #     return(list(
+  #       arma_pars = new_arma_fit$coefficients,
+  #       garch_pars = new_garch_fit$coefficients
+  #     ))
+  #   } else {
+  #     return(list(
+  #       var_pars = new_arma_fit$coefficients,
+  #       garch_pars = new_garch_fit$coefficients
+  #     ))
+  #   }
+  # }, future.seed = TRUE, future.packages = required_packages) ## <-- Pass the packages here
+    
+    ## The returned coefficients are a flat list of garch + dist pars.
+    ## We must separate them back into their structured groups.
+    all_params <- new_garch_fit$coefficients
+    dist_param_names <- names(state_spec$start_pars$dist_pars)
+    
+    if (length(dist_param_names) > 0) {
+      # Case: Distribution has shape/skew parameters
+      estimated_dist_pars <- all_params[dist_param_names]
+      estimated_garch_pars <- all_params[!names(all_params) %in% dist_param_names]
+    } else {
+      # Case: Normal distribution (no dist_pars)
+      estimated_dist_pars <- list() # Return an empty list for type consistency
+      estimated_garch_pars <- all_params
+    }
+
+    ## Return the fully structured list for the next EM iteration
     if (model_type == "univariate") {
       return(list(
         arma_pars = new_arma_fit$coefficients,
-        garch_pars = new_garch_fit$coefficients
+        garch_pars = estimated_garch_pars,
+        dist_pars = estimated_dist_pars
       ))
     } else {
+      ## Placeholder for the future multivariate refactoring
       return(list(
         var_pars = new_arma_fit$coefficients,
-        garch_pars = new_garch_fit$coefficients
+        garch_pars = estimated_garch_pars, ## Will need more complex logic later
+        dist_pars = estimated_dist_pars   ## Will need more complex logic later
       ))
     }
-  }, future.seed = TRUE, future.packages = required_packages) ## <-- Pass the packages here
+  }, future.seed = TRUE, future.packages = required_packages)
   
   return(updated_fits)
 }
@@ -532,3 +565,68 @@ perform_m_step_parallel_r <- function(y, weights, spec, model_type) {
 `%||%` <- function(a, b) {
   if (is.null(a)) b else a
 }
+
+
+
+# perform_m_step_parallel_r <- function(y, weights, spec, model_type) {
+#   
+#   ## --- Tell the parallel workers which packages to load ---
+#   ## The data.table syntax (e.g., parmatrix[parameter == ...]) and the
+#   ## tsgarch/tsmarch functions must be available on each worker.
+#   required_packages <- c("data.table", "xts", "tsgarch", "tsmarch", "tsdistributions")
+#   
+#   ## future_lapply will iterate from 1 to M (the number of states) in parallel.
+#   ## Each worker gets the index 'j' for the state it's responsible for.
+#   updated_fits <- future.apply::future_lapply(1:length(spec), function(j) {
+#     
+#     ## --- Explicitly load packages on each parallel worker ---
+#     ## This is a more robust approach than relying on future.packages, as it
+#     ## ensures the packages are fully attached, making special syntax like
+#     ## data.table's `[...]` available.
+#     library(data.table)
+#     library(tsgarch)
+#     library(tsmarch)
+#     library(xts)
+#     
+#     ## Extract the data for this specific state
+#     state_weights <- weights[, j]
+#     state_spec <- spec[[j]]
+#     
+#     ## M-Step 1: Update Mean Parameters
+#     new_arma_fit <- estimate_arma_weighted_r(
+#       y = y,
+#       weights = state_weights,
+#       spec = state_spec,
+#       model_type = model_type
+#     )
+#     
+#     ## M-Step 2: Update Variance Parameters
+#     new_garch_fit <- estimate_garch_weighted_r(
+#       residuals = new_arma_fit$residuals,
+#       weights = state_weights,
+#       spec = state_spec,
+#       model_type = model_type
+#     )
+#     
+#     ## Combine the results for this state into a single list
+#     if (model_type == "univariate") {
+#       return(list(
+#         arma_pars = new_arma_fit$coefficients,
+#         garch_pars = new_garch_fit$coefficients
+#       ))
+#     } else {
+#       return(list(
+#         var_pars = new_arma_fit$coefficients,
+#         garch_pars = new_garch_fit$coefficients
+#       ))
+#     }
+#   }, future.seed = TRUE, future.packages = required_packages) ## <-- Pass the packages here
+#   
+#   return(updated_fits)
+# }
+# 
+# 
+# ## Helper function for parameter counting
+# `%||%` <- function(a, b) {
+#   if (is.null(a)) b else a
+# }

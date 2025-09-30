@@ -365,3 +365,86 @@ test_that("estimate_garch_weighted_r recovers known GARCH-std parameters", {
   ## Shape is harder to estimate
   expect_equal(est_coeffs$shape,  true_pars$shape,  tolerance = 1.5) 
 })
+
+
+## == == == == == == == == == == == == == == == == == == == == == == ==
+## PART 5: Test the Univariate Main EM Orchestrator
+## == == == == == == == == == == == == == == == == == == == == == == ==
+
+## Testing an orchestrator function like this is best done with mocking. 
+## We will replace the complex estimation functions (estimate_arma_weighted_r 
+## and estimate_garch_weighted_r) with simple "mock" versions that return 
+## predictable results. This allows us to test only the logic of 
+## perform_m_step_parallel_r itself—specifically, whether it correctly 
+## separates the parameters.
+
+context("Generalized Univariate M-Step Orchestrator")
+
+test_that("perform_m_step_parallel_r correctly structures the returned parameters", {
+  ## 1. Define dummy inputs
+  dummy_y <- rnorm(100)
+  dummy_weights <- matrix(0.5, nrow = 100, ncol = 2)
+  
+  ## Define a spec for two states: one normal, one student-t
+  spec_test <- list(
+    state1 = list( # Normal distribution
+      start_pars = list(
+        arma_pars = list(ar1 = 0), 
+        garch_pars = list(omega = 0.1), 
+        dist_pars = NULL
+      )
+    ),
+    state2 = list( # Student-t distribution
+      start_pars = list(
+        arma_pars = list(ar1 = 0), 
+        garch_pars = list(omega = 0.2), 
+        dist_pars = list(shape = 5)
+      )
+    )
+  )
+  
+  ## 2. Define the expected output structure
+  expected_output <- list(
+    list( ## State 1
+      arma_pars = list(ar1 = 0.123), ## From mock_arma_fit
+      garch_pars = list(omega = 0.456), ## Separated from mock_garch_fit
+      dist_pars = list() ## Separated (empty)
+    ),
+    list( ## State 2
+      arma_pars = list(ar1 = 0.123), ## From mock_arma_fit
+      garch_pars = list(omega = 0.789), ## Separated from mock_garch_fit
+      dist_pars = list(shape = 9.99) ## Correctly separated
+    )
+  )
+  
+  ## 3. Create mock versions of the estimation functions
+  ## This mock function will be used for both states
+  mock_arma_fit <- function(...) {
+    list(coefficients = list(ar1 = 0.123), residuals = rnorm(100))
+  }
+  
+  ## This mock needs to know which state it's being called for
+  mock_garch_fit <- function(spec, ...) {
+    if (is.null(spec$start_pars$dist_pars)) { ## State 1 (norm)
+      return(list(coefficients = list(omega = 0.456)))
+    } else { ## State 2 (std)
+      return(list(coefficients = list(omega = 0.789, shape = 9.99)))
+    }
+  }
+  
+  ## 4. Run the test using testthat::with_mock
+  ## This temporarily replaces the real functions with our mocks for this test
+  future::plan(future::sequential)
+  actual_output <- testthat::with_mocked_bindings(
+    estimate_arma_weighted_r = mock_arma_fit,
+    estimate_garch_weighted_r = mock_garch_fit,
+    {
+      perform_m_step_parallel_r(dummy_y, dummy_weights, spec_test, "univariate")
+    }
+  )
+  
+  # 5. Compare the actual result to our expected structure
+  expect_identical(actual_output, expected_output)
+})
+
+
