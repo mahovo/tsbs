@@ -6,6 +6,13 @@
 \usage{
 create_garch_spec_object_r(residuals, spec, model_type)
 }
+\arguments{
+\item{residuals}{}
+
+\item{spec}{}
+
+\item{model_type}{}
+}
 \description{
 This is a convenience function that handles the complex,
 model-specific logic for creating both univariate and multivariate GARCH

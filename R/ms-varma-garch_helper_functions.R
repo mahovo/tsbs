@@ -6,10 +6,14 @@
 ## ARMA(p,q) and VAR(p) models, and interface with the tsgarch/tsmarch packages.
 
 
+
 #' @title Create a GARCH Specification Object (Convenience Function)
 #' @description This is a convenience function that handles the complex,
 #'   model-specific logic for creating both univariate and multivariate GARCH
 #'   specification objects.
+#' @param residuals 
+#' @param spec 
+#' @param model_type 
 create_garch_spec_object_r <- function(residuals, spec, model_type) {
   residuals_xts <- xts::xts(residuals, order.by = Sys.Date() - (NROW(residuals):1))
   
@@ -62,8 +66,13 @@ create_garch_spec_object_r <- function(residuals, spec, model_type) {
   return(garch_spec_obj)
 }
 
-
 #' @title Calculate the Log-Likelihood Vector (R Helper)
+#'
+#' @param y 
+#' @param current_pars 
+#' @param spec 
+#' @param model_type 
+#' 
 #' @import data.table
 #' @importFrom tsmethods tsfilter
 calculate_loglik_vector_r <- function(y, current_pars, spec, model_type = "univariate") {
@@ -114,7 +123,7 @@ calculate_loglik_vector_r <- function(y, current_pars, spec, model_type = "univa
     garch_model_fit <- tsmethods::tsfilter(garch_spec_obj)
     sig <- as.numeric(garch_model_fit$sigma)
     
-    # Step 3b: Call the correct density function based on the distribution
+    ## Step 3b: Call the correct density function based on the distribution
     dist_fun <- switch(spec$distribution,
      "norm" = stats::dnorm, ## Normal
      "snorm" = tsdistributions::dsnorm, ## Skew normal
@@ -128,19 +137,20 @@ calculate_loglik_vector_r <- function(y, current_pars, spec, model_type = "univa
      stop(paste("Unsupported univariate distribution:", spec$distribution))
     )
     
-    # Step 3c: Build the argument list specifically for the chosen distribution
+    ## Step 3c: Build the argument list specifically for the chosen distribution
     if (spec$distribution == "norm") {
       # Use the correct residuals from Step 1
       dist_args <- list(x = model_residuals, mean = 0, sd = sig, log = TRUE)
     } else {
       dist_args <- c(
-        # Use the correct residuals from Step 1
+        ## Use the correct residuals from Step 1
         list(x = model_residuals, mu = 0, sigma = sig, log = TRUE),
         current_pars$dist_pars
       )
     }
     
-    # The function will only use the arguments it needs (e.g., dnorm ignores 'sigma' and 'shape')
+    ## The function will only use the arguments it needs (e.g., dnorm ignores 
+    ## 'sigma' and 'shape')
     ll_vector <- do.call(dist_fun, dist_args)
     
   } else {
@@ -235,7 +245,13 @@ calculate_loglik_vector_r <- function(y, current_pars, spec, model_type = "univa
 # }
 
 
+
 #' @title Estimate Conditional Mean Parameters (R Helper)
+#' 
+#' @param y 
+#' @param weights 
+#' @param spec 
+#' @param model_type 
 estimate_arma_weighted_r <- function(y, weights, spec, model_type = "univariate") {
   if (model_type == "univariate") {
     arma_order <- spec$arma_order
@@ -276,8 +292,19 @@ estimate_arma_weighted_r <- function(y, weights, spec, model_type = "univariate"
 
 
 #' @title Estimate GARCH Parameters (R Helper)
+#' This function is the core of the M-step; it takes the weights (smoothed 
+#' probabilities) from the E-step and finds the GARCH and distribution 
+#' parameters that maximize the weighted log-likelihood.
+#' @param residuals 
+#' @param weights 
+#' @param spec 
+#' @param model_type 
+#' @title Estimate GARCH and Distribution Parameters (R Helper) - GENERALIZED
+#' @description Estimate both GARCH and distribution parameters (e.g., shape, 
+#'   skew) simultaneously for the univariate case.
 estimate_garch_weighted_r <- function(residuals, weights, spec, model_type = "univariate") {
-  start_pars <- spec$start_pars$garch_pars
+  ## Combine GARCH and Distribution starting parameters into one vector
+  start_pars <- c(spec$start_pars$garch_pars, spec$start_pars$dist_pars)
   
   ## Handle case where there are no GARCH parameters to estimate
   if (length(start_pars) == 0) {
@@ -289,50 +316,71 @@ estimate_garch_weighted_r <- function(residuals, weights, spec, model_type = "un
   
   temp_spec_obj <- create_garch_spec_object_r(residuals, spec, model_type)
   
+  ## Extract bounds for ALL parameters to be estimated (GARCH + dist)
   parmatrix <- temp_spec_obj$parmatrix
   pars_to_estimate <- names(start_pars)
-  
   bounds_matrix <- parmatrix[parameter %in% pars_to_estimate]
+  ## Ensure the bounds are in the same order as the parameters
   bounds_matrix <- bounds_matrix[match(pars_to_estimate, parameter),]
-  
   lower_bounds <- bounds_matrix$lower
   upper_bounds <- bounds_matrix$upper
   
-  weighted_garch_loglik <- function(params, residuals_data, w, spec, model_type) {
+  ## Generalized objective function
+  weighted_garch_loglik <- function(params, residuals_data, w, spec) {
     param_list <- as.list(params)
-    names(param_list) <- names(spec$start_pars$garch_pars)
+    names(param_list) <- names(start_pars)
     
-    garch_spec_obj <- create_garch_spec_object_r(residuals_data, spec, model_type)
+    garch_spec_obj <- create_garch_spec_object_r(residuals_data, spec, "univariate")
     
+    ## Set all parameter values (GARCH + dist) for this iteration of the optimizer
     for (par_name in names(param_list)) {
-      garch_spec_obj$parmatrix[parameter == par_name, value := param_list[[par_name]]]
+      if (par_name %in% garch_spec_obj$parmatrix$parameter) {
+        garch_spec_obj$parmatrix[parameter == par_name, value := param_list[[par_name]]]
+      }
     }
     
-    fit <- try(estimate(garch_spec_obj), silent = TRUE)
-    if (inherits(fit, "try-error")) return(1e10)
+    ## Get the sigma path using the current parameter set
+    fit <- try(tsmethods::tsfilter(garch_spec_obj), silent = TRUE)
+    if (inherits(fit, "try-error")) return(1e10) # Penalize invalid parameter sets
+    sig <- as.numeric(fit$sigma)
     
-    if ("TMB_OBJECT" %in% names(fit)) {
-      ll_vector <- fit$TMB_OBJECT$report()$ll_vector
+    ## Calculate log-likelihood using the specified distribution and its parameters
+    dist_fun <- switch(spec$distribution,
+                       "norm"  = stats::dnorm, "snorm" = tsdistributions::dsnorm,
+                       "std"   = tsdistributions::dstd,  "sstd"  = tsdistributions::dsstd,
+                       "ged"   = tsdistributions::dged,  "sged"  = tsdistributions::dsged,
+                       "ghyp"  = tsdistributions::dghyp, "ghst"  = tsdistributions::dghst,
+                       "jsu"   = tsdistributions::djsu,
+                       stop(paste("Unsupported univariate distribution:", spec$distribution)))
+    
+    dist_param_names <- names(spec$start_pars$dist_pars)
+    dist_pars_current <- param_list[dist_param_names]
+    
+    if (spec$distribution == "norm") {
+      dist_args <- list(x = residuals_data, mean = 0, sd = sig, log = TRUE)
     } else {
-      res <- as.numeric(fit$residuals)
-      sig <- as.numeric(fit$sigma)
-      ll_vector <- dnorm(res, mean = 0, sd = sig, log = TRUE)
+      dist_args <- c(list(x = residuals_data, mu = 0, sigma = sig, log = TRUE), dist_pars_current)
     }
+    
+    ll_vector <- do.call(dist_fun, dist_args)
+    ll_vector[!is.finite(ll_vector)] <- -1e10
+    
+    ## Return the weighted negative log-likelihood
     return(-sum(w * ll_vector, na.rm = TRUE))
   }
   
-  ## ---- Capture and summarize warnings from optim ----
+  ## Capture and summarize warnings from optim
   warnings_list <- list()
   opt_result <- withCallingHandlers({
-    stats::optim(par = unlist(start_pars), 
+    stats::optim(par = unlist(start_pars),
                  fn = weighted_garch_loglik,
                  lower = lower_bounds,
                  upper = upper_bounds,
                  method = "L-BFGS-B",
-                 residuals_data = residuals, 
-                 w = w_target, 
-                 spec = spec, 
-                 model_type = model_type)
+                 # Pass additional arguments to the objective function
+                 residuals_data = residuals,
+                 w = w_target,
+                 spec = spec)
   }, warning = function(w) {
     warnings_list <<- c(warnings_list, list(w))
     invokeRestart("muffleWarning")
@@ -343,6 +391,74 @@ estimate_garch_weighted_r <- function(residuals, weights, spec, model_type = "un
   
   return(list(coefficients = estimated_coeffs, warnings = warnings_list))
 }
+
+# estimate_garch_weighted_r <- function(residuals, weights, spec, model_type = "univariate") {
+#   start_pars <- spec$start_pars$garch_pars
+#   
+#   ## Handle case where there are no GARCH parameters to estimate
+#   if (length(start_pars) == 0) {
+#     return(list(coefficients = list(), warnings = list()))
+#   }
+#   
+#   padding <- NROW(residuals) - length(weights)
+#   w_target <- if(padding > 0) weights[(padding+1):length(weights)] else weights
+#   
+#   temp_spec_obj <- create_garch_spec_object_r(residuals, spec, model_type)
+#   
+#   parmatrix <- temp_spec_obj$parmatrix
+#   pars_to_estimate <- names(start_pars)
+#   
+#   bounds_matrix <- parmatrix[parameter %in% pars_to_estimate]
+#   bounds_matrix <- bounds_matrix[match(pars_to_estimate, parameter),]
+#   
+#   lower_bounds <- bounds_matrix$lower
+#   upper_bounds <- bounds_matrix$upper
+#   
+#   weighted_garch_loglik <- function(params, residuals_data, w, spec, model_type) {
+#     param_list <- as.list(params)
+#     names(param_list) <- names(spec$start_pars$garch_pars)
+#     
+#     garch_spec_obj <- create_garch_spec_object_r(residuals_data, spec, model_type)
+#     
+#     for (par_name in names(param_list)) {
+#       garch_spec_obj$parmatrix[parameter == par_name, value := param_list[[par_name]]]
+#     }
+#     
+#     fit <- try(estimate(garch_spec_obj), silent = TRUE)
+#     if (inherits(fit, "try-error")) return(1e10)
+#     
+#     if ("TMB_OBJECT" %in% names(fit)) {
+#       ll_vector <- fit$TMB_OBJECT$report()$ll_vector
+#     } else {
+#       res <- as.numeric(fit$residuals)
+#       sig <- as.numeric(fit$sigma)
+#       ll_vector <- dnorm(res, mean = 0, sd = sig, log = TRUE)
+#     }
+#     return(-sum(w * ll_vector, na.rm = TRUE))
+#   }
+#   
+#   ## --- Capture and summarize warnings from optim ---
+#   warnings_list <- list()
+#   opt_result <- withCallingHandlers({
+#     stats::optim(par = unlist(start_pars), 
+#                  fn = weighted_garch_loglik,
+#                  lower = lower_bounds,
+#                  upper = upper_bounds,
+#                  method = "L-BFGS-B",
+#                  residuals_data = residuals, 
+#                  w = w_target, 
+#                  spec = spec, 
+#                  model_type = model_type)
+#   }, warning = function(w) {
+#     warnings_list <<- c(warnings_list, list(w))
+#     invokeRestart("muffleWarning")
+#   })
+#   
+#   estimated_coeffs <- as.list(opt_result$par)
+#   names(estimated_coeffs) <- names(start_pars)
+#   
+#   return(list(coefficients = estimated_coeffs, warnings = warnings_list))
+# }
 
 
 

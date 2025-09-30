@@ -300,3 +300,68 @@ test_that("calculate_loglik_vector_r works for 'std' distribution", {
   T_orig <- length(ll_vec_calculated)
   expect_equal(ll_vec_calculated[(T_orig - T_eff + 1):T_orig], as.numeric(ll_vec_truth), tolerance = 1e-6)
 })
+
+## == == == == == == == == == == == == == == == == == == == == == == ==
+## PART 4: Generalize the Univariate Parameter Estimation
+## == == == == == == == == == == == == == == == == == == == == == == ==
+
+context("Generalized Univariate Parameter Estimation")
+
+test_that("estimate_garch_weighted_r recovers known GARCH-std parameters", {
+  skip_on_cran() # This test can be a bit slow for CRAN checks
+  
+  ## 1. Define TRUE parameters and simulate data from that process
+  true_pars <- list(omega = 0.2, alpha1 = 0.15, beta1 = 0.75, shape = 7.0)
+  
+  ## Simulate data
+  my_vector <- rnorm(2000)
+  dates <- seq(Sys.Date(), by = "day", length.out = length(my_vector))
+  my_xts <- xts(my_vector, order.by = dates)
+  
+  ## Create a spec with the true parameters to simulate from
+  sim_spec <- tsgarch::garch_modelspec(y = my_xts, ## dummy data
+                                       model = "garch", garch_order = c(1,1),
+                                       distribution = "std")
+  ## The := operator in data.table is used for assignment by reference - it 
+  ## modifies the data.table in place without making copies, making it very 
+  ## memory efficient.
+  sim_spec$parmatrix[estimate == 1, value := unlist(true_pars)]
+  
+  set.seed(42)
+  sim_path <- simulate(sim_spec, n.sim = 2000, n.start = 100)
+  sim_residuals <- as.numeric(sim_path$y) # Use the simulated series as our residuals
+  
+  ## 2. Set up the inputs for our function
+  ## Use slightly perturbed starting values to make sure the optimizer is working
+  start_pars_test <- list(
+    garch_pars = list(omega = 0.1, alpha1 = 0.1, beta1 = 0.8),
+    dist_pars = list(shape = 6.0)
+  )
+  
+  spec_test <- list(
+    garch_model = "garch", garch_order = c(1,1),
+    distribution = "std",
+    start_pars = start_pars_test
+  )
+  
+  ## Use weights of 1, which makes this a standard (unweighted) MLE problem
+  test_weights <- rep(1, length(sim_residuals))
+  
+  ## 3. Call our refactored estimation function
+  fit_result <- estimate_garch_weighted_r(
+    residuals = sim_residuals,
+    weights = test_weights,
+    spec = spec_test,
+    model_type = "univariate"
+  )
+  
+  ## 4. Check if the estimated parameters are close to the true ones
+  ## We use a reasonably large tolerance because MLE on simulated data has noise
+  est_coeffs <- fit_result$coefficients
+  
+  expect_equal(est_coeffs$omega,  true_pars$omega,  tolerance = 0.15)
+  expect_equal(est_coeffs$alpha1, true_pars$alpha1, tolerance = 0.15)
+  expect_equal(est_coeffs$beta1,  true_pars$beta1,  tolerance = 0.15)
+  ## Shape is harder to estimate
+  expect_equal(est_coeffs$shape,  true_pars$shape,  tolerance = 1.5) 
+})
