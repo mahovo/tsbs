@@ -67,12 +67,12 @@
 #'        \item `"norm"` = Normal
 #'        \item `"snorm"` = Skew normal
 #'        \item `"std"` = Student t
-#'        \item "sstd" = Skew Student
-#'        \item "ged"  = Generalized error
-#'        \item "ged"  = Skew generalized error
-#'        \item "ghyp"  = Generalized hyperbolic
-#'        \item "ghst"  = Generalized hyperbolic skew Student
-#'        \item "jsu"  = Johnson reparameterized SU
+#'        \item `"sstd"` = Skew Student
+#'        \item `"ged"`  = Generalized error
+#'        \item `"ged"`  = Skew generalized error
+#'        \item `"ghyp"`  = Generalized hyperbolic
+#'        \item `"ghst"`  = Generalized hyperbolic skew Student
+#'        \item `"jsu"`  = Johnson reparameterized SU
 #'     }
 #'     See \url{https://www.nopredict.com/packages/tsdistributions}.
 #'     \item \code{start_pars}: A list containing the starting parameters for 
@@ -108,7 +108,12 @@
 #'          multivariate Student's t).
 #'          \item For models like DCC or CGARCH, this list must also contain a 
 #'          \code{garch_model} definition for the underlying univariate GARCH 
-#'          fits.
+#'          fits.  
+#'          Note: With the exception of the Copula model, the marginal 
+#'          distributions of the univariate GARCH models should always be 
+#'          Normal, irrespective of whether a multivariate Normal or Student is 
+#'          chosen as the DCC model distribution. There are no checks performed 
+#'          for this and it is up to the user to ensure that this is the case.
 #'       }
 #'     \item \code{start_pars}: A list containing the starting parameters, with 
 #'     two named elements:

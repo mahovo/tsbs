@@ -109,12 +109,12 @@ distribution.
 \item \code{"norm"} = Normal
 \item \code{"snorm"} = Skew normal
 \item \code{"std"} = Student t
-\item "sstd" = Skew Student
-\item "ged"  = Generalized error
-\item "ged"  = Skew generalized error
-\item "ghyp"  = Generalized hyperbolic
-\item "ghst"  = Generalized hyperbolic skew Student
-\item "jsu"  = Johnson reparameterized SU
+\item \code{"sstd"} = Skew Student
+\item \code{"ged"}  = Generalized error
+\item \code{"ged"}  = Skew generalized error
+\item \code{"ghyp"}  = Generalized hyperbolic
+\item \code{"ghst"}  = Generalized hyperbolic skew Student
+\item \code{"jsu"}  = Johnson reparameterized SU
 }
 See \url{https://www.nopredict.com/packages/tsdistributions}.
 \item \code{start_pars}: A list containing the starting parameters for

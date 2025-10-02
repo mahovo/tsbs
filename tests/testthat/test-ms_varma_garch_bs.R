@@ -447,4 +447,80 @@ test_that("perform_m_step_parallel_r correctly structures the returned parameter
   expect_identical(actual_output, expected_output)
 })
 
+## == == == == == == == == == == == == == == == == == == == == == == ==
+## PART 6: Test the Multivariate Main EM Orchestrator
+## == == == == == == == == == == == == == == == == == == == == == == ==
 
+context("Generalized Multivariate Log-Likelihood Calculation")
+
+test_that("calculate_loglik_vector_r works for a DCC-t-Copula model", {
+  skip_on_cran()
+  
+  # 1. Setup test data and a complex spec
+  set.seed(123)
+  y_test <- matrix(rnorm(200, sd=0.01), 100, 2)
+  
+  # --- SPECIFICATION ---
+  spec_mv <- list(
+    var_order = 1,
+    garch_spec_fun = "dcc_modelspec",
+    distribution = "mvt", # Joint distribution of residuals is MVT
+    garch_spec_args = list(order = c(1,1),
+                           garch_model = list(univariate = list(
+                             # MARGINALS MUST BE NORMAL for a DCC model
+                             list(model = "garch", garch_order=c(1,1), distribution = "norm"),
+                             list(model = "garch", garch_order=c(1,1), distribution = "norm")
+                           ))
+    )
+  )
+  
+  # --- PARAMETER LIST ---
+  current_pars_mv <- list(
+    var_pars = c(0.1, 0.5, 0.1, 0.1, 0.2, 0.4),
+    garch_pars = list(series_1 = list(omega=0.1, alpha1=0.1, beta1=0.8),
+                      series_2 = list(omega=0.2, alpha1=0.15, beta1=0.7)),
+    # dist_pars for marginals is NULL because they are Normal
+    dist_pars = list(
+      shape = 8,
+      # The marginal distribution parameters are NULL as they are Normal.
+      series_1 = NULL,
+      series_2 = NULL
+    ),
+    # copula_pars contains the shape for the MVT distribution of the joint residuals
+    copula_pars = list(dcc_alpha1=0.05, dcc_beta1=0.90)
+  )
+  
+  ## 2. Call our refactored function
+  ll_vec_calculated <- calculate_loglik_vector_r(
+    y = y_test,
+    current_pars = current_pars_mv,
+    spec = spec_mv,
+    model_type = "multivariate"
+  )
+  
+  ## 3. Calculate the "ground truth" using the same, now-correct logic
+  var_order <- 1; k <- ncol(y_test); T_obs <- nrow(y_test)
+  X_lagged <- matrix(1, nrow = T_obs - var_order, ncol = 1 + k * var_order)
+  X_lagged[, 2:(1+k)] <- y_test[1:(T_obs-1), ]
+  y_target <- y_test[(var_order+1):T_obs, ]
+  beta_mat <- matrix(current_pars_mv$var_pars, nrow = 1 + k * var_order, ncol = k)
+  residuals_truth <- y_target - X_lagged %*% beta_mat
+  
+  garch_spec_obj_truth <- create_garch_spec_object_r(residuals_truth, spec_mv, "multivariate")
+  
+  all_fixed_pars_truth <- generate_tsmarch_parnames(current_pars_mv)
+  
+  for (par_name in names(all_fixed_pars_truth)) {
+    if (par_name %in% garch_spec_obj_truth$parmatrix$parameter) {
+      garch_spec_obj_truth$parmatrix[parameter == par_name, value := all_fixed_pars_truth[[par_name]]]
+      garch_spec_obj_truth$parmatrix[parameter == par_name, estimate := 0]
+    }
+  }
+  fit_truth <- suppressWarnings(estimate(garch_spec_obj_truth, keep_tmb = TRUE))
+  ll_vec_truth <- fit_truth$TMB_OBJECT$report()$ll_vector
+  
+  # 4. Compare
+  T_eff <- length(ll_vec_truth)
+  T_orig <- length(ll_vec_calculated)
+  expect_equal(ll_vec_calculated[(T_orig - T_eff + 1):T_orig], ll_vec_truth, tolerance = 1e-6)
+})
