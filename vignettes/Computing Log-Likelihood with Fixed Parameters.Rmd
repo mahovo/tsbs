@@ -1,0 +1,241 @@
+---
+title: "Computing Log-Likelihood with Fixed Parameters"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{Computing Log-Likelihood with Fixed Parameters}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r setup, include = FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>",
+  eval = FALSE  # Set to TRUE when running with actual data
+)
+```
+
+## Introduction
+
+The `compute_loglik_fixed()` function allows you to evaluate the log-likelihood of tsmarch models at specific parameter values without re-estimating the model. This is useful for:
+
+- Likelihood ratio tests
+- Profile likelihood analysis
+- Parameter sensitivity analysis
+- Model comparison at specific parameter values
+
+## Basic Usage with DCC Model
+
+```{r dcc_basic}
+library(tsmarch)
+library(tsgarch)
+library(tsdistributions)
+library(xts)
+```
+
+
+
+```{r}
+## Load or create your data
+data(globalindices)
+Sys.setenv(TZ = "UTC")
+train_set <- 1:1600
+test_set <- 1601:1698
+series <- 1:2
+y <- as.xts(globalindices[, series])
+train <- y[train_set,]
+mu <- colMeans(train)
+train <- sweep(train, 2, mu, "-")
+test <- y[test_set,]
+test <- sweep(test, 2, mu, "-")
+oldpar <- par(mfrow = c(1,1))
+```
+
+```{r}
+# Estimate univariate GARCH models
+spec1 <- garch_modelspec(train[,1], model = "gjrgarch")
+spec2 <- garch_modelspec(train[,2], model = "gjrgarch")
+fit1 <- estimate(spec1, keep_tmb = TRUE)
+fit2 <- estimate(spec2, keep_tmb = TRUE)
+
+# Combine into multivariate
+garch_fits <- to_multi_estimate(list(fit1, fit2))
+#class(garch_fits) <- "tsgarch.multi_estimate"
+
+names(garch_fits) <- colnames(train)
+
+# Estimate DCC model
+#dcc_spec <- dcc_modelspec(garch_fits, dynamics = "dcc", dcc_order = c(1,1))
+dcc_spec <- dcc_modelspec(garch_fits, dynamics = "adcc", distribution = "mvt")
+dcc_fit <- estimate(dcc_spec)
+
+# View estimated parameters
+coef(dcc_fit)
+
+# Compute log-likelihood at estimated parameters (should match estimation)
+ll_at_estimated <- compute_loglik_fixed(
+  dcc_fit, 
+  params = list(alpha_1 = 0.05, beta_1 = 0.90)
+)
+
+# Compare with estimated log-likelihood
+logLik(dcc_fit)
+```
+
+## Likelihood Ratio Test Example
+
+```{r lrt}
+# Test H0: alpha = 0.03 vs H1: alpha is free
+
+# Compute log-likelihood under H0 (restricted model)
+ll_restricted <- compute_loglik_fixed(
+  dcc_fit,
+  params = list(alpha_1 = 0.03, beta_1 = 0.95)
+)
+
+# Log-likelihood under H1 (unrestricted model)
+ll_unrestricted <- as.numeric(logLik(dcc_fit))
+
+# Likelihood ratio test statistic
+lr_statistic <- 2 * (ll_unrestricted - ll_restricted)
+
+# P-value (chi-squared with 1 df)
+p_value <- pchisq(lr_statistic, df = 1, lower.tail = FALSE)
+
+cat("LR statistic:", lr_statistic, "\n")
+cat("P-value:", p_value, "\n")
+```
+
+## Profile Likelihood Analysis
+
+```{r profile}
+# Create a grid of alpha values
+alpha_grid <- seq(0.01, 0.12, by = 0.01)
+
+# Compute profile likelihood
+profile_ll <- sapply(alpha_grid, function(alpha) {
+  compute_loglik_fixed(
+    dcc_fit,
+    params = list(alpha_1 = alpha, beta_1 = 0.90)
+  )
+})
+
+# Plot profile likelihood
+plot(alpha_grid, profile_ll, type = "l",
+     xlab = "alpha", ylab = "Log-Likelihood",
+     main = "Profile Likelihood for alpha")
+abline(v = coef(dcc_fit)["alpha_1"], col = "red", lty = 2)
+```
+
+
+
+## Sensitivity Analysis
+
+```{r sensitivity}
+# Analyze how log-likelihood changes around estimated values
+est_alpha <- coef(dcc_fit)["alpha_1"]
+est_beta <- coef(dcc_fit)["beta_1"]
+
+# Create perturbations
+perturbations <- seq(-0.02, 0.02, by = 0.005)
+
+# Compute likelihood for perturbations in alpha
+alpha_sensitivity <- sapply(perturbations, function(delta) {
+  compute_loglik_fixed(
+    dcc_fit,
+    params = list(
+      alpha_1 = est_alpha + delta,
+      beta_1 = est_beta
+    )
+  )
+})
+
+# Compute likelihood for perturbations in beta
+beta_sensitivity <- sapply(perturbations, function(delta) {
+  compute_loglik_fixed(
+    dcc_fit,
+    params = list(
+      alpha_1 = est_alpha,
+      beta_1 = est_beta + delta
+    )
+  )
+})
+
+# Plot sensitivity
+par(mfrow = c(1, 2))
+plot(perturbations, alpha_sensitivity, type = "l",
+     xlab = "Change in alpha", ylab = "Log-Likelihood",
+     main = "Sensitivity to alpha")
+abline(v = 0, col = "red", lty = 2)
+
+plot(perturbations, beta_sensitivity, type = "l",
+     xlab = "Change in beta", ylab = "Log-Likelihood",
+     main = "Sensitivity to beta")
+abline(v = 0, col = "red", lty = 2)
+```
+
+## Using with Copula-GARCH Model
+
+```{r copula}
+# Estimate Copula-GARCH model
+cgarch_spec <- cgarch_modelspec(
+  garch_fits, 
+  dynamics = "dcc",
+  dcc_order = c(1,1),
+  copula = "mvt",
+  transformation = "parametric"
+)
+cgarch_fit <- estimate(cgarch_spec)
+
+# Compute log-likelihood with fixed parameters
+ll <- compute_loglik_fixed(
+  cgarch_fit,
+  params = list(
+    alpha_1 = 0.05,
+    beta_1 = 0.90,
+    shape = 5.0  # Student-t degrees of freedom
+  )
+)
+
+print(ll)
+```
+
+## Getting Detailed Components
+
+```{r components}
+# Get both total and component-wise log-likelihoods
+ll_components <- compute_loglik_fixed(
+  dcc_fit,
+  params = list(alpha_1 = 0.05, beta_1 = 0.90),
+  return_components = TRUE
+)
+
+# Examine components
+str(ll_components)
+
+# The total log-likelihood is the sum of:
+# 1. Univariate GARCH log-likelihoods
+# 2. Multivariate (DCC) log-likelihood
+
+cat("Total log-likelihood:", ll_components$loglik, "\n")
+cat("GARCH component:", ll_components$garch_loglik, "\n")
+cat("Multivariate component:", ll_components$multivariate_loglik, "\n")
+
+# Verify they sum correctly
+sum_components <- ll_components$garch_loglik + ll_components$multivariate_loglik
+cat("Sum of components:", sum_components, "\n")
+cat("Difference:", abs(ll_components$loglik - sum_components), "\n")
+```
+
+```{r}
+spec <- dcc_modelspec(dmbp, dcc_order = c(1,1))
+fit <- estimate(spec)
+
+## Compute log-likelihood at different parameter values
+ll1 <- compute_loglik_fixed(fit, params = list(alpha_1 = 0.05, beta_1 = 0.90))
+ll2 <- compute_loglik_fixed(fit, params = list(alpha_1 = 0.03, beta_1 = 0.95))
+
+## Compare with estimated log-likelihood
+logLik(fit)
+```
+

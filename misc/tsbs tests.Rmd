@@ -339,3 +339,30 @@ result <- tsbs(
 print(result$func_out_means)
 ```
 
+
+
+
+```{r}
+set.seed(123)
+y1_vec <- rnorm(100)
+y2_vec <- rnorm(100)
+
+# --- THIS IS THE CRITICAL CORRECTION ---
+# Ensure the input data is in xts format before passing to the spec function
+y1_xts <- xts(y1_vec, order.by = Sys.Date() - (100:1))
+y2_xts <- xts(y2_vec, order.by = Sys.Date() - (100:1))
+
+model1 <- tsgarch::garch_modelspec(y1_xts, model = "garch", distribution = "norm") |> estimate(keep_tmb = TRUE)
+model2 <- tsgarch::garch_modelspec(y2_xts, model = "garch", distribution = "norm") |> estimate(keep_tmb = TRUE)
+
+# 2. Combine them into the special multi_estimate object
+multi_model <- tsgarch::to_multi_estimate(list(model1, model2))
+names(multi_model) <- c("series_1", "series_2")
+
+# 3. Create the DCC spec with a Multivariate-t distribution
+dcc_spec <- tsmarch::dcc_modelspec(multi_model, order = c(1,1), distribution = "mvt")
+
+# 4. THE EVIDENCE: Print the parameter names
+print(dcc_spec$parmatrix$parameter)
+```
+
