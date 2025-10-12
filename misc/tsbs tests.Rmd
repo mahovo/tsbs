@@ -366,3 +366,5 @@ dcc_spec <- tsmarch::dcc_modelspec(multi_model, order = c(1,1), distribution = "
 print(dcc_spec$parmatrix$parameter)
 ```
 
+
+

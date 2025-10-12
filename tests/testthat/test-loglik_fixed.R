@@ -303,15 +303,15 @@ test_that("compute_loglik_fixed works with Copula-GARCH dynamic", {
   est_params <- coef(cgarch_fit)
   
   # Compute log-likelihood
-  ll_fixed <- -compute_loglik_fixed(cgarch_fit, params = as.list(est_params))
-  ll_estimated <- as.numeric(logLik(cgarch_fit))
-  # series1_nll <- cgarch_fit$spec$univariate$series1$loglik
-  # series2_nll <- cgarch_fit$spec$univariate$series2$loglik
-  # mv_nll <- cgarch_fit$loglik
-  # nll_estimated <- series1_nll + series2_nll + mv_nll
-  # ll_estimated <- -nll_estimated
+  ll_fixed <- compute_loglik_fixed(cgarch_fit, params = as.list(est_params))
+  # ll_estimated <- as.numeric(logLik(cgarch_fit))
+  series1_nll <- cgarch_fit$spec$univariate$series1$loglik
+  series2_nll <- cgarch_fit$spec$univariate$series2$loglik
+  copula_nll <- cgarch_fit$copula_nll
+  model_nll <- series1_nll + series2_nll + copula_nll
+  ll_expected <- -model_nll
   
-  expect_equal(ll_fixed, ll_estimated, tolerance = 1e-4)
+  expect_equal(ll_fixed, ll_expected, tolerance = 1e-4)
 })
 
 # Profile Likelihood Tests =================================================

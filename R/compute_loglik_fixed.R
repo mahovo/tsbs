@@ -169,34 +169,65 @@ compute_loglik_fixed <- function(object, params, return_components = FALSE, ...)
 }
 
 # Internal method for Copula dynamic
+# .compute_copula_dynamic_loglik <- function(object, params, return_components = FALSE) {
+# 
+#   # Create a copy of the spec
+#   spec <- object$spec
+# 
+#   # Update parameters in the parmatrix
+#   spec$parmatrix <- .update_parmatrix(spec$parmatrix, params)
+# 
+#   # Get parameter values
+#   estimate <- NULL
+#   pars <- spec$parmatrix[estimate == 1]$value
+# 
+#   # Compute multivariate log-likelihood (copula component)
+#   # .copula_dynamic_values returns NEGATIVE log-likelihood
+#   mv_nll <- tsmarch:::.copula_dynamic_values(pars, spec, type = "nll")
+# 
+#   if (return_components) {
+#     garch_nll <- sum(sapply(object$spec$univariate, function(x) as.numeric(logLik(x))))
+#     total_nll <- garch_nll + mv_nll
+# 
+#     return(list(
+#       loglik = -total_nll,
+#       garch_loglik = -garch_nll,
+#       multivariate_loglik = -mv_nll
+#     ))
+#   } else {
+#     garch_nll <- sum(sapply(object$spec$univariate, function(x) as.numeric(logLik(x))))
+#     total_nll <- garch_nll + mv_nll
+#     return(-total_nll)
+#   }
+# }
 .compute_copula_dynamic_loglik <- function(object, params, return_components = FALSE) {
-  
+
   # Create a copy of the spec
   spec <- object$spec
-  
+
   # Update parameters in the parmatrix
   spec$parmatrix <- .update_parmatrix(spec$parmatrix, params)
-  
+
   # Get parameter values
   estimate <- NULL
   pars <- spec$parmatrix[estimate == 1]$value
-  
-  # Compute multivariate log-likelihood (copula component)
-  # .copula_dynamic_values returns NEGATIVE log-likelihood
+
+  # Compute multivariate negative log-likelihood (copula component)
   mv_nll <- tsmarch:::.copula_dynamic_values(pars, spec, type = "nll")
-  
+
+  # Get univariate GARCH negative log-likelihoods
+  garch_nll <- sum(sapply(object$spec$univariate, function(x) x$loglik))
+
+  # Total negative log-likelihood
+  total_nll <- garch_nll + mv_nll
+
   if (return_components) {
-    garch_nll <- sum(sapply(object$spec$univariate, function(x) as.numeric(logLik(x))))
-    total_nll <- garch_nll + mv_nll
-    
     return(list(
       loglik = -total_nll,
       garch_loglik = -garch_nll,
       multivariate_loglik = -mv_nll
     ))
   } else {
-    garch_nll <- sum(sapply(object$spec$univariate, function(x) as.numeric(logLik(x))))
-    total_nll <- garch_nll + mv_nll
     return(-total_nll)
   }
 }
