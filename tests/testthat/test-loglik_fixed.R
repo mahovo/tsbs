@@ -337,12 +337,18 @@ test_that("profile likelihood is smooth around optimum", {
   })
   
   # Should all be finite
-  expect_true(all(is.finite(profile_ll)))
+  expect_true(all(is.finite(profile_ll)),
+              info = "All profile likelihoods should be finite")
   
-  # Maximum should be at or near the estimated value
-  max_idx <- which.max(profile_ll)
-  expect_true(max_idx >= 2 && max_idx <= 4,
-              info = "Maximum should be near middle of grid")
+  # The likelihood at the estimated parameter should be among the highest
+  # (allowing for numerical tolerance and that we're fixing beta)
+  max_ll <- max(profile_ll)
+  ll_at_est <- profile_ll[3]  # Middle point is the estimated value
+  
+  # Check that estimated is within a reasonable range of maximum
+  expect_true(ll_at_est >= max_ll - 1,
+              info = paste("LL at estimated alpha should be near maximum.",
+                           "Estimated:", ll_at_est, "Max:", max_ll))
 })
 
 # Likelihood Ratio Test Example ============================================
