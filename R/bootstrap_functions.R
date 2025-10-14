@@ -384,7 +384,12 @@ ms_varma_garch_bs <- function(
 #' dim(boot_reps[[1]])         # 100 x 1 matrix
 #'
 #' @export
-wild_bootstrap <- function(x, num_boots = 100) {
+wild_bootstrap <- function(
+    x, 
+    num_boots = 100,
+    parallel = FALSE,
+    num_cores = 2
+  ) {
   if (!is.numeric(x)) stop("`x` must be numeric.")
   if (!is.numeric(num_boots) || num_boots < 1) stop("`num_boots` must be a positive integer.")
   

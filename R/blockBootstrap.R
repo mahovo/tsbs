@@ -47,7 +47,7 @@
 #' @examples
 #' set.seed(123)
 #' x <- matrix(rnorm(100), ncol = 1)
-#' boots <- blockBootstrap(x, type = "stationary", num_boots = 5)
+#' boots <- blockBootstrap(x, bs_type = "stationary", num_boots = 5L)
 #' dim(boots[[1]])
 #'
 #' @importFrom Rcpp sourceCpp

@@ -24,5 +24,5 @@ A raw list with estimated parameters and results.
 Internal C++ function to orchestrate the EM estimation.
 Delegates all statistical calculations (likelihood,
 parameter estimation) to helper functions in R to interface
-with TMB-based packages like tsgarch.
+with the tsgarch and tsmarch packages.
 }

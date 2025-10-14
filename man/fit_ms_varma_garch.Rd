@@ -32,9 +32,11 @@ See Details for the required structure.}
 Defaults to "univariate".}
 
 \item{control}{A list of control parameters for the EM algorithm, including:
+\itemize{
 \item{max_iter}{An integer specifying the maximum number of EM iterations. Defaults to 100.}
 \item{tol}{A numeric value specifying the convergence tolerance for the
-log-likelihood. Defaults to 1e-6.}}
+log-likelihood. Defaults to 1e-6.}
+}}
 }
 \value{
 An object of class \code{msm.fit} containing the full results of the

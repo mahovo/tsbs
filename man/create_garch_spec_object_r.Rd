@@ -4,7 +4,7 @@
 \alias{create_garch_spec_object_r}
 \title{Create a GARCH Specification Object (Convenience Function)}
 \usage{
-create_garch_spec_object_r(residuals, spec, model_type)
+create_garch_spec_object_r(residuals, spec, model_type, current_pars)
 }
 \arguments{
 \item{residuals}{}

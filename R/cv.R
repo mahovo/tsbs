@@ -31,10 +31,10 @@
 #' best_p <- k_fold_cv_ts(
 #'   x = x,
 #'   y = y,
-#'   p_list = c(1, 5, 10),
 #'   k = 5,
+#'   p_grid = seq(0.01, 0.5, by = 0.01),
 #'   model_func = default_model_func,
-#'   score_func = default_score_func
+#'   score_func = mse
 #' )
 #' print(best_p)
 #'
