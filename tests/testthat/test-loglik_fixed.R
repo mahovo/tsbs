@@ -117,9 +117,9 @@ test_that(".update_parmatrix handles multiple matching parameters", {
   )
 })
 
-## ============================================================================
+## == == == == == == == == == == == == == == == == == == == == == == == == ==
 ## Integration tests with actual tsmarch objects
-## ============================================================================
+## == == == == == == == == == == == == == == == == == == == == == == == == ==
 
 ## Test DCC Dynamic Model ====================================================
 
@@ -412,42 +412,48 @@ test_that("compute_loglik_fixed preserves original object", {
   expect_equal(original_params, new_params)
 })
 
-## ============================================================================
-## Tests with ll_vec = TRUE
-## ============================================================================
+## == == == == == == == == == == == == == == == == == == == == == == == == ==
+## Tests with ll_vec = TRUE                                             =====
+## == == == == == == == == == == == == == == == == == == == == == == == == ==
 
 test_that("compute_loglik_fixed returns correct dimensions with ll_vec = TRUE", {
   skip_on_cran()
   
-  # Generate small sample data
-  set.seed(123)
-  n <- 100
-  returns <- matrix(rnorm(n * 2), ncol = 2)
-  returns <- xts(returns, order.by = seq.Date(Sys.Date() - n + 1, 
-                                              Sys.Date(), by = "day"))
-  colnames(returns) <- c("series1", "series2")
+  ## Suppress warnings from GARCH estimation (known issue with small samples)
+  suppressWarnings({
+    ## Generate small sample data
+    set.seed(123)
+    n <- 100
+    returns <- matrix(rnorm(n * 2), ncol = 2)
+    returns <- xts(returns, order.by = seq.Date(Sys.Date() - n + 1, 
+                                                Sys.Date(), by = "day"))
+    colnames(returns) <- c("series1", "series2")
+    
+    ## Estimate univariate GARCH models
+    spec1 <- garch_modelspec(returns[,1], model = "garch", order = c(1,1))
+    spec2 <- garch_modelspec(returns[,2], model = "garch", order = c(1,1))
+    fit1 <- estimate(spec1, keep_tmb = TRUE)
+    fit2 <- estimate(spec2, keep_tmb = TRUE)
+    
+    ## Combine into multivariate
+    garch_fits <- to_multi_estimate(list(fit1, fit2))
+    
+    ## Estimate DCC model
+    dcc_spec <- dcc_modelspec(garch_fits, dynamics = "dcc", dcc_order = c(1,1))
+    dcc_fit <- estimate(dcc_spec)
+    
+    ## Get estimated parameters
+    est_params <- coef(dcc_fit)
+    
+    ## Test ll_vec = TRUE
+    ll_vec_result <- compute_loglik_fixed(
+      dcc_fit, 
+      params = as.list(est_params), 
+      ll_vec = TRUE
+    )
+  })
   
-  # Estimate univariate GARCH models
-  spec1 <- garch_modelspec(returns[,1], model = "garch", order = c(1,1))
-  spec2 <- garch_modelspec(returns[,2], model = "garch", order = c(1,1))
-  fit1 <- estimate(spec1, keep_tmb = TRUE)
-  fit2 <- estimate(spec2, keep_tmb = TRUE)
-  
-  # Combine into multivariate
-  garch_fits <- to_multi_estimate(list(fit1, fit2))
-  
-  # Estimate DCC model
-  dcc_spec <- dcc_modelspec(garch_fits, dynamics = "dcc", dcc_order = c(1,1))
-  dcc_fit <- estimate(dcc_spec)
-  
-  # Get estimated parameters
-  est_params <- coef(dcc_fit)
-  
-  # Test ll_vec = TRUE
-  ll_vec_result <- compute_loglik_fixed(dcc_fit, params = as.list(est_params), 
-                                        ll_vec = TRUE)
-  
-  # Should return a vector
+  ## Should return a vector
   expect_true(is.numeric(ll_vec_result))
   expect_true(is.vector(ll_vec_result))
   expect_equal(length(ll_vec_result), n)
@@ -457,87 +463,93 @@ test_that("compute_loglik_fixed returns correct dimensions with ll_vec = TRUE", 
 test_that("compute_loglik_fixed ll_vec sums to total loglik for DCC dynamic", {
   skip_on_cran()
   
-  # Generate small sample data
-  set.seed(456)
-  n <- 100
-  returns <- matrix(rnorm(n * 2), ncol = 2)
-  returns <- xts(returns, order.by = seq.Date(Sys.Date() - n + 1, 
-                                              Sys.Date(), by = "day"))
-  colnames(returns) <- c("asset1", "asset2")
+  suppressWarnings({
+    ## Generate small sample data
+    set.seed(456)
+    n <- 100
+    returns <- matrix(rnorm(n * 2), ncol = 2)
+    returns <- xts(returns, order.by = seq.Date(Sys.Date() - n + 1, 
+                                                Sys.Date(), by = "day"))
+    colnames(returns) <- c("asset1", "asset2")
+    
+    ## Estimate univariate GARCH models
+    spec1 <- garch_modelspec(returns[,1], model = "garch", order = c(1,1))
+    spec2 <- garch_modelspec(returns[,2], model = "garch", order = c(1,1))
+    fit1 <- estimate(spec1, keep_tmb = TRUE)
+    fit2 <- estimate(spec2, keep_tmb = TRUE)
+    
+    ## Combine into multivariate
+    garch_fits <- to_multi_estimate(list(fit1, fit2))
+    
+    ## Estimate DCC model
+    dcc_spec <- dcc_modelspec(garch_fits, dynamics = "dcc", dcc_order = c(1,1))
+    dcc_fit <- estimate(dcc_spec)
+    
+    ## Get estimated parameters
+    est_params <- coef(dcc_fit)
+    
+    ## Get per-observation log-likelihoods
+    ll_vec_result <- compute_loglik_fixed(dcc_fit, params = as.list(est_params), 
+                                          ll_vec = TRUE)
+    
+    ## Get total log-likelihood
+    ll_total <- compute_loglik_fixed(dcc_fit, params = as.list(est_params))
+  })
   
-  # Estimate univariate GARCH models
-  spec1 <- garch_modelspec(returns[,1], model = "garch", order = c(1,1))
-  spec2 <- garch_modelspec(returns[,2], model = "garch", order = c(1,1))
-  fit1 <- estimate(spec1, keep_tmb = TRUE)
-  fit2 <- estimate(spec2, keep_tmb = TRUE)
-  
-  # Combine into multivariate
-  garch_fits <- to_multi_estimate(list(fit1, fit2))
-  
-  # Estimate DCC model
-  dcc_spec <- dcc_modelspec(garch_fits, dynamics = "dcc", dcc_order = c(1,1))
-  dcc_fit <- estimate(dcc_spec)
-  
-  # Get estimated parameters
-  est_params <- coef(dcc_fit)
-  
-  # Get per-observation log-likelihoods
-  ll_vec_result <- compute_loglik_fixed(dcc_fit, params = as.list(est_params), 
-                                        ll_vec = TRUE)
-  
-  # Get total log-likelihood
-  ll_total <- compute_loglik_fixed(dcc_fit, params = as.list(est_params))
-  
-  # Sum of per-observation should equal total
+  ## Sum of per-observation should equal total
   expect_equal(sum(ll_vec_result), ll_total, tolerance = 1e-6)
 })
 
 test_that("compute_loglik_fixed ll_vec works for DCC constant", {
   skip_on_cran()
   
-  # Generate small sample data
-  set.seed(789)
-  n <- 100
-  returns <- matrix(rnorm(n * 2), ncol = 2)
-  returns <- xts(returns, order.by = seq.Date(Sys.Date() - n + 1, 
-                                              Sys.Date(), by = "day"))
-  colnames(returns) <- c("asset1", "asset2")
-  
-  # Estimate univariate GARCH models
-  spec1 <- garch_modelspec(returns[,1], model = "garch", order = c(1,1))
-  spec2 <- garch_modelspec(returns[,2], model = "garch", order = c(1,1))
-  fit1 <- estimate(spec1, keep_tmb = TRUE)
-  fit2 <- estimate(spec2, keep_tmb = TRUE)
-  
-  # Combine into multivariate
-  garch_fits <- to_multi_estimate(list(fit1, fit2))
-  
-  # Estimate constant correlation DCC model
-  dcc_spec <- dcc_modelspec(garch_fits, dynamics = "constant")
-  dcc_fit <- estimate(dcc_spec)
-  
-  # Get estimated parameters (may be empty for mvn constant)
-  est_params <- coef(dcc_fit)
-  
-  # Get per-observation log-likelihoods
-  ll_vec_result <- compute_loglik_fixed(dcc_fit, params = as.list(est_params), 
-                                        ll_vec = TRUE)
-  
-  # Should return a vector of correct length
+  suppressWarnings({
+    ## Generate small sample data
+    set.seed(789)
+    n <- 100
+    returns <- matrix(rnorm(n * 2), ncol = 2)
+    returns <- xts(returns, order.by = seq.Date(Sys.Date() - n + 1, 
+                                                Sys.Date(), by = "day"))
+    colnames(returns) <- c("asset1", "asset2")
+    
+    ## Estimate univariate GARCH models
+    spec1 <- garch_modelspec(returns[,1], model = "garch", order = c(1,1))
+    spec2 <- garch_modelspec(returns[,2], model = "garch", order = c(1,1))
+    fit1 <- estimate(spec1, keep_tmb = TRUE)
+    fit2 <- estimate(spec2, keep_tmb = TRUE)
+    
+    ## Combine into multivariate
+    garch_fits <- to_multi_estimate(list(fit1, fit2))
+    
+    ## Estimate constant correlation DCC model
+    dcc_spec <- dcc_modelspec(garch_fits, dynamics = "constant")
+    dcc_fit <- estimate(dcc_spec)
+    
+    ## Get estimated parameters (may be empty for mvn constant)
+    est_params <- coef(dcc_fit)
+    
+    ## Get per-observation log-likelihoods
+    ll_vec_result <- compute_loglik_fixed(dcc_fit, params = as.list(est_params), 
+                                          ll_vec = TRUE)
+  })
+    
+  ## Should return a vector of correct length
   expect_true(is.numeric(ll_vec_result))
   expect_equal(length(ll_vec_result), n)
   
-  # Get total log-likelihood
-  ll_total <- compute_loglik_fixed(dcc_fit, params = as.list(est_params))
-  
-  # Sum should equal total
+  suppressWarnings({
+    ## Get total log-likelihood
+    ll_total <- compute_loglik_fixed(dcc_fit, params = as.list(est_params))
+  })
+    
+  ## Sum should equal total
   expect_equal(sum(ll_vec_result), ll_total, tolerance = 1e-6)
 })
 
 test_that("compute_loglik_fixed ll_vec works for Copula-GARCH dynamic", {
   skip_on_cran()
   
-  # Generate small sample data
+  ## Generate small sample data
   set.seed(111)
   n <- 100
   returns <- matrix(rnorm(n * 2), ncol = 2)
@@ -545,41 +557,41 @@ test_that("compute_loglik_fixed ll_vec works for Copula-GARCH dynamic", {
                                               Sys.Date(), by = "day"))
   colnames(returns) <- c("asset1", "asset2")
   
-  # Estimate univariate GARCH models
+  ## Estimate univariate GARCH models
   spec1 <- garch_modelspec(returns[,1], model = "garch", order = c(1,1))
   spec2 <- garch_modelspec(returns[,2], model = "garch", order = c(1,1))
   fit1 <- estimate(spec1, keep_tmb = TRUE)
   fit2 <- estimate(spec2, keep_tmb = TRUE)
   
-  # Combine into multivariate
+  ## Combine into multivariate
   garch_fits <- to_multi_estimate(list(fit1, fit2))
   
-  # Estimate Copula-GARCH model
+  ## Estimate Copula-GARCH model
   cgarch_spec <- cgarch_modelspec(garch_fits, dynamics = "dcc", dcc_order = c(1,1))
   cgarch_fit <- estimate(cgarch_spec)
   
-  # Get estimated parameters
+  ## Get estimated parameters
   est_params <- coef(cgarch_fit)
   
-  # Get per-observation log-likelihoods
+  ## Get per-observation log-likelihoods
   ll_vec_result <- compute_loglik_fixed(cgarch_fit, params = as.list(est_params), 
                                         ll_vec = TRUE)
   
-  # Should return a vector
+  ## Should return a vector
   expect_true(is.numeric(ll_vec_result))
   expect_equal(length(ll_vec_result), n)
   
-  # Get total log-likelihood
+  ## Get total log-likelihood
   ll_total <- compute_loglik_fixed(cgarch_fit, params = as.list(est_params))
   
-  # Sum should equal total
+  ## Sum should equal total
   expect_equal(sum(ll_vec_result), ll_total, tolerance = 1e-6)
 })
 
 test_that("compute_loglik_fixed ll_vec works for Copula-GARCH constant", {
   skip_on_cran()
   
-  # Generate small sample data
+  ## Generate small sample data
   set.seed(222)
   n <- 100
   returns <- matrix(rnorm(n * 2), ncol = 2)
@@ -587,41 +599,41 @@ test_that("compute_loglik_fixed ll_vec works for Copula-GARCH constant", {
                                               Sys.Date(), by = "day"))
   colnames(returns) <- c("asset1", "asset2")
   
-  # Estimate univariate GARCH models
+  ## Estimate univariate GARCH models
   spec1 <- garch_modelspec(returns[,1], model = "garch", order = c(1,1))
   spec2 <- garch_modelspec(returns[,2], model = "garch", order = c(1,1))
   fit1 <- estimate(spec1, keep_tmb = TRUE)
   fit2 <- estimate(spec2, keep_tmb = TRUE)
   
-  # Combine into multivariate
+  ## Combine into multivariate
   garch_fits <- to_multi_estimate(list(fit1, fit2))
   
-  # Estimate constant Copula-GARCH model
+  ## Estimate constant Copula-GARCH model
   cgarch_spec <- cgarch_modelspec(garch_fits, dynamics = "constant")
   cgarch_fit <- estimate(cgarch_spec)
   
-  # Get estimated parameters
+  ## Get estimated parameters
   est_params <- coef(cgarch_fit)
   
-  # Get per-observation log-likelihoods
+  ## Get per-observation log-likelihoods
   ll_vec_result <- compute_loglik_fixed(cgarch_fit, params = as.list(est_params), 
                                         ll_vec = TRUE)
   
-  # Should return a vector
+  ## Should return a vector
   expect_true(is.numeric(ll_vec_result))
   expect_equal(length(ll_vec_result), n)
   
-  # Get total log-likelihood
+  ## Get total log-likelihood
   ll_total <- compute_loglik_fixed(cgarch_fit, params = as.list(est_params))
   
-  # Sum should equal total
+  ## Sum should equal total
   expect_equal(sum(ll_vec_result), ll_total, tolerance = 1e-6)
 })
 
 test_that("compute_loglik_fixed errors when ll_vec and return_components both TRUE", {
   skip_on_cran()
   
-  # Generate small sample data
+  ## Generate small sample data
   set.seed(333)
   n <- 50
   returns <- matrix(rnorm(n * 2), ncol = 2)
@@ -629,23 +641,23 @@ test_that("compute_loglik_fixed errors when ll_vec and return_components both TR
                                               Sys.Date(), by = "day"))
   colnames(returns) <- c("series1", "series2")
   
-  # Estimate univariate GARCH models
+  ## Estimate univariate GARCH models
   spec1 <- garch_modelspec(returns[,1], model = "garch", order = c(1,1))
   spec2 <- garch_modelspec(returns[,2], model = "garch", order = c(1,1))
   fit1 <- estimate(spec1, keep_tmb = TRUE)
   fit2 <- estimate(spec2, keep_tmb = TRUE)
   
-  # Combine into multivariate
+  ## Combine into multivariate
   garch_fits <- to_multi_estimate(list(fit1, fit2))
   
-  # Estimate DCC model
+  ## Estimate DCC model
   dcc_spec <- dcc_modelspec(garch_fits, dynamics = "dcc", dcc_order = c(1,1))
   dcc_fit <- estimate(dcc_spec)
   
-  # Get estimated parameters
+  ## Get estimated parameters
   est_params <- coef(dcc_fit)
   
-  # Should error when both ll_vec and return_components are TRUE
+  ## Should error when both ll_vec and return_components are TRUE
   expect_error(
     compute_loglik_fixed(dcc_fit, params = as.list(est_params), 
                          ll_vec = TRUE, return_components = TRUE),
@@ -656,7 +668,7 @@ test_that("compute_loglik_fixed errors when ll_vec and return_components both TR
 test_that("compute_loglik_fixed ll_vec values are reasonable", {
   skip_on_cran()
   
-  # Generate small sample data
+  ## Generate small sample data
   set.seed(444)
   n <- 100
   returns <- matrix(rnorm(n * 2), ncol = 2)
@@ -664,41 +676,41 @@ test_that("compute_loglik_fixed ll_vec values are reasonable", {
                                               Sys.Date(), by = "day"))
   colnames(returns) <- c("asset1", "asset2")
   
-  # Estimate univariate GARCH models
+  ## Estimate univariate GARCH models
   spec1 <- garch_modelspec(returns[,1], model = "garch", order = c(1,1))
   spec2 <- garch_modelspec(returns[,2], model = "garch", order = c(1,1))
   fit1 <- estimate(spec1, keep_tmb = TRUE)
   fit2 <- estimate(spec2, keep_tmb = TRUE)
   
-  # Combine into multivariate
+  ## Combine into multivariate
   garch_fits <- to_multi_estimate(list(fit1, fit2))
   
-  # Estimate DCC model
+  ## Estimate DCC model
   dcc_spec <- dcc_modelspec(garch_fits, dynamics = "dcc", dcc_order = c(1,1))
   dcc_fit <- estimate(dcc_spec)
   
-  # Get estimated parameters
+  ## Get estimated parameters
   est_params <- coef(dcc_fit)
   
-  # Get per-observation log-likelihoods
+  ## Get per-observation log-likelihoods
   ll_vec_result <- compute_loglik_fixed(dcc_fit, params = as.list(est_params), 
                                         ll_vec = TRUE)
   
-  # All values should be finite (not Inf, -Inf, or NaN)
+  ## All values should be finite (not Inf, -Inf, or NaN)
   expect_true(all(is.finite(ll_vec_result)))
   
-  # Log-likelihoods should be negative (since they're probabilities < 1)
+  ## Log-likelihoods should be negative (since they're probabilities < 1)
   expect_true(all(ll_vec_result < 0))
   
-  # Should not have any extreme outliers (within reasonable range)
-  # For normal distributions, log-likelihoods typically range from -10 to 0
+  ## Should not have any extreme outliers (within reasonable range)
+  ## For normal distributions, log-likelihoods typically range from -10 to 0
   expect_true(all(ll_vec_result > -100))
 })
 
 test_that("compute_loglik_fixed ll_vec works with alternative parameters", {
   skip_on_cran()
   
-  # Generate small sample data
+  ## Generate small sample data
   set.seed(555)
   n <- 100
   returns <- matrix(rnorm(n * 2), ncol = 2)
@@ -706,37 +718,37 @@ test_that("compute_loglik_fixed ll_vec works with alternative parameters", {
                                               Sys.Date(), by = "day"))
   colnames(returns) <- c("asset1", "asset2")
   
-  # Estimate univariate GARCH models
+  ## Estimate univariate GARCH models
   spec1 <- garch_modelspec(returns[,1], model = "garch", order = c(1,1))
   spec2 <- garch_modelspec(returns[,2], model = "garch", order = c(1,1))
   fit1 <- estimate(spec1, keep_tmb = TRUE)
   fit2 <- estimate(spec2, keep_tmb = TRUE)
   
-  # Combine into multivariate
+  ## Combine into multivariate
   garch_fits <- to_multi_estimate(list(fit1, fit2))
   
-  # Estimate DCC model
+  ## Estimate DCC model
   dcc_spec <- dcc_modelspec(garch_fits, dynamics = "dcc", dcc_order = c(1,1))
   dcc_fit <- estimate(dcc_spec)
   
-  # Test with alternative parameters
+  ## Test with alternative parameters
   alt_params <- list(alpha_1 = 0.05, beta_1 = 0.90)
   
   ll_vec_alt <- compute_loglik_fixed(dcc_fit, params = alt_params, ll_vec = TRUE)
   ll_total_alt <- compute_loglik_fixed(dcc_fit, params = alt_params)
   
-  # Should return a vector
+  ## Should return a vector
   expect_true(is.numeric(ll_vec_alt))
   expect_equal(length(ll_vec_alt), n)
   
-  # Sum should equal total
+  ## Sum should equal total
   expect_equal(sum(ll_vec_alt), ll_total_alt, tolerance = 1e-6)
   
-  # Get estimated parameter results
+  ## Get estimated parameter results
   est_params <- coef(dcc_fit)
   ll_vec_est <- compute_loglik_fixed(dcc_fit, params = as.list(est_params), 
                                      ll_vec = TRUE)
   
-  # Per-observation likelihoods should differ
+  ## Per-observation likelihoods should differ
   expect_false(isTRUE(all.equal(ll_vec_alt, ll_vec_est)))
 })
