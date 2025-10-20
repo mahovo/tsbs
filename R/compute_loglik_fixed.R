@@ -229,6 +229,11 @@ compute_loglik_fixed <- function(
   if (!is.list(params)) {
     stop("params must be a named list")
   }
+  
+  ## Cannot use both return_components and ll_vec
+  if (return_components && ll_vec) {
+    stop("Cannot use both return_components = TRUE and ll_vec = TRUE")
+  }
 
   ## Dispatch to appropriate method
   if (inherits(object, "dcc.estimate")) {
@@ -287,15 +292,14 @@ compute_loglik_fixed <- function(
     ## Convert to vector (it's a matrix with 1 column)
     mv_nll_vec <- as.vector(mv_nll_vec)
     
-    # ## Get per-observation univariate GARCH negative log-likelihoods
-    # garch_nll_vec <- .get_garch_nll_vec(object$spec$univariate)
-    #  
-    # ## Total per-observation negative log-likelihood
-    # total_nll_vec <- garch_nll_vec + mv_nll_vec
-    #
-    # ## Return positive per-observation log-likelihoods
-    # return(-total_nll_vec)
-    return(-mv_nll_vec)
+    ## Get per-observation univariate GARCH negative log-likelihoods
+    garch_nll_vec <- .get_garch_nll_vec(object$spec$univariate)
+
+    ## Total per-observation negative log-likelihood
+    total_nll_vec <- garch_nll_vec + mv_nll_vec
+
+    ## Return positive per-observation log-likelihoods
+    return(-total_nll_vec)
   }
   
   ## Compute multivariate log-likelihood using internal tsmarch function
@@ -332,16 +336,9 @@ compute_loglik_fixed <- function(
   if (object$spec$distribution == "mvn" && length(params) == 0) {
     if (ll_vec) {
       ## Get vector of per-observation likelihoods
-      mv_nll_vec <- tsmarch:::.dcc_constant_values(NULL, object$spec, type = "ll_vec")
-      # ## Get per-observation univariate GARCH negative log-likelihoods
-    # garch_nll_vec <- .get_garch_nll_vec(object$spec$univariate)
-    #  
-    # ## Total per-observation negative log-likelihood
-    # total_nll_vec <- garch_nll_vec + mv_nll_vec
-    #
-    # ## Return positive per-observation log-likelihoods
-    # return(-total_nll_vec)
-    return(-mv_nll_vec)
+      ## NOTE: For DCC models, ll_vec includes BOTH GARCH and DCC components
+      total_nll_vec <- tsmarch:::.dcc_constant_values(NULL, object$spec, type = "ll_vec")
+      return(-as.vector(total_nll_vec))
     }
     
     total_nll <- object$loglik
@@ -370,17 +367,10 @@ compute_loglik_fixed <- function(
   pars <- spec$parmatrix[estimate == 1]$value
   
   if (ll_vec) {
-    # Get per-observation negative log-likelihoods
-    mv_nll_vec <- tsmarch:::.dcc_constant_values(pars, spec, type = "ll_vec")
-    # ## Get per-observation univariate GARCH negative log-likelihoods
-    # garch_nll_vec <- .get_garch_nll_vec(object$spec$univariate)
-    #  
-    # ## Total per-observation negative log-likelihood
-    # total_nll_vec <- garch_nll_vec + mv_nll_vec
-    #
-    # ## Return positive per-observation log-likelihoods
-    # return(-total_nll_vec)
-    return(-mv_nll_vec)
+    ## Get vector of per-observation negative log-likelihoods
+    ## NOTE: For DCC models, ll_vec includes BOTH GARCH and DCC components
+    total_nll_vec <- tsmarch:::.dcc_constant_values(pars, spec, type = "ll_vec")
+    return(-as.vector(total_nll_vec))
   }
   
   ## Compute multivariate log-likelihood
@@ -422,27 +412,28 @@ compute_loglik_fixed <- function(
 
   if (ll_vec) {
     ## Get vector of per-observation negative log-likelihoods
-    mv_nll_vec <- tsmarch:::.copula_dynamic_values(pars, spec, type = "ll_vec")
+    ## NOTE: For copula models, ll_vec contains ONLY the copula component
+    ## We need to add the GARCH component separately
+    copula_nll_vec <- tsmarch:::.copula_dynamic_values(pars, spec, type = "ll_vec")
     
     ## Strip off the first max(p, q) observations (initialization period)
     dccorder <- spec$dynamics$order
     maxpq <- max(dccorder)
     if (maxpq > 0) {
-      mv_nll_vec <- mv_nll_vec[-(1:maxpq), , drop = FALSE]
+      copula_nll_vec <- copula_nll_vec[-(1:maxpq), , drop = TRUE]
+    } else {
+      ## Convert to vector (it's a matrix with 1 column)
+      copula_nll_vec <- as.vector(copula_nll_vec)
     }
     
-    ## Convert to vector (it's a matrix with 1 column)
-    mv_nll_vec <- as.vector(mv_nll_vec)
+    ## Get per-observation univariate GARCH negative log-likelihoods
+    garch_nll_vec <- .get_garch_nll_vec(object$spec$univariate)
     
-    # ## Get per-observation univariate GARCH negative log-likelihoods
-    # garch_nll_vec <- .get_garch_nll_vec(object$spec$univariate)
-    #  
-    # ## Total per-observation negative log-likelihood
-    # total_nll_vec <- garch_nll_vec + mv_nll_vec
-    #
-    # ## Return positive per-observation log-likelihoods
-    # return(-total_nll_vec)
-    return(-mv_nll_vec)
+    ## Total per-observation negative log-likelihood
+    total_nll_vec <- garch_nll_vec + copula_nll_vec
+    
+    ## Return positive per-observation log-likelihoods
+    return(-total_nll_vec)
   }
   
   ## Compute multivariate negative log-likelihood (copula component)
@@ -476,16 +467,17 @@ compute_loglik_fixed <- function(
   ## For constant correlation with mvn, there are no parameters to estimate
   if (object$spec$copula == "mvn" && length(params) == 0) {
     if (ll_vec) {
-      mv_nll_vec <- tsmarch:::.copula_constant_values(NULL, object$spec, type = "ll_vec")
-      # ## Get per-observation univariate GARCH negative log-likelihoods
-      # garch_nll_vec <- .get_garch_nll_vec(object$spec$univariate)
-      #  
-      # ## Total per-observation negative log-likelihood
-      # total_nll_vec <- garch_nll_vec + mv_nll_vec
-      #
-      # ## Return positive per-observation log-likelihoods
-      # return(-total_nll_vec)
-      return(-mv_nll_vec)
+      ## NOTE: For copula models, ll_vec contains ONLY the copula component
+      copula_nll_vec <- tsmarch:::.copula_constant_values(NULL, object$spec, type = "ll_vec")
+      copula_nll_vec <- as.vector(copula_nll_vec)
+      
+      ## Get per-observation univariate GARCH negative log-likelihoods
+      garch_nll_vec <- .get_garch_nll_vec(object$spec$univariate)
+      
+      ## Total per-observation negative log-likelihood
+      total_nll_vec <- garch_nll_vec + copula_nll_vec
+      
+      return(-total_nll_vec)
     }
     
     if (return_components) {
@@ -547,24 +539,24 @@ compute_loglik_fixed <- function(
 .get_garch_nll_vec <- function(univariate_list) {
   ## Extract per-observation NLL from each univariate GARCH model
   ## Sum across series to get total GARCH contribution per time point
-  
+
   n_obs <- length(univariate_list[[1]]$spec$target$y_orig)
   n_series <- length(univariate_list)
-  
+
   ## Initialize matrix: rows = observations, cols = series
   garch_nll_matrix <- matrix(0, nrow = n_obs, ncol = n_series)
-  
+
   for (i in seq_along(univariate_list)) {
     ## Extract the lik_vector from the univariate model
     ## This contains per-observation NEGATIVE log-likelihoods
     if (!is.null(univariate_list[[i]]$lik_vector)) {
       garch_nll_matrix[, i] <- univariate_list[[i]]$lik_vector
     } else {
-      stop("Per-observation likelihoods (lik_vector) not found in univariate model ", i, 
+      stop("Per-observation likelihoods (lik_vector) not found in univariate model ", i,
            ". The model may need to be re-estimated.")
     }
   }
-  
+
   ## Sum across series to get per-observation total GARCH NLL contribution
   return(rowSums(garch_nll_matrix))
 }
