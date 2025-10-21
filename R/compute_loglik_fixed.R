@@ -279,47 +279,39 @@ compute_loglik_fixed <- function(
   
   if (ll_vec) {
     ## Get vector of per-observation negative log-likelihoods
-    ## NOTE: ll_vec already includes BOTH GARCH and DCC components
-    mv_nll_vec <- tsmarch:::.dcc_dynamic_values(pars, spec, type = "ll_vec")
+    ## NOTE: For DCC models, ll_vec includes BOTH GARCH and DCC components
+    total_nll_vec <- tsmarch:::.dcc_dynamic_values(pars, spec, type = "ll_vec")
     
-    ## Strip off the first max(p, q) observations (initialization period)
+    ## Strip off the first maxpq observations (initialization period)
     dccorder <- spec$dynamics$order
     maxpq <- max(dccorder)
     if (maxpq > 0) {
-      mv_nll_vec <- mv_nll_vec[-(1:maxpq), , drop = FALSE]
+      total_nll_vec <- total_nll_vec[-(1:maxpq), , drop = TRUE]
+    } else {
+      total_nll_vec <- as.vector(total_nll_vec)
     }
     
-    ## Convert to vector (it's a matrix with 1 column)
-    mv_nll_vec <- as.vector(mv_nll_vec)
-    
-    ## Get per-observation univariate GARCH negative log-likelihoods
-    garch_nll_vec <- .get_garch_nll_vec(object$spec$univariate)
-
-    ## Total per-observation negative log-likelihood
-    total_nll_vec <- garch_nll_vec + mv_nll_vec
-
     ## Return positive per-observation log-likelihoods
     return(-total_nll_vec)
   }
   
-  ## Compute multivariate log-likelihood using internal tsmarch function
-  ## Note: .dcc_dynamic_values returns NEGATIVE log-likelihood (NLL)
-  mv_nll <- tsmarch:::.dcc_dynamic_values(pars, spec, type = "nll")
-  
-  ## Get univariate GARCH negative log-likelihoods
-  garch_nll <- sum(sapply(object$spec$univariate, function(x) x$loglik))
-  
-  ## Total negative log-likelihood (what tsmarch stores in object$loglik)
-  total_nll <- garch_nll + mv_nll
+  # Compute total negative log-likelihood using internal tsmarch function
+  # Note: For DCC models, type = "nll" returns the TOTAL (GARCH + DCC) NLL
+  total_nll <- tsmarch:::.dcc_dynamic_values(pars, spec, type = "nll")
   
   if (return_components) {
+    # Get DCC component only
+    dcc_nll <- tsmarch:::.dcc_dynamic_values(pars, spec, type = "dcc_nll")
+    # Calculate GARCH component as difference
+    garch_nll <- total_nll - dcc_nll
+    
     return(list(
-      loglik = -total_nll,          ## Convert to positive ll
-      garch_loglik = -garch_nll,    ## Convert to positive ll
-      multivariate_loglik = -mv_nll ## Convert to positive ll
+      loglik = -total_nll,        # Convert to positive LL
+      garch_loglik = -garch_nll,  # Convert to positive LL
+      multivariate_loglik = -dcc_nll  # Convert to positive LL
     ))
   } else {
-    ## Return positive log-likelihood (to match logLik() method)
+    # Return positive log-likelihood (to match logLik() method)
     return(-total_nll)
   }
 }
@@ -344,12 +336,15 @@ compute_loglik_fixed <- function(
     total_nll <- object$loglik
     
     if (return_components) {
-      garch_nll <- sum(sapply(object$spec$univariate, function(x) as.numeric(logLik(x))))
-      mv_nll <- total_nll - garch_nll
+      ## Get DCC component
+      dcc_nll <- tsmarch:::.dcc_constant_values(NULL, object$spec, type = "dcc_nll")
+      ## Calculate GARCH component as difference
+      garch_nll <- total_nll - dcc_nll
+      
       return(list(
         loglik = -total_nll,
         garch_loglik = -garch_nll,
-        multivariate_loglik = -mv_nll
+        multivariate_loglik = -dcc_nll
       ))
     } else {
       return(-total_nll)
@@ -373,20 +368,20 @@ compute_loglik_fixed <- function(
     return(-as.vector(total_nll_vec))
   }
   
-  ## Compute multivariate log-likelihood
-  mv_nll <- tsmarch:::.dcc_constant_values(pars, spec, type = "nll")
-  
-  ## Get univariate GARCH negative log-likelihoods
-  garch_nll <- sum(sapply(object$spec$univariate, function(x) x$loglik))
-  
-  ## Total negative log-likelihood
-  total_nll <- garch_nll + mv_nll
+  ## Compute total negative log-likelihood
+  ## Note: For DCC models, type = "nll" returns the TOTAL (GARCH + DCC) NLL
+  total_nll <- tsmarch:::.dcc_constant_values(pars, spec, type = "nll")
   
   if (return_components) {
+    ## Get DCC component only  
+    dcc_nll <- tsmarch:::.dcc_constant_values(pars, spec, type = "dcc_nll")
+    ## Calculate GARCH component as difference
+    garch_nll <- total_nll - dcc_nll
+    
     return(list(
       loglik = -total_nll,
       garch_loglik = -garch_nll,
-      multivariate_loglik = -mv_nll
+      multivariate_loglik = -dcc_nll
     ))
   } else {
     return(-total_nll)
