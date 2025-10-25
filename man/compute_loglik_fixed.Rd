@@ -4,28 +4,49 @@
 \alias{compute_loglik_fixed}
 \title{Compute Log-Likelihood with Fixed Parameters}
 \usage{
-compute_loglik_fixed(object, params, return_components = FALSE, ...)
+compute_loglik_fixed(
+  object,
+  params,
+  return_components = FALSE,
+  ll_vec = FALSE,
+  ...
+)
 }
 \arguments{
 \item{object}{An estimated tsmarch object of class "dcc.estimate",
 "cgarch.estimate", or "gogarch.estimate"}
 
 \item{params}{A named list of fixed parameters. The names should match the
-parameter names in the model's parmatrix. For DCC/Copula models, typically
-includes "alpha", "beta", and optionally "gamma" (for ADCC) and "shape"
-(for Student-t). For GOGARCH, this should include the GARCH parameters
-for each independent component.}
+parameter names in the model's parmatrix:
+\itemize{
+\item For DCC models: \code{list(alpha_1 = 0.05, beta_1 = 0.90)} for DCC(1,1),
+or \code{list(alpha_1 = 0.05, alpha_2 = 0.03, beta_1 = 0.85)} for DCC(2,1).
+For ADCC models, add \code{gamma_1}, \code{gamma_2}, etc.
+\item For Student-t DCC: Add \code{shape = 3} to specify degrees of freedom.
+\item For Copula-GARCH models: Same as DCC models above. For Student-t copula,
+use \code{shape = 3} for degrees of freedom.
+\item For GOGARCH models: Parameters for each independent component GARCH model,
+e.g., \code{list(omega_1 = 0.01, alpha_1 = 0.05, beta_1 = 0.90, omega_2 = 0.02, ...)}.
+}
+Parameter names use underscore notation where the number indicates the lag order
+or component index. Use \code{coef(object)} to see the exact parameter names for your model.}
 
 \item{return_components}{Logical. If TRUE, returns both the total log-likelihood
 and its components (univariate GARCH + multivariate). Default is FALSE.}
 
+\item{ll_vec}{Logical. If TRUE, returns per-observation log-likelihood vector
+instead of the total. Cannot be used with return_components = TRUE. Default is FALSE.}
+
 \item{...}{Additional arguments (currently unused)}
 }
 \value{
-If return_components = FALSE (default), returns a single numeric value
-representing the total log-likelihood. If return_components = TRUE, returns
-a list with components:
-\item{loglik}{Total log-likelihood (note: NOT negative log-likelihood)}
+If ll_vec = TRUE, returns a numeric vector of per-observation log-likelihoods.
+
+If ll_vec = FALSE and return_components = FALSE (default), returns a single
+numeric value representing the total log-likelihood.
+
+If ll_vec = FALSE and return_components = TRUE, returns a list with components:
+\item{loglik}{Total log-likelihood}
 \item{garch_loglik}{Univariate GARCH component (DCC/Copula only)}
 \item{multivariate_loglik}{Multivariate component log-likelihood}
 }

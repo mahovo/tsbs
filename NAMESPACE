@@ -3,7 +3,7 @@
 S3method(predict,default_model)
 export(.is_invalid_count)
 export(.is_invalid_data)
-export(.is_invalid_fraction)
+export(.not_in_unit_interval)
 export(blockBootstrap)
 export(compute_loglik_fixed)
 export(default_model_func)

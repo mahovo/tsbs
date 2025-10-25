@@ -20,8 +20,8 @@
 #'   `"overlapping"` or `"tapered"`. Default `"overlapping"`.
 #' @param taper_type Tapering window function. Character. One of `"cosine"`, 
 #'   `"bartlett"`, or `"tukey"`.
-#' @param p Probability parameter for the geometric block length (used in 
-#'   Stationary Bootstrap).
+#' @param p numeric \eqn{p \in (0, 1)}. Probability parameter for the geometric block length (used in 
+#'   Stationary Bootstrap). 
 #' @param stationary_max_percentile Stationary max percentile.
 #' @param stationary_max_fraction_of_n Stationary max fraction of n.
 #'

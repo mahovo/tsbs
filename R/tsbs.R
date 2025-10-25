@@ -13,9 +13,9 @@
 #'   first-order autocorrelation (\eqn{\rho_1}) across all time series columns. 
 #'   A candidate block length is then calculated based on this persistence 
 #'   measure using the formula \eqn{⌊10/(1−\rho_1)⌋}. The final block length is 
-#'   constrained to be between 5 and the square root of the series length, 
-#'   ensuring a reasonable value is chosen. For stationary bootstrap, 
-#'   `block_length` is the expected block length, when `p_method="1/n"`.
+#'   constrained to be between 5 and the square root of the series length. 
+#'   For stationary bootstrap, `block_length` is the expected block length, when 
+#'   `p_method="1/n"`.
 #' @param bs_type Bootstrap type. Character string: One of `"moving"`, 
 #'   `"stationary"`, `"hmm"`, `"msvar"`, `"ms_varma_garch"`, or `"wild"`. 
 #'   `"msvar"` is a lightweight special case of `"ms_varma_garch"`. See details 
@@ -28,9 +28,9 @@
 #' @param taper_type Tapering window function. Character. One of `"cosine"`, 
 #'   `"bartlett"`, or `"tukey"`. Only affects `block_type="tapered"`. See
 #'   details below.
-#' @param tukey_alpha alpha parameter for `taper_type = "tukey"`. \eqn{\alpha} 
-#'   is the fraction of the window length tapered at each end, using indices 
-#'   \eqn{0 \dots n−1}, where \eqn{n} is the block length.
+#' @param tukey_alpha numeric, alpha parameter for `taper_type = "tukey"`. 
+#'   \eqn{\alpha \in [0, 1]} is the fraction of the window length tapered at 
+#'   each end, using indices \eqn{0 \dots n−1}, where \eqn{n} is the block length.
 #' @param num_blocks Integer number of blocks per bootstrap replicate.
 #' @param num_boots Integer number of bootstrap replicates.
 #' @param func A summary function to apply to each bootstrap replicate or column.
@@ -38,7 +38,8 @@
 #'   to apply on the full data frame.
 #' @param p_method Character string to choose method for stationary bootstrap 
 #'   parameter: `"1/n"`, `"plugin"`, or `"cross validation"`.
-#' @param p Optional numeric value for stationary bootstrap `p`.
+#' @param p numeric \eqn{p \in (0, 1)}. Probability parameter for the geometric 
+#'   block length (used in Stationary Bootstrap). 
 #' @param overlap Logical indicating if overlapping blocks are allowed.
 #' @param num_states Integer number of states for HMM, MSVAR, or 
 #'        MS-VARMA-GARCH models.
@@ -315,19 +316,30 @@ tsbs <- function(
     stop("`num_boots` must be a positive integer.")
   
   ## Validate p
-  if(.is_invalid_fraction(p, allow_null = TRUE, fail_mode = fail_mode) ) {
+  if(.not_in_unit_interval(
+      p, 
+      allow_null = TRUE, 
+      interval_type = "open", ## open unit interval, (0, 1)
+      fail_mode = fail_mode
+    ) 
+  ) {
     stop("`p` must be a single number in (0,1) or NULL.")
   }
   
-  ## Validate max block length for stationary bootstrap
-  # if(.is_invalid_fraction(stationary_max_percentile, allow_null = FALSE) ) {
-  #   stop("`stationary_max_percentile` must be a single number in (0,1) or NULL.")
-  # }
-  # if(.is_invalid_fraction(stationary_max_fraction_of_n, allow_null = FALSE) ) {
-  #   stop("`stationary_max_fraction_of_n` must be a single number in (0,1) or NULL.")
-  # }
-  
-  
+  ## Validate tukey_alpha
+  if(block_type == "tapered" && taper_type == "tukey") {
+    if(
+      .not_in_unit_interval(
+        tukey_alpha, 
+        allow_null = FALSE, 
+        interval_type = "closed", ## closed unit interval, [0, 1]
+        fail_mode = fail_mode
+      )
+    ) {
+      stop("`tukey_alpha` must be a single number in [0,1] or NULL.")
+    }
+  }
+
   ## ---- Bootstrap ----
   
   .blockBootstrap <- function() {
@@ -730,20 +742,30 @@ tsbs <- function(
 }
 
 
-#' Invalid percentage in decimal fraction form
+#' Value not in unit interval
 #'
-#' Returns TRUE if input percentage is not a valid decimal fraction, FALSE 
-#' otherwise.
+#' Returns TRUE if `p` is not in the unit interval, FALSE otherwise.
 #' 
-#' @param p Percentage (decimal fraction) to validate
-#' @param allow_null Allow null?
+#' If 
+#' 
+#' @param p Value to validate, e.g. a percentage (decimal fraction) .
+#' @param allow_null boolean, allow NULL?
+#' @param interval_type One of `"open"` or `"closed"`. Indicates if the valid interval is an
+#'   open or closed unit interval, i.e. \eqn{p \in (0, 1)} or \eqn{p \in [0, 1]} 
+#'   respectively.
 #' @param fail_mode How to handle validation errors: "predictably" (fail fast) 
 #'   or "gracefully" (return FALSE on error)
 #'
 #' @returns boolean
 #' @export
-.is_invalid_fraction <- function(p, allow_null = TRUE, fail_mode = c("predictably", "gracefully")) {
+.not_in_unit_interval <- function(
+    p, 
+    allow_null = TRUE, 
+    interval_type = c("open", "closed"),
+    fail_mode = c("predictably", "gracefully")
+  ) {
   
+  interval_type <- match.arg(interval_type)
   fail_mode <- match.arg(fail_mode)
   
   ## Check if expression/variable is valid and evaluable
@@ -770,10 +792,14 @@ tsbs <- function(
     return(TRUE)
   }
   
-  ## Ultra-consolidated checks: NA, non-finite, out of valid range (0,1)
-  if (safe_check({
-    is.na(p) || !is.finite(p) || p <= 0 || p >= 1
-  })) {
+  ## NA, non-finite, out of valid range (0,1)
+  invalid_expr <- switch(
+    interval_type,
+    open   = is.na(p) || !is.finite(p) || p <= 0 || p >= 1,
+    closed = is.na(p) || !is.finite(p) || p < 0  || p > 1
+  )
+  
+  if (safe_check(invalid_expr)) {
     return(TRUE)
   }
   

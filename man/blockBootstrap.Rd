@@ -40,7 +40,7 @@ this is inferred from \code{n_length}.}
 
 \item{num_boots}{Number of bootstrap replicates to generate.}
 
-\item{p}{Probability parameter for the geometric block length (used in
+\item{p}{numeric \eqn{p \in (0, 1)}. Probability parameter for the geometric block length (used in
 Stationary Bootstrap).}
 
 \item{stationary_max_percentile}{Stationary max percentile.}

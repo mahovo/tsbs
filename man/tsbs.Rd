@@ -42,9 +42,9 @@ heuristic is used: The method first calculates the average absolute
 first-order autocorrelation (\eqn{\rho_1}) across all time series columns.
 A candidate block length is then calculated based on this persistence
 measure using the formula \eqn{⌊10/(1−\rho_1)⌋}. The final block length is
-constrained to be between 5 and the square root of the series length,
-ensuring a reasonable value is chosen. For stationary bootstrap,
-\code{block_length} is the expected block length, when \code{p_method="1/n"}.}
+constrained to be between 5 and the square root of the series length.
+For stationary bootstrap, \code{block_length} is the expected block length, when
+\code{p_method="1/n"}.}
 
 \item{bs_type}{Bootstrap type. Character string: One of \code{"moving"},
 \code{"stationary"}, \code{"hmm"}, \code{"msvar"}, \code{"ms_varma_garch"}, or \code{"wild"}.
@@ -61,9 +61,9 @@ between blocks. It follows that \code{block_type="tapered"} can not be used when
 \code{"bartlett"}, or \code{"tukey"}. Only affects \code{block_type="tapered"}. See
 details below.}
 
-\item{tukey_alpha}{alpha parameter for \code{taper_type = "tukey"}. \eqn{\alpha}
-is the fraction of the window length tapered at each end, using indices
-\eqn{0 \dots n−1}, where \eqn{n} is the block length.}
+\item{tukey_alpha}{numeric, alpha parameter for \code{taper_type = "tukey"}.
+\eqn{\alpha \in [0, 1]} is the fraction of the window length tapered at
+each end, using indices \eqn{0 \dots n−1}, where \eqn{n} is the block length.}
 
 \item{num_blocks}{Integer number of blocks per bootstrap replicate.}
 
@@ -77,7 +77,8 @@ to apply on the full data frame.}
 \item{p_method}{Character string to choose method for stationary bootstrap
 parameter: \code{"1/n"}, \code{"plugin"}, or \code{"cross validation"}.}
 
-\item{p}{Optional numeric value for stationary bootstrap \code{p}.}
+\item{p}{numeric \eqn{p \in (0, 1)}. Probability parameter for the geometric
+block length (used in Stationary Bootstrap).}
 
 \item{overlap}{Logical indicating if overlapping blocks are allowed.}
 
