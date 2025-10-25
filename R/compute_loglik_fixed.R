@@ -231,9 +231,9 @@ compute_loglik_fixed <- function(
   }
   
   ## Cannot use both return_components and ll_vec
-  if (return_components && ll_vec) {
-    stop("Cannot use both return_components = TRUE and ll_vec = TRUE")
-  }
+  # if (return_components && ll_vec) {
+  #   stop("Cannot use both return_components = TRUE and ll_vec = TRUE")
+  # }
 
   ## Dispatch to appropriate method
   if (inherits(object, "dcc.estimate")) {
@@ -518,16 +518,154 @@ compute_loglik_fixed <- function(
   }
 }
 
-## Internal method for GOGARCH
-.compute_gogarch_loglik <- function(object, params, return_components = FALSE) {
+# Internal method for GOGARCH
+.compute_gogarch_loglik <- function(object, params = list(), 
+                                    return_components = FALSE, 
+                                    ll_vec = FALSE) {
   
-  ## GOGARCH is different - we need to update the univariate GARCH models
-  ## This is more complex because we need to re-estimate with fixed parameters
-  ## For now, we'll use the estimated models as-is and compute the likelihood
+  n_components <- length(object$univariate)
+  K <- object$ica$K
   
-  stop("GOGARCH fixed parameter log-likelihood computation is not yet implemented.\n",
-       "GOGARCH requires re-estimation of independent component GARCH models with fixed parameters.\n",
-       "This functionality will be added in a future version.")
+  # Initialize storage for component likelihoods
+  component_lls <- vector("list", n_components)
+  component_ll_vecs <- vector("list", n_components)
+  
+  # Compute likelihood for each independent component
+  for (i in 1:n_components) {
+    comp <- object$univariate[[i]]
+    tmb_env <- comp$tmb$env
+    
+    # Determine which parameters to use
+    if (length(params) == 0) {
+      # Use estimated parameters from last.par.best
+      comp_params <- get("last.par.best", envir = tmb_env)
+    } else {
+      # Extract parameters for this component from params list
+      param_names <- c(paste0("omega_", i), 
+                       paste0("alpha_", i), 
+                       paste0("beta_", i))
+      
+      # Get last.par.best as default
+      last_par_best <- get("last.par.best", envir = tmb_env)
+      comp_params <- last_par_best
+      names(comp_params) <- c("omega", "alpha", "beta")
+      
+      # Override with provided parameters if available
+      for (j in 1:3) {
+        if (param_names[j] %in% names(params)) {
+          comp_params[j] <- params[[param_names[j]]]
+        }
+      }
+    }
+    
+    # Evaluate TMB function and get report (returns negative log-likelihood)
+    nll <- comp$tmb$fn(comp_params)
+    rep <- comp$tmb$report(comp_params)
+    
+    # Store results
+    component_lls[[i]] <- -nll  # Convert to log-likelihood
+    
+    # ll_vector from report is the likelihood contribution, need to take log
+    component_ll_vecs[[i]] <- log(rep$ll_vector)
+  }
+  
+  # Compute Jacobian adjustment for transformation
+  # log|det(K)| accounts for the change of variables from independent components
+  # to the original observed variables
+  if (is_square(K)) {
+    jacobian_adj <- log(abs(det(K)))
+  } else {
+    jacobian_adj <- log(abs(det(K %*% t(K))))
+  }
+  
+  if (ll_vec) {
+    # Return observation-wise log-likelihoods
+    n_obs <- length(component_ll_vecs[[1]])
+    
+    # Create matrix of log-likelihood vectors
+    log_lik_matrix <- matrix(0, nrow = n_obs, ncol = n_components)
+    for (i in 1:n_components) {
+      log_lik_matrix[, i] <- component_ll_vecs[[i]]
+    }
+    
+    # Sum log-likelihoods across components for each observation
+    # Add Jacobian adjustment (constant, distributed equally across observations)
+    obs_ll <- rowSums(log_lik_matrix) + jacobian_adj / n_obs
+    
+    if (return_components) {
+      return(list(
+        loglik = sum(obs_ll),  # Total log-likelihood
+        lik_vector = obs_ll,
+        component_logliks = unlist(component_lls),
+        jacobian_adjustment = jacobian_adj
+      ))
+    } else {
+      return(obs_ll)
+    }
+    
+  } else {
+    # Return scalar log-likelihood
+    total_ll <- sum(unlist(component_lls)) + jacobian_adj
+    
+    if (return_components) {
+      return(list(
+        loglik = total_ll,
+        component_logliks = unlist(component_lls),
+        jacobian_adjustment = jacobian_adj
+      ))
+    } else {
+      return(total_ll)
+    }
+  }
+}
+
+# Helper function to check if matrix is square
+is_square <- function(K) {
+  nrow(K) == ncol(K)
+}
+
+
+
+# Helper function to parse GOGARCH parameters
+.parse_gogarch_params <- function(params, object) {
+  # Parse parameter list into component-specific vectors
+  # Expected format: list(omega_1 = ..., alpha_1 = ..., beta_1 = ..., 
+  #                       omega_2 = ..., alpha_2 = ..., beta_2 = ...)
+  
+  n_components <- length(object$univariate)
+  params_by_comp <- vector("list", n_components)
+  
+  # Get parameter names for each component
+  for (i in 1:n_components) {
+    comp_parmatrix <- object$univariate[[i]]$parmatrix
+    estimate <- NULL
+    param_names <- comp_parmatrix[estimate == 1]$parameter
+    
+    # Extract values for this component
+    # Try with suffix _i first (e.g., omega_1, alpha_1)
+    comp_params <- numeric(length(param_names))
+    names(comp_params) <- param_names
+    
+    for (j in seq_along(param_names)) {
+      param_base <- param_names[j]
+      # Try with component suffix
+      param_with_suffix <- paste0(param_base, "_", i)
+      
+      if (param_with_suffix %in% names(params)) {
+        comp_params[j] <- params[[param_with_suffix]]
+      } else if (param_base %in% names(params)) {
+        # Fallback: use base name (assumes same value for all components)
+        comp_params[j] <- params[[param_base]]
+      } else {
+        # Use estimated value if not provided
+        comp_params[j] <- comp_parmatrix[estimate == 1]$value[j]
+      }
+    }
+    
+    params_by_comp[[i]] <- comp_params
+  }
+  
+  return(params_by_comp)
 }
 
 ## Helper function to get per-observation GARCH negative log-likelihoods
