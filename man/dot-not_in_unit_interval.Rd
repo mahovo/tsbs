@@ -16,9 +16,9 @@
 
 \item{allow_null}{boolean, allow NULL?}
 
-\item{interval_type}{One of \code{"open"} or \code{"closed"}. Indicates if the valid interval is an
-open or closed unit interval, i.e. \eqn{p \in (0, 1)} or \eqn{p \in [0, 1]}
-respectively.}
+\item{interval_type}{One of \code{"open"} or \code{"closed"}. Indicates if the valid
+interval is an open or closed unit interval, i.e. \eqn{p \in (0, 1)} or
+\eqn{p \in [0, 1]} respectively.}
 
 \item{fail_mode}{How to handle validation errors: "predictably" (fail fast)
 or "gracefully" (return FALSE on error)}

@@ -12,16 +12,14 @@
 \item{x}{The expression/variable to check (as substitute() result)}
 }
 \value{
-TRUE if the expression/variable is invalid/non-existent, FALSE otherwise
+TRUE if the expression/variable is invalid/non-existent, FALSE
+otherwise
 }
 \description{
 DEPRECATED. Only called by .is_invalid_data(), which is DEPRECATED.
 }
 \details{
-Helper function that distinguishes between:
-\enumerate{
-\item Expressions that evaluate successfully (e.g., numeric(0), 1+1)
-\item Undefined variables (e.g., nonexistent_var)
-\item Expressions that fail to evaluate for other reasons
-}
+Helper function that distinguishes between: 1. Expressions that evaluate
+successfully (e.g., numeric(0), 1+1) 2. Undefined variables (e.g.,
+nonexistent_var) 3. Expressions that fail to evaluate for other reasons
 }

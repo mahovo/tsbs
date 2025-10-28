@@ -92,13 +92,94 @@ bootstrap (bs_type = "ms_varma_garch"). This argument is required for
 this bootstrap type and must be a list of length \code{num_states}. Each element
 of the list is itself a list specifying the model for that state. The
 structure depends on whether the model is univariate or multivariate.
-Fitting relies on the tsgarch or tsmarch packages, respectively.
+Fitting relies on the tsgarch or tsmarch packages, respectively. See
+details below.}
 
-\strong{For univariate models (one-column x):}
+\item{model_type}{Character string for MS-VARMA-GARCH: \code{"univariate"} or
+\code{"multivariate"}.}
+
+\item{control}{A list of control parameters for the MS-VARMA-GARCH EM
+algorithm.}
+
+\item{parallel}{Parallelize computation? \code{TRUE} or \code{FALSE}.}
+
+\item{num_cores}{Number of cores when \code{parallel=TRUE}.}
+
+\item{fail_mode}{Character string. One of \code{"predictably"} (development/
+debugging - fail fast on any unexpected behavior) or \code{"gracefully"}
+(production/robust pipelines - continue despite validation errors).}
+
+\item{model_func}{Model-fitting function for cross-validation.
+See \link{k_fold_cv_ts}.}
+
+\item{score_func}{Scoring function for cross-validation.}
+
+\item{stationary_max_percentile}{Stationary max percentile.}
+
+\item{stationary_max_fraction_of_n}{Stationary max fraction of n.}
+}
+\value{
+A list containing:
+\describe{
+\item{bootstrap_series}{List of bootstrap replicate matrices.}
+\item{func_outs}{List of computed function outputs for each replicate.}
+\item{func_out_means}{Mean of the computed outputs across replicates.}
+}
+}
+\description{
+Generates bootstrap replicates of multivariate or (multiple) univariate time
+series. Supports moving and stationary block, HMM, MSVAR, MS VARMA GARCH and
+wild bootstrap types.
+}
+\details{
+\subsection{Bootstrap types}{
+
+See documentation for the individual bootstrap functions:
+\itemize{
+\item For moving or stationary block bootstraps, see \code{\link[=blockBootstrap]{blockBootstrap()}}
+\item \code{\link[=hmm_bootstrap]{hmm_bootstrap()}}
+\item \code{\link[=msvar_bootstrap]{msvar_bootstrap()}}
+\item \code{\link[=ms_varma_garch_bs]{ms_varma_garch_bs()}}
+\item \code{\link[=wild_bootstrap]{wild_bootstrap()}}
+}
+\subsection{\code{bs_type="moving"}}{
+
+If \code{n_boot} is set, the last block will be truncated when necessary to
+match the length (\code{n_boot}) of the bootstrap series. If \code{n_boot} is not
+set, \code{block_length} and \code{num_blocks} must be set, and \code{n_boot} will
+automatically be set to \code{block_length * num_blocks}.
+}
+
+\subsection{\code{bs_type="stationary"}, \code{bs_type="hmm"}, \code{bs_type="msvar"}}{
+
+If \code{n_boot} is set, the last block will be truncated when necessary to
+match the length (\code{n_boot}) of the bootstrap series. This is the only way
+to ensure equal length of all bootstrap series, as the length of each block
+is random. If \code{n_boot} is not set, \code{num_blocks} must be set, and the length
+of each bootstrap series will be determined by the number of blocks and the
+random lengths of the individual blocks for that particular series. Note
+that this typically results in bootstrap series of different lengths. For
+stationary bootstrap, \code{block_length} is the expected block length, when
+\code{p_method="1/n"}.
+}
+
+\subsection{\code{bs_type="wild"}}{
+
+\code{n_boot}, \code{block_length} and \code{num_blocks} are ignored. The length of the
+bootstrap series is always the same as the original series.
+}
+
+\subsection{\code{bs_type = "ms_varma_garch"}}{
+
+\code{spec} list structure:
+
+\itemize{
+\item \strong{For univariate models (one-column x):}
 Each element spec[\link{j}] must be a list with the following components. For a
 complete list of all possible arguments (e.g., for different GARCH model
 flavors), please refer to the documentation for the tsgarch package
-(\code{?tsgarch} and \code{vignette("garch_models", package = "tsgarch")}).
+(\code{?tsgarch} and
+\code{vignette("garch_models", package = "tsgarch")}).
 \itemize{
 \item \code{arma_order}: A numeric vector c(p,q) for the ARMA(p,q) order.
 \item \code{garch_model}: A character string for the GARCH model type
@@ -130,7 +211,7 @@ univariate dist params (e.g. list(skew = 1.0, shape = 6.0)).
 }
 }
 
-\strong{For multivariate models (multi-column x):}
+\item \strong{For multivariate models (multi-column x):}
 Each element spec[\link{j}] must be a list with the following components. For a
 complete list of all possible arguments, please refer to the documentation
 for the relevant tsmarch specification function. For a DCC model see
@@ -167,68 +248,14 @@ for eq2, ...).
 \item \code{garch_pars}: A named list for the multivariate GARCH
 parameters (e.g., list(dcc_alpha = 0.05, dcc_beta = 0.9)).
 }
-}}
-
-\item{model_type}{Character string for MS-VARMA-GARCH: \code{"univariate"} or
-\code{"multivariate"}.}
-
-\item{control}{A list of control parameters for the MS-VARMA-GARCH EM
-algorithm.}
-
-\item{parallel}{Parallelize computation? \code{TRUE} or \code{FALSE}.}
-
-\item{num_cores}{Number of cores.}
-
-\item{fail_mode}{Character string. One of \code{"predictably"} (development/
-debugging - fail fast on any unexpected behavior) or \code{"gracefully"}
-(production/robust pipelines - continue despite validation errors).}
-
-\item{model_func}{Model-fitting function for cross-validation.}
-
-\item{score_func}{Scoring function for cross-validation.}
-
-\item{stationary_max_percentile}{Stationary max percentile.}
-
-\item{stationary_max_fraction_of_n}{Stationary max fraction of n.}
-}
-\value{
-A list containing:
-\describe{
-\item{bootstrap_series}{List of bootstrap replicate matrices.}
-\item{func_outs}{List of computed function outputs for each replicate.}
-\item{func_out_means}{Mean of the computed outputs across replicates.}
 }
 }
-\description{
-Generates bootstrap replicates of multivariate or (multiple) univariate time
-series. Supports moving and stationary block, HMM, MSVAR, MS VARMA GARCH and
-wild bootstrap types.
 }
-\details{
-\code{bs_type="moving"}: If \code{n_boot} is set, the last block will be truncated
-when necessary to match the length (\code{n_boot}) of the bootstrap series. If
-\code{n_boot} is not set, \code{block_length} and \code{num_blocks} must be set, and
-\code{n_boot} will automatically be set to \code{block_length * num_blocks}.
 
-\code{bs_type="stationary"}, \code{bs_type="hmm"}, \code{bs_type="msvar"}: If  \code{n_boot} is
-set, the last block will be truncated when necessary to match the length
-(\code{n_boot}) of the bootstrap series. This is the only way to ensure equal
-length of all bootstrap series, as the length of each block is random. If
-\code{n_boot} is not set, \code{num_blocks} must be set, and the length of each
-bootstrap series will be determined by the number of blocks and the random
-lengths of the individual blocks for that particular series. Note that this
-typically results in bootstrap series of different lengths. For stationary
-bootstrap, \code{block_length} is the expected block length, when
-\code{p_method="1/n"}.
+}
 
-\code{bs_type="wild"}: \code{n_boot}, \code{block_length} and \code{num_blocks} are ignored. The
-length of the bootstrap series is always the same as the original series.
+\subsection{\code{taper_type} when \code{block_type="tapered"}}{
 
-See documentation for the individual bootstrap functions: \code{\link[=hmm_bootstrap]{hmm_bootstrap()}},
-\code{\link[=msvar_bootstrap]{msvar_bootstrap()}}, \code{\link[=ms_varma_garch_bs]{ms_varma_garch_bs()}} and \code{\link[=wild_bootstrap]{wild_bootstrap()}}. For
-moving or stationary block bootstraps, see \code{\link[=blockBootstrap]{blockBootstrap()}}.
-
-\code{taper_type} when \code{block_type="tapered"}:
 For block length \eqn{n}, and index \eqn{i} within the block, and \eqn{0 \leq i \leq n},
 \itemize{
 \item \code{"cosine"}: Hann window
@@ -267,6 +294,7 @@ The window weights \eqn{w[i]} are defined piecewise as follows:
 }
 
 (Harris, 1978)
+}
 }
 \examples{
 set.seed(123)
