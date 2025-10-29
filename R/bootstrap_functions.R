@@ -411,7 +411,7 @@ hmm_bootstrap <- function(
 msvar_bootstrap <- function(
     x,
     n_boot = NULL,
-    num_blocks = 100,
+    num_blocks = NULL,
     num_boots = 100,
     parallel = FALSE,
     num_cores = 1L

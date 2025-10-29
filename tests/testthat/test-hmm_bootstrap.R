@@ -69,6 +69,36 @@ test_that("hmm_bootstrap generates variable lengths without n_boot", {
   expect_true(length(unique(lengths)) > 1 || all(lengths > 0))
 })
 
+test_that("hmm_bootstrap with num_blocks produces valid output", {
+  skip_if_not_installed("depmixS4")
+  
+  set.seed(9876)
+  x <- rnorm(200)
+  
+  ## Use num_blocks without n_boot for variable-length samples
+  result <- hmm_bootstrap(
+    x = x,
+    n_boot = NULL,
+    num_states = 2,
+    num_blocks = 20,
+    num_boots = 10
+  )
+  
+  expect_type(result, "list")
+  expect_length(result, 10)
+  expect_true(all(sapply(result, is.matrix)))
+  expect_true(all(sapply(result, ncol) == 1))
+  
+  ## All samples should have positive length
+  lengths <- sapply(result, nrow)
+  expect_true(all(lengths > 0))
+  
+  ## Samples should generally be of reasonable length
+  ## (approximately num_blocks times average block length)
+  expect_true(all(lengths > 10))  # At least some data
+  expect_true(all(lengths < 500))  # Not absurdly long
+})
+
 test_that("hmm_bootstrap works with different num_states", {
   skip_on_cran()
   
