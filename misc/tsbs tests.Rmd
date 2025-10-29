@@ -1250,3 +1250,11 @@ bootstrap_results <- msvar_bootstrap(sample_data, num_boots = 5)
 str(bootstrap_results)
 ```
 
+```{r}
+set.seed(123)
+resids <- rnorm(100)
+boot_reps <- wild_bootstrap(resids, num_boots = 5)
+length(boot_reps)           # 5 replicates
+dim(boot_reps[[1]])         # 100 x 1 matrix
+```
+

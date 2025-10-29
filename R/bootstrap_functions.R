@@ -640,6 +640,7 @@ wild_bootstrap <- function(
     num_boots = 100,
     parallel = FALSE,
     num_cores = 2
+    #wild_type = "Rademacher" ## No other options currently implemented
   ) {
   if (!is.numeric(x)) stop("`x` must be numeric.")
   if (!is.numeric(num_boots) || num_boots < 1) stop("`num_boots` must be a positive integer.")

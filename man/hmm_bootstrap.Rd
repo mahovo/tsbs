@@ -6,7 +6,7 @@
 \usage{
 hmm_bootstrap(
   x,
-  n_boot = 100,
+  n_boot = NULL,
   num_states = 2,
   num_blocks = NULL,
   num_boots = 100,
@@ -22,7 +22,8 @@ hmm_bootstrap(
 
 \item{num_states}{Integer number of hidden states for the HMM.}
 
-\item{num_blocks}{Integer number of blocks to sample for each bootstrap replicate.}
+\item{num_blocks}{Integer number of blocks to sample for each bootstrap
+replicate.}
 
 \item{num_boots}{Integer number of bootstrap replicates to generate.}
 
@@ -106,7 +107,6 @@ if (requireNamespace("depmixS4", quietly = TRUE)) {
     x = x_univar,
     n_boot = 150,
     num_states = 2,
-    num_blocks = 20,
     num_boots = 100
   )
   
@@ -138,7 +138,6 @@ if (requireNamespace("depmixS4", quietly = TRUE)) {
     x = x_multivar,
     n_boot = 180,
     num_states = 2,
-    num_blocks = 25,
     num_boots = 50
   )
   
@@ -179,7 +178,6 @@ if (requireNamespace("depmixS4", quietly = TRUE)) {
     x = x_diag,
     n_boot = 80,
     num_states = 3,
-    num_blocks = 12,
     num_boots = 5,
     verbose = TRUE  # Print diagnostic information
   )
@@ -199,7 +197,6 @@ if (requireNamespace("depmixS4", quietly = TRUE)) {
     x = x_hetero,
     n_boot = 200,
     num_states = 2,
-    num_blocks = 20,
     num_boots = 500
   )
   

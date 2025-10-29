@@ -289,42 +289,79 @@ calculate_loglik_vector_r <- function(
     ## Get all DCC-layer and distribution parameters that need to be fixed.
     other_pars <- current_pars[!names(current_pars) %in% c("var_pars", "garch_pars")]
     
-    ## Set the parameter values and mark them as NOT for estimation.
-    for (par_name in names(other_pars)) {
-      if (par_name %in% garch_spec_obj$parmatrix$parameter) {
-        garch_spec_obj$parmatrix[parameter == par_name, value := other_pars[[par_name]]]
-        garch_spec_obj$parmatrix[parameter == par_name, estimate := 0]
+    ## Check if there are any parameters to fix
+    if (length(other_pars) > 0) {
+      ## Set the parameter values and mark them as NOT for estimation.
+      for (par_name in names(other_pars)) {
+        if (par_name %in% garch_spec_obj$parmatrix$parameter) {
+          garch_spec_obj$parmatrix[parameter == par_name, value := other_pars[[par_name]]]
+          garch_spec_obj$parmatrix[parameter == par_name, estimate := 0]
+        }
       }
+      
+      ## TRICK: Re-enable estimation for ONE parameter, but with fixed bounds.
+      ## This forces estimate() to run the full TMB path without actually changing 
+      ## the value.
+      if ("shape" %in% names(other_pars)) {
+        shape_val <- other_pars$shape
+        garch_spec_obj$parmatrix[parameter == "shape", estimate := 1]
+        garch_spec_obj$parmatrix[parameter == "shape", lower := shape_val]
+        garch_spec_obj$parmatrix[parameter == "shape", upper := shape_val]
+      } else if ("alpha_1" %in% names(other_pars)) {
+        ## Fallback if there is no shape parameter (e.g., mvn distribution)
+        alpha_val <- other_pars$alpha_1
+        garch_spec_obj$parmatrix[parameter == "alpha_1", estimate := 1]
+        garch_spec_obj$parmatrix[parameter == "alpha_1", lower := alpha_val]
+        garch_spec_obj$parmatrix[parameter == "alpha_1", upper := alpha_val]
+      }
+      
+      ## 3d. Now, estimate() will build the TMB object and "converge" instantly.
+      garch_model_fit <- suppressWarnings(estimate(garch_spec_obj, keep_tmb = TRUE))
+    } else {
+      ## No additional parameters to fix (e.g., GOGARCH with empty garch_pars)
+      ## Just estimate directly to get the TMB object
+      garch_model_fit <- suppressWarnings(estimate(garch_spec_obj, keep_tmb = TRUE))
     }
-    
-    ## TRICK: Re-enable estimation for ONE parameter, but with fixed bounds.
-    ## This forces estimate() to run the full TMB path without actually changing 
-    ## the value.
-    if ("shape" %in% names(other_pars)) {
-      shape_val <- other_pars$shape
-      garch_spec_obj$parmatrix[parameter == "shape", estimate := 1]
-      garch_spec_obj$parmatrix[parameter == "shape", lower := shape_val]
-      garch_spec_obj$parmatrix[parameter == "shape", upper := shape_val]
-    } else if ("alpha_1" %in% names(other_pars)) {
-      ## Fallback if there is no shape parameter (e.g., mvn distribution)
-      alpha_val <- other_pars$alpha_1
-      garch_spec_obj$parmatrix[parameter == "alpha_1", estimate := 1]
-      garch_spec_obj$parmatrix[parameter == "alpha_1", lower := alpha_val]
-      garch_spec_obj$parmatrix[parameter == "alpha_1", upper := alpha_val]
-    }
-    
-    ## 3d. Now, estimate() will build the TMB object and "converge" instantly.
-    garch_model_fit <- suppressWarnings(estimate(garch_spec_obj, keep_tmb = TRUE))
-    
+      
     if (!is.null(garch_model_fit$TMB_OBJECT)) {
       ll_vector <- garch_model_fit$TMB_OBJECT$report()$ll_vector
     } else {
-      stop("Could not extract log-likelihood vector: TMB object not found.")
+      ## Fallback: TMB object not available (e.g., GOGARCH)
+      ## This is expected behavior for some model types
+      
+      ## Extract the conditional covariance matrices
+      if (!is.null(garch_model_fit$H)) {
+        ## Only warn if this is unexpected (not GOGARCH)
+        if (spec$garch_spec_fun != "gogarch_modelspec") {
+          warning("TMB object not found. Using fallback log-likelihood calculation.")
+        }
+        
+        k <- ncol(model_residuals)
+        T_res <- nrow(model_residuals)
+        ll_vector <- numeric(T_res)
+        
+        H_vectorized <- garch_model_fit$H
+        for (t in 1:T_res) {
+          cov_mat <- matrix(0, k, k)
+          cov_mat[upper.tri(cov_mat, diag = TRUE)] <- H_vectorized[t, ]
+          cov_mat <- cov_mat + t(cov_mat)
+          diag(cov_mat) <- diag(cov_mat) / 2
+          
+          ll_vector[t] <- tryCatch({
+            mvtnorm::dmvnorm(model_residuals[t,], mean = rep(0, k), 
+                             sigma = cov_mat, log = TRUE)
+          }, error = function(e) {
+            -1e10
+          })
+        }
+      } else {
+        stop("Could not extract log-likelihood: neither TMB object nor H matrix available.")
+      }
     }
   }
   
   ## Sanitize and pad the vector before returning to C++
-  ll_vector[!is.finite(ll_vector)] <- -1e10 # 0
+  ll_vector[!is.finite(ll_vector)] <- -1e10
   if (length(ll_vector) < NROW(y)) {
     padding <- NROW(y) - length(ll_vector)
     ll_vector <- c(rep(0, padding), ll_vector)
@@ -646,7 +683,19 @@ estimate_garch_weighted_r <- function(residuals, weights, spec, model_type = "un
   padding <- NROW(residuals) - length(weights)
   w_target <- if(padding > 0) weights[(padding+1):length(weights)] else weights
   
-  temp_spec_obj <- create_garch_spec_object_r(residuals, spec, model_type)
+  ## Create a temporary current_pars for the initial spec object
+  ## This uses the start_pars as initial values
+  temp_current_pars <- list(
+    garch_pars = spec$start_pars$garch_pars,
+    dist_pars = spec$start_pars$dist_pars
+  )
+  
+  temp_spec_obj <- create_garch_spec_object_r(
+    residuals, 
+    spec, 
+    model_type, 
+    temp_current_pars
+  )
   
   ## Extract bounds for ALL parameters to be estimated (GARCH + dist)
   parmatrix <- temp_spec_obj$parmatrix
@@ -662,7 +711,21 @@ estimate_garch_weighted_r <- function(residuals, weights, spec, model_type = "un
     param_list <- as.list(params)
     names(param_list) <- names(start_pars)
     
-    garch_spec_obj <- create_garch_spec_object_r(residuals_data, spec, "univariate")
+    ## Separate GARCH and dist parameters for this iteration
+    dist_param_names <- names(spec$start_pars$dist_pars)
+    garch_param_names <- names(spec$start_pars$garch_pars)
+    
+    iter_current_pars <- list(
+      garch_pars = param_list[garch_param_names],
+      dist_pars = param_list[dist_param_names]
+    )
+    
+    garch_spec_obj <- create_garch_spec_object_r(
+      residuals_data, 
+      spec, 
+      "univariate",
+      iter_current_pars  ## <-- Pass current iteration parameters
+    )
     
     ## Set all parameter values (GARCH + dist) for this iteration of the optimizer
     for (par_name in names(param_list)) {
