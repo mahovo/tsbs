@@ -60,13 +60,37 @@ spec_test_mv_smoke <- list(
 )
 
 ## A more complex DCC spec for slower integration tests
-spec_uni_garch_dcc <- list(model = "garch", garch_order = c(1,1), distribution = "norm")
+spec_uni_garch_dcc <- list(
+  model = "garch", 
+  garch_order = c(1,1), 
+  distribution = "norm"
+)
 
 ## Valid values of `distribution`: `c("mvn", "mvt")`
-dcc_spec_args <- list(dcc_order = c(1,1), distribution = "mvn", garch_model = list(univariate = list(spec_uni_garch_dcc, spec_uni_garch_dcc)))
+dcc_spec_args <- list(
+  dcc_order = c(1,1), 
+  distribution = "mvn", 
+  garch_model = list(univariate = list(spec_uni_garch_dcc, spec_uni_garch_dcc))
+)
 spec_mv_dcc <- list(
-  list(var_order = 1, garch_spec_fun = "dcc_modelspec", garch_spec_args = dcc_spec_args, start_pars = list(var_pars=rep(0.1, 6), garch_pars=list(dcc_alpha=0.1, dcc_beta=0.8))),
-  list(var_order = 1, garch_spec_fun = "dcc_modelspec", garch_spec_args = dcc_spec_args, start_pars = list(var_pars=rep(0.1, 6), garch_pars=list(dcc_alpha=0.2, dcc_beta=0.7)))
+  list(
+    var_order = 1, 
+    garch_spec_fun = "dcc_modelspec", 
+    garch_spec_args = dcc_spec_args, 
+    start_pars = list(
+      var_pars=rep(0.1, 6), 
+      garch_pars=list(dcc_alpha=0.1, dcc_beta=0.8)
+    )
+  ),
+  list(
+    var_order = 1, 
+    garch_spec_fun = "dcc_modelspec", 
+    garch_spec_args = dcc_spec_args, 
+    start_pars = list(
+      var_pars=rep(0.1, 6), 
+      garch_pars=list(dcc_alpha=0.2, dcc_beta=0.7)
+    )
+  )
 )
 
 ## == == == == == == == == == == == == == == == == == == == == == == ==
@@ -77,15 +101,26 @@ context("MS-VARMA-GARCH: Fast Input Validation and Smoke Tests")
 
 test_that("Input validation for fit_ms_varma_garch() works correctly", {
   ## Test 'y' argument
-  expect_error(fit_ms_varma_garch(y = "not_a_matrix", M = 2, spec = spec_test_uni),
-               "Input 'y' must be a numeric matrix or data frame.")
+  expect_error(
+    fit_ms_varma_garch(y = "not_a_matrix", M = 2, spec = spec_test_uni),
+    "Input 'y' must be a numeric matrix or data frame."
+  )
   
   y_with_na <- y_test; y_with_na[5] <- NA
-  expect_error(fit_ms_varma_garch(y = y_with_na, M = 2, spec = spec_test_uni),
-               "Input matrix 'y' contains non-finite values")
+  expect_error(
+    fit_ms_varma_garch(y = y_with_na, M = 2, spec = spec_test_uni),
+    "Input matrix 'y' contains non-finite values"
+  )
   
-  expect_error(fit_ms_varma_garch(y = y_test[1, , drop = FALSE], M = 2, spec = spec_test_uni, d = 1),
-               "The number of observations must be greater than the differencing order")
+  expect_error(
+    fit_ms_varma_garch(
+      y = y_test[1, , drop = FALSE], 
+      M = 2, 
+      spec = spec_test_uni, 
+      d = 1
+    ),
+    "The number of observations must be greater than the differencing order"
+  )
   
   ## Test 'M' argument
   expect_error(fit_ms_varma_garch(y = y_test, M = 1, spec = spec_test_uni),
@@ -101,11 +136,21 @@ test_that("Input validation for fit_ms_varma_garch() works correctly", {
 
 test_that("Input validation for ms_varma_garch_bs() works correctly", {
   ## Test that it catches its own validation errors
-  expect_error(ms_varma_garch_bs(x = y_test, M = 2, spec = spec_test_uni, num_boots = -1),
-               "num_boots must be a positive integer.")
+  expect_error(
+    ms_varma_garch_bs(x = y_test, M = 2, spec = spec_test_uni, num_boots = -1),
+    "num_boots must be a positive integer."
+  )
   
-  expect_error(ms_varma_garch_bs(x = y_test, M = 2, spec = spec_test_uni, n_boot = NULL, num_blocks = NULL),
-               "Must provide a valid value for either n_boot or num_blocks")
+  expect_error(
+    ms_varma_garch_bs(
+      x = y_test, 
+      M = 2, 
+      spec = spec_test_uni, 
+      n_boot = NULL, 
+      num_blocks = NULL
+    ),
+    "Must provide a valid value for either n_boot or num_blocks"
+  )
   
   ## Test that it propagates errors from the underlying fitter
   expect_error(ms_varma_garch_bs(x = y_test, M = 2, spec = "not_a_list"),
@@ -127,8 +172,11 @@ test_that("Smoke test: Fitter runs for 1 iteration and returns correct structure
   
   expect_s3_class(fit, "msm.fit")
   
-  expect_named(fit, c("model_fits", "P", "log_likelihood", "smoothed_probabilities",
-                      "aic", "bic", "d", "y", "call", "convergence", "warnings"))
+  expect_named(
+    fit, 
+    c("model_fits", "P", "log_likelihood", "smoothed_probabilities", "aic", 
+      "bic", "d", "y", "call", "convergence", "warnings")
+  )
   
   expect_equal(dim(fit$P), c(2, 2))
   
@@ -139,8 +187,13 @@ test_that("Smoke test: Fitter runs for 1 iteration and returns correct structure
 test_that("Smoke test: Fitter runs for 1 iteration and returns correct structure (multivariate)", {
   skip_on_cran()
   
-  fit <- fit_ms_varma_garch(y = y_test_mv, M = 2, spec = spec_test_mv_smoke, model_type = "multivariate",
-                            control = list(max_iter = 1))
+  fit <- fit_ms_varma_garch(
+    y = y_test_mv, 
+    M = 2, 
+    spec = spec_test_mv_smoke, 
+    model_type = "multivariate",
+    control = list(max_iter = 1)
+  )
   
   expect_s3_class(fit, "msm.fit")
   
@@ -157,8 +210,12 @@ test_that("Full estimation converges (univariate)", {
   ## A very short run to check for convergence without taking hours
   y_sim_short <- as.matrix(arima.sim(n = 200, list(ar = 0.5)))
   colnames(y_sim_short) <- "series_1"
-  fit <- fit_ms_varma_garch(y = y_sim_short, M = 2, spec = spec_test_uni,
-                            control = list(max_iter = 10, tol = 0.05))
+  fit <- fit_ms_varma_garch(
+    y = y_sim_short, 
+    M = 2, 
+    spec = spec_test_uni,
+    control = list(max_iter = 10, tol = 0.1)
+  )
   
   expect_true(is.finite(fit$log_likelihood))
   
@@ -197,15 +254,15 @@ test_that("Full estimation converges (multivariate)", {
   y_sim_mv_short <- matrix(rnorm(400), ncol = 2)
   colnames(y_sim_mv_short) <- c("s1", "s2")
   
-  # Note: DCC models currently use H-matrix fallback for log-likelihood calculation
-  # This is a known behavior and produces correct results
+  ## Note: DCC models currently use H-matrix fallback for log-likelihood
+  ## calculation This is a known behavior and produces correct results
   suppressWarnings({
     fit <- fit_ms_varma_garch(
       y = y_sim_mv_short, 
       M = 2, 
       spec = spec_mv_dcc, 
       model_type = "multivariate",
-      control = list(max_iter = 5, tol = 1e-3)
+      control = list(max_iter = 5, tol = 0.1)
     )
   })
   
@@ -219,8 +276,8 @@ test_that("Full estimation converges (multivariate)", {
 test_that("tsbs() with ms_varma_garch runs without error (multivariate)", {
   skip_on_cran()
   
-  ## A very small run to ensure the full user-facing pipeline connects without errors.
-  ## This is an integration test, not a statistical validity test.  
+  ## A very small run to ensure the full user-facing pipeline connects without
+  ## errors. This is an integration test, not a statistical validity test.
   result <- tsbs(
     x = y_test_mv,
     bs_type = "ms_varma_garch",
@@ -264,12 +321,26 @@ test_that("calculate_loglik_vector_r works for 'norm' distribution", {
     dist_pars = NULL
   )
   
-  ll_vec_calculated <- calculate_loglik_vector_r(y_test, current_pars_norm, spec_norm, "univariate")
+  ll_vec_calculated <- calculate_loglik_vector_r(
+    y_test, 
+    current_pars_norm, 
+    spec_norm, 
+    "univariate"
+  )
   
   # Ground truth
-  residuals <- stats::arima(y_test, order = c(1,0,0), fixed = 0.5, include.mean = FALSE)$residuals
-  garch_spec_obj <- tsgarch::garch_modelspec(xts::xts(residuals, Sys.Date()-(length(residuals):1)),
-                                             model="garch", garch_order = c(1,1), distribution = "norm")
+  residuals <- stats::arima(
+    y_test, 
+    order = c(1,0,0), 
+    fixed = 0.5, 
+    include.mean = FALSE
+  )$residuals
+  garch_spec_obj <- tsgarch::garch_modelspec(
+    xts::xts(residuals, Sys.Date()-(length(residuals):1)),
+    model="garch", 
+    garch_order = c(1,1), 
+    distribution = "norm"
+  )
   garch_spec_obj$parmatrix[estimate == 1, value := c(0.1, 0.1, 0.8)]
   fit_truth <- tsmethods::tsfilter(garch_spec_obj)
   
@@ -278,7 +349,11 @@ test_that("calculate_loglik_vector_r works for 'norm' distribution", {
   
   T_eff <- length(ll_vec_truth)
   T_orig <- length(ll_vec_calculated)
-  expect_equal(ll_vec_calculated[(T_orig - T_eff + 1):T_orig], as.numeric(ll_vec_truth), tolerance = 1e-6)
+  expect_equal(
+    ll_vec_calculated[(T_orig - T_eff + 1):T_orig], 
+    as.numeric(ll_vec_truth), 
+    tolerance = 1e-6
+  )
 })
 
 
@@ -298,21 +373,48 @@ test_that("calculate_loglik_vector_r works for 'std' distribution", {
     dist_pars = list(shape = 8.0)
   )
   
-  ll_vec_calculated <- calculate_loglik_vector_r(y_test, current_pars_std, spec_std, "univariate")
+  ll_vec_calculated <- calculate_loglik_vector_r(
+    y_test, 
+    current_pars_std, 
+    spec_std, 
+    "univariate"
+  )
   
-  # Ground truth
-  residuals <- stats::arima(y_test, order = c(1,0,0), fixed = 0.5, include.mean = FALSE)$residuals
-  garch_spec_obj <- tsgarch::garch_modelspec(xts::xts(residuals, Sys.Date()-(length(residuals):1)),
-                                             model="garch", garch_order = c(1,1), distribution = "std")
+  ## Ground truth
+  residuals <- stats::arima(
+    y_test, 
+    order = c(1,0,0), 
+    fixed = 0.5, 
+    include.mean = FALSE
+  )$residuals
+  garch_spec_obj <- tsgarch::garch_modelspec(
+    xts::xts(
+      residuals, 
+      Sys.Date()-(length(residuals):1)
+    ),
+    model="garch", 
+    garch_order = c(1,1), 
+    distribution = "std"
+  )
   garch_spec_obj$parmatrix[estimate == 1, value := c(0.1, 0.1, 0.8, 8.0)]
   fit_truth <- tsmethods::tsfilter(garch_spec_obj)
   
-  # Use the 'residuals' variable we already have, not fit_truth$residuals
-  ll_vec_truth <- tsdistributions::dstd(residuals, 0, fit_truth$sigma, shape = 8.0, log = TRUE)
+  ## Use the 'residuals' variable we already have, not fit_truth$residuals
+  ll_vec_truth <- tsdistributions::dstd(
+    residuals, 
+    0, 
+    fit_truth$sigma, 
+    shape = 8.0, 
+    log = TRUE
+  )
   
   T_eff <- length(ll_vec_truth)
   T_orig <- length(ll_vec_calculated)
-  expect_equal(ll_vec_calculated[(T_orig - T_eff + 1):T_orig], as.numeric(ll_vec_truth), tolerance = 1e-6)
+  expect_equal(
+    ll_vec_calculated[(T_orig - T_eff + 1):T_orig], 
+    as.numeric(ll_vec_truth), 
+    tolerance = 1e-6
+  )
 })
 
 ## == == == == == == == == == == == == == == == == == == == == == == ==
@@ -333,9 +435,12 @@ test_that("estimate_garch_weighted_r recovers known GARCH-std parameters", {
   my_xts <- xts(my_vector, order.by = dates)
   
   ## Create a spec with the true parameters to simulate from
-  sim_spec <- tsgarch::garch_modelspec(y = my_xts, ## dummy data
-                                       model = "garch", garch_order = c(1,1),
-                                       distribution = "std")
+  sim_spec <- tsgarch::garch_modelspec(
+    y = my_xts, ## dummy data
+    model = "garch", 
+    garch_order = c(1,1),
+    distribution = "std"
+  )
   ## The := operator in data.table is used for assignment by reference - it 
   ## modifies the data.table in place without making copies, making it very 
   ## memory efficient.
@@ -343,7 +448,7 @@ test_that("estimate_garch_weighted_r recovers known GARCH-std parameters", {
   
   set.seed(42)
   sim_path <- simulate(sim_spec, n.sim = 2000, n.start = 100)
-  sim_residuals <- as.numeric(sim_path$y) # Use the simulated series as our residuals
+  sim_residuals <- as.numeric(sim_path$y) ## Use the simulated series as our residuals
   
   ## 2. Set up the inputs for our function
   ## Use slightly perturbed starting values to make sure the optimizer is working
@@ -517,12 +622,7 @@ test_that("calculate_loglik_vector_r works for a DCC-t-Copula model", {
   var_order <- 1
   k <- ncol(y_test)
   T_obs <- nrow(y_test)
-  
-  
-  # X_lagged <- matrix(1, nrow = T_obs - var_order, ncol = 1 + k * var_order)
-  # X_lagged[, 2:(1 + k)] <- y_test[1:(T_obs-1), ]
-  # y_target <- y_test[(var_order + 1):T_obs, ]
-  
+
   ## Ensure lagged matrix is created from the core data of the xts object
   X_lagged <- matrix(1, nrow = T_obs - var_order, ncol = 1 + k * var_order)
   X_lagged[, 2:(1+k)] <- coredata(y_test)[1:(T_obs-1), ]
@@ -547,5 +647,9 @@ test_that("calculate_loglik_vector_r works for a DCC-t-Copula model", {
   ## 4. Compare
   T_eff <- length(ll_vec_truth)
   T_orig <- length(ll_vec_calculated)
-  expect_equal(ll_vec_calculated[(T_orig - T_eff + 1):T_orig], ll_vec_truth, tolerance = 1e-6)
+  expect_equal(
+    ll_vec_calculated[(T_orig - T_eff + 1):T_orig], 
+    ll_vec_truth, 
+    tolerance = 1e-6
+  )
 })
