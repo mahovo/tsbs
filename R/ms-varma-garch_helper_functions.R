@@ -47,7 +47,7 @@ create_garch_spec_object_r <- function(
     spec, 
     model_type, 
     current_pars
-  ) {
+) {
   residuals_xts <- xts::xts(residuals, order.by = Sys.Date() - (NROW(residuals):1))
   
   if (model_type == "univariate") {
@@ -59,14 +59,16 @@ create_garch_spec_object_r <- function(
       distribution = spec$distribution
     )
     
-    ## For univariate, we need to set the pars from the previous M-step before 
-    ## filtering
+    ## Set parameters from previous M-step
     all_fixed_pars <- c(current_pars$garch_pars, current_pars$dist_pars)
     for (par_name in names(all_fixed_pars)) {
       if (par_name %in% garch_spec_obj$parmatrix$parameter) {
         garch_spec_obj$parmatrix[parameter == par_name, value := all_fixed_pars[[par_name]]]
       }
     }
+    
+    return(garch_spec_obj)
+    
   } else {
     ## --- Multivariate ---
     spec_fun_name <- spec$garch_spec_fun
@@ -74,7 +76,8 @@ create_garch_spec_object_r <- function(
     spec_args <- spec$garch_spec_args
     
     if (spec_fun_name %in% c("dcc_modelspec", "cgarch_modelspec")) {
-      ## STEP 1: Create and parameterize each univariate GARCH model.
+      ## STEP 1: Create and estimate each univariate GARCH model
+      ## WITHOUT setting parameters yet (let it estimate freely first)
       univariate_models <- lapply(1:ncol(residuals_xts), function(i) {
         uni_spec_details <- spec_args$garch_model$univariate[[i]]
         uni_spec_obj <- tsgarch::garch_modelspec(
@@ -84,36 +87,94 @@ create_garch_spec_object_r <- function(
           distribution = uni_spec_details$distribution
         )
         
-        ## Inject the current parameters for this series
-        series_garch_pars <- current_pars$garch_pars[[i]]
-        for (par_name in names(series_garch_pars)) {
-          uni_spec_obj$parmatrix[parameter == par_name, value := series_garch_pars[[par_name]]]
-        }
-        
-        ## We "estimate" with fixed parameters from the previous M-step to get 
-        ## a valid fitted object
+        ## Estimate freely to get a valid fitted object
+        ## We'll override these parameters later
         suppressWarnings(estimate(uni_spec_obj, keep_tmb = TRUE))
       })
       
-      ## STEP 2: Combine the univariate objects
+      ## CRITICAL FIX: Set univariate GARCH parameters BEFORE creating DCC spec
+      ## Must do this here because dcc_modelspec() captures the univariate objects
+      for (i in seq_along(univariate_models)) {
+        series_garch_pars <- current_pars$garch_pars[[i]]
+        
+        for (par_name in names(series_garch_pars)) {
+          if (par_name %in% univariate_models[[i]]$parmatrix$parameter) {
+            value <- series_garch_pars[[par_name]]
+            
+            ## Ensure value respects bounds
+            lower <- univariate_models[[i]]$parmatrix[parameter == par_name]$lower
+            upper <- univariate_models[[i]]$parmatrix[parameter == par_name]$upper
+            value <- max(value, lower + 1e-8)
+            value <- min(value, upper - 1e-8)
+            
+            univariate_models[[i]]$parmatrix[parameter == par_name, value := value]
+          }
+        }
+      }
+      
+      ## STEP 2: Combine into multi_estimate object
       multi_estimate_object <- tsgarch::to_multi_estimate(univariate_models)
       names(multi_estimate_object) <- paste0("series_", 1:ncol(residuals_xts))
       
-      ## STEP 3: Build the final DCC spec
+      ## STEP 3: Create DCC spec from the multi_estimate object
       final_args <- c(
         list(object = multi_estimate_object), 
         spec_args[names(spec_args) != "garch_model"]
       )
       final_args$distribution <- spec$distribution
       
+      ## CRITICAL FIX: Must explicitly specify dynamics = "dcc" for dynamic correlation
+      ## Without this, tsmarch defaults to constant correlation!
+      if (is.null(final_args$dynamics)) {
+        final_args$dynamics <- "dcc"
+      }
+      
       garch_spec_obj <- do.call(spec_fun, final_args)
       
+      ## STEP 4: Set DCC-level parameters (now that spec is created)
+      
+      ## 4a. Set DCC parameters (alpha_1, beta_1, gamma_1, etc.)
+      dcc_param_names <- grep("^(alpha|beta|gamma)_[0-9]+$", names(current_pars), value = TRUE)
+      
+      for (par_name in dcc_param_names) {
+        if (par_name %in% garch_spec_obj$parmatrix$parameter) {
+          value <- current_pars[[par_name]]
+          
+          ## Ensure value respects bounds
+          lower <- garch_spec_obj$parmatrix[parameter == par_name]$lower
+          upper <- garch_spec_obj$parmatrix[parameter == par_name]$upper
+          value <- max(value, lower + 1e-8)
+          value <- min(value, upper - 1e-8)
+          
+          garch_spec_obj$parmatrix[parameter == par_name, value := value]
+        }
+      }
+      
+      ## 4b. Set distribution parameters (e.g., shape for MVT)
+      if (!is.null(current_pars$dist_pars)) {
+        for (par_name in names(current_pars$dist_pars)) {
+          if (par_name %in% garch_spec_obj$parmatrix$parameter) {
+            value <- current_pars$dist_pars[[par_name]]
+            
+            lower <- garch_spec_obj$parmatrix[parameter == par_name]$lower
+            upper <- garch_spec_obj$parmatrix[parameter == par_name]$upper
+            value <- max(value, lower + 1e-8)
+            value <- min(value, upper - 1e-8)
+            
+            garch_spec_obj$parmatrix[parameter == par_name, value := value]
+          }
+        }
+      }
+      
+      return(garch_spec_obj)
+      
     } else {
+      ## GOGARCH or other model types
       final_args <- c(list(y = residuals_xts), spec_args)
       garch_spec_obj <- do.call(spec_fun, final_args)
+      return(garch_spec_obj)
     }
   }
-  return(garch_spec_obj)
 }
 
 
@@ -408,18 +469,30 @@ estimate_arma_weighted_r <- function(y, weights, spec, model_type = "univariate"
 }
 
 
-#' @title Estimate GARCH Parameters (R Helper)
-#' This function is the core of the M-step; it takes the weights (smoothed 
-#' probabilities) from the E-step and finds the GARCH and distribution 
-#' parameters that maximize the weighted log-likelihood.
-#' @param residuals 
-#' @param weights 
-#' @param spec 
-#' @param model_type 
-#' @title Estimate GARCH and Distribution Parameters (R Helper) - GENERALIZED
-#' @description Estimate both GARCH and distribution parameters (e.g., shape, 
-#'   skew) simultaneously for the univariate case.
+#' @title Estimate GARCH Parameters for Multivariate Models (R Helper)
+#' @description Two-stage weighted estimation for multivariate GARCH models:
+#'   Stage 1: Univariate GARCH parameters for each series
+#'   Stage 2: Multivariate dependence parameters (DCC/Copula) or decomposition (GOGARCH)
+#' @param residuals Matrix of residuals (T x k) for multivariate case
+#' @param weights Vector of weights from E-step
+#' @param spec Model specification
+#' @param model_type Either "univariate" or "multivariate"
+#' @return List with coefficients and warnings
 estimate_garch_weighted_r <- function(residuals, weights, spec, model_type = "univariate") {
+  
+  if (model_type == "univariate") {
+    ## === UNIVARIATE CASE ===
+    return(estimate_garch_weighted_univariate(residuals, weights, spec))
+  } else {
+    ## === MULTIVARIATE CASE ===
+    return(estimate_garch_weighted_multivariate(residuals, weights, spec))
+  }
+}
+
+
+#' @title Univariate GARCH + Distribution Parameter Estimation
+#' @keywords internal
+estimate_garch_weighted_univariate <- function(residuals, weights, spec) {
   ## Combine GARCH and Distribution starting parameters into one vector
   start_pars <- c(spec$start_pars$garch_pars, spec$start_pars$dist_pars)
   
@@ -431,25 +504,12 @@ estimate_garch_weighted_r <- function(residuals, weights, spec, model_type = "un
   padding <- NROW(residuals) - length(weights)
   w_target <- if(padding > 0) weights[(padding+1):length(weights)] else weights
   
-  ## Create a temporary current_pars for the initial spec object
-  ## This uses the start_pars as initial values
-  temp_current_pars <- list(
-    garch_pars = spec$start_pars$garch_pars,
-    dist_pars = spec$start_pars$dist_pars
-  )
-  
-  temp_spec_obj <- create_garch_spec_object_r(
-    residuals, 
-    spec, 
-    model_type, 
-    temp_current_pars
-  )
+  temp_spec_obj <- create_garch_spec_object_r(residuals, spec, "univariate", list())
   
   ## Extract bounds for ALL parameters to be estimated (GARCH + dist)
   parmatrix <- temp_spec_obj$parmatrix
   pars_to_estimate <- names(start_pars)
   bounds_matrix <- parmatrix[parameter %in% pars_to_estimate]
-  ## Ensure the bounds are in the same order as the parameters
   bounds_matrix <- bounds_matrix[match(pars_to_estimate, parameter),]
   lower_bounds <- bounds_matrix$lower
   upper_bounds <- bounds_matrix$upper
@@ -459,23 +519,9 @@ estimate_garch_weighted_r <- function(residuals, weights, spec, model_type = "un
     param_list <- as.list(params)
     names(param_list) <- names(start_pars)
     
-    ## Separate GARCH and dist parameters for this iteration
-    dist_param_names <- names(spec$start_pars$dist_pars)
-    garch_param_names <- names(spec$start_pars$garch_pars)
+    garch_spec_obj <- create_garch_spec_object_r(residuals_data, spec, "univariate", list())
     
-    iter_current_pars <- list(
-      garch_pars = param_list[garch_param_names],
-      dist_pars = param_list[dist_param_names]
-    )
-    
-    garch_spec_obj <- create_garch_spec_object_r(
-      residuals_data, 
-      spec, 
-      "univariate",
-      iter_current_pars  ## <-- Pass current iteration parameters
-    )
-    
-    ## Set all parameter values (GARCH + dist) for this iteration of the optimizer
+    ## Set all parameter values (GARCH + dist) for this iteration
     for (par_name in names(param_list)) {
       if (par_name %in% garch_spec_obj$parmatrix$parameter) {
         garch_spec_obj$parmatrix[parameter == par_name, value := param_list[[par_name]]]
@@ -484,10 +530,10 @@ estimate_garch_weighted_r <- function(residuals, weights, spec, model_type = "un
     
     ## Get the sigma path using the current parameter set
     fit <- try(tsmethods::tsfilter(garch_spec_obj), silent = TRUE)
-    if (inherits(fit, "try-error")) return(1e10) # Penalize invalid parameter sets
+    if (inherits(fit, "try-error")) return(1e10)
     sig <- as.numeric(fit$sigma)
     
-    ## Calculate log-likelihood using the specified distribution and its parameters
+    ## Calculate log-likelihood using the specified distribution
     dist_fun <- switch(spec$distribution,
                        "norm"  = stats::dnorm, "snorm" = tsdistributions::dsnorm,
                        "std"   = tsdistributions::dstd,  "sstd"  = tsdistributions::dsstd,
@@ -502,15 +548,7 @@ estimate_garch_weighted_r <- function(residuals, weights, spec, model_type = "un
     if (spec$distribution == "norm") {
       dist_args <- list(x = residuals_data, mean = 0, sd = sig, log = TRUE)
     } else {
-      dist_args <- c(
-        list(
-          x = residuals_data, 
-          mu = 0, 
-          sigma = sig, 
-          log = TRUE
-        ), 
-        dist_pars_current
-      )
+      dist_args <- c(list(x = residuals_data, mu = 0, sigma = sig, log = TRUE), dist_pars_current)
     }
     
     ll_vector <- do.call(dist_fun, dist_args)
@@ -520,20 +558,17 @@ estimate_garch_weighted_r <- function(residuals, weights, spec, model_type = "un
     return(-sum(w * ll_vector, na.rm = TRUE))
   }
   
-  ## Capture and summarize warnings from optim
+  ## Capture warnings
   warnings_list <- list()
   opt_result <- withCallingHandlers({
-    stats::optim(
-      par = unlist(start_pars),
-      fn = weighted_garch_loglik,
-      lower = lower_bounds,
-      upper = upper_bounds,
-      method = "L-BFGS-B",
-      # Pass additional arguments to the objective function
-      residuals_data = residuals,
-      w = w_target,
-      spec = spec
-    )
+    stats::optim(par = unlist(start_pars),
+                 fn = weighted_garch_loglik,
+                 lower = lower_bounds,
+                 upper = upper_bounds,
+                 method = "L-BFGS-B",
+                 residuals_data = residuals,
+                 w = w_target,
+                 spec = spec)
   }, warning = function(w) {
     warnings_list <<- c(warnings_list, list(w))
     invokeRestart("muffleWarning")
@@ -546,9 +581,307 @@ estimate_garch_weighted_r <- function(residuals, weights, spec, model_type = "un
 }
 
 
+#' @title Multivariate GARCH Parameter Estimation (Two-Stage)
+#' @description Implements weighted MLE for multivariate GARCH models
+#'   Stage 1: Estimate univariate GARCH parameters for each series
+#'   Stage 2: Estimate dependence parameters (DCC/Copula) or GOGARCH rotation
+#' @keywords internal
+estimate_garch_weighted_multivariate <- function(residuals, weights, spec) {
+  
+  ## Determine model type
+  model_type <- spec$garch_spec_fun
+  
+  if (model_type == "gogarch_modelspec") {
+    return(estimate_garch_weighted_gogarch(residuals, weights, spec))
+  } else if (model_type %in% c("dcc_modelspec", "cgarch_modelspec")) {
+    return(estimate_garch_weighted_dcc(residuals, weights, spec))
+  } else if (model_type == "copula_modelspec") {
+    return(estimate_garch_weighted_copula(residuals, weights, spec))
+  } else {
+    stop(paste("Unsupported multivariate model type:", model_type))
+  }
+}
+
+
+#' @title DCC Weighted Estimation
+#' @keywords internal
+estimate_garch_weighted_dcc <- function(residuals, weights, spec) {
+  
+  k <- ncol(residuals)
+  T_obs <- nrow(residuals)
+  
+  ## Adjust weights for any padding
+  padding <- T_obs - length(weights)
+  w_target <- if(padding > 0) weights[(padding+1):length(weights)] else weights
+  
+  ## === STAGE 1: Estimate Univariate GARCH for Each Series ===
+  garch_pars_list <- list()
+  warnings_stage1 <- list()
+  
+  for (i in 1:k) {
+    series_residuals <- residuals[, i]
+    series_spec <- spec$garch_spec_args$garch_model$univariate[[i]]
+    
+    ## Create a univariate spec structure
+    uni_spec <- list(
+      garch_model = series_spec$model,
+      garch_order = series_spec$garch_order,
+      distribution = series_spec$distribution,
+      start_pars = list(
+        garch_pars = spec$start_pars$garch_pars[[i]],
+        dist_pars = NULL  ## Marginals in DCC are always normal
+      )
+    )
+    
+    ## Estimate using univariate function
+    uni_result <- estimate_garch_weighted_univariate(series_residuals, w_target, uni_spec)
+    garch_pars_list[[i]] <- uni_result$coefficients
+    warnings_stage1 <- c(warnings_stage1, uni_result$warnings)
+  }
+  
+  ## === STAGE 2: Estimate DCC Parameters ===
+  
+  ## Check if DCC parameters need estimation
+  dcc_start_pars <- spec$start_pars$dcc_pars
+  dist_start_pars <- spec$start_pars$dist_pars
+  
+  if (is.null(dcc_start_pars) || length(dcc_start_pars) == 0) {
+    ## No DCC parameters to estimate (e.g., constant correlation)
+    dcc_pars <- list()
+  } else {
+    ## Estimate DCC dynamics
+    dcc_result <- estimate_dcc_parameters_weighted(
+      residuals = residuals,
+      weights = w_target,
+      garch_pars = garch_pars_list,
+      dcc_start_pars = dcc_start_pars,
+      dist_start_pars = dist_start_pars,
+      spec = spec
+    )
+    
+    dcc_pars <- dcc_result$dcc_pars
+    dist_pars <- dcc_result$dist_pars
+    warnings_stage1 <- c(warnings_stage1, dcc_result$warnings)
+  }
+  
+  ## === Combine Results ===
+  return(list(
+    coefficients = list(
+      garch_pars = garch_pars_list,
+      dcc_pars = dcc_pars,
+      dist_pars = if(exists("dist_pars")) dist_pars else dist_start_pars
+    ),
+    warnings = warnings_stage1
+  ))
+}
+
+
+#' @title Estimate DCC Correlation Dynamics (Weighted)
+#' @keywords internal
+estimate_dcc_parameters_weighted <- function(residuals, weights, garch_pars, 
+                                             dcc_start_pars, dist_start_pars, spec) {
+  
+  k <- ncol(residuals)
+  T_obs <- nrow(residuals)
+  
+  ## 1. Get standardized residuals using Stage 1 GARCH parameters
+  std_residuals <- matrix(0, nrow = T_obs, ncol = k)
+  for (i in 1:k) {
+    series_residuals <- residuals[, i]
+    series_spec <- spec$garch_spec_args$garch_model$univariate[[i]]
+    
+    ## Create spec with estimated GARCH parameters
+    uni_spec_obj <- tsgarch::garch_modelspec(
+      y = xts::xts(series_residuals, order.by = Sys.Date() - (T_obs:1)),
+      model = series_spec$model,
+      garch_order = series_spec$garch_order,
+      distribution = series_spec$distribution
+    )
+    
+    ## Set estimated parameters
+    for (par_name in names(garch_pars[[i]])) {
+      if (par_name %in% uni_spec_obj$parmatrix$parameter) {
+        uni_spec_obj$parmatrix[parameter == par_name, value := garch_pars[[i]][[par_name]]]
+      }
+    }
+    
+    ## Filter to get conditional volatilities
+    uni_fit <- tsmethods::tsfilter(uni_spec_obj)
+    std_residuals[, i] <- series_residuals / as.numeric(uni_fit$sigma)
+  }
+  
+  ## 2. Combine DCC and distribution parameters for joint optimization
+  all_stage2_pars <- c(dcc_start_pars, dist_start_pars)
+  
+  if (length(all_stage2_pars) == 0) {
+    return(list(dcc_pars = list(), dist_pars = list(), warnings = list()))
+  }
+  
+  ## 3. Define objective function for DCC parameters
+  weighted_dcc_loglik <- function(params, std_resid, w, spec, k) {
+    
+    param_list <- as.list(params)
+    names(param_list) <- names(all_stage2_pars)
+    
+    ## Separate DCC and distribution parameters
+    dcc_param_names <- names(dcc_start_pars)
+    dist_param_names <- names(dist_start_pars)
+    
+    dcc_params_current <- param_list[dcc_param_names]
+    dist_params_current <- param_list[dist_param_names]
+    
+    ## Extract DCC order
+    dcc_order <- spec$garch_spec_args$dcc_order
+    
+    ## Initialize matrices
+    T_eff <- nrow(std_resid)
+    Qbar <- cov(std_resid)  ## Unconditional correlation of standardized residuals
+    
+    ## DCC recursion
+    Q <- array(0, dim = c(k, k, T_eff))
+    R <- array(0, dim = c(k, k, T_eff))
+    
+    ## Initialize Q
+    Q[,,1] <- Qbar
+    
+    alpha <- if(!is.null(dcc_params_current$alpha_1)) dcc_params_current$alpha_1 else 0
+    beta <- if(!is.null(dcc_params_current$beta_1)) dcc_params_current$beta_1 else 0
+    
+    ## Check stationarity
+    if ((alpha + beta) >= 1 || alpha < 0 || beta < 0) {
+      return(1e10)
+    }
+    
+    for (t in 2:T_eff) {
+      z_lag <- std_resid[t-1, , drop = FALSE]
+      Q[,,t] <- Qbar * (1 - alpha - beta) + 
+        alpha * (t(z_lag) %*% z_lag) + 
+        beta * Q[,,t-1]
+      
+      ## Standardize to get correlation
+      Q_diag_inv_sqrt <- diag(1/sqrt(diag(Q[,,t])), k)
+      R[,,t] <- Q_diag_inv_sqrt %*% Q[,,t] %*% Q_diag_inv_sqrt
+    }
+    
+    ## Calculate weighted log-likelihood
+    ll_vec <- numeric(T_eff)
+    
+    if (spec$distribution == "mvn") {
+      for (t in 1:T_eff) {
+        R_t <- R[,,t]
+        ## Ensure positive definite
+        if (any(is.na(R_t)) || any(!is.finite(R_t))) {
+          ll_vec[t] <- -1e10
+        } else {
+          eig <- try(eigen(R_t, symmetric = TRUE, only.values = TRUE)$values, silent = TRUE)
+          if (inherits(eig, "try-error") || any(eig <= 0)) {
+            ll_vec[t] <- -1e10
+          } else {
+            ll_vec[t] <- mvtnorm::dmvnorm(std_resid[t,], mean = rep(0, k), 
+                                          sigma = R_t, log = TRUE)
+          }
+        }
+      }
+    } else if (spec$distribution == "mvt") {
+      shape <- dist_params_current$shape
+      if (shape <= 2) return(1e10)  ## Need finite variance
+      
+      for (t in 1:T_eff) {
+        R_t <- R[,,t]
+        if (any(is.na(R_t)) || any(!is.finite(R_t))) {
+          ll_vec[t] <- -1e10
+        } else {
+          eig <- try(eigen(R_t, symmetric = TRUE, only.values = TRUE)$values, silent = TRUE)
+          if (inherits(eig, "try-error") || any(eig <= 0)) {
+            ll_vec[t] <- -1e10
+          } else {
+            ll_vec[t] <- mvtnorm::dmvt(std_resid[t,], delta = rep(0, k), 
+                                       sigma = R_t, df = shape, log = TRUE)
+          }
+        }
+      }
+    }
+    
+    ll_vec[!is.finite(ll_vec)] <- -1e10
+    return(-sum(w * ll_vec, na.rm = TRUE))
+  }
+  
+  ## 4. Get bounds
+  ## For DCC: alpha, beta in [0, 1), alpha + beta < 1
+  ## For shape: > 2 for finite variance
+  lower_bounds <- numeric(length(all_stage2_pars))
+  upper_bounds <- numeric(length(all_stage2_pars))
+  
+  for (i in seq_along(all_stage2_pars)) {
+    par_name <- names(all_stage2_pars)[i]
+    if (grepl("alpha|beta", par_name)) {
+      lower_bounds[i] <- 1e-6
+      upper_bounds[i] <- 0.99
+    } else if (par_name == "shape") {
+      lower_bounds[i] <- 2.1
+      upper_bounds[i] <- 100
+    }
+  }
+  
+  ## 5. Optimize
+  warnings_list <- list()
+  opt_result <- withCallingHandlers({
+    stats::optim(
+      par = unlist(all_stage2_pars),
+      fn = weighted_dcc_loglik,
+      lower = lower_bounds,
+      upper = upper_bounds,
+      method = "L-BFGS-B",
+      std_resid = std_residuals,
+      w = weights,
+      spec = spec,
+      k = k
+    )
+  }, warning = function(w) {
+    warnings_list <<- c(warnings_list, list(w))
+    invokeRestart("muffleWarning")
+  })
+  
+  ## 6. Extract results
+  estimated_pars <- as.list(opt_result$par)
+  names(estimated_pars) <- names(all_stage2_pars)
+  
+  dcc_param_names <- names(dcc_start_pars)
+  dist_param_names <- names(dist_start_pars)
+  
+  dcc_pars_final <- estimated_pars[dcc_param_names]
+  dist_pars_final <- estimated_pars[dist_param_names]
+  
+  return(list(
+    dcc_pars = dcc_pars_final,
+    dist_pars = dist_pars_final,
+    warnings = warnings_list
+  ))
+}
+
+
+#' @title GOGARCH Weighted Estimation (Placeholder)
+#' @keywords internal
+estimate_garch_weighted_gogarch <- function(residuals, weights, spec) {
+  ## TODO: Implement GOGARCH estimation
+  ## For now, return structure with empty parameters
+  stop("GOGARCH estimation not yet implemented. Use DCC or Copula models.")
+}
+
+
+#' @title Copula Weighted Estimation (Placeholder)
+#' @keywords internal
+estimate_garch_weighted_copula <- function(residuals, weights, spec) {
+  ## TODO: Implement Copula estimation
+  ## For now, return structure with empty parameters
+  stop("Copula estimation not yet implemented. Use DCC models for now.")
+}
+
+
 #' @title Perform the M-Step in Parallel (R Helper)
 #' @description This function is called once per EM iteration from C++. It uses
 #' the 'future' framework to estimate the parameters for all M states in parallel.
+#' Handles both univariate and multivariate models with proper parameter structuring.
 #' @param y The time series data.
 #' @param weights The (T x M) matrix of smoothed probabilities from the E-step.
 #' @param spec The full list of model specifications.
@@ -556,75 +889,110 @@ estimate_garch_weighted_r <- function(residuals, weights, spec, model_type = "un
 #' @return A list of length M containing the updated model fits for each state.
 perform_m_step_parallel_r <- function(y, weights, spec, model_type) {
   
-  ## --- Tell the parallel workers which packages to load ---
-  ## The data.table syntax (e.g., parmatrix[parameter == ...]) and the
-  ## tsgarch/tsmarch functions must be available on each worker.
-  required_packages <- c("data.table", "xts", "tsgarch", "tsmarch", "tsdistributions")
+  ## Required packages for parallel workers
+  required_packages <- c("data.table", "xts", "tsgarch", "tsmarch", 
+                         "tsdistributions", "mvtnorm")
   
-  ## future_lapply will iterate from 1 to M (the number of states) in parallel.
-  ## Each worker gets the index 'j' for the state it's responsible for.
+  ## Iterate over all states in parallel
   updated_fits <- future.apply::future_lapply(1:length(spec), function(j) {
     
-    ## --- Explicitly load packages on each parallel worker ---
-    ## This is a more robust approach than relying on future.packages, as it
-    ## ensures the packages are fully attached, making special syntax like
-    ## data.table's `[...]` available.
+    ## Explicitly load packages on each parallel worker
     library(data.table)
     library(xts)
     library(tsgarch)
     library(tsmarch)
     library(tsdistributions)
+    library(mvtnorm)
     
-    ## Extract the data for this specific state
+    ## Extract state-specific data
     state_weights <- weights[, j]
     state_spec <- spec[[j]]
     
-    ## M-Step 1: Update Mean Parameters
-    new_arma_fit <- estimate_arma_weighted_r(
+    ## === M-Step Stage 1: Update Mean Parameters ===
+    new_mean_fit <- estimate_arma_weighted_r(
       y = y,
       weights = state_weights,
       spec = state_spec,
       model_type = model_type
     )
     
-    ## M-Step 2: Update Variance Parameters
-    new_garch_fit <- estimate_garch_weighted_r(
-      residuals = new_arma_fit$residuals,
+    ## === M-Step Stage 2: Update Variance Parameters ===
+    new_variance_fit <- estimate_garch_weighted_r(
+      residuals = new_mean_fit$residuals,
       weights = state_weights,
       spec = state_spec,
       model_type = model_type
     )
     
-    ## The returned coefficients are a flat list of garch + dist pars.
-    ## We must separate them back into their structured groups.
-    all_params <- new_garch_fit$coefficients
-    dist_param_names <- names(state_spec$start_pars$dist_pars)
-    
-    if (length(dist_param_names) > 0) {
-      ## Case: Distribution has shape/skew parameters
-      estimated_dist_pars <- all_params[dist_param_names]
-      estimated_garch_pars <- all_params[!names(all_params) %in% dist_param_names]
-    } else {
-      ## Case: Normal distribution (no dist_pars)
-      estimated_dist_pars <- list() ## Return an empty list for type consistency
-      estimated_garch_pars <- all_params
-    }
-
-    ## Return the fully structured list for the next EM iteration
+    ## === Structure the output based on model type ===
     if (model_type == "univariate") {
+      ## For univariate: separate GARCH and distribution parameters
+      all_params <- new_variance_fit$coefficients
+      dist_param_names <- names(state_spec$start_pars$dist_pars)
+      
+      if (length(dist_param_names) > 0) {
+        estimated_dist_pars <- all_params[dist_param_names]
+        estimated_garch_pars <- all_params[!names(all_params) %in% dist_param_names]
+      } else {
+        estimated_dist_pars <- list()
+        estimated_garch_pars <- all_params
+      }
+      
       return(list(
-        arma_pars = new_arma_fit$coefficients,
+        arma_pars = new_mean_fit$coefficients,
         garch_pars = estimated_garch_pars,
         dist_pars = estimated_dist_pars
       ))
+      
     } else {
-      ## Placeholder for the future multivariate refactoring
-      return(list(
-        var_pars = new_arma_fit$coefficients,
-        garch_pars = estimated_garch_pars, ## Will need more complex logic later
-        dist_pars = estimated_dist_pars   ## Will need more complex logic later
-      ))
+      ## For multivariate: structure depends on model type
+      variance_coeffs <- new_variance_fit$coefficients
+      
+      ## The coefficients already come structured from estimate_garch_weighted_multivariate
+      ## For DCC: list(garch_pars = list(...), dcc_pars = list(...), dist_pars = list(...))
+      ## For GOGARCH: list(garch_pars = list(...), rotation_pars = list(...))
+      ## For Copula: list(garch_pars = list(...), copula_pars = list(...), dist_pars = list(...))
+      
+      ## Flatten DCC/Copula/GOGARCH-specific parameters into the top level
+      ## This matches the structure expected by calculate_loglik_vector_r and C++ code
+      
+      result <- list(var_pars = new_mean_fit$coefficients)
+      
+      ## Add univariate GARCH parameters (always present)
+      if (!is.null(variance_coeffs$garch_pars)) {
+        result$garch_pars <- variance_coeffs$garch_pars
+      }
+      
+      ## Add model-specific parameters (DCC, Copula, GOGARCH)
+      if (!is.null(variance_coeffs$dcc_pars)) {
+        ## Flatten DCC parameters to top level
+        for (par_name in names(variance_coeffs$dcc_pars)) {
+          result[[par_name]] <- variance_coeffs$dcc_pars[[par_name]]
+        }
+      }
+      
+      if (!is.null(variance_coeffs$copula_pars)) {
+        ## Flatten Copula parameters to top level
+        for (par_name in names(variance_coeffs$copula_pars)) {
+          result[[par_name]] <- variance_coeffs$copula_pars[[par_name]]
+        }
+      }
+      
+      if (!is.null(variance_coeffs$rotation_pars)) {
+        ## Flatten GOGARCH rotation parameters
+        for (par_name in names(variance_coeffs$rotation_pars)) {
+          result[[par_name]] <- variance_coeffs$rotation_pars[[par_name]]
+        }
+      }
+      
+      ## Add distribution parameters (if present)
+      if (!is.null(variance_coeffs$dist_pars)) {
+        result$dist_pars <- variance_coeffs$dist_pars
+      }
+      
+      return(result)
     }
+    
   }, future.seed = TRUE, future.packages = required_packages)
   
   return(updated_fits)

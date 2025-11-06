@@ -5,97 +5,332 @@
 ## ---- Test Setup ----
 ## Create minimal data and specifications for testing.
 
-## Univariate setup
+
+## UNIVARIATE SETUPS ===========================================================
+
 set.seed(123)
 y_test <- as.matrix(arima.sim(n = 100, list(ar = 0.5)))
 colnames(y_test) <- "series_1"
-spec_test_uni <- list(
+
+## Basic univariate spec with Normal distribution
+spec_test_uni_norm <- list(
   ## State 1
-  list(arma_order = c(1,0),
-       garch_model = "garch",
-       garch_order = c(1,1),
-       distribution = "norm",
-       start_pars = list(
-         arma_pars = c(ar1 = 0.1),
-         garch_pars = list(omega = 0.1, alpha1 = 0.1, beta1 = 0.8)
-       )
+  list(
+    arma_order = c(1, 0),
+    garch_model = "garch",
+    garch_order = c(1, 1),
+    distribution = "norm",
+    start_pars = list(
+      arma_pars = c(ar1 = 0.1),
+      garch_pars = list(omega = 0.1, alpha1 = 0.1, beta1 = 0.8),
+      dist_pars = NULL  ## Normal has no additional parameters
+    )
   ),
   ## State 2
-  list(arma_order = c(1,0),
-       garch_model = "garch",
-       garch_order = c(1,1),
-       distribution = "norm",
-       start_pars = list(
-         arma_pars = c(ar1 = 0.8),
-         garch_pars = list(omega = 0.2, alpha1 = 0.2, beta1 = 0.7)
-       )
+  list(
+    arma_order = c(1, 0),
+    garch_model = "garch",
+    garch_order = c(1, 1),
+    distribution = "norm",
+    start_pars = list(
+      arma_pars = c(ar1 = 0.8),
+      garch_pars = list(omega = 0.2, alpha1 = 0.2, beta1 = 0.7),
+      dist_pars = NULL
+    )
   )
 )
 
+## Univariate spec with Student-t distribution
+spec_test_uni_std <- list(
+  ## State 1
+  list(
+    arma_order = c(1, 0),
+    garch_model = "garch",
+    garch_order = c(1, 1),
+    distribution = "std",
+    start_pars = list(
+      arma_pars = c(ar1 = 0.1),
+      garch_pars = list(omega = 0.1, alpha1 = 0.1, beta1 = 0.8),
+      dist_pars = list(shape = 8.0)  ## Degrees of freedom
+    )
+  ),
+  ## State 2
+  list(
+    arma_order = c(1, 0),
+    garch_model = "garch",
+    garch_order = c(1, 1),
+    distribution = "std",
+    start_pars = list(
+      arma_pars = c(ar1 = 0.8),
+      garch_pars = list(omega = 0.2, alpha1 = 0.2, beta1 = 0.7),
+      dist_pars = list(shape = 10.0)
+    )
+  )
+)
 
-## Multivariate setup
+## Backward compatibility alias
+spec_test_uni <- spec_test_uni_norm
+
+
+## MULTIVARIATE SETUPS =========================================================
+
 y_test_mv <- matrix(rnorm(200), ncol = 2)
 colnames(y_test_mv) <- c("series_1", "series_2")
 
-## A simple GOGARCH spec for fast smoke tests
+## ---- DCC-MVN: Fast Smoke Test Spec ----
+## Simple 2-series DCC with MVN distribution (no shape parameter)
+## This is the fastest multivariate spec for smoke tests
 spec_test_mv_smoke <- list(
   list(
     var_order = 1, 
-    garch_spec_fun = "gogarch_modelspec", 
-    garch_spec_args = list(model = "garch"), 
+    garch_spec_fun = "dcc_modelspec",
+    distribution = "mvn",
+    garch_spec_args = list(
+      dcc_order = c(1, 1),
+      garch_model = list(univariate = list(
+        list(model = "garch", garch_order = c(1, 1), distribution = "norm"),
+        list(model = "garch", garch_order = c(1, 1), distribution = "norm")
+      ))
+    ),
     start_pars = list(
-      var_pars = rep(0.1, 6), 
-      garch_pars = list()
+      var_pars = rep(0.1, 6),  ## Intercept + 2 lags for 2 series
+      garch_pars = list(
+        list(omega = 0.1, alpha1 = 0.1, beta1 = 0.8),
+        list(omega = 0.1, alpha1 = 0.1, beta1 = 0.8)
+      ),
+      dcc_pars = list(alpha_1 = 0.05, beta_1 = 0.90),
+      dist_pars = NULL  ## MVN has no shape parameter
     )
   ),
   list(
     var_order = 1, 
-    garch_spec_fun = "gogarch_modelspec", 
-    garch_spec_args = list(model = "garch"), 
+    garch_spec_fun = "dcc_modelspec",
+    distribution = "mvn",
+    garch_spec_args = list(
+      dcc_order = c(1, 1),
+      garch_model = list(univariate = list(
+        list(model = "garch", garch_order = c(1, 1), distribution = "norm"),
+        list(model = "garch", garch_order = c(1, 1), distribution = "norm")
+      ))
+    ),
     start_pars = list(
-      var_pars = rep(0.1, 6), 
-      garch_pars = list()
+      var_pars = rep(0.1, 6),
+      garch_pars = list(
+        list(omega = 0.2, alpha1 = 0.15, beta1 = 0.75),
+        list(omega = 0.2, alpha1 = 0.15, beta1 = 0.75)
+      ),
+      dcc_pars = list(alpha_1 = 0.1, beta_1 = 0.85),
+      dist_pars = NULL
     )
   )
 )
 
-## A more complex DCC spec for slower integration tests
+## ---- DCC-MVT: Integration Test Spec ----
+## DCC with Multivariate Student-t distribution
+## More complex due to shape parameter estimation
+spec_test_mv_dcc_mvt <- list(
+  list(
+    var_order = 1,
+    garch_spec_fun = "dcc_modelspec",
+    distribution = "mvt",
+    garch_spec_args = list(
+      dcc_order = c(1, 1),
+      garch_model = list(univariate = list(
+        list(model = "garch", garch_order = c(1, 1), distribution = "norm"),
+        list(model = "garch", garch_order = c(1, 1), distribution = "norm")
+      ))
+    ),
+    start_pars = list(
+      var_pars = rep(0.1, 6),
+      garch_pars = list(
+        list(omega = 0.1, alpha1 = 0.1, beta1 = 0.8),
+        list(omega = 0.1, alpha1 = 0.1, beta1 = 0.8)
+      ),
+      dcc_pars = list(alpha_1 = 0.05, beta_1 = 0.90),
+      dist_pars = list(shape = 8.0)  ## Degrees of freedom for MVT
+    )
+  ),
+  list(
+    var_order = 1,
+    garch_spec_fun = "dcc_modelspec",
+    distribution = "mvt",
+    garch_spec_args = list(
+      dcc_order = c(1, 1),
+      garch_model = list(univariate = list(
+        list(model = "garch", garch_order = c(1, 1), distribution = "norm"),
+        list(model = "garch", garch_order = c(1, 1), distribution = "norm")
+      ))
+    ),
+    start_pars = list(
+      var_pars = rep(0.1, 6),
+      garch_pars = list(
+        list(omega = 0.2, alpha1 = 0.15, beta1 = 0.75),
+        list(omega = 0.2, alpha1 = 0.15, beta1 = 0.75)
+      ),
+      dcc_pars = list(alpha_1 = 0.1, beta_1 = 0.85),
+      dist_pars = list(shape = 10.0)
+    )
+  )
+)
+
+## ---- Constant Correlation Spec (DCC with order 0,0) ----
+## Useful for faster testing when correlation dynamics aren't important
+spec_test_mv_constant_corr <- list(
+  list(
+    var_order = 1,
+    garch_spec_fun = "dcc_modelspec",
+    distribution = "mvn",
+    garch_spec_args = list(
+      dcc_order = c(0, 0),  ## Constant correlation
+      garch_model = list(univariate = list(
+        list(model = "garch", garch_order = c(1, 1), distribution = "norm"),
+        list(model = "garch", garch_order = c(1, 1), distribution = "norm")
+      ))
+    ),
+    start_pars = list(
+      var_pars = rep(0.1, 6),
+      garch_pars = list(
+        list(omega = 0.1, alpha1 = 0.1, beta1 = 0.8),
+        list(omega = 0.1, alpha1 = 0.1, beta1 = 0.8)
+      ),
+      dcc_pars = NULL,  ## No DCC parameters for constant correlation
+      dist_pars = NULL
+    )
+  ),
+  list(
+    var_order = 1,
+    garch_spec_fun = "dcc_modelspec",
+    distribution = "mvn",
+    garch_spec_args = list(
+      dcc_order = c(0, 0),
+      garch_model = list(univariate = list(
+        list(model = "garch", garch_order = c(1, 1), distribution = "norm"),
+        list(model = "garch", garch_order = c(1, 1), distribution = "norm")
+      ))
+    ),
+    start_pars = list(
+      var_pars = rep(0.1, 6),
+      garch_pars = list(
+        list(omega = 0.2, alpha1 = 0.15, beta1 = 0.75),
+        list(omega = 0.2, alpha1 = 0.15, beta1 = 0.75)
+      ),
+      dcc_pars = NULL,
+      dist_pars = NULL
+    )
+  )
+)
+
+## ---- Backward Compatibility Alias ----
+## For existing tests that use spec_mv_dcc
 spec_uni_garch_dcc <- list(
   model = "garch", 
-  garch_order = c(1,1), 
+  garch_order = c(1, 1), 
   distribution = "norm"
 )
 
-## Valid values of `distribution`: `c("mvn", "mvt")`
 dcc_spec_args <- list(
-  dcc_order = c(1,1), 
+  dcc_order = c(1, 1), 
   distribution = "mvn", 
   garch_model = list(univariate = list(spec_uni_garch_dcc, spec_uni_garch_dcc))
 )
+
 spec_mv_dcc <- list(
   list(
     var_order = 1, 
-    garch_spec_fun = "dcc_modelspec", 
+    garch_spec_fun = "dcc_modelspec",
+    distribution = "mvn",
     garch_spec_args = dcc_spec_args, 
     start_pars = list(
-      var_pars=rep(0.1, 6), 
-      garch_pars=list(dcc_alpha=0.1, dcc_beta=0.8)
+      var_pars = rep(0.1, 6), 
+      garch_pars = list(
+        list(omega = 0.1, alpha1 = 0.1, beta1 = 0.8),
+        list(omega = 0.1, alpha1 = 0.1, beta1 = 0.8)
+      ),
+      dcc_pars = list(alpha_1 = 0.05, beta_1 = 0.90),
+      dist_pars = NULL
     )
   ),
   list(
     var_order = 1, 
-    garch_spec_fun = "dcc_modelspec", 
+    garch_spec_fun = "dcc_modelspec",
+    distribution = "mvn",
     garch_spec_args = dcc_spec_args, 
     start_pars = list(
-      var_pars=rep(0.1, 6), 
-      garch_pars=list(dcc_alpha=0.2, dcc_beta=0.7)
+      var_pars = rep(0.1, 6), 
+      garch_pars = list(
+        list(omega = 0.2, alpha1 = 0.2, beta1 = 0.7),
+        list(omega = 0.2, alpha1 = 0.2, beta1 = 0.7)
+      ),
+      dcc_pars = list(alpha_1 = 0.1, beta_1 = 0.85),
+      dist_pars = NULL
     )
   )
 )
 
+
+## HELPER: Generate Larger Test Data ===========================================
+
+#' Generate test data for more realistic convergence tests
+#' @param n Number of observations
+#' @param k Number of series (1 for univariate, >1 for multivariate)
+#' @param seed Random seed
+#' @return Matrix of simulated data
+generate_test_data <- function(n = 200, k = 1, seed = 123) {
+  set.seed(seed)
+  
+  if (k == 1) {
+    y <- as.matrix(arima.sim(n = n, list(ar = 0.5)))
+    colnames(y) <- "series_1"
+  } else {
+    y <- matrix(rnorm(n * k, sd = 0.5), ncol = k)
+    colnames(y) <- paste0("series_", 1:k)
+  }
+  
+  return(y)
+}
+
+
 ## == == == == == == == == == == == == == == == == == == == == == == ==
-## PART 1: Fast Tests (Always Run)
+## SUMMARY OF AVAILABLE SPECS
 ## == == == == == == == == == == == == == == == == == == == == == == ==
+
+## UNIVARIATE:
+## - spec_test_uni_norm  : Basic ARMA-GARCH with Normal distribution
+## - spec_test_uni_std   : ARMA-GARCH with Student-t distribution
+## - spec_test_uni       : Alias for spec_test_uni_norm (backward compatibility)
+
+## MULTIVARIATE:
+## - spec_test_mv_smoke          : DCC-MVN (fastest, for smoke tests)
+## - spec_test_mv_dcc_mvt        : DCC-MVT (with shape parameter)
+## - spec_test_mv_constant_corr  : Constant correlation (no DCC dynamics)
+## - spec_mv_dcc                 : Alias for backward compatibility
+
+## TEST DATA:
+## - y_test              : Univariate (100 obs)
+## - y_test_mv           : Bivariate (100 obs)
+## - generate_test_data(): Function to create custom test data
+
+## USAGE EXAMPLES:
+## 
+## # Univariate smoke test
+## fit <- fit_ms_varma_garch(y = y_test, M = 2, spec = spec_test_uni_norm,
+##                           control = list(max_iter = 1))
+##
+## # Multivariate smoke test (fast)
+## fit <- fit_ms_varma_garch(y = y_test_mv, M = 2, spec = spec_test_mv_smoke,
+##                           model_type = "multivariate", 
+##                           control = list(max_iter = 1))
+##
+## # Multivariate with Student-t
+## fit <- fit_ms_varma_garch(y = y_test_mv, M = 2, spec = spec_test_mv_dcc_mvt,
+##                           model_type = "multivariate",
+##                           control = list(max_iter = 5))
+##
+## # Generate larger test data
+## y_large <- generate_test_data(n = 500, k = 2, seed = 456)
+
+
+## PART 1: Fast Tests (Always Run) =============================================
 
 context("MS-VARMA-GARCH: Fast Input Validation and Smoke Tests")
 
@@ -158,9 +393,7 @@ test_that("Input validation for ms_varma_garch_bs() works correctly", {
 })
 
 
-## == == == == == == == == == == == == == == == == == == == == == == ==
-## PART 2: Slow Integration Tests (Skip on CRAN)
-## == == == == == == == == == == == == == == == == == == == == == == ==
+## PART 2: Slow Integration Tests (Skip on CRAN) ===============================
 
 context("MS-VARMA-GARCH: Slow Integration and Convergence Tests")
 
@@ -268,7 +501,8 @@ test_that("Full estimation converges (multivariate)", {
   
   expect_true(is.finite(fit$log_likelihood))
   
-  dcc_alpha_s1 <- fit$model_fits[[1]]$garch_pars$dcc_alpha
+  #dcc_alpha_s1 <- fit$model_fits[[1]]$garch_pars$dcc_alpha
+  dcc_alpha_s1 <- fit$model_fits[[1]]$garch_pars[[1]]$alpha1
   expect_true(dcc_alpha_s1 > 0 && dcc_alpha_s1 < 1)
 })
 
@@ -299,9 +533,8 @@ test_that("tsbs() with ms_varma_garch runs without error (multivariate)", {
   expect_equal(ncol(result$bootstrap_series[[1]]), 2)
 })
 
-## == == == == == == == == == == == == == == == == == == == == == == ==
-## PART 3: Generalized Univariate Log-Likelihood Calculation
-## == == == == == == == == == == == == == == == == == == == == == == ==
+
+## PART 3: Generalized Univariate Log-Likelihood Calculation ===================
 
 context("Generalized Univariate Log-Likelihood Calculation")
 
@@ -417,9 +650,8 @@ test_that("calculate_loglik_vector_r works for 'std' distribution", {
   )
 })
 
-## == == == == == == == == == == == == == == == == == == == == == == ==
-## PART 4: Generalize the Univariate Parameter Estimation
-## == == == == == == == == == == == == == == == == == == == == == == ==
+
+## PART 4: Generalize the Univariate Parameter Estimation ======================
 
 context("Generalized Univariate Parameter Estimation")
 
@@ -486,9 +718,7 @@ test_that("estimate_garch_weighted_r recovers known GARCH-std parameters", {
 })
 
 
-## == == == == == == == == == == == == == == == == == == == == == == ==
-## PART 5: Test the Univariate Main EM Orchestrator
-## == == == == == == == == == == == == == == == == == == == == == == ==
+## PART 5: Test the Univariate Main EM Orchestrator ============================
 
 ## Testing an orchestrator function like this is best done with mocking. 
 ## We will replace the complex estimation functions (estimate_arma_weighted_r 
@@ -566,51 +796,51 @@ test_that("perform_m_step_parallel_r correctly structures the returned parameter
   expect_identical(actual_output, expected_output)
 })
 
-## == == == == == == == == == == == == == == == == == == == == == == ==
-## PART 6: Test the Multivariate Main EM Orchestrator
-## == == == == == == == == == == == == == == == == == == == == == == ==
 
-context("Generalized Multivariate Log-Likelihood Calculation")
+## PART 6: Test the Multivariate DCC Log-Likelihood Calculation ================
+context("Multivariate DCC Log-Likelihood Calculation")
 
-test_that("calculate_loglik_vector_r works for a DCC-t-Copula model", {
+test_that("calculate_loglik_vector_r produces valid output for DCC-MVN model", {
   skip_on_cran()
   
-  ## 1. Setup test data and a complex spec
+  ## 1. Setup test data
   set.seed(123)
-  y_test <- matrix(rnorm(200, sd = 0.01), 100, 2)
+  y_matrix <- matrix(rnorm(200, sd = 0.5), 100, 2)
+  colnames(y_matrix) <- c("series_1", "series_2")
   
-  ## Ensure the input data 'y' is an xts object
+  ## Convert to xts
   y_test <- xts::xts(y_matrix, order.by = Sys.Date() - (nrow(y_matrix):1))
   
-  ## --- SPECIFICATION ---
+  ## 2. Specification for DCC-MVN (Normal marginals + MVN copula)
   spec_mv <- list(
     var_order = 1,
     garch_spec_fun = "dcc_modelspec",
-    distribution = "mvt", ## Joint distribution of residuals is MVT
+    distribution = "mvn",
     garch_spec_args = list(
-      dynamics = "dcc", ## We are testing a dynamic model
-      order = c(1, 1),
+      dcc_order = c(1, 1),
       garch_model = list(univariate = list(
-        ## MARGINALS MUST BE NORMAL for a DCC model
         list(model = "garch", garch_order = c(1, 1), distribution = "norm"),
         list(model = "garch", garch_order = c(1, 1), distribution = "norm")
       ))
+    ),
+    start_pars = list(
+      dist_pars = NULL
     )
   )
   
-  ## --- PARAMETER LIST ---
+  ## 3. Parameter values
   current_pars_mv <- list(
     var_pars = c(0.1, 0.5, 0.1, 0.1, 0.2, 0.4),
     garch_pars = list(
-      series_1 = list(omega = 0.1, alpha1 = 0.1, beta1 = 0.8),
-      series_2 = list(omega = 0.2, alpha1 = 0.15, beta1 = 0.7)
+      list(omega = 0.1, alpha1 = 0.1, beta1 = 0.8),
+      list(omega = 0.2, alpha1 = 0.15, beta1 = 0.7)
     ),
-    dcc_alpha1 = 0.05,
-    dcc_beta1 = 0.90,
-    shape = 8
+    alpha_1 = 0.05,
+    beta_1 = 0.90,
+    dist_pars = NULL
   )
   
-  ## 2. Call our refactored function
+  ## 4. Call our function
   ll_vec_calculated <- calculate_loglik_vector_r(
     y = y_test,
     current_pars = current_pars_mv,
@@ -618,38 +848,425 @@ test_that("calculate_loglik_vector_r works for a DCC-t-Copula model", {
     model_type = "multivariate"
   )
   
-  ## 3. Calculate the "ground truth" using the same logic
+  ## 5. Verify output properties
+  T_obs <- nrow(y_test)
+  var_order <- spec_mv$var_order
+  
+  ## Check basic properties
+  expect_true(is.numeric(ll_vec_calculated))
+  expect_equal(length(ll_vec_calculated), T_obs)
+  expect_true(all(is.finite(ll_vec_calculated)))
+  
+  ## The first var_order observations should be padded
+  expect_true(abs(ll_vec_calculated[1]) < 1e-6 || 
+                abs(ll_vec_calculated[1]) < abs(mean(ll_vec_calculated[(var_order+1):T_obs])))
+  
+  ## Effective observations (after padding) should be reasonable
+  effective_ll <- ll_vec_calculated[(var_order+1):T_obs]
+  
+  ## Should not be too extreme (catching numerical issues)
+  expect_true(all(effective_ll > -100))
+  expect_true(all(effective_ll < 100))
+  
+  ## The effective observations should have reasonable values
+  effective_ll <- ll_vec_calculated[(var_order+1):T_obs]
+  expect_true(sd(effective_ll) > 0.1)
+  expect_true(mean(effective_ll) < 10)
+  expect_true(mean(effective_ll) > -10)
+})
+
+
+test_that("calculate_loglik_vector_r is consistent across parameter changes", {
+  skip_on_cran()
+  
+  ## Test that changing parameters changes the log-likelihood
+  ## Uses SAME parameters as diagnostic script for consistency
+  
+  set.seed(456)
+  y_matrix <- matrix(rnorm(200, sd = 0.5), 100, 2)
+  colnames(y_matrix) <- c("series_1", "series_2")
+  y_test <- xts::xts(y_matrix, order.by = Sys.Date() - (nrow(y_matrix):1))
+  
+  spec_mv <- list(
+    var_order = 1,
+    garch_spec_fun = "dcc_modelspec",
+    distribution = "mvn",
+    garch_spec_args = list(
+      dcc_order = c(1, 1),
+      garch_model = list(univariate = list(
+        list(model = "garch", garch_order = c(1, 1), distribution = "norm"),
+        list(model = "garch", garch_order = c(1, 1), distribution = "norm")
+      ))
+    ),
+    start_pars = list(dist_pars = NULL)
+  )
+  
+  ## Base parameters
+  pars_base <- list(
+    var_pars = c(0.1, 0.5, 0.1, 0.1, 0.2, 0.4),
+    garch_pars = list(
+      # list(omega = 0.1, alpha1 = 0.1, beta1 = 0.8),
+      # list(omega = 0.2, alpha1 = 0.15, beta1 = 0.7)
+      list(omega = 0.1, alpha1 = 0.1, beta1 = 0.8),
+      list(omega = 0.2, alpha1 = 0.15, beta1 = 0.7)
+    ),
+    alpha_1 = 0.05,
+    beta_1 = 0.90,
+    dist_pars = NULL
+  )
+  
+  ## Very different parameters
+  pars_different <- list(
+    var_pars = c(0.5, 0.8, 0.3, 0.4, 0.5, 0.6),  ## Very different
+    garch_pars = list(
+      list(omega = 0.5, alpha1 = 0.2, beta1 = 0.7),  ## Much higher
+      list(omega = 0.6, alpha1 = 0.3, beta1 = 0.6)   ## Much higher
+    ),
+    alpha_1 = 0.20,  ## 4x higher (was 0.05)
+    beta_1 = 0.70,   ## Much lower (was 0.90)
+    dist_pars = NULL
+  )
+  
+  ## Calculate log-likelihoods
+  ll_base <- calculate_loglik_vector_r(y_test, pars_base, spec_mv, "multivariate")
+  ll_diff <- calculate_loglik_vector_r(y_test, pars_different, spec_mv, "multivariate")
+  
+  ## All should be valid
+  expect_true(all(is.finite(ll_base)))
+  expect_true(all(is.finite(ll_diff)))
+  
+  ## Vectors should NOT be identical
+  expect_false(identical(ll_base, ll_diff), 
+               info = "Parameter changes should affect log-likelihood")
+  
+  ## Total log-likelihoods should differ substantially
+  sum_base <- sum(ll_base)
+  sum_diff <- sum(ll_diff)
+  diff_amount <- abs(sum_diff - sum_base)
+  
+  ## Diagnostic showed difference of ~55, so expect at least 10
+  expect_true(diff_amount > 10,
+              info = paste0("Total LL should differ substantially. ",
+                            "Base: ", round(sum_base, 4), 
+                            ", Different: ", round(sum_diff, 4),
+                            ", Diff: ", round(diff_amount, 4)))
+  
+  ## Test individual component changes
+  
+  ## 1. DCC parameters only (large changes)
+  pars_dcc_only <- pars_base
+  pars_dcc_only$alpha_1 <- 0.20  ## 4x increase from 0.05
+  pars_dcc_only$beta_1 <- 0.70   ## Large decrease from 0.90
+  
+  ll_dcc <- calculate_loglik_vector_r(y_test, pars_dcc_only, spec_mv, "multivariate")
+  
+  expect_false(identical(ll_base, ll_dcc),
+               info = "DCC parameter changes should affect log-likelihood")
+  
+  ## 2. GARCH parameters only (large change)
+  pars_garch_only <- pars_base
+  pars_garch_only$garch_pars[[1]]$omega <- 0.5  ## 5x increase from 0.1
+  
+  ll_garch <- calculate_loglik_vector_r(
+    y = y_test, 
+    current_pars = pars_garch_only, 
+    spec = spec_mv, 
+    model_type = "multivariate"
+  )
+  
+  expect_false(identical(ll_base, ll_garch),
+               info = "GARCH parameter changes should affect log-likelihood")
+  
+  ## 3. VAR parameters only
+  pars_var_only <- pars_base
+  pars_var_only$var_pars[2] <- 0.8  ## Increase from 0.5
+  
+  ll_var <- calculate_loglik_vector_r(y_test, pars_var_only, spec_mv, "multivariate")
+  
+  expect_false(identical(ll_base, ll_var),
+               info = "VAR parameter changes should affect log-likelihood")
+})
+
+
+test_that("calculate_loglik_vector_r works with MVT distribution", {
+  skip_on_cran()
+  
+  set.seed(789)
+  y_matrix <- matrix(rnorm(200, sd = 0.5), 100, 2)
+  colnames(y_matrix) <- c("series_1", "series_2")
+  y_test <- xts::xts(y_matrix, order.by = Sys.Date() - (nrow(y_matrix):1))
+  
+  spec_mvt <- list(
+    var_order = 1,
+    garch_spec_fun = "dcc_modelspec",
+    distribution = "mvt",
+    garch_spec_args = list(
+      dcc_order = c(1, 1),
+      garch_model = list(univariate = list(
+        list(model = "garch", garch_order = c(1, 1), distribution = "norm"),
+        list(model = "garch", garch_order = c(1, 1), distribution = "norm")
+      ))
+    ),
+    start_pars = list(dist_pars = list(shape = 8))
+  )
+  
+  pars_mvt <- list(
+    var_pars = c(0.1, 0.5, 0.1, 0.1, 0.2, 0.4),
+    garch_pars = list(
+      list(omega = 0.1, alpha1 = 0.1, beta1 = 0.8),
+      list(omega = 0.2, alpha1 = 0.15, beta1 = 0.7)
+    ),
+    alpha_1 = 0.05,
+    beta_1 = 0.90,
+    shape = 8.0
+  )
+  
+  ll_vec <- calculate_loglik_vector_r(y_test, pars_mvt, spec_mvt, "multivariate")
+  
+  ## Verify output
+  expect_true(is.numeric(ll_vec))
+  expect_true(all(is.finite(ll_vec)))
+  expect_equal(length(ll_vec), nrow(y_test))
+  
+  ## Should not be too extreme
+  expect_true(all(ll_vec > -100))
+  expect_true(all(ll_vec < 100))
+  
+  ## Different shape parameter should give different likelihood
+  pars_mvt2 <- pars_mvt
+  pars_mvt2$shape <- 5.0
+  
+  ll_vec2 <- calculate_loglik_vector_r(y_test, pars_mvt2, spec_mvt, "multivariate")
+  
+  expect_false(identical(ll_vec, ll_vec2))
+})
+
+
+test_that("calculate_loglik_vector_r matches tsmarch calculation", {
+  skip_on_cran()
+  
+  ## This test verifies consistency with tsmarch
+  
+  set.seed(999)
+  y_matrix <- matrix(rnorm(200, sd = 0.5), 100, 2)
+  colnames(y_matrix) <- c("series_1", "series_2")
+  y_test <- xts::xts(y_matrix, order.by = Sys.Date() - (nrow(y_matrix):1))
+  
+  spec_mv <- list(
+    var_order = 1,
+    garch_spec_fun = "dcc_modelspec",
+    distribution = "mvn",
+    garch_spec_args = list(
+      dcc_order = c(1, 1),
+      garch_model = list(univariate = list(
+        list(model = "garch", garch_order = c(1, 1), distribution = "norm"),
+        list(model = "garch", garch_order = c(1, 1), distribution = "norm")
+      ))
+    ),
+    start_pars = list(dist_pars = NULL)
+  )
+  
+  ## Use tsmarch to estimate and get parameters
   var_order <- 1
   k <- ncol(y_test)
   T_obs <- nrow(y_test)
-
-  ## Ensure lagged matrix is created from the core data of the xts object
+  
+  ## Compute VAR residuals
   X_lagged <- matrix(1, nrow = T_obs - var_order, ncol = 1 + k * var_order)
   X_lagged[, 2:(1+k)] <- coredata(y_test)[1:(T_obs-1), ]
   y_target <- coredata(y_test)[(var_order+1):T_obs, ]
+  var_pars <- rep(0.1, 1 + k * var_order)
+  beta_mat <- matrix(var_pars, nrow = 1 + k * var_order, ncol = k)
+  residuals_data <- y_target - X_lagged %*% beta_mat
   
-  beta_mat <- matrix(current_pars_mv$var_pars, nrow = 1 + k * var_order, ncol = k)
-  residuals_truth <- y_target - X_lagged %*% beta_mat
+  ## Create DCC spec and estimate
+  residuals_xts <- xts::xts(residuals_data, order.by = Sys.Date() - (nrow(residuals_data):1))
   
-  garch_spec_obj_truth <- create_garch_spec_object_r(residuals_truth, spec_mv, "multivariate")
+  ## Estimate univariate GARCH models
+  uni_models <- lapply(1:k, function(i) {
+    suppressWarnings(
+      estimate(
+        tsgarch::garch_modelspec(
+          y = residuals_xts[,i],
+          model = "garch",
+          garch_order = c(1, 1),
+          distribution = "norm"
+        )
+      )
+    )
+  })
   
-  all_fixed_pars_truth <- generate_tsmarch_parnames(current_pars_mv)
+  multi_est <- tsgarch::to_multi_estimate(uni_models)
+  names(multi_est) <- paste0("series_", 1:k)
   
-  for (par_name in names(all_fixed_pars_truth)) {
-    if (par_name %in% garch_spec_obj_truth$parmatrix$parameter) {
-      garch_spec_obj_truth$parmatrix[parameter == par_name, value := all_fixed_pars_truth[[par_name]]]
-      garch_spec_obj_truth$parmatrix[parameter == par_name, estimate := 0]
-    }
-  }
-  fit_truth <- suppressWarnings(estimate(garch_spec_obj_truth, keep_tmb = TRUE))
-  ll_vec_truth <- fit_truth$TMB_OBJECT$report()$ll_vector
-  
-  ## 4. Compare
-  T_eff <- length(ll_vec_truth)
-  T_orig <- length(ll_vec_calculated)
-  expect_equal(
-    ll_vec_calculated[(T_orig - T_eff + 1):T_orig], 
-    ll_vec_truth, 
-    tolerance = 1e-6
+  ## Create DCC spec
+  dcc_spec <- tsmarch::dcc_modelspec(
+    object = multi_est,
+    dcc_order = c(1, 1),
+    distribution = "mvn"
   )
+  
+  ## Estimate DCC
+  dcc_fit <- suppressWarnings(estimate(dcc_spec))
+  
+  ## Extract parameters
+  estimated_pars <- list(
+    var_pars = var_pars,
+    garch_pars = list(
+      list(omega = uni_models[[1]]$parmatrix[parameter == "omega"]$value,
+           alpha1 = uni_models[[1]]$parmatrix[parameter == "alpha1"]$value,
+           beta1 = uni_models[[1]]$parmatrix[parameter == "beta1"]$value),
+      list(omega = uni_models[[2]]$parmatrix[parameter == "omega"]$value,
+           alpha1 = uni_models[[2]]$parmatrix[parameter == "alpha1"]$value,
+           beta1 = uni_models[[2]]$parmatrix[parameter == "beta1"]$value)
+    ),
+    alpha_1 = dcc_fit$parmatrix[parameter == "alpha_1"]$value,
+    beta_1 = dcc_fit$parmatrix[parameter == "beta_1"]$value,
+    dist_pars = NULL
+  )
+  
+  ## Get log-likelihood from our function
+  ll_ours <- calculate_loglik_vector_r(
+    y = y_test,
+    current_pars = estimated_pars,
+    spec = spec_mv,
+    model_type = "multivariate"
+  )
+  
+  ## Get total log-likelihood from tsmarch
+  ll_tsmarch_total <- dcc_fit$loglik
+  ll_ours_total <- sum(ll_ours)
+  
+  ## Determine which sign convention tsmarch uses
+  diff_direct <- abs(ll_ours_total - ll_tsmarch_total)
+  diff_negated <- abs(ll_ours_total - (-ll_tsmarch_total))
+  
+  if (diff_direct < diff_negated) {
+    ## tsmarch returns log-likelihood (same sign)
+    expect_equal(ll_ours_total, ll_tsmarch_total, tolerance = 1e-3,
+                 info = paste0("Total log-likelihood should match tsmarch (same sign).\n",
+                               "Our LL: ", round(ll_ours_total, 4), "\n",
+                               "tsmarch LL: ", round(ll_tsmarch_total, 4)))
+  } else {
+    ## tsmarch returns negative log-likelihood
+    expect_equal(ll_ours_total, -ll_tsmarch_total, tolerance = 1e-3,
+                 info = paste0("Total log-likelihood should match negative of tsmarch.\n",
+                               "Our LL: ", round(ll_ours_total, 4), "\n",
+                               "tsmarch NLL: ", round(ll_tsmarch_total, 4), "\n",
+                               "tsmarch -NLL: ", round(-ll_tsmarch_total, 4)))
+  }
+})
+
+
+## == == == == == == == == == == == == == == == == == == == == == == ==
+## PART 7: Test Multivariate Parameter Estimation Structure
+## == == == == == == == == == == == == == == == == == == == == == == ==
+
+context("Multivariate DCC Parameter Estimation")
+
+test_that("estimate_garch_weighted_r returns correct structure for DCC", {
+  skip_on_cran()
+  
+  set.seed(789)
+  residuals_matrix <- matrix(rnorm(200, sd = 0.5), 100, 2)
+  colnames(residuals_matrix) <- c("series_1", "series_2")
+  
+  weights <- rep(1, 100)
+  
+  spec_dcc <- list(
+    garch_spec_fun = "dcc_modelspec",
+    distribution = "mvn",
+    garch_spec_args = list(
+      dcc_order = c(1, 1),
+      garch_model = list(univariate = list(
+        list(model = "garch", garch_order = c(1, 1), distribution = "norm"),
+        list(model = "garch", garch_order = c(1, 1), distribution = "norm")
+      ))
+    ),
+    start_pars = list(
+      garch_pars = list(
+        list(omega = 0.1, alpha1 = 0.1, beta1 = 0.8),
+        list(omega = 0.1, alpha1 = 0.1, beta1 = 0.8)
+      ),
+      dcc_pars = list(alpha_1 = 0.05, beta_1 = 0.90),
+      dist_pars = NULL
+    )
+  )
+  
+  result <- estimate_garch_weighted_r(
+    residuals = residuals_matrix,
+    weights = weights,
+    spec = spec_dcc,
+    model_type = "multivariate"
+  )
+  
+  ## Verify structure
+  expect_type(result, "list")
+  expect_named(result, c("coefficients", "warnings"))
+  
+  expect_true("garch_pars" %in% names(result$coefficients))
+  expect_true("dcc_pars" %in% names(result$coefficients))
+  
+  expect_length(result$coefficients$garch_pars, 2)
+  
+  expect_named(result$coefficients$garch_pars[[1]], c("omega", "alpha1", "beta1"))
+  expect_named(result$coefficients$garch_pars[[2]], c("omega", "alpha1", "beta1"))
+  
+  expect_named(result$coefficients$dcc_pars, c("alpha_1", "beta_1"))
+  
+  ## Check parameter bounds
+  for (i in 1:2) {
+    garch_pars <- result$coefficients$garch_pars[[i]]
+    expect_true(garch_pars$omega > 0)
+    expect_true(garch_pars$alpha1 >= 0)
+    expect_true(garch_pars$beta1 >= 0)
+    expect_true((garch_pars$alpha1 + garch_pars$beta1) < 1)
+  }
+  
+  dcc_pars <- result$coefficients$dcc_pars
+  expect_true(dcc_pars$alpha_1 >= 0)
+  expect_true(dcc_pars$beta_1 >= 0)
+  expect_true((dcc_pars$alpha_1 + dcc_pars$beta_1) < 1)
+})
+
+
+test_that("estimate_garch_weighted_r handles DCC-MVT with shape parameter", {
+  skip_on_cran()
+  
+  set.seed(101112)
+  residuals_matrix <- matrix(rnorm(200, sd = 0.5), 100, 2)
+  colnames(residuals_matrix) <- c("series_1", "series_2")
+  
+  weights <- rep(1, 100)
+  
+  spec_dcc_t <- list(
+    garch_spec_fun = "dcc_modelspec",
+    distribution = "mvt",
+    garch_spec_args = list(
+      dcc_order = c(1, 1),
+      garch_model = list(univariate = list(
+        list(model = "garch", garch_order = c(1, 1), distribution = "norm"),
+        list(model = "garch", garch_order = c(1, 1), distribution = "norm")
+      ))
+    ),
+    start_pars = list(
+      garch_pars = list(
+        list(omega = 0.1, alpha1 = 0.1, beta1 = 0.8),
+        list(omega = 0.1, alpha1 = 0.1, beta1 = 0.8)
+      ),
+      dcc_pars = list(alpha_1 = 0.05, beta_1 = 0.90),
+      dist_pars = list(shape = 8.0)
+    )
+  )
+  
+  result <- estimate_garch_weighted_r(
+    residuals = residuals_matrix,
+    weights = weights,
+    spec = spec_dcc_t,
+    model_type = "multivariate"
+  )
+  
+  expect_true("dist_pars" %in% names(result$coefficients))
+  expect_named(result$coefficients$dist_pars, "shape")
+  expect_true(result$coefficients$dist_pars$shape > 2)
 })

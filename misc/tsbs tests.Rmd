@@ -1258,3 +1258,455 @@ length(boot_reps)           # 5 replicates
 dim(boot_reps[[1]])         # 100 x 1 matrix
 ```
 
+
+
+## DIAGNOSTIC: Why aren't parameters affecting the log-likelihood?
+
+```{r}
+## Setup test data
+set.seed(456)
+y_matrix <- matrix(rnorm(200, sd = 0.5), 100, 2)
+colnames(y_matrix) <- c("series_1", "series_2")
+y_test <- xts::xts(y_matrix, order.by = Sys.Date() - (nrow(y_matrix):1))
+
+spec_mv <- list(
+  var_order = 1,
+  garch_spec_fun = "dcc_modelspec",
+  distribution = "mvn",
+  garch_spec_args = list(
+    dcc_order = c(1, 1),
+    garch_model = list(univariate = list(
+      list(model = "garch", garch_order = c(1, 1), distribution = "norm"),
+      list(model = "garch", garch_order = c(1, 1), distribution = "norm")
+    ))
+  ),
+  start_pars = list(dist_pars = NULL)
+)
+
+## Base parameters
+pars_base <- list(
+  var_pars = c(0.1, 0.5, 0.1, 0.1, 0.2, 0.4),
+  garch_pars = list(
+    list(omega = 0.1, alpha1 = 0.1, beta1 = 0.8),
+    list(omega = 0.2, alpha1 = 0.15, beta1 = 0.7)
+  ),
+  alpha_1 = 0.05,
+  beta_1 = 0.90,
+  dist_pars = NULL
+)
+
+## Very different parameters
+pars_different <- list(
+  var_pars = c(0.5, 0.8, 0.3, 0.4, 0.5, 0.6),  ## Very different
+  garch_pars = list(
+    list(omega = 0.5, alpha1 = 0.2, beta1 = 0.7),  ## Much higher omega
+    list(omega = 0.6, alpha1 = 0.3, beta1 = 0.6)   ## Much higher omega
+  ),
+  alpha_1 = 0.20,  ## Much higher
+  beta_1 = 0.70,   ## Much lower
+  dist_pars = NULL
+)
+
+cat("1. Testing with base parameters...\n")
+ll_base <- calculate_loglik_vector_r(y_test, pars_base, spec_mv, "multivariate")
+cat("   Sum of LL:", sum(ll_base), "\n")
+cat("   First 5 values:", head(ll_base, 5), "\n\n")
+
+cat("2. Testing with very different parameters...\n")
+ll_diff <- calculate_loglik_vector_r(y_test, pars_different, spec_mv, "multivariate")
+cat("   Sum of LL:", sum(ll_diff), "\n")
+cat("   First 5 values:", head(ll_diff, 5), "\n\n")
+
+cat("3. Comparison:\n")
+cat("   Are they identical?", identical(ll_base, ll_diff), "\n")
+cat("   Difference in sums:", sum(ll_diff) - sum(ll_base), "\n")
+cat("   Max element difference:", max(abs(ll_diff - ll_base)), "\n\n")
+
+if (identical(ll_base, ll_diff)) {
+  cat("❌ PROBLEM FOUND: Parameters are NOT affecting the log-likelihood!\n\n")
+  
+  cat("This suggests calculate_loglik_vector_r() is:\n")
+  cat("  1. Not reading the parameters from current_pars\n")
+  cat("  2. Using fixed/default parameters instead\n")
+  cat("  3. Or there's an issue in create_garch_spec_object_r()\n\n")
+  
+  cat("NEXT STEPS:\n")
+  cat("  1. Check create_garch_spec_object_r() - does it use current_pars?\n")
+  cat("  2. Check if parameters are being set in the spec object\n")
+  cat("  3. Check if estimate() is using the set parameters\n\n")
+  
+  cat("Let's test create_garch_spec_object_r() directly:\n\n")
+  
+  ## Get residuals
+  var_order <- 1
+  k <- ncol(y_test)
+  T_obs <- nrow(y_test)
+  
+  X_lagged <- matrix(1, nrow = T_obs - var_order, ncol = 1 + k * var_order)
+  X_lagged[, 2:(1+k)] <- coredata(y_test)[1:(T_obs-1), ]
+  y_target <- coredata(y_test)[(var_order+1):T_obs, ]
+  
+  beta_mat_base <- matrix(pars_base$var_pars, nrow = 1 + k * var_order, ncol = k)
+  residuals_base <- y_target - X_lagged %*% beta_mat_base
+  
+  beta_mat_diff <- matrix(pars_different$var_pars, nrow = 1 + k * var_order, ncol = k)
+  residuals_diff <- y_target - X_lagged %*% beta_mat_diff
+  
+  cat("Residuals with base VAR params:\n")
+  cat("  Mean:", mean(residuals_base), "\n")
+  cat("  SD:", sd(residuals_base), "\n\n")
+  
+  cat("Residuals with different VAR params:\n")
+  cat("  Mean:", mean(residuals_diff), "\n")
+  cat("  SD:", sd(residuals_diff), "\n\n")
+  
+  if (identical(residuals_base, residuals_diff)) {
+    cat("❌ Even the residuals are identical! VAR parameters not being used.\n")
+  } else {
+    cat("✓ Residuals are different, so VAR parameters ARE being used.\n")
+    cat("  Issue is likely in GARCH/DCC parameter usage.\n\n")
+    
+    cat("Testing GARCH spec creation:\n")
+    spec_obj_base <- create_garch_spec_object_r(
+      residuals_base, spec_mv, "multivariate", pars_base
+    )
+    
+    spec_obj_diff <- create_garch_spec_object_r(
+      residuals_diff, spec_mv, "multivariate", pars_different
+    )
+    
+    cat("\nBase parameters in spec:\n")
+    print(spec_obj_base$parmatrix[, .(parameter, value, estimate)])
+    
+    cat("\nDifferent parameters in spec:\n")
+    print(spec_obj_diff$parmatrix[, .(parameter, value, estimate)])
+    
+    cat("\nAre the parmatrices identical?\n")
+    cat("  ", identical(spec_obj_base$parmatrix$value, 
+                        spec_obj_diff$parmatrix$value), "\n")
+  }
+  
+} else {
+  cat("✓ GOOD: Parameters ARE affecting the log-likelihood as expected!\n")
+  cat("  The test failure might be due to small parameter changes.\n")
+  cat("  Try using more extreme parameter differences.\n")
+}
+
+cat("\n=== End of diagnostic ===\n")
+```
+
+
+
+## DIAGNOSTIC: Check if parameters are actually being set in spec objects
+
+```{r}
+cat("=== Checking Parameter Setting in Spec Objects ===\n\n")
+
+## Setup
+set.seed(456)
+y_matrix <- matrix(rnorm(200, sd = 0.5), 100, 2)
+colnames(y_matrix) <- c("series_1", "series_2")
+y_test <- xts::xts(y_matrix, order.by = Sys.Date() - (nrow(y_matrix):1))
+
+spec_mv <- list(
+  var_order = 1,
+  garch_spec_fun = "dcc_modelspec",
+  distribution = "mvn",
+  garch_spec_args = list(
+    dcc_order = c(1, 1),
+    garch_model = list(univariate = list(
+      list(model = "garch", garch_order = c(1, 1), distribution = "norm"),
+      list(model = "garch", garch_order = c(1, 1), distribution = "norm")
+    ))
+  ),
+  start_pars = list(dist_pars = NULL)
+)
+
+pars_test <- list(
+  var_pars = c(0.1, 0.5, 0.1, 0.1, 0.2, 0.4),
+  garch_pars = list(
+    list(omega = 0.1, alpha1 = 0.1, beta1 = 0.8),
+    list(omega = 0.2, alpha1 = 0.15, beta1 = 0.7)
+  ),
+  alpha_1 = 0.05,
+  beta_1 = 0.90,
+  dist_pars = NULL
+)
+
+## Compute residuals (same as in calculate_loglik_vector_r)
+var_order <- 1
+k <- ncol(y_test)
+T_obs <- nrow(y_test)
+X_lagged <- matrix(1, nrow = T_obs - var_order, ncol = 1 + k * var_order)
+X_lagged[, 2:(1+k)] <- coredata(y_test)[1:(T_obs-1), ]
+y_target <- coredata(y_test)[(var_order+1):T_obs, ]
+beta_mat <- matrix(pars_test$var_pars, nrow = 1 + k * var_order, ncol = k)
+model_residuals <- y_target - X_lagged %*% beta_mat
+```
+
+```{r}
+cat("1. Testing create_garch_spec_object_r()...\n")
+
+## Call create_garch_spec_object_r
+spec_obj <- create_garch_spec_object_r(
+  model_residuals, 
+  spec_mv, 
+  "multivariate",
+  pars_test
+)
+```
+
+```{r}
+cat("\n2. Checking what parameters are in the spec:\n")
+print(spec_obj$parmatrix[, .(parameter, value, estimate)])
+
+cat("\n3. Comparing to what we requested:\n")
+cat("Requested alpha_1:", pars_test$alpha_1, "\n")
+cat("In spec alpha_1:  ", spec_obj$parmatrix[parameter == "alpha_1"]$value, "\n")
+cat("Match?", 
+    isTRUE(all.equal(pars_test$alpha_1, 
+                     spec_obj$parmatrix[parameter == "alpha_1"]$value)),
+    "\n\n")
+
+cat("Requested beta_1:", pars_test$beta_1, "\n")
+cat("In spec beta_1:  ", spec_obj$parmatrix[parameter == "beta_1"]$value, "\n")
+cat("Match?", 
+    isTRUE(all.equal(pars_test$beta_1, 
+                     spec_obj$parmatrix[parameter == "beta_1"]$value)),
+    "\n\n")
+
+cat("Requested omega[1]:", pars_test$garch_pars[[1]]$omega, "\n")
+omega1_in_spec <- spec_obj$parmatrix[parameter == "omega[1]"]$value
+if (length(omega1_in_spec) > 0) {
+  cat("In spec omega[1]:  ", omega1_in_spec, "\n")
+  cat("Match?", 
+      isTRUE(all.equal(pars_test$garch_pars[[1]]$omega, omega1_in_spec)),
+      "\n\n")
+} else {
+  cat("ERROR: omega[1] not found in spec!\n\n")
+}
+```
+
+```{r}
+cat("4. Testing if changing parameters changes the spec:\n\n")
+
+pars_different <- pars_test
+pars_different$alpha_1 <- 0.99
+pars_different$beta_1 <- 0.01
+
+spec_obj_diff <- create_garch_spec_object_r(
+  model_residuals, 
+  spec_mv, 
+  "multivariate",
+  pars_different
+)
+
+cat("Original spec alpha_1:", spec_obj$parmatrix[parameter == "alpha_1"]$value, "\n")
+cat("New spec alpha_1:     ", spec_obj_diff$parmatrix[parameter == "alpha_1"]$value, "\n")
+cat("Should be different:  ", 
+    spec_obj$parmatrix[parameter == "alpha_1"]$value != 
+      spec_obj_diff$parmatrix[parameter == "alpha_1"]$value, "\n\n")
+
+```
+
+```{r}
+if (spec_obj$parmatrix[parameter == "alpha_1"]$value == 
+    spec_obj_diff$parmatrix[parameter == "alpha_1"]$value) {
+  cat("❌ BUG CONFIRMED: Parameters in current_pars are NOT being set in the spec!\n")
+  cat("   create_garch_spec_object_r() is ignoring the current_pars argument.\n\n")
+  
+  cat("SOLUTION: The fix from artifact 'fix_create_garch_spec' needs to be applied.\n")
+  cat("          After STEP 3 in create_garch_spec_object_r(), add:\n\n")
+  cat("## Set DCC parameters\n")
+  cat("dcc_param_names <- grep('^(alpha|beta|gamma)_[0-9]+$', names(current_pars), value = TRUE)\n")
+  cat("for (par_name in dcc_param_names) {\n")
+  cat("  if (par_name %in% garch_spec_obj$parmatrix$parameter) {\n")
+  cat("    value <- current_pars[[par_name]]\n")
+  cat("    # ... set bounds and assign ...\n")
+  cat("  }\n")
+  cat("}\n")
+} else {
+  cat("✓ GOOD: Parameters ARE being set correctly!\n")
+  cat("   The bug must be elsewhere in calculate_loglik_vector_r().\n")
+}
+
+cat("\n=== End of diagnostic ===\n")
+```
+
+
+## DETAILED DIAGNOSTIC: Trace through DCC spec creation step by step
+
+```{r}
+cat("=== Detailed DCC Spec Creation Diagnostic ===\n\n")
+
+## Setup
+set.seed(456)
+y_matrix <- matrix(rnorm(200, sd = 0.5), 100, 2)
+colnames(y_matrix) <- c("series_1", "series_2")
+y_test <- xts::xts(y_matrix, order.by = Sys.Date() - (nrow(y_matrix):1))
+
+spec_mv <- list(
+  var_order = 1,
+  garch_spec_fun = "dcc_modelspec",
+  distribution = "mvn",
+  garch_spec_args = list(
+    dcc_order = c(1, 1),
+    garch_model = list(univariate = list(
+      list(model = "garch", garch_order = c(1, 1), distribution = "norm"),
+      list(model = "garch", garch_order = c(1, 1), distribution = "norm")
+    ))
+  ),
+  start_pars = list(dist_pars = NULL)
+)
+
+## Get residuals
+var_order <- 1
+k <- ncol(y_test)
+T_obs <- nrow(y_test)
+X_lagged <- matrix(1, nrow = T_obs - var_order, ncol = 1 + k * var_order)
+X_lagged[, 2:(1+k)] <- coredata(y_test)[1:(T_obs-1), ]
+y_target <- coredata(y_test)[(var_order+1):T_obs, ]
+var_pars <- c(0.1, 0.5, 0.1, 0.1, 0.2, 0.4)
+beta_mat <- matrix(var_pars, nrow = 1 + k * var_order, ncol = k)
+model_residuals <- y_target - X_lagged %*% beta_mat
+
+residuals_xts <- xts::xts(model_residuals, order.by = Sys.Date() - (nrow(model_residuals):1))
+```
+
+```{r}
+cat("Step 1: Creating univariate GARCH models...\n")
+
+spec_args <- spec_mv$garch_spec_args
+
+univariate_models <- lapply(1:k, function(i) {
+  cat("  Series", i, "...\n")
+  
+  uni_spec_details <- spec_args$garch_model$univariate[[i]]
+  
+  uni_spec_obj <- tsgarch::garch_modelspec(
+    y = residuals_xts[,i],
+    model = uni_spec_details$model,
+    garch_order = uni_spec_details$garch_order,
+    distribution = uni_spec_details$distribution
+  )
+  
+  cat("    Spec created, estimating...\n")
+  uni_fit <- suppressWarnings(estimate(uni_spec_obj, keep_tmb = TRUE))
+  cat("    Estimated. Parameters:\n")
+  print(uni_fit$parmatrix[, .(parameter, value)])
+  
+  return(uni_fit)
+})
+```
+
+```{r}
+cat("\nStep 2: Combining into multi_estimate object...\n")
+
+multi_estimate_object <- tsgarch::to_multi_estimate(univariate_models)
+names(multi_estimate_object) <- paste0("series_", 1:k)
+
+cat("  Class:", class(multi_estimate_object), "\n")
+cat("  Names:", names(multi_estimate_object), "\n")
+```
+
+
+```{r}
+cat("\nStep 3: Creating DCC spec...\n")
+
+cat("  Using function:", spec_mv$garch_spec_fun, "\n")
+cat("  DCC order:", spec_mv$garch_spec_args$dcc_order, "\n")
+cat("  Distribution:", spec_mv$distribution, "\n")
+
+## Build arguments for dcc_modelspec
+final_args <- list(
+  object = multi_estimate_object,
+  dcc_order = spec_args$dcc_order,
+  distribution = spec_mv$distribution
+)
+
+cat("\n  Arguments to dcc_modelspec:\n")
+cat("    object: multi_estimate (", length(multi_estimate_object), "series )\n")
+cat("    dcc_order:", final_args$dcc_order, "\n")
+cat("    distribution:", final_args$distribution, "\n")
+
+cat("\n  Calling dcc_modelspec...\n")
+dcc_spec <- tsmarch::dcc_modelspec(
+  object = multi_estimate_object,
+  dcc_order = c(1, 1),
+  distribution = "mvn"
+)
+
+cat("  DCC spec created!\n")
+cat("  Class:", class(dcc_spec), "\n")
+```
+
+```{r}
+cat("\nStep 4: Examining DCC spec parameters...\n")
+
+cat("  Parameter matrix:\n")
+print(dcc_spec$parmatrix[, .(parameter, value, estimate, group)])
+
+cat("\n  Full parameter names:\n")
+print(dcc_spec$parmatrix$parameter)
+```
+
+
+```{r}
+cat("\n  Dynamics info:\n")
+if (!is.null(dcc_spec$dynamics)) {
+  cat("    Model:", dcc_spec$dynamics$model, "\n")
+  cat("    Order:", dcc_spec$dynamics$order, "\n")
+} else {
+  cat("    WARNING: No dynamics element in spec!\n")
+}
+
+cat("\n  Checking for specific parameters:\n")
+cat("    Has alpha_1?", "alpha_1" %in% dcc_spec$parmatrix$parameter, "\n")
+cat("    Has beta_1?", "beta_1" %in% dcc_spec$parmatrix$parameter, "\n")
+cat("    Has omega[1]?", "omega[1]" %in% dcc_spec$parmatrix$parameter, "\n")
+cat("    Has alpha1[1]?", "alpha1[1]" %in% dcc_spec$parmatrix$parameter, "\n")
+
+cat("\n=== Analysis ===\n")
+
+if (!"alpha_1" %in% dcc_spec$parmatrix$parameter) {
+  cat("❌ PROBLEM: DCC parameters (alpha_1, beta_1) are NOT in the spec!\n")
+  cat("   This means dcc_modelspec() returned a constant correlation spec.\n\n")
+  
+  cat("Possible causes:\n")
+  cat("1. The dcc_order argument was not passed correctly\n")
+  cat("2. The multi_estimate object is not valid\n")
+  cat("3. tsmarch is detecting something wrong and falling back to constant\n\n")
+  
+  cat("Let's check the dcc_order that was actually used:\n")
+  if (!is.null(dcc_spec$dynamics)) {
+    cat("  Spec dynamics order:", dcc_spec$dynamics$order, "\n")
+    if (all(dcc_spec$dynamics$order == c(0, 0))) {
+      cat("  ❌ Order is (0,0) = constant correlation!\n")
+      cat("     But we requested:", spec_args$dcc_order, "\n")
+    }
+  }
+  
+  cat("\nTrying alternative approach - calling dcc_modelspec differently:\n")
+  
+  ## Try with explicit dynamics argument
+  dcc_spec2 <- tsmarch::dcc_modelspec(
+    object = multi_estimate_object,
+    dcc_order = c(1, 1),
+    dynamics = "dcc",  ## Explicit
+    distribution = "mvn"
+  )
+  
+  cat("  Alternative spec parameters:\n")
+  print(dcc_spec2$parmatrix$parameter)
+  
+  if ("alpha_1" %in% dcc_spec2$parmatrix$parameter) {
+    cat("\n✓ SUCCESS with explicit dynamics='dcc' argument!\n")
+  }
+  
+} else {
+  cat("✓ GOOD: DCC spec has the expected parameters!\n")
+}
+
+cat("\n=== End of diagnostic ===\n")
+```
+
