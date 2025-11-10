@@ -1,4 +1,4 @@
-#' Fit a Flexible N-State Markov-Switching ARMA-GARCH Model
+#' Fit a Flexible N-State Markov-Switching Vector-ARMA-GARCH Model
 #'
 #' This function provides a user-friendly interface to fit a general Markov-Switching
 #' model. It handles data validation, pre-processing, calls the C++ estimation

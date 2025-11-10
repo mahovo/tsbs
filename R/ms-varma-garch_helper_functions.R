@@ -58,12 +58,14 @@ create_garch_spec_object_r <- function(
       garch_order = spec$garch_order,
       distribution = spec$distribution
     )
-    
+     
     ## Set parameters from previous M-step
     all_fixed_pars <- c(current_pars$garch_pars, current_pars$dist_pars)
     for (par_name in names(all_fixed_pars)) {
       if (par_name %in% garch_spec_obj$parmatrix$parameter) {
-        garch_spec_obj$parmatrix[parameter == par_name, value := all_fixed_pars[[par_name]]]
+        #garch_spec_obj$parmatrix[parameter == par_name, value := all_fixed_pars[[par_name]]]
+        row_idx <- which(garch_spec_obj$parmatrix$parameter == par_name)
+        garch_spec_obj$parmatrix[row_idx, "value"] <- all_fixed_pars[[par_name]]
       }
     }
     
@@ -76,8 +78,7 @@ create_garch_spec_object_r <- function(
     spec_args <- spec$garch_spec_args
     
     if (spec_fun_name %in% c("dcc_modelspec", "cgarch_modelspec")) {
-      ## STEP 1: Create and estimate each univariate GARCH model
-      ## WITHOUT setting parameters yet (let it estimate freely first)
+      ## STEP 1: Create specs and filter with fixed parameters (NO estimation)
       univariate_models <- lapply(1:ncol(residuals_xts), function(i) {
         uni_spec_details <- spec_args$garch_model$univariate[[i]]
         uni_spec_obj <- tsgarch::garch_modelspec(
@@ -87,30 +88,130 @@ create_garch_spec_object_r <- function(
           distribution = uni_spec_details$distribution
         )
         
-        ## Estimate freely to get a valid fitted object
-        ## We'll override these parameters later
-        suppressWarnings(estimate(uni_spec_obj, keep_tmb = TRUE))
-      })
-      
-      ## CRITICAL FIX: Set univariate GARCH parameters BEFORE creating DCC spec
-      ## Must do this here because dcc_modelspec() captures the univariate objects
-      for (i in seq_along(univariate_models)) {
+        ## SET PARAMETERS in the spec
         series_garch_pars <- current_pars$garch_pars[[i]]
-        
         for (par_name in names(series_garch_pars)) {
-          if (par_name %in% univariate_models[[i]]$parmatrix$parameter) {
+          if (par_name %in% uni_spec_obj$parmatrix$parameter) {
             value <- series_garch_pars[[par_name]]
             
             ## Ensure value respects bounds
-            lower <- univariate_models[[i]]$parmatrix[parameter == par_name]$lower
-            upper <- univariate_models[[i]]$parmatrix[parameter == par_name]$upper
+            lower <- uni_spec_obj$parmatrix[parameter == par_name]$lower
+            upper <- uni_spec_obj$parmatrix[parameter == par_name]$upper
             value <- max(value, lower + 1e-8)
             value <- min(value, upper - 1e-8)
             
-            univariate_models[[i]]$parmatrix[parameter == par_name, value := value]
+            #uni_spec_obj$parmatrix[parameter == par_name, value := value]
+            row_idx <- which(uni_spec_obj$parmatrix$parameter == par_name)
+            uni_spec_obj$parmatrix[row_idx, "value"] <- value
           }
         }
-      }
+        
+        ## Use tsfilter() instead of estimate() to get sigma with fixed parameters
+        ## tsfilter() doesn't re-estimate, it just computes sigma given the parameters
+        fitted_obj <- tsfilter(uni_spec_obj)
+        
+        ## BUT: we need a structure compatible with to_multi_estimate()
+        ## So we need to add the tmb object. Let's estimate but then override
+        estimated_obj <- suppressWarnings(estimate(uni_spec_obj, keep_tmb = TRUE))
+        
+        ## Now override the parameters back to what we want
+        for (par_name in names(series_garch_pars)) {
+          if (par_name %in% estimated_obj$parmatrix$parameter) {
+            value <- series_garch_pars[[par_name]]
+            lower <- estimated_obj$parmatrix[parameter == par_name]$lower
+            upper <- estimated_obj$parmatrix[parameter == par_name]$upper
+            value <- max(value, lower + 1e-8)
+            value <- min(value, upper - 1e-8)
+            
+            cat("  Trying to set", par_name, "to", value, "\n")
+            
+            ## Use direct assignment instead of := in data table
+            row_idx <- which(estimated_obj$parmatrix$parameter == par_name)
+            estimated_obj$parmatrix[row_idx, "value"] <- value
+            
+            cat("  After setting, value is:", estimated_obj$parmatrix[parameter == par_name]$value, "\n")
+          }
+        }
+        
+        ## And recompute sigma with the correct parameters using TMB
+        estimate_col <- NULL  # for data.table syntax
+        new_pars <- estimated_obj$parmatrix[estimate == 1]$value
+        if (!is.null(estimated_obj$tmb)) {
+          tmb_report <- estimated_obj$tmb$report(new_pars)
+          maxpq <- max(estimated_obj$spec$model$order)
+          if (maxpq > 0) {
+            estimated_obj$sigma <- tmb_report$sigma[-c(1:maxpq)]
+          } else {
+            estimated_obj$sigma <- tmb_report$sigma
+          }
+        }
+        
+        cat("\n=== TMB DIAGNOSTIC for series", i, "===\n")
+        cat("Parameters we want:", paste(unlist(series_garch_pars), collapse=", "), "\n")
+        cat("Parameters in parmatrix:", paste(estimated_obj$parmatrix[parameter %in% names(series_garch_pars)]$value, collapse=", "), "\n")
+        cat("Parameters passed to tmb$report:", paste(new_pars, collapse=", "), "\n")
+        
+        ## Let's also check what tmb$fn returns (the negative log-likelihood)
+        nll_before <- estimated_obj$tmb$fn(estimated_obj$parmatrix[estimate == 1]$value)
+        cat("NLL at estimated params:", nll_before, "\n")
+        
+        nll_after <- estimated_obj$tmb$fn(new_pars)
+        cat("NLL at desired params:", nll_after, "\n")
+        cat("NLL changed?:", nll_before != nll_after, "\n")
+        
+        return(estimated_obj)
+      })
+      
+      ## DEBUG DIAGNOSTIC 1: Check what we're trying to set
+      cat("\n=== DEBUG 1: Before parameter update ===\n")
+      cat("current_pars$garch_pars[[1]] names:", paste(names(current_pars$garch_pars[[1]]), collapse=", "), "\n")
+      cat("current_pars$garch_pars[[1]] values:", paste(unlist(current_pars$garch_pars[[1]]), collapse=", "), "\n")
+      cat("univariate_models[[1]]$parmatrix parameters:", paste(univariate_models[[1]]$parmatrix$parameter, collapse=", "), "\n")
+      cat("univariate_models[[1]]$parmatrix values (before):\n")
+      print(univariate_models[[1]]$parmatrix[parameter %in% c("omega", "alpha1", "beta1")])
+      
+      cat("\nStructure of univariate_models[[1]]:\n")
+      cat("Names:", paste(names(univariate_models[[1]]), collapse=", "), "\n")
+      cat("Has $sigma:", !is.null(univariate_models[[1]]$sigma), "\n")
+      
+      ## CRITICAL FIX: Set univariate GARCH parameters BEFORE creating DCC spec
+      ## Must do this here because dcc_modelspec() captures the univariate objects
+      # for (i in seq_along(univariate_models)) {
+      #   series_garch_pars <- current_pars$garch_pars[[i]]
+      #   
+      #   for (par_name in names(series_garch_pars)) {
+      #     if (par_name %in% univariate_models[[i]]$parmatrix$parameter) {
+      #       value <- series_garch_pars[[par_name]]
+      #       
+      #       ## Ensure value respects bounds
+      #       lower <- univariate_models[[i]]$parmatrix[parameter == par_name]$lower
+      #       upper <- univariate_models[[i]]$parmatrix[parameter == par_name]$upper
+      #       value <- max(value, lower + 1e-8)
+      #       value <- min(value, upper - 1e-8)
+      #       
+      #       univariate_models[[i]]$parmatrix[parameter == par_name, value := value]
+      #     }
+      #   }
+      #   
+      #   ## CRITICAL: After updating parameters, recompute sigma using TMB
+      #   ## Extract the new parameter values in the order TMB expects
+      #   estimate <- NULL
+      #   new_pars <- univariate_models[[i]]$parmatrix[estimate == 1]$value
+      #   
+      #   ## Use TMB's report() function to get sigma with new parameters
+      #   if (!is.null(univariate_models[[i]]$tmb)) {
+      #     tmb_report <- univariate_models[[i]]$tmb$report(new_pars)
+      #     
+      #     ## Update the sigma in the fitted object
+      #     ## Check if we need to strip off initialization period
+      #     maxpq <- max(univariate_models[[i]]$spec$model$order)
+      #     if (maxpq > 0) {
+      #       univariate_models[[i]]$sigma <- tmb_report$sigma[-c(1:maxpq)]
+      #     } else {
+      #       univariate_models[[i]]$sigma <- tmb_report$sigma
+      #     }
+      #   }
+      # }
       
       ## STEP 2: Combine into multi_estimate object
       multi_estimate_object <- tsgarch::to_multi_estimate(univariate_models)
@@ -123,7 +224,7 @@ create_garch_spec_object_r <- function(
       )
       final_args$distribution <- spec$distribution
       
-      ## CRITICAL FIX: Must explicitly specify dynamics = "dcc" for dynamic correlation
+      ## Must explicitly specify dynamics = "dcc" for dynamic correlation
       ## Without this, tsmarch defaults to constant correlation!
       if (is.null(final_args$dynamics)) {
         final_args$dynamics <- "dcc"
@@ -146,7 +247,9 @@ create_garch_spec_object_r <- function(
           value <- max(value, lower + 1e-8)
           value <- min(value, upper - 1e-8)
           
-          garch_spec_obj$parmatrix[parameter == par_name, value := value]
+          #garch_spec_obj$parmatrix[parameter == par_name, value := value]
+          row_idx <- which(garch_spec_obj$parmatrix$parameter == par_name)
+          garch_spec_obj$parmatrix[row_idx, "value"] <- value
         }
       }
       
@@ -161,7 +264,9 @@ create_garch_spec_object_r <- function(
             value <- max(value, lower + 1e-8)
             value <- min(value, upper - 1e-8)
             
-            garch_spec_obj$parmatrix[parameter == par_name, value := value]
+            #garch_spec_obj$parmatrix[parameter == par_name, value := value]
+            row_idx <- which(garch_spec_obj$parmatrix$parameter == par_name)
+            garch_spec_obj$parmatrix[row_idx, "value"] <- value
           }
         }
       }
@@ -268,11 +373,13 @@ calculate_loglik_vector_r <- function(
       
       ## Extract DCC-layer parameters from current EM iteration
       other_pars <- current_pars[!names(current_pars) %in% c("var_pars", "garch_pars")]
-      
+
       ## Inject these into the spec's parmatrix for the internal functions to use
       for (par_name in names(other_pars)) {
         if (par_name %in% garch_spec_obj$parmatrix$parameter) {
-          garch_spec_obj$parmatrix[parameter == par_name, value := other_pars[[par_name]]]
+          #garch_spec_obj$parmatrix[parameter == par_name, value := other_pars[[par_name]]]
+          row_idx <- which(garch_spec_obj$parmatrix$parameter == par_name)
+          garch_spec_obj$parmatrix[row_idx, "value"] <- other_pars[[par_name]]
         }
       }
       
@@ -290,9 +397,25 @@ calculate_loglik_vector_r <- function(
         if (is_dynamic) {
           ## DCC Dynamic: Call internal function directly
           total_nll_vec <- tsmarch:::.dcc_dynamic_values(
-            pars, garch_spec_obj, 
+            pars, 
+            garch_spec_obj, 
             type = "ll_vec"
           )
+          
+cat("\n=== DIAGNOSTIC: Inside calculate_loglik_vector_r ===\n")
+cat("DCC parameters in parmatrix before calling .dcc_dynamic_values():\n")
+print(garch_spec_obj$parmatrix[parameter %in% c("alpha_1", "beta_1")])
+
+cat("\nUnivariate series_1 GARCH params in spec$univariate:\n")
+print(garch_spec_obj$univariate$series_1$parmatrix[parameter %in% c("omega", "alpha1", "beta1")])
+
+cat("\nSample sigma values from univariate series_1:\n")
+print(head(sigma(garch_spec_obj$univariate)$series_1, 5))
+
+cat("\nParameters being passed to .dcc_dynamic_values():\n")
+print(pars)
+cat("\n")
+          
           
           ## Strip off initialization period
           dcc_order <- garch_spec_obj$dynamics$order
@@ -524,7 +647,9 @@ estimate_garch_weighted_univariate <- function(residuals, weights, spec) {
     ## Set all parameter values (GARCH + dist) for this iteration
     for (par_name in names(param_list)) {
       if (par_name %in% garch_spec_obj$parmatrix$parameter) {
-        garch_spec_obj$parmatrix[parameter == par_name, value := param_list[[par_name]]]
+        #garch_spec_obj$parmatrix[parameter == par_name, value := param_list[[par_name]]]
+        row_idx <- which(garch_spec_obj$parmatrix$parameter == par_name)
+        garch_spec_obj$parmatrix[row_idx, "value"] <- param_list[[par_name]]
       }
     }
     
@@ -678,8 +803,14 @@ estimate_garch_weighted_dcc <- function(residuals, weights, spec) {
 
 #' @title Estimate DCC Correlation Dynamics (Weighted)
 #' @keywords internal
-estimate_dcc_parameters_weighted <- function(residuals, weights, garch_pars, 
-                                             dcc_start_pars, dist_start_pars, spec) {
+estimate_dcc_parameters_weighted <- function(
+    residuals, 
+    weights, 
+    garch_pars,
+    dcc_start_pars, 
+    dist_start_pars, 
+    spec
+  ) {
   
   k <- ncol(residuals)
   T_obs <- nrow(residuals)
@@ -701,7 +832,9 @@ estimate_dcc_parameters_weighted <- function(residuals, weights, garch_pars,
     ## Set estimated parameters
     for (par_name in names(garch_pars[[i]])) {
       if (par_name %in% uni_spec_obj$parmatrix$parameter) {
-        uni_spec_obj$parmatrix[parameter == par_name, value := garch_pars[[i]][[par_name]]]
+        #uni_spec_obj$parmatrix[parameter == par_name, value := garch_pars[[i]][[par_name]]]
+        row_idx <- which(uni_spec_obj$parmatrix$parameter == par_name)
+        uni_spec_obj$parmatrix[row_idx, "value"] <- garch_pars[[i]][[par_name]]
       }
     }
     

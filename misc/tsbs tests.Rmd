@@ -1710,3 +1710,143 @@ if (!"alpha_1" %in% dcc_spec$parmatrix$parameter) {
 cat("\n=== End of diagnostic ===\n")
 ```
 
+
+```{r}
+set.seed(123)
+y <- xts(rnorm(100), order.by = Sys.Date() - (100:1))
+
+## Create a univariate fitted object
+spec1 <- garch_modelspec(y, model = "garch", garch_order = c(1,1))
+fit1 <- estimate(spec1, keep_tmb = TRUE)
+
+## Store original omega value
+original_omega <- fit1$parmatrix[parameter == "omega"]$value
+cat("Original omega:", original_omega, "\n")
+
+## Create multi_estimate and DCC spec
+multi <- to_multi_estimate(list(fit1))
+names(multi) <- "series_1"
+dcc_spec <- dcc_modelspec(multi, dynamics = "dcc", dcc_order = c(1,1))
+
+## Now modify fit1 AFTER dcc_spec was created
+fit1$parmatrix[parameter == "omega", value := 999.0]
+
+## Check if the modification appears in dcc_spec
+cat("Omega in fit1 after modification:", fit1$parmatrix[parameter == "omega"]$value, "\n")
+cat("Omega in dcc_spec$univariate:", dcc_spec$univariate$series_1$parmatrix[parameter == "omega"]$value, "\n")
+
+## Are they the same object?
+cat("Same object?:", identical(fit1, dcc_spec$univariate$series_1), "\n")
+```
+
+
+
+```{r}
+set.seed(123)
+y_mat <- matrix(rnorm(200), 100, 2)
+y <- xts(y_mat, order.by = Sys.Date() - (100:1))
+
+## Create two univariate fitted objects
+spec1 <- garch_modelspec(y[,1], model = "garch", garch_order = c(1,1))
+spec2 <- garch_modelspec(y[,2], model = "garch", garch_order = c(1,1))
+fit1 <- estimate(spec1, keep_tmb = TRUE)
+fit2 <- estimate(spec2, keep_tmb = TRUE)
+
+## Store original omega value
+original_omega <- fit1$parmatrix[parameter == "omega"]$value
+cat("Original omega in fit1:", original_omega, "\n")
+
+## Create multi_estimate and DCC spec
+multi <- to_multi_estimate(list(fit1, fit2))
+names(multi) <- c("series_1", "series_2")
+dcc_spec <- dcc_modelspec(multi, dynamics = "dcc", dcc_order = c(1,1))
+
+cat("Omega in dcc_spec$univariate$series_1 (right after creation):", 
+    dcc_spec$univariate$series_1$parmatrix[parameter == "omega"]$value, "\n")
+
+## Now modify fit1 AFTER dcc_spec was created
+fit1$parmatrix[parameter == "omega", value := 999.0]
+
+## Check if the modification appears in dcc_spec
+cat("\nAfter modifying fit1:\n")
+cat("Omega in fit1:", fit1$parmatrix[parameter == "omega"]$value, "\n")
+cat("Omega in multi$series_1:", multi$series_1$parmatrix[parameter == "omega"]$value, "\n")
+cat("Omega in dcc_spec$univariate$series_1:", 
+    dcc_spec$univariate$series_1$parmatrix[parameter == "omega"]$value, "\n")
+
+## Memory addresses to check if same object
+cat("\nMemory addresses:\n")
+cat("fit1 address:", data.table::address(fit1), "\n")
+cat("multi$series_1 address:", data.table::address(multi$series_1), "\n")
+cat("dcc_spec$univariate$series_1 address:", data.table::address(dcc_spec$univariate$series_1), "\n")
+```
+
+
+```{r}
+## What does to_multi_estimate need?
+set.seed(123)
+y_mat <- matrix(rnorm(200), 100, 2)
+y <- xts(y_mat, order.by = Sys.Date() - (100:1))
+
+spec1 <- garch_modelspec(y[,1], model = "garch", garch_order = c(1,1))
+fit1 <- estimate(spec1, keep_tmb = TRUE)
+
+cat("Class of fit1:", paste(class(fit1), collapse=", "), "\n")
+cat("Names in fit1:", paste(names(fit1), collapse=", "), "\n")
+
+## Try creating a "fake" fitted object from tsfilter instead
+filtered1 <- tsfilter(spec1)
+cat("\nClass of filtered1:", paste(class(filtered1), collapse=", "), "\n")
+cat("Names in filtered1:", paste(names(filtered1), collapse=", "), "\n")
+
+## Can we use filtered object?
+cat("\nDoes filtered object have tmb?:", !is.null(filtered1$tmb), "\n")
+```
+```{r}
+# Create your spec
+spec_mv_dcc <- list(
+  list(
+    var_order = 1, 
+    garch_spec_fun = "dcc_modelspec",
+    distribution = "mvn",
+    garch_spec_args = dcc_spec_args, 
+    start_pars = list(
+      var_pars = rep(0.1, 6), 
+      garch_pars = list(
+        list(omega = 0.1, alpha1 = 0.1, beta1 = 0.8),
+        list(omega = 0.1, alpha1 = 0.1, beta1 = 0.8)
+      ),
+      dcc_pars = list(alpha_1 = 0.05, beta_1 = 0.90),
+      dist_pars = NULL
+    )
+  ),
+  list(
+    var_order = 1, 
+    garch_spec_fun = "dcc_modelspec",
+    distribution = "mvn",
+    garch_spec_args = dcc_spec_args, 
+    start_pars = list(
+      var_pars = rep(0.1, 6), 
+      garch_pars = list(
+        list(omega = 0.2, alpha1 = 0.2, beta1 = 0.7),
+        list(omega = 0.2, alpha1 = 0.2, beta1 = 0.7)
+      ),
+      dcc_pars = list(alpha_1 = 0.1, beta_1 = 0.85),
+      dist_pars = NULL
+    )
+  )
+)
+
+# DEBUG: Print the structure
+cat("\n=== Inspecting spec structure ===\n")
+cat("\nspec[[1]]$start_pars names:\n")
+print(names(spec_mv_dcc[[1]]$start_pars))
+
+cat("\nspec[[1]]$start_pars structure:\n")
+print(str(spec_mv_dcc[[1]]$start_pars, max.level = 2))
+
+cat("\nLooking for alpha_1 and beta_1:\n")
+print(spec_mv_dcc[[1]]$start_pars$alpha_1)
+print(spec_mv_dcc[[1]]$start_pars$beta_1)
+```
+

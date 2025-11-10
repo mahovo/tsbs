@@ -87,6 +87,7 @@ spec_test_mv_smoke <- list(
     distribution = "mvn",
     garch_spec_args = list(
       dcc_order = c(1, 1),
+      dynamics = "dcc",
       garch_model = list(univariate = list(
         list(model = "garch", garch_order = c(1, 1), distribution = "norm"),
         list(model = "garch", garch_order = c(1, 1), distribution = "norm")
@@ -108,6 +109,7 @@ spec_test_mv_smoke <- list(
     distribution = "mvn",
     garch_spec_args = list(
       dcc_order = c(1, 1),
+      dynamics = "dcc",
       garch_model = list(univariate = list(
         list(model = "garch", garch_order = c(1, 1), distribution = "norm"),
         list(model = "garch", garch_order = c(1, 1), distribution = "norm")
@@ -135,6 +137,7 @@ spec_test_mv_dcc_mvt <- list(
     distribution = "mvt",
     garch_spec_args = list(
       dcc_order = c(1, 1),
+      dynamics = "dcc",
       garch_model = list(univariate = list(
         list(model = "garch", garch_order = c(1, 1), distribution = "norm"),
         list(model = "garch", garch_order = c(1, 1), distribution = "norm")
@@ -156,6 +159,7 @@ spec_test_mv_dcc_mvt <- list(
     distribution = "mvt",
     garch_spec_args = list(
       dcc_order = c(1, 1),
+      dynamics = "dcc",
       garch_model = list(univariate = list(
         list(model = "garch", garch_order = c(1, 1), distribution = "norm"),
         list(model = "garch", garch_order = c(1, 1), distribution = "norm")
@@ -230,6 +234,7 @@ spec_uni_garch_dcc <- list(
 
 dcc_spec_args <- list(
   dcc_order = c(1, 1), 
+  dynamics = "dcc",
   distribution = "mvn", 
   garch_model = list(univariate = list(spec_uni_garch_dcc, spec_uni_garch_dcc))
 )
@@ -484,26 +489,60 @@ test_that("tsbs() with ms_varma_garch runs without error (univariate)", {
 test_that("Full estimation converges (multivariate)", {
   skip_on_cran()
   
-  y_sim_mv_short <- matrix(rnorm(400), ncol = 2)
+  set.seed(123)
+  
+  ## Generate bivariate data with GARCH(1,1) effects
+  n <- 200
+  k <- 2
+  
+  ## True GARCH parameters
+  omega_true <- c(0.1, 0.15)
+  alpha_true <- c(0.1, 0.12)
+  beta_true <- c(0.8, 0.75)
+  
+  ## Simulate GARCH series
+  y_sim_mv_short <- matrix(0, n, k)
+  h <- matrix(0, n, k)
+  
+  for (i in 1:k) {
+    h[1, i] <- omega_true[i] / (1 - alpha_true[i] - beta_true[i])
+    y_sim_mv_short[1, i] <- rnorm(1) * sqrt(h[1, i])
+    
+    for (t in 2:n) {
+      h[t, i] <- omega_true[i] + alpha_true[i] * y_sim_mv_short[t-1, i]^2 + 
+        beta_true[i] * h[t-1, i]
+      y_sim_mv_short[t, i] <- rnorm(1) * sqrt(h[t, i])
+    }
+  }
+  
   colnames(y_sim_mv_short) <- c("s1", "s2")
   
-  ## Note: DCC models currently use H-matrix fallback for log-likelihood
-  ## calculation This is a known behavior and produces correct results
+  ## Now fit the model
   suppressWarnings({
     fit <- fit_ms_varma_garch(
       y = y_sim_mv_short, 
       M = 2, 
       spec = spec_mv_dcc, 
       model_type = "multivariate",
-      control = list(max_iter = 5, tol = 0.1)
+      control = list(max_iter = 10, tol = 0.01)
     )
   })
   
   expect_true(is.finite(fit$log_likelihood))
   
-  #dcc_alpha_s1 <- fit$model_fits[[1]]$garch_pars$dcc_alpha
+  ## Test that alpha1 is positive (since we know the true data has ARCH effects)
   dcc_alpha_s1 <- fit$model_fits[[1]]$garch_pars[[1]]$alpha1
-  expect_true(dcc_alpha_s1 > 0 && dcc_alpha_s1 < 1)
+  expect_true(dcc_alpha_s1 > 0 && dcc_alpha_s1 < 1,
+              info = paste("alpha1 =", dcc_alpha_s1, "should be strictly positive"))
+  
+  ## Optionally: Check that at least one state has substantial ARCH effects
+  ## (though which state gets which regime is not guaranteed)
+  alpha_values <- c(
+    fit$model_fits[[1]]$garch_pars[[1]]$alpha1,
+    fit$model_fits[[2]]$garch_pars[[1]]$alpha1
+  )
+  expect_true(any(alpha_values > 0.05),
+              info = "At least one state should have alpha1 > 0.05")
 })
 
 
@@ -1058,6 +1097,7 @@ test_that("calculate_loglik_vector_r matches tsmarch calculation", {
     distribution = "mvn",
     garch_spec_args = list(
       dcc_order = c(1, 1),
+      dynamics = "dcc",
       garch_model = list(univariate = list(
         list(model = "garch", garch_order = c(1, 1), distribution = "norm"),
         list(model = "garch", garch_order = c(1, 1), distribution = "norm")
@@ -1091,7 +1131,8 @@ test_that("calculate_loglik_vector_r matches tsmarch calculation", {
           model = "garch",
           garch_order = c(1, 1),
           distribution = "norm"
-        )
+        ),
+        keep_tmb = TRUE
       )
     )
   })
@@ -1103,6 +1144,7 @@ test_that("calculate_loglik_vector_r matches tsmarch calculation", {
   dcc_spec <- tsmarch::dcc_modelspec(
     object = multi_est,
     dcc_order = c(1, 1),
+    dynamics = "dcc",
     distribution = "mvn"
   )
   
@@ -1158,9 +1200,7 @@ test_that("calculate_loglik_vector_r matches tsmarch calculation", {
 })
 
 
-## == == == == == == == == == == == == == == == == == == == == == == ==
-## PART 7: Test Multivariate Parameter Estimation Structure
-## == == == == == == == == == == == == == == == == == == == == == == ==
+## PART 7: Test Multivariate Parameter Estimation Structure ====================
 
 context("Multivariate DCC Parameter Estimation")
 
