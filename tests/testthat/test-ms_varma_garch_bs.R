@@ -1429,8 +1429,7 @@ test_that("Sigma is computed correctly with fixed parameters in multivariate DCC
     
     ## CRITICAL TEST: Recompute sigma manually with TMB and compare
     if (!is.null(uni_model$tmb)) {
-      estimate_col <- NULL
-      pars_for_tmb <- uni_model$parmatrix[estimate_col == 1, "value", drop = TRUE]
+      pars_for_tmb <- as.numeric(uni_model$parmatrix[estimate == 1, value])
       
       ## Get sigma from TMB report
       tmb_report <- uni_model$tmb$report(pars_for_tmb)

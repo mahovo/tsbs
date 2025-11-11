@@ -88,93 +88,51 @@ create_garch_spec_object_r <- function(
           distribution = uni_spec_details$distribution
         )
         
-        ## SET PARAMETERS in the spec
-        series_garch_pars <- current_pars$garch_pars[[i]]
-        for (par_name in names(series_garch_pars)) {
-          if (par_name %in% uni_spec_obj$parmatrix$parameter) {
-            value <- series_garch_pars[[par_name]]
-            
-            ## Ensure value respects bounds
-            lower <- uni_spec_obj$parmatrix[parameter == par_name]$lower
-            upper <- uni_spec_obj$parmatrix[parameter == par_name]$upper
-            value <- max(value, lower + 1e-8)
-            value <- min(value, upper - 1e-8)
-            
-            #uni_spec_obj$parmatrix[parameter == par_name, value := value]
-            row_idx <- which(uni_spec_obj$parmatrix$parameter == par_name)
-            uni_spec_obj$parmatrix[row_idx, "value"] <- value
-          }
-        }
-        
-        ## Use tsfilter() instead of estimate() to get sigma with fixed parameters
-        ## tsfilter() doesn't re-estimate, it just computes sigma given the parameters
-        fitted_obj <- tsfilter(uni_spec_obj)
-        
-        ## BUT: we need a structure compatible with to_multi_estimate()
-        ## So we need to add the tmb object. Let's estimate but then override
+        ## Estimate to get TMB object (with original parameters)
         estimated_obj <- suppressWarnings(estimate(uni_spec_obj, keep_tmb = TRUE))
         
-        ## Now override the parameters back to what we want
+        ## Now UPDATE the parameter values (but keep estimate = 1)
+        series_garch_pars <- current_pars$garch_pars[[i]]
+        
         for (par_name in names(series_garch_pars)) {
           if (par_name %in% estimated_obj$parmatrix$parameter) {
             value <- series_garch_pars[[par_name]]
-            lower <- estimated_obj$parmatrix[parameter == par_name]$lower
-            upper <- estimated_obj$parmatrix[parameter == par_name]$upper
+            
+            ## Ensure value respects bounds
+            row_match <- estimated_obj$parmatrix$parameter == par_name
+            lower <- estimated_obj$parmatrix$lower[row_match][1]
+            upper <- estimated_obj$parmatrix$upper[row_match][1]
             value <- max(value, lower + 1e-8)
             value <- min(value, upper - 1e-8)
             
-            cat("  Trying to set", par_name, "to", value, "\n")
-            
-            ## Use direct assignment instead of := in data table
-            row_idx <- which(estimated_obj$parmatrix$parameter == par_name)
-            estimated_obj$parmatrix[row_idx, "value"] <- value
-            
-            cat("  After setting, value is:", estimated_obj$parmatrix[parameter == par_name]$value, "\n")
+            ## Update ONLY the value, keep estimate flag unchanged
+            estimated_obj$parmatrix$value[row_match] <- value
           }
         }
         
-        ## And recompute sigma with the correct parameters using TMB
-        estimate_col <- NULL  # for data.table syntax
-        new_pars <- estimated_obj$parmatrix[estimate == 1]$value
+        ## CRITICAL: Recompute sigma using TMB with updated parameters
+        ## Get parameters in the order TMB expects (estimate == 1)
+        estimate_col <- NULL
+        pars_for_tmb <- estimated_obj$parmatrix[estimate_col == 1]$value
         
-        cat("\n=== TMB Parameter Diagnostic for Series", i, "===\n")
-        cat("Parameters in parmatrix:\n")
-        print(uni_model$parmatrix[estimate_col == 1, .(parameter, value)])
-        
-        cat("\nNumber of parameters in parmatrix (estimate==1):", 
-            nrow(uni_model$parmatrix[estimate_col == 1]), "\n")
-        
-        cat("Length of pars_for_tmb vector:", length(pars_for_tmb), "\n")
-        cat("pars_for_tmb values:", paste(pars_for_tmb, collapse=", "), "\n")
-        
-        cat("\nTMB object parameter dimension:\n")
-        if (!is.null(uni_model$tmb$par)) {
-          cat("Expected length:", length(uni_model$tmb$par), "\n")
-          cat("Original TMB parameters:", paste(uni_model$tmb$par, collapse=", "), "\n")
-        }
-        
-        if (!is.null(estimated_obj$tmb)) {
-          tmb_report <- estimated_obj$tmb$report(new_pars)
+        if (!is.null(estimated_obj$tmb) && length(pars_for_tmb) == length(estimated_obj$tmb$par)) {
+          ## Evaluate TMB at new parameters
+          tmb_report <- estimated_obj$tmb$report(pars_for_tmb)
+          
+          ## Update sigma (strip initialization period if needed)
           maxpq <- max(estimated_obj$spec$model$order)
           if (maxpq > 0) {
-            estimated_obj$sigma <- tmb_report$sigma[-c(1:maxpq)]
+            estimated_obj$sigma <- xts::xts(
+              tmb_report$sigma[-(1:maxpq)],
+              order.by = index(estimated_obj$sigma)
+            )
           } else {
-            estimated_obj$sigma <- tmb_report$sigma
+            estimated_obj$sigma <- xts::xts(
+              tmb_report$sigma,
+              order.by = index(estimated_obj$sigma)
+            )
           }
         }
-        
-        cat("\n=== TMB DIAGNOSTIC for series", i, "===\n")
-        cat("Parameters we want:", paste(unlist(series_garch_pars), collapse=", "), "\n")
-        cat("Parameters in parmatrix:", paste(estimated_obj$parmatrix[parameter %in% names(series_garch_pars)]$value, collapse=", "), "\n")
-        cat("Parameters passed to tmb$report:", paste(new_pars, collapse=", "), "\n")
-        
-        ## Let's also check what tmb$fn returns (the negative log-likelihood)
-        nll_before <- estimated_obj$tmb$fn(estimated_obj$parmatrix[estimate == 1]$value)
-        cat("NLL at estimated params:", nll_before, "\n")
-        
-        nll_after <- estimated_obj$tmb$fn(new_pars)
-        cat("NLL at desired params:", nll_after, "\n")
-        cat("NLL changed?:", nll_before != nll_after, "\n")
         
         return(estimated_obj)
       })
@@ -248,6 +206,27 @@ create_garch_spec_object_r <- function(
       }
       
       garch_spec_obj <- do.call(spec_fun, final_args)
+      
+      
+      
+      ## DEBUG DIAGNOSTIC 2: Check DCC spec
+      cat("\n=== DEBUG 2: After creating DCC spec ===\n")
+      
+      cat("\nStructure of DCC object (garch_spec_obj):\n")
+      cat("paste(names(garch_spec_obj):", paste(names(garch_spec_obj), collapse=", "), "\n")
+
+      cat("\nInspect garch_spec_obj$univariate$series_1:\n")
+      cat("Names:", paste(names(garch_spec_obj$univariate$series_1), collapse=", "), "\n")
+      cat("Parmatrix (garch_spec_obj$univariate$series_1$parmatrix)):\n")
+      print(garch_spec_obj$univariate$series_1$parmatrix)
+      
+      cat("sigma (garch_spec_obj$univariate$series_1$sigma):\n")
+      print(garch_spec_obj$univariate$series_1$sigma)
+      
+      cat("\nInspect garch_spec_obj$parmatrix\n")
+      print(garch_spec_obj$parmatrix)
+      
+      
       
       ## STEP 4: Set DCC-level parameters (now that spec is created)
       
