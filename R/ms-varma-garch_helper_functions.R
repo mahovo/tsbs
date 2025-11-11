@@ -136,6 +136,23 @@ create_garch_spec_object_r <- function(
         ## And recompute sigma with the correct parameters using TMB
         estimate_col <- NULL  # for data.table syntax
         new_pars <- estimated_obj$parmatrix[estimate == 1]$value
+        
+        cat("\n=== TMB Parameter Diagnostic for Series", i, "===\n")
+        cat("Parameters in parmatrix:\n")
+        print(uni_model$parmatrix[estimate_col == 1, .(parameter, value)])
+        
+        cat("\nNumber of parameters in parmatrix (estimate==1):", 
+            nrow(uni_model$parmatrix[estimate_col == 1]), "\n")
+        
+        cat("Length of pars_for_tmb vector:", length(pars_for_tmb), "\n")
+        cat("pars_for_tmb values:", paste(pars_for_tmb, collapse=", "), "\n")
+        
+        cat("\nTMB object parameter dimension:\n")
+        if (!is.null(uni_model$tmb$par)) {
+          cat("Expected length:", length(uni_model$tmb$par), "\n")
+          cat("Original TMB parameters:", paste(uni_model$tmb$par, collapse=", "), "\n")
+        }
+        
         if (!is.null(estimated_obj$tmb)) {
           tmb_report <- estimated_obj$tmb$report(new_pars)
           maxpq <- max(estimated_obj$spec$model$order)

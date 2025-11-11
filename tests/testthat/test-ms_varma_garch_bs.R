@@ -1310,3 +1310,154 @@ test_that("estimate_garch_weighted_r handles DCC-MVT with shape parameter", {
   expect_named(result$coefficients$dist_pars, "shape")
   expect_true(result$coefficients$dist_pars$shape > 2)
 })
+
+test_that("Sigma is computed correctly with fixed parameters in multivariate DCC", {
+  skip_on_cran()
+  
+  set.seed(456)
+  
+  ## Generate simple bivariate GARCH data
+  n <- 150
+  k <- 2
+  
+  omega_true <- c(0.1, 0.12)
+  alpha_true <- c(0.08, 0.10)
+  beta_true <- c(0.85, 0.80)
+  
+  y_sim <- matrix(0, n, k)
+  h <- matrix(0, n, k)
+  
+  for (i in 1:k) {
+    h[1, i] <- omega_true[i] / (1 - alpha_true[i] - beta_true[i])
+    y_sim[1, i] <- rnorm(1) * sqrt(h[1, i])
+    
+    for (t in 2:n) {
+      h[t, i] <- omega_true[i] + alpha_true[i] * y_sim[t-1, i]^2 + 
+        beta_true[i] * h[t-1, i]
+      y_sim[t, i] <- rnorm(1) * sqrt(h[t, i])
+    }
+  }
+  
+  colnames(y_sim) <- c("s1", "s2")
+  
+  ## Compute VAR(1) residuals
+  var_order <- 1
+  T_obs <- nrow(y_sim)
+  X_lagged <- matrix(1, nrow = T_obs - var_order, ncol = 1 + k * var_order)
+  X_lagged[, 2:(1+k)] <- y_sim[1:(T_obs-1), ]
+  y_target <- y_sim[(var_order+1):T_obs, ]
+  
+  var_pars <- c(0, 0, 0)  # Simple intercept-only for testing
+  beta_mat <- matrix(var_pars, nrow = 1 + k * var_order, ncol = k)
+  residuals_data <- y_target - X_lagged %*% beta_mat
+  
+  residuals_xts <- xts::xts(residuals_data, 
+                            order.by = Sys.Date() - (nrow(residuals_data):1))
+  
+  ## STEP 1: Estimate univariate GARCH models and extract parameters
+  uni_models_estimated <- lapply(1:k, function(i) {
+    suppressWarnings(
+      estimate(
+        tsgarch::garch_modelspec(
+          y = residuals_xts[,i],
+          model = "garch",
+          garch_order = c(1, 1),
+          distribution = "norm"
+        ),
+        keep_tmb = TRUE
+      )
+    )
+  })
+  
+  ## Extract the estimated parameters
+  params_estimated <- list(
+    garch_pars = lapply(1:k, function(i) {
+      list(
+        omega = uni_models_estimated[[i]]$parmatrix[parameter == "omega"]$value,
+        alpha1 = uni_models_estimated[[i]]$parmatrix[parameter == "alpha1"]$value,
+        beta1 = uni_models_estimated[[i]]$parmatrix[parameter == "beta1"]$value
+      )
+    }),
+    alpha_1 = 0.03,
+    beta_1 = 0.92,
+    dist_pars = NULL
+  )
+  
+  ## STEP 2: Use create_garch_spec_object_r to build spec with these parameters
+  spec_for_test <- list(
+    var_order = 1,
+    garch_spec_fun = "dcc_modelspec",
+    distribution = "mvn",
+    garch_spec_args = list(
+      dcc_order = c(1, 1),
+      dynamics = "dcc",
+      garch_model = list(univariate = list(
+        list(model = "garch", garch_order = c(1, 1), distribution = "norm"),
+        list(model = "garch", garch_order = c(1, 1), distribution = "norm")
+      ))
+    )
+  )
+  
+  ## Create spec object with our parameters
+  garch_spec_obj <- create_garch_spec_object_r(
+    residuals = residuals_data,
+    spec = spec_for_test,
+    model_type = "multivariate",
+    current_pars = params_estimated
+  )
+  
+  ## STEP 3: Verify that sigma in the univariate models matches the parameters
+  for (i in 1:k) {
+    uni_model <- garch_spec_obj$univariate[[paste0("series_", i)]]
+    
+    ## Check parameters are set correctly
+    omega_in_spec <- uni_model$parmatrix[parameter == "omega"]$value
+    alpha1_in_spec <- uni_model$parmatrix[parameter == "alpha1"]$value
+    beta1_in_spec <- uni_model$parmatrix[parameter == "beta1"]$value
+    
+    expect_equal(omega_in_spec, params_estimated$garch_pars[[i]]$omega,
+                 tolerance = 1e-6,
+                 info = paste("Series", i, "omega should match"))
+    
+    expect_equal(alpha1_in_spec, params_estimated$garch_pars[[i]]$alpha1,
+                 tolerance = 1e-6,
+                 info = paste("Series", i, "alpha1 should match"))
+    
+    expect_equal(beta1_in_spec, params_estimated$garch_pars[[i]]$beta1,
+                 tolerance = 1e-6,
+                 info = paste("Series", i, "beta1 should match"))
+    
+    ## CRITICAL TEST: Recompute sigma manually with TMB and compare
+    if (!is.null(uni_model$tmb)) {
+      estimate_col <- NULL
+      pars_for_tmb <- uni_model$parmatrix[estimate_col == 1, "value", drop = TRUE]
+      
+      ## Get sigma from TMB report
+      tmb_report <- uni_model$tmb$report(pars_for_tmb)
+      
+      ## Strip initialization period
+      maxpq <- max(uni_model$spec$model$order)
+      sigma_from_tmb <- if (maxpq > 0) {
+        tmb_report$sigma[-(1:maxpq)]
+      } else {
+        tmb_report$sigma
+      }
+      
+      ## Get sigma stored in the object
+      sigma_in_object <- as.numeric(sigma(uni_model))
+      
+      ## These should be IDENTICAL (or very close)
+      expect_equal(sigma_from_tmb, sigma_in_object,
+                   tolerance = 1e-10,
+                   info = paste("Series", i, 
+                                "sigma from TMB should match stored sigma"))
+    }
+  }
+  
+  ## STEP 4: Verify DCC parameters are set correctly
+  dcc_alpha <- garch_spec_obj$parmatrix[parameter == "alpha_1"]$value
+  dcc_beta <- garch_spec_obj$parmatrix[parameter == "beta_1"]$value
+  
+  expect_equal(dcc_alpha, params_estimated$alpha_1, tolerance = 1e-6)
+  expect_equal(dcc_beta, params_estimated$beta_1, tolerance = 1e-6)
+})
