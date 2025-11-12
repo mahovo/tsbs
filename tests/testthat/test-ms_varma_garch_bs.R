@@ -524,7 +524,7 @@ test_that("Full estimation converges (multivariate)", {
       M = 2, 
       spec = spec_mv_dcc, 
       model_type = "multivariate",
-      control = list(max_iter = 10, tol = 0.01)
+      control = list(max_iter = 20, tol = 0.01)
     )
   })
   

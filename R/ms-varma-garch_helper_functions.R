@@ -137,57 +137,6 @@ create_garch_spec_object_r <- function(
         return(estimated_obj)
       })
       
-      ## DEBUG DIAGNOSTIC 1: Check what we're trying to set
-      cat("\n=== DEBUG 1: Before parameter update ===\n")
-      cat("current_pars$garch_pars[[1]] names:", paste(names(current_pars$garch_pars[[1]]), collapse=", "), "\n")
-      cat("current_pars$garch_pars[[1]] values:", paste(unlist(current_pars$garch_pars[[1]]), collapse=", "), "\n")
-      cat("univariate_models[[1]]$parmatrix parameters:", paste(univariate_models[[1]]$parmatrix$parameter, collapse=", "), "\n")
-      cat("univariate_models[[1]]$parmatrix values (before):\n")
-      print(univariate_models[[1]]$parmatrix[parameter %in% c("omega", "alpha1", "beta1")])
-      
-      cat("\nStructure of univariate_models[[1]]:\n")
-      cat("Names:", paste(names(univariate_models[[1]]), collapse=", "), "\n")
-      cat("Has $sigma:", !is.null(univariate_models[[1]]$sigma), "\n")
-      
-      ## CRITICAL FIX: Set univariate GARCH parameters BEFORE creating DCC spec
-      ## Must do this here because dcc_modelspec() captures the univariate objects
-      # for (i in seq_along(univariate_models)) {
-      #   series_garch_pars <- current_pars$garch_pars[[i]]
-      #   
-      #   for (par_name in names(series_garch_pars)) {
-      #     if (par_name %in% univariate_models[[i]]$parmatrix$parameter) {
-      #       value <- series_garch_pars[[par_name]]
-      #       
-      #       ## Ensure value respects bounds
-      #       lower <- univariate_models[[i]]$parmatrix[parameter == par_name]$lower
-      #       upper <- univariate_models[[i]]$parmatrix[parameter == par_name]$upper
-      #       value <- max(value, lower + 1e-8)
-      #       value <- min(value, upper - 1e-8)
-      #       
-      #       univariate_models[[i]]$parmatrix[parameter == par_name, value := value]
-      #     }
-      #   }
-      #   
-      #   ## CRITICAL: After updating parameters, recompute sigma using TMB
-      #   ## Extract the new parameter values in the order TMB expects
-      #   estimate <- NULL
-      #   new_pars <- univariate_models[[i]]$parmatrix[estimate == 1]$value
-      #   
-      #   ## Use TMB's report() function to get sigma with new parameters
-      #   if (!is.null(univariate_models[[i]]$tmb)) {
-      #     tmb_report <- univariate_models[[i]]$tmb$report(new_pars)
-      #     
-      #     ## Update the sigma in the fitted object
-      #     ## Check if we need to strip off initialization period
-      #     maxpq <- max(univariate_models[[i]]$spec$model$order)
-      #     if (maxpq > 0) {
-      #       univariate_models[[i]]$sigma <- tmb_report$sigma[-c(1:maxpq)]
-      #     } else {
-      #       univariate_models[[i]]$sigma <- tmb_report$sigma
-      #     }
-      #   }
-      # }
-      
       ## STEP 2: Combine into multi_estimate object
       multi_estimate_object <- tsgarch::to_multi_estimate(univariate_models)
       names(multi_estimate_object) <- paste0("series_", 1:ncol(residuals_xts))
@@ -206,27 +155,7 @@ create_garch_spec_object_r <- function(
       }
       
       garch_spec_obj <- do.call(spec_fun, final_args)
-      
-      
-      
-      ## DEBUG DIAGNOSTIC 2: Check DCC spec
-      cat("\n=== DEBUG 2: After creating DCC spec ===\n")
-      
-      cat("\nStructure of DCC object (garch_spec_obj):\n")
-      cat("paste(names(garch_spec_obj):", paste(names(garch_spec_obj), collapse=", "), "\n")
 
-      cat("\nInspect garch_spec_obj$univariate$series_1:\n")
-      cat("Names:", paste(names(garch_spec_obj$univariate$series_1), collapse=", "), "\n")
-      cat("Parmatrix (garch_spec_obj$univariate$series_1$parmatrix)):\n")
-      print(garch_spec_obj$univariate$series_1$parmatrix)
-      
-      cat("sigma (garch_spec_obj$univariate$series_1$sigma):\n")
-      print(garch_spec_obj$univariate$series_1$sigma)
-      
-      cat("\nInspect garch_spec_obj$parmatrix\n")
-      print(garch_spec_obj$parmatrix)
-      
-      
       
       ## STEP 4: Set DCC-level parameters (now that spec is created)
       
@@ -397,21 +326,7 @@ calculate_loglik_vector_r <- function(
             garch_spec_obj, 
             type = "ll_vec"
           )
-          
-cat("\n=== DIAGNOSTIC: Inside calculate_loglik_vector_r ===\n")
-cat("DCC parameters in parmatrix before calling .dcc_dynamic_values():\n")
-print(garch_spec_obj$parmatrix[parameter %in% c("alpha_1", "beta_1")])
 
-cat("\nUnivariate series_1 GARCH params in spec$univariate:\n")
-print(garch_spec_obj$univariate$series_1$parmatrix[parameter %in% c("omega", "alpha1", "beta1")])
-
-cat("\nSample sigma values from univariate series_1:\n")
-print(head(sigma(garch_spec_obj$univariate)$series_1, 5))
-
-cat("\nParameters being passed to .dcc_dynamic_values():\n")
-print(pars)
-cat("\n")
-          
           
           ## Strip off initialization period
           dcc_order <- garch_spec_obj$dynamics$order
@@ -864,7 +779,16 @@ estimate_dcc_parameters_weighted <- function(
     
     ## Initialize matrices
     T_eff <- nrow(std_resid)
-    Qbar <- cov(std_resid)  ## Unconditional correlation of standardized residuals
+    #Qbar <- cov(std_resid)  ## Unconditional correlation of standardized residuals
+    ## Weighted covariance using smoothed probabilities
+    Qbar <- stats::cov.wt(std_resid, wt = weights, method = "ML")$cov
+    
+    ## Ensure positive definite
+    eig <- eigen(Qbar, symmetric = TRUE)
+    if (any(eig$values < 1e-8)) {
+      ## Regularize: add small diagonal
+      Qbar <- Qbar + diag(1e-6, k)
+    }
     
     ## DCC recursion
     Q <- array(0, dim = c(k, k, T_eff))
@@ -970,6 +894,30 @@ estimate_dcc_parameters_weighted <- function(
     warnings_list <<- c(warnings_list, list(w))
     invokeRestart("muffleWarning")
   })
+  
+  ## ======================= DIAGNOSTIC begin ==========================
+  
+  cat("\n=== DCC M-STEP DIAGNOSTIC ===\n")
+  cat("Starting DCC params:\n")
+  print(unlist(dcc_start_pars))
+  cat("\nOptimized DCC params:\n")
+  print(opt_result$par)
+  cat("\nOptimization convergence:", opt_result$convergence, "\n")
+  cat("Final objective value:", opt_result$value, "\n")
+  
+  ## Check if at boundary
+  at_boundary <- any(opt_result$par < 0.01 | opt_result$par > 0.98)
+  cat("At boundary:", at_boundary, "\n")
+  
+  if (at_boundary) {
+    cat("\n*** WARNING: DCC parameters at boundary ***\n")
+    cat("This may indicate:\n")
+    cat("  1. Data truly has constant correlation\n")
+    cat("  2. Weighted likelihood surface is pathological\n")
+    cat("  3. Optimizer got stuck\n")
+  }
+  
+  ## ======================= DIAGNOSTIC begin ==========================  
   
   ## 6. Extract results
   estimated_pars <- as.list(opt_result$par)

@@ -94,6 +94,12 @@ Rcpp::List fit_ms_varma_garch_cpp(
       smooth_probs.row(t) = filt_probs.row(t) % (P * ratio).t();
     }
     
+    
+    // DIAGNOSTIC begin
+    double log_lik_before_mstep = arma::sum(arma::log(lik_contrib));
+    // DIAGNOSTIC end
+    
+    
     // --- M-STEP ---
     // Update transition matrix P
     arma::mat trans_mat(M, M, arma::fill::zeros);
@@ -106,8 +112,93 @@ Rcpp::List fit_ms_varma_garch_cpp(
     // --- Call the single parallel R function for the M-step ---
     model_fits = Rcpp::as<Rcpp::List>(perform_m_step_parallel_r(y, smooth_probs, spec, model_type));
     
+    // === DIAGNOSTIC: Check if M-step improved likelihood ===
+    Rcpp::Rcout << "\n=== M-STEP CHECK (Iteration " << (iter + 1) << ") ===" << std::endl;
+    
+    // Recompute likelihoods with NEW parameters
+    arma::mat cond_logliks_new(T, M, arma::fill::zeros);
+    for (int j = 0; j < M; ++j) {
+      arma::vec ll_vec = Rcpp::as<arma::vec>(
+        calculate_loglik_vector_r(y, model_fits[j], spec[j], model_type)
+      );
+      cond_logliks_new.col(j) = ll_vec;
+    }
+    
+    // Recompute total LL with new parameters
+    arma::mat cond_dens_new = arma::exp(cond_logliks_new);
+    arma::vec pred_init_new(M, arma::fill::ones);
+    pred_init_new /= M;
+    arma::vec lik_contrib_new(T);
+    arma::vec joint_dens_new = pred_init_new % cond_dens_new.row(0).t();
+    lik_contrib_new(0) = arma::sum(joint_dens_new);
+    arma::vec filt_t = joint_dens_new / lik_contrib_new(0);
+    
+    for (int t = 1; t < T; ++t) {
+      arma::vec pred_t = P.t() * filt_t;
+      joint_dens_new = pred_t % cond_dens_new.row(t).t();
+      lik_contrib_new(t) = arma::sum(joint_dens_new);
+      filt_t = joint_dens_new / lik_contrib_new(t);
+    }
+    
+    double log_lik_after_mstep = arma::sum(arma::log(lik_contrib_new));
+    
+    Rcpp::Rcout << "  LL before M-step: " << log_lik_before_mstep << std::endl;
+    Rcpp::Rcout << "  LL after M-step:  " << log_lik_after_mstep << std::endl;
+    Rcpp::Rcout << "  Change: " << (log_lik_after_mstep - log_lik_before_mstep) << std::endl;
+    
+    if (log_lik_after_mstep < log_lik_before_mstep - 1e-6) {
+      Rcpp::Rcout << "  *** WARNING: M-step DECREASED LL! ***" << std::endl;
+    }
+    
+    // Print parameter values for diagnosis
+    for (int j = 0; j < M; ++j) {
+      Rcpp::Rcout << "  State " << (j+1) << " params after M-step:" << std::endl;
+      Rcpp::List state_pars = model_fits[j];
+      
+      // Print GARCH parameters
+      if (state_pars.containsElementNamed("garch_pars")) {
+        Rcpp::List garch_pars = state_pars["garch_pars"];
+        Rcpp::Rcout << "    garch_pars length: " << garch_pars.size() << std::endl;
+        
+        for (int s = 0; s < garch_pars.size(); ++s) {
+          Rcpp::List series_pars = garch_pars[s];
+          Rcpp::Rcout << "      Series " << (s+1) << ": ";
+          if (series_pars.containsElementNamed("alpha1")) {
+            Rcpp::Rcout << "alpha1=" << Rcpp::as<double>(series_pars["alpha1"]) << " ";
+          }
+          if (series_pars.containsElementNamed("beta1")) {
+            Rcpp::Rcout << "beta1=" << Rcpp::as<double>(series_pars["beta1"]) << " ";
+          }
+          Rcpp::Rcout << std::endl;
+        }
+      }
+      
+      // Print DCC parameters
+      if (state_pars.containsElementNamed("alpha_1")) {
+        Rcpp::Rcout << "    DCC alpha_1: " << Rcpp::as<double>(state_pars["alpha_1"]) << std::endl;
+      }
+      if (state_pars.containsElementNamed("beta_1")) {
+        Rcpp::Rcout << "    DCC beta_1: " << Rcpp::as<double>(state_pars["beta_1"]) << std::endl;
+      }
+    }
+    
+    // Update cond_logliks for next E-step
+    cond_logliks = cond_logliks_new;
+    
+    
+    // ================ END Check if M-step improved likelihood  ===============
+    
+    
     // --- 3. CHECK CONVERGENCE & PROVIDE FEEDBACK ---
-    double log_lik_new = arma::sum(arma::log(lik_contrib));
+    
+    // === DIAGNOSTIC begin ===
+
+    // Next line replaced with diagnostic code.
+    //double log_lik_new = arma::sum(arma::log(lik_contrib));
+    double log_lik_new = log_lik_after_mstep;  // Use the post-M-step LL
+    
+    // === DIAGNOSTIC end ===
+    
     auto end = std::chrono::high_resolution_clock::now();
     std::chrono::duration<double> elapsed = end - start;
     int total_seconds = static_cast<int>(elapsed.count());
