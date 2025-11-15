@@ -646,9 +646,17 @@ estimate_garch_weighted_dcc <- function(residuals, weights, spec) {
   k <- ncol(residuals)
   T_obs <- nrow(residuals)
   
-  ## Adjust weights for any padding
-  padding <- T_obs - length(weights)
-  w_target <- if(padding > 0) weights[(padding+1):length(weights)] else weights
+  ## Adjust weights to match residuals length
+  ## If residuals are shorter (due to VAR padding), truncate weights from the beginning
+  if (length(weights) > T_obs) {
+    ## Remove the first (length(weights) - T_obs) elements
+    n_to_remove <- length(weights) - T_obs
+    w_target <- weights[(n_to_remove + 1):length(weights)]
+  } else if (length(weights) < T_obs) {
+    stop("Weights vector is shorter than residuals - this should not happen")
+  } else {
+    w_target <- weights
+  }
   
   ## === STAGE 1: Estimate Univariate GARCH for Each Series ===
   garch_pars_list <- list()
@@ -688,7 +696,7 @@ estimate_garch_weighted_dcc <- function(residuals, weights, spec) {
     ## Estimate DCC dynamics
     dcc_result <- estimate_dcc_parameters_weighted(
       residuals = residuals,
-      weights = w_target,
+      weights = w_target,  ## Pass adjusted weights
       garch_pars = garch_pars_list,
       dcc_start_pars = dcc_start_pars,
       dist_start_pars = dist_start_pars,
@@ -721,10 +729,16 @@ estimate_dcc_parameters_weighted <- function(
     dcc_start_pars, 
     dist_start_pars, 
     spec
-  ) {
+) {
   
   k <- ncol(residuals)
   T_obs <- nrow(residuals)
+  
+  ## Verify dimensions match
+  if (length(weights) != T_obs) {
+    stop(sprintf("Dimension mismatch in estimate_dcc_parameters_weighted: residuals has %d rows but weights has %d elements", 
+                 T_obs, length(weights)))
+  }
   
   ## 1. Get standardized residuals using Stage 1 GARCH parameters
   std_residuals <- matrix(0, nrow = T_obs, ncol = k)
@@ -743,7 +757,6 @@ estimate_dcc_parameters_weighted <- function(
     ## Set estimated parameters
     for (par_name in names(garch_pars[[i]])) {
       if (par_name %in% uni_spec_obj$parmatrix$parameter) {
-        #uni_spec_obj$parmatrix[parameter == par_name, value := garch_pars[[i]][[par_name]]]
         row_idx <- which(uni_spec_obj$parmatrix$parameter == par_name)
         uni_spec_obj$parmatrix[row_idx, "value"] <- garch_pars[[i]][[par_name]]
       }
@@ -762,7 +775,7 @@ estimate_dcc_parameters_weighted <- function(
   }
   
   ## 3. Define objective function for DCC parameters
-  weighted_dcc_loglik <- function(params, std_resid, w, spec, k) {
+  weighted_dcc_loglik <- function(params, std_resid, w, spec, k, debug = FALSE) {
     
     param_list <- as.list(params)
     names(param_list) <- names(all_stage2_pars)
@@ -779,13 +792,45 @@ estimate_dcc_parameters_weighted <- function(
     
     ## Initialize matrices
     T_eff <- nrow(std_resid)
-    #Qbar <- cov(std_resid)  ## Unconditional correlation of standardized residuals
+    
+    ## Verify dimensions one more time inside objective function
+    if (length(w) != T_eff) {
+      stop(sprintf("Dimension mismatch: std_resid has %d rows but weights has %d elements", 
+                   T_eff, length(w)))
+    }
+    
+    ## ===== DIAGNOSTIC: Check weight distribution =====
+    if (debug) {
+      cat("\n=== OBJECTIVE FUNCTION DIAGNOSTIC ===\n")
+      cat("Weight summary: min =", min(w), ", max =", max(w), ", mean =", mean(w), "\n")
+      cat("Effective sample size:", sum(w)^2 / sum(w^2), "\n")
+      cat("Params being evaluated: alpha =", dcc_params_current$alpha_1, 
+          ", beta =", dcc_params_current$beta_1, "\n")
+    }
+    
     ## Weighted covariance using smoothed probabilities
-    Qbar <- stats::cov.wt(std_resid, wt = weights, method = "ML")$cov
+    Qbar_result <- tryCatch({
+      stats::cov.wt(std_resid, wt = w, method = "ML")$cov
+    }, error = function(e) {
+      if (debug) cat("ERROR in cov.wt:", e$message, "\n")
+      return(NULL)
+    })
+    
+    if (is.null(Qbar_result)) {
+      if (debug) cat("Returning penalty: cov.wt failed\n")
+      return(1e10)
+    }
+    
+    Qbar <- Qbar_result
     
     ## Ensure positive definite
     eig <- eigen(Qbar, symmetric = TRUE)
+    if (debug) {
+      cat("Qbar eigenvalues:", eig$values, "\n")
+    }
+    
     if (any(eig$values < 1e-8)) {
+      if (debug) cat("Qbar not PD, regularizing\n")
       ## Regularize: add small diagonal
       Qbar <- Qbar + diag(1e-6, k)
     }
@@ -794,8 +839,12 @@ estimate_dcc_parameters_weighted <- function(
     Q <- array(0, dim = c(k, k, T_eff))
     R <- array(0, dim = c(k, k, T_eff))
     
-    ## Initialize Q
+    ## Initialize Q and R
     Q[,,1] <- Qbar
+    
+    ## Properly initialize R[,,1] by standardizing Qbar
+    Qbar_diag_inv_sqrt <- diag(1/sqrt(diag(Qbar)), k)
+    R[,,1] <- Qbar_diag_inv_sqrt %*% Qbar %*% Qbar_diag_inv_sqrt
     
     alpha <- if(!is.null(dcc_params_current$alpha_1)) dcc_params_current$alpha_1 else 0
     beta <- if(!is.null(dcc_params_current$beta_1)) dcc_params_current$beta_1 else 0
@@ -811,13 +860,26 @@ estimate_dcc_parameters_weighted <- function(
         alpha * (t(z_lag) %*% z_lag) + 
         beta * Q[,,t-1]
       
+      ## Check for invalid Q
+      if (any(!is.finite(Q[,,t]))) {
+        if (debug) cat("Non-finite Q at t =", t, "\n")
+        return(1e10)
+      }
+      
       ## Standardize to get correlation
-      Q_diag_inv_sqrt <- diag(1/sqrt(diag(Q[,,t])), k)
+      Q_diag <- diag(Q[,,t])
+      if (any(Q_diag <= 0)) {
+        if (debug) cat("Non-positive diagonal in Q at t =", t, "\n")
+        return(1e10)
+      }
+      
+      Q_diag_inv_sqrt <- diag(1/sqrt(Q_diag), k)
       R[,,t] <- Q_diag_inv_sqrt %*% Q[,,t] %*% Q_diag_inv_sqrt
     }
     
     ## Calculate weighted log-likelihood
     ll_vec <- numeric(T_eff)
+    n_bad <- 0
     
     if (spec$distribution == "mvn") {
       for (t in 1:T_eff) {
@@ -825,10 +887,17 @@ estimate_dcc_parameters_weighted <- function(
         ## Ensure positive definite
         if (any(is.na(R_t)) || any(!is.finite(R_t))) {
           ll_vec[t] <- -1e10
+          n_bad <- n_bad + 1
+          if (debug && n_bad <= 3) cat("Bad R_t at t =", t, "(NA or non-finite)\n")
         } else {
           eig <- try(eigen(R_t, symmetric = TRUE, only.values = TRUE)$values, silent = TRUE)
           if (inherits(eig, "try-error") || any(eig <= 0)) {
             ll_vec[t] <- -1e10
+            n_bad <- n_bad + 1
+            if (debug && n_bad <= 3) {
+              cat("Bad R_t at t =", t, "(not PD), eigenvalues:", 
+                  if(inherits(eig, "try-error")) "ERROR" else paste(eig, collapse=", "), "\n")
+            }
           } else {
             ll_vec[t] <- mvtnorm::dmvnorm(std_resid[t,], mean = rep(0, k), 
                                           sigma = R_t, log = TRUE)
@@ -843,10 +912,12 @@ estimate_dcc_parameters_weighted <- function(
         R_t <- R[,,t]
         if (any(is.na(R_t)) || any(!is.finite(R_t))) {
           ll_vec[t] <- -1e10
+          n_bad <- n_bad + 1
         } else {
           eig <- try(eigen(R_t, symmetric = TRUE, only.values = TRUE)$values, silent = TRUE)
           if (inherits(eig, "try-error") || any(eig <= 0)) {
             ll_vec[t] <- -1e10
+            n_bad <- n_bad + 1
           } else {
             ll_vec[t] <- mvtnorm::dmvt(std_resid[t,], delta = rep(0, k), 
                                        sigma = R_t, df = shape, log = TRUE)
@@ -856,18 +927,27 @@ estimate_dcc_parameters_weighted <- function(
     }
     
     ll_vec[!is.finite(ll_vec)] <- -1e10
-    return(-sum(w * ll_vec, na.rm = TRUE))
+    
+    nll <- -sum(w * ll_vec, na.rm = TRUE)
+    
+    if (debug) {
+      cat("Negative log-likelihood:", nll, "\n")
+      cat("Number of valid obs:", sum(ll_vec > -1e10), "/", T_eff, "\n")
+    }
+    
+    return(nll)
   }
   
   ## 4. Get bounds
-  ## For DCC: alpha, beta in [0, 1), alpha + beta < 1
-  ## For shape: > 2 for finite variance
   lower_bounds <- numeric(length(all_stage2_pars))
   upper_bounds <- numeric(length(all_stage2_pars))
   
   for (i in seq_along(all_stage2_pars)) {
     par_name <- names(all_stage2_pars)[i]
-    if (grepl("alpha|beta", par_name)) {
+    if (grepl("alpha", par_name)) {
+      lower_bounds[i] <- 0.01  ## Enforce minimum alpha to avoid degeneracy
+      upper_bounds[i] <- 0.99
+    } else if (grepl("beta", par_name)) {
       lower_bounds[i] <- 1e-6
       upper_bounds[i] <- 0.99
     } else if (par_name == "shape") {
@@ -878,6 +958,19 @@ estimate_dcc_parameters_weighted <- function(
   
   ## 5. Optimize
   warnings_list <- list()
+  
+  ## First, do a test evaluation at starting parameters with debug=TRUE
+  cat("\n=== TESTING OBJECTIVE AT START PARAMS ===\n")
+  test_nll <- weighted_dcc_loglik(
+    params = unlist(all_stage2_pars),
+    std_resid = std_residuals,
+    w = weights,
+    spec = spec,
+    k = k,
+    debug = TRUE
+  )
+  cat("Start NLL:", test_nll, "\n")
+  
   opt_result <- withCallingHandlers({
     stats::optim(
       par = unlist(all_stage2_pars),
@@ -885,10 +978,11 @@ estimate_dcc_parameters_weighted <- function(
       lower = lower_bounds,
       upper = upper_bounds,
       method = "L-BFGS-B",
-      std_resid = std_residuals,
-      w = weights,
+      std_resid = std_residuals,  ## Pass std_residuals
+      w = weights,                ## Pass weights (now guaranteed to match)
       spec = spec,
-      k = k
+      k = k,
+      debug = FALSE  ## Turn off debug for actual optimization
     )
   }, warning = function(w) {
     warnings_list <<- c(warnings_list, list(w))
@@ -906,18 +1000,22 @@ estimate_dcc_parameters_weighted <- function(
   cat("Final objective value:", opt_result$value, "\n")
   
   ## Check if at boundary
-  at_boundary <- any(opt_result$par < 0.01 | opt_result$par > 0.98)
+  dcc_param_names <- names(dcc_start_pars)
+  alpha_params <- opt_result$par[grepl("alpha", names(opt_result$par))]
+  at_boundary <- any(alpha_params < 0.02)
+  
   cat("At boundary:", at_boundary, "\n")
   
   if (at_boundary) {
-    cat("\n*** WARNING: DCC parameters at boundary ***\n")
-    cat("This may indicate:\n")
-    cat("  1. Data truly has constant correlation\n")
-    cat("  2. Weighted likelihood surface is pathological\n")
-    cat("  3. Optimizer got stuck\n")
+    cat("\n*** WARNING: DCC alpha parameter at/near boundary ***\n")
+    cat("Interpretation: This state may have CONSTANT (not dynamic) correlation.\n")
+    cat("Consider:\n")
+    cat("  1. This is a valid finding - the state genuinely lacks correlation dynamics\n")
+    cat("  2. Using a constant correlation model for this state\n")
+    cat("  3. Reducing the number of states if multiple states collapse\n")
   }
   
-  ## ======================= DIAGNOSTIC begin ==========================  
+  ## ======================= DIAGNOSTIC end ==========================  
   
   ## 6. Extract results
   estimated_pars <- as.list(opt_result$par)
