@@ -224,7 +224,7 @@ calculate_loglik_vector_r <- function(
     model_type = "univariate"
 ) {
   
-  ## 1. Get Residuals from the Conditional Mean Model
+  ## 1. Get Residuals from Conditional Mean Model
   if (model_type == "univariate") {
     arma_pars <- current_pars$arma_pars
     model_residuals <- stats::arima(
@@ -246,7 +246,7 @@ calculate_loglik_vector_r <- function(
     model_residuals <- y_target - X_lagged %*% beta_mat
   }
   
-  ## 2. Create the GARCH spec object with current parameters
+  ## 2. Create GARCH spec object
   garch_spec_obj <- create_garch_spec_object_r(
     model_residuals, 
     spec, 
@@ -255,13 +255,10 @@ calculate_loglik_vector_r <- function(
   )
   
   if (model_type == "univariate") {
-    ## --- UNIVARIATE ---
-    
-    ## Use tsfilter() to get the sigma path
+    ## === UNIVARIATE ===
     garch_model_fit <- tsmethods::tsfilter(garch_spec_obj)
     sig <- as.numeric(garch_model_fit$sigma)
     
-    ## Call the correct density function
     dist_fun <- switch(spec$distribution,
                        "norm" = stats::dnorm,
                        "snorm" = tsdistributions::dsnorm,
@@ -287,106 +284,53 @@ calculate_loglik_vector_r <- function(
     ll_vector <- do.call(dist_fun, dist_args)
     
   } else {
-    ## --- MULTIVARIATE ---
-    ## CRITICAL: We must evaluate likelihood at FIXED parameters,
-    ## NOT re-estimate them. This is for the EM algorithm's E-step.
-    
+    ## === MULTIVARIATE ===
     spec_fun_name <- spec$garch_spec_fun
     
     if (spec_fun_name %in% c("dcc_modelspec", "cgarch_modelspec")) {
-      ## ==== DCC or Copula-GARCH Models ====
+      ## ==== DCC or Copula-GARCH ====
       
-      ## Extract DCC-layer parameters from current EM iteration
-      other_pars <- current_pars[!names(current_pars) %in% c("var_pars", "garch_pars")]
-
-      ## Inject these into the spec's parmatrix for the internal functions to use
-      for (par_name in names(other_pars)) {
-        if (par_name %in% garch_spec_obj$parmatrix$parameter) {
-          #garch_spec_obj$parmatrix[parameter == par_name, value := other_pars[[par_name]]]
-          row_idx <- which(garch_spec_obj$parmatrix$parameter == par_name)
-          garch_spec_obj$parmatrix[row_idx, "value"] <- other_pars[[par_name]]
-        }
-      }
+      ## Check if this state has constant or dynamic correlation
+      has_dcc_params <- any(grepl("^(alpha|beta)_[0-9]+$", names(current_pars)))
+      is_constant_corr <- !has_dcc_params || 
+        (!is.null(current_pars$correlation_type) && current_pars$correlation_type == "constant")
       
-      ## Extract parameter vector for internal functions
-      estimate <- NULL
-      pars <- garch_spec_obj$parmatrix[estimate == 1]$value
-      
-      ## Determine if dynamic or constant
-      is_dynamic <- !is.null(garch_spec_obj$dynamics) && 
-        garch_spec_obj$dynamics$model %in% c("dcc", "adcc")
-      
-      ## Call the appropriate internal tsmarch function
-      ## These functions EVALUATE likelihood at given parameters (no optimization!)
-      if (spec_fun_name == "dcc_modelspec") {
-        if (is_dynamic) {
-          ## DCC Dynamic: Call internal function directly
-          total_nll_vec <- tsmarch:::.dcc_dynamic_values(
-            pars, 
-            garch_spec_obj, 
-            type = "ll_vec"
-          )
-
-          
-          ## Strip off initialization period
-          dcc_order <- garch_spec_obj$dynamics$order
-          maxpq <- max(dcc_order)
-          if (maxpq > 0) {
-            total_nll_vec <- total_nll_vec[-(1:maxpq), , drop = TRUE]
-          } else {
-            total_nll_vec <- as.vector(total_nll_vec)
+      if (is_constant_corr) {
+        ## === CONSTANT CORRELATION ===
+        cat("Using constant correlation (DCC parameters absent or at boundary)\n")
+        
+        ## Inject distribution parameters only
+        if (!is.null(current_pars$dist_pars)) {
+          for (par_name in names(current_pars$dist_pars)) {
+            if (par_name %in% garch_spec_obj$parmatrix$parameter) {
+              row_idx <- which(garch_spec_obj$parmatrix$parameter == par_name)
+              garch_spec_obj$parmatrix[row_idx, "value"] <- current_pars$dist_pars[[par_name]]
+            }
           }
-          
-          ll_vector <- -total_nll_vec
-          
-        } else {
-          ## DCC Constant
-          if (garch_spec_obj$distribution == "mvn" && length(pars) == 0) {
-            ## MVN constant correlation has no parameters
+        }
+        
+        ## Extract parameter vector (for dist params only, if any)
+        estimate <- NULL
+        pars <- garch_spec_obj$parmatrix[estimate == 1]$value
+        
+        ## Call constant correlation function
+        if (spec_fun_name == "dcc_modelspec") {
+          if (spec$distribution == "mvn" && length(pars) == 0) {
             total_nll_vec <- tsmarch:::.dcc_constant_values(
               NULL, 
               garch_spec_obj, 
               type = "ll_vec"
             )
           } else {
-            ## MVT constant correlation has shape parameter
             total_nll_vec <- tsmarch:::.dcc_constant_values(
               pars, 
               garch_spec_obj, 
               type = "ll_vec"
             )
           }
-          
           ll_vector <- -as.vector(total_nll_vec)
-        }
-        
-      } else if (spec_fun_name == "cgarch_modelspec") {
-        if (is_dynamic) {
-          ## Copula Dynamic
-          copula_nll_vec <- tsmarch:::.copula_dynamic_values(
-            pars, 
-            garch_spec_obj, 
-            type = "ll_vec"
-          )
           
-          ## Strip off initialization period
-          dcc_order <- garch_spec_obj$dynamics$order
-          maxpq <- max(dcc_order)
-          if (maxpq > 0) {
-            copula_nll_vec <- copula_nll_vec[-(1:maxpq), , drop = TRUE]
-          } else {
-            copula_nll_vec <- as.vector(copula_nll_vec)
-          }
-          
-          ## Get univariate GARCH component
-          garch_nll_vec <- .get_garch_nll_vec_from_univariate(garch_spec_obj$univariate)
-          
-          ## Total = GARCH + Copula
-          total_nll_vec <- garch_nll_vec + copula_nll_vec
-          ll_vector <- -total_nll_vec
-          
-        } else {
-          ## Copula Constant
+        } else if (spec_fun_name == "cgarch_modelspec") {
           if (garch_spec_obj$copula == "mvn" && length(pars) == 0) {
             copula_nll_vec <- tsmarch:::.copula_constant_values(
               NULL, 
@@ -400,39 +344,104 @@ calculate_loglik_vector_r <- function(
               type = "ll_vec"
             )
           }
-          
           copula_nll_vec <- as.vector(copula_nll_vec)
           garch_nll_vec <- .get_garch_nll_vec_from_univariate(garch_spec_obj$univariate)
-          
           total_nll_vec <- garch_nll_vec + copula_nll_vec
           ll_vector <- -total_nll_vec
+        }
+        
+      } else {
+        ## === DYNAMIC CORRELATION ===
+        
+        ## Inject DCC and distribution parameters
+        other_pars <- current_pars[!names(current_pars) %in% c("var_pars", "garch_pars", "correlation_type")]
+        
+        for (par_name in names(other_pars)) {
+          if (par_name %in% garch_spec_obj$parmatrix$parameter) {
+            row_idx <- which(garch_spec_obj$parmatrix$parameter == par_name)
+            garch_spec_obj$parmatrix[row_idx, "value"] <- other_pars[[par_name]]
+          }
+        }
+        
+        estimate <- NULL
+        pars <- garch_spec_obj$parmatrix[estimate == 1]$value
+        
+        is_dynamic <- !is.null(garch_spec_obj$dynamics) && 
+          garch_spec_obj$dynamics$model %in% c("dcc", "adcc")
+        
+        if (spec_fun_name == "dcc_modelspec") {
+          if (is_dynamic) {
+            total_nll_vec <- tsmarch:::.dcc_dynamic_values(
+              pars, 
+              garch_spec_obj, 
+              type = "ll_vec"
+            )
+            
+            dcc_order <- garch_spec_obj$dynamics$order
+            maxpq <- max(dcc_order)
+            if (maxpq > 0) {
+              total_nll_vec <- total_nll_vec[-(1:maxpq), , drop = TRUE]
+            } else {
+              total_nll_vec <- as.vector(total_nll_vec)
+            }
+            ll_vector <- -total_nll_vec
+          } else {
+            ## Shouldn't reach here, but fallback to constant
+            if (spec$distribution == "mvn" && length(pars) == 0) {
+              total_nll_vec <- tsmarch:::.dcc_constant_values(NULL, garch_spec_obj, type = "ll_vec")
+            } else {
+              total_nll_vec <- tsmarch:::.dcc_constant_values(pars, garch_spec_obj, type = "ll_vec")
+            }
+            ll_vector <- -as.vector(total_nll_vec)
+          }
+          
+        } else if (spec_fun_name == "cgarch_modelspec") {
+          if (is_dynamic) {
+            copula_nll_vec <- tsmarch:::.copula_dynamic_values(
+              pars, 
+              garch_spec_obj, 
+              type = "ll_vec"
+            )
+            
+            dcc_order <- garch_spec_obj$dynamics$order
+            maxpq <- max(dcc_order)
+            if (maxpq > 0) {
+              copula_nll_vec <- copula_nll_vec[-(1:maxpq), , drop = TRUE]
+            } else {
+              copula_nll_vec <- as.vector(copula_nll_vec)
+            }
+            
+            garch_nll_vec <- .get_garch_nll_vec_from_univariate(garch_spec_obj$univariate)
+            total_nll_vec <- garch_nll_vec + copula_nll_vec
+            ll_vector <- -total_nll_vec
+          } else {
+            if (garch_spec_obj$copula == "mvn" && length(pars) == 0) {
+              copula_nll_vec <- tsmarch:::.copula_constant_values(NULL, garch_spec_obj, type = "ll_vec")
+            } else {
+              copula_nll_vec <- tsmarch:::.copula_constant_values(pars, garch_spec_obj, type = "ll_vec")
+            }
+            copula_nll_vec <- as.vector(copula_nll_vec)
+            garch_nll_vec <- .get_garch_nll_vec_from_univariate(garch_spec_obj$univariate)
+            total_nll_vec <- garch_nll_vec + copula_nll_vec
+            ll_vector <- -total_nll_vec
+          }
         }
       }
       
     } else if (spec_fun_name == "gogarch_modelspec") {
-      ## ==== GOGARCH Model ====
-      ## GOGARCH is fundamentally different - uses ICA decomposition
-      ## We need to estimate once to get the structure, but the parameters
-      ## are already fixed by create_garch_spec_object_r()
-      
-      ## Estimate GOGARCH (this finds ICA decomposition with fixed GARCH params)
+      ## ==== GOGARCH ====
       garch_model_fit <- suppressWarnings(estimate(garch_spec_obj, trace = FALSE))
-      
-      ## Now extract likelihood at these fixed parameters
-      ## For GOGARCH, we can use compute_loglik_fixed since the structure is 
-      ## different
       ll_vector <- compute_loglik_fixed(
         object = garch_model_fit,
-        params = list(),  # Parameters already in the object
+        params = list(),
         ll_vec = TRUE
       )
-      
     } else {
       stop("Unsupported multivariate model type: ", spec_fun_name)
     }
   }
   
-  ## Sanitize and pad the vector before returning to C++
+  ## Sanitize and pad
   ll_vector[!is.finite(ll_vector)] <- -1e10
   if (length(ll_vector) < NROW(y)) {
     padding <- NROW(y) - length(ll_vector)
@@ -647,9 +656,7 @@ estimate_garch_weighted_dcc <- function(residuals, weights, spec) {
   T_obs <- nrow(residuals)
   
   ## Adjust weights to match residuals length
-  ## If residuals are shorter (due to VAR padding), truncate weights from the beginning
   if (length(weights) > T_obs) {
-    ## Remove the first (length(weights) - T_obs) elements
     n_to_remove <- length(weights) - T_obs
     w_target <- weights[(n_to_remove + 1):length(weights)]
   } else if (length(weights) < T_obs) {
@@ -666,56 +673,80 @@ estimate_garch_weighted_dcc <- function(residuals, weights, spec) {
     series_residuals <- residuals[, i]
     series_spec <- spec$garch_spec_args$garch_model$univariate[[i]]
     
-    ## Create a univariate spec structure
     uni_spec <- list(
       garch_model = series_spec$model,
       garch_order = series_spec$garch_order,
       distribution = series_spec$distribution,
       start_pars = list(
         garch_pars = spec$start_pars$garch_pars[[i]],
-        dist_pars = NULL  ## Marginals in DCC are always normal
+        dist_pars = NULL
       )
     )
     
-    ## Estimate using univariate function
     uni_result <- estimate_garch_weighted_univariate(series_residuals, w_target, uni_spec)
     garch_pars_list[[i]] <- uni_result$coefficients
     warnings_stage1 <- c(warnings_stage1, uni_result$warnings)
   }
   
-  ## === STAGE 2: Estimate DCC Parameters ===
+  ## === STAGE 2: Estimate DCC Parameters (with degeneracy detection) ===
   
-  ## Check if DCC parameters need estimation
   dcc_start_pars <- spec$start_pars$dcc_pars
   dist_start_pars <- spec$start_pars$dist_pars
   
   if (is.null(dcc_start_pars) || length(dcc_start_pars) == 0) {
-    ## No DCC parameters to estimate (e.g., constant correlation)
-    dcc_pars <- list()
-  } else {
-    ## Estimate DCC dynamics
-    dcc_result <- estimate_dcc_parameters_weighted(
-      residuals = residuals,
-      weights = w_target,  ## Pass adjusted weights
-      garch_pars = garch_pars_list,
-      dcc_start_pars = dcc_start_pars,
-      dist_start_pars = dist_start_pars,
-      spec = spec
-    )
-    
-    dcc_pars <- dcc_result$dcc_pars
-    dist_pars <- dcc_result$dist_pars
-    warnings_stage1 <- c(warnings_stage1, dcc_result$warnings)
+    ## No DCC parameters - already constant correlation
+    return(list(
+      coefficients = list(
+        garch_pars = garch_pars_list,
+        dcc_pars = list(),
+        dist_pars = dist_start_pars,
+        correlation_type = "constant"
+      ),
+      warnings = warnings_stage1
+    ))
   }
   
-  ## === Combine Results ===
+  ## Attempt DCC estimation
+  dcc_result <- estimate_dcc_parameters_weighted(
+    residuals = residuals,
+    weights = w_target,
+    garch_pars = garch_pars_list,
+    dcc_start_pars = dcc_start_pars,
+    dist_start_pars = dist_start_pars,
+    spec = spec
+  )
+  
+  ## Check for degeneracy
+  alpha_params <- dcc_result$dcc_pars[grepl("alpha", names(dcc_result$dcc_pars))]
+  is_degenerate <- any(unlist(alpha_params) < 0.015)  # Near lower bound
+  
+  if (is_degenerate) {
+    cat("\n=== DCC DEGENERACY DETECTED ===\n")
+    cat("Alpha parameter(s) at lower bound:", unlist(alpha_params), "\n")
+    cat("Switching to CONSTANT CORRELATION model for this state.\n")
+    cat("This is appropriate when correlation lacks meaningful dynamics.\n\n")
+    
+    ## Return constant correlation specification
+    return(list(
+      coefficients = list(
+        garch_pars = garch_pars_list,
+        dcc_pars = list(),  ## Empty - signals constant correlation
+        dist_pars = dcc_result$dist_pars,
+        correlation_type = "constant"
+      ),
+      warnings = c(warnings_stage1, dcc_result$warnings)
+    ))
+  }
+  
+  ## DCC dynamics are meaningful
   return(list(
     coefficients = list(
       garch_pars = garch_pars_list,
-      dcc_pars = dcc_pars,
-      dist_pars = if(exists("dist_pars")) dist_pars else dist_start_pars
+      dcc_pars = dcc_result$dcc_pars,
+      dist_pars = dcc_result$dist_pars,
+      correlation_type = "dynamic"
     ),
-    warnings = warnings_stage1
+    warnings = c(warnings_stage1, dcc_result$warnings)
   ))
 }
 
@@ -734,9 +765,8 @@ estimate_dcc_parameters_weighted <- function(
   k <- ncol(residuals)
   T_obs <- nrow(residuals)
   
-  ## Verify dimensions match
   if (length(weights) != T_obs) {
-    stop(sprintf("Dimension mismatch in estimate_dcc_parameters_weighted: residuals has %d rows but weights has %d elements", 
+    stop(sprintf("Dimension mismatch: residuals has %d rows but weights has %d elements", 
                  T_obs, length(weights)))
   }
   
@@ -746,7 +776,6 @@ estimate_dcc_parameters_weighted <- function(
     series_residuals <- residuals[, i]
     series_spec <- spec$garch_spec_args$garch_model$univariate[[i]]
     
-    ## Create spec with estimated GARCH parameters
     uni_spec_obj <- tsgarch::garch_modelspec(
       y = xts::xts(series_residuals, order.by = Sys.Date() - (T_obs:1)),
       model = series_spec$model,
@@ -754,7 +783,6 @@ estimate_dcc_parameters_weighted <- function(
       distribution = series_spec$distribution
     )
     
-    ## Set estimated parameters
     for (par_name in names(garch_pars[[i]])) {
       if (par_name %in% uni_spec_obj$parmatrix$parameter) {
         row_idx <- which(uni_spec_obj$parmatrix$parameter == par_name)
@@ -762,53 +790,44 @@ estimate_dcc_parameters_weighted <- function(
       }
     }
     
-    ## Filter to get conditional volatilities
     uni_fit <- tsmethods::tsfilter(uni_spec_obj)
     std_residuals[, i] <- series_residuals / as.numeric(uni_fit$sigma)
   }
   
-  ## 2. Combine DCC and distribution parameters for joint optimization
+  ## 2. Combine DCC and distribution parameters
   all_stage2_pars <- c(dcc_start_pars, dist_start_pars)
   
   if (length(all_stage2_pars) == 0) {
     return(list(dcc_pars = list(), dist_pars = list(), warnings = list()))
   }
   
-  ## 3. Define objective function for DCC parameters
+  ## 3. Define objective function
   weighted_dcc_loglik <- function(params, std_resid, w, spec, k, debug = FALSE) {
     
     param_list <- as.list(params)
     names(param_list) <- names(all_stage2_pars)
     
-    ## Separate DCC and distribution parameters
     dcc_param_names <- names(dcc_start_pars)
     dist_param_names <- names(dist_start_pars)
     
     dcc_params_current <- param_list[dcc_param_names]
     dist_params_current <- param_list[dist_param_names]
     
-    ## Extract DCC order
-    dcc_order <- spec$garch_spec_args$dcc_order
-    
-    ## Initialize matrices
     T_eff <- nrow(std_resid)
     
-    ## Verify dimensions one more time inside objective function
     if (length(w) != T_eff) {
       stop(sprintf("Dimension mismatch: std_resid has %d rows but weights has %d elements", 
                    T_eff, length(w)))
     }
     
-    ## ===== DIAGNOSTIC: Check weight distribution =====
     if (debug) {
       cat("\n=== OBJECTIVE FUNCTION DIAGNOSTIC ===\n")
       cat("Weight summary: min =", min(w), ", max =", max(w), ", mean =", mean(w), "\n")
       cat("Effective sample size:", sum(w)^2 / sum(w^2), "\n")
-      cat("Params being evaluated: alpha =", dcc_params_current$alpha_1, 
-          ", beta =", dcc_params_current$beta_1, "\n")
+      cat("Params: alpha =", dcc_params_current$alpha_1, ", beta =", dcc_params_current$beta_1, "\n")
     }
     
-    ## Weighted covariance using smoothed probabilities
+    ## Weighted covariance
     Qbar_result <- tryCatch({
       stats::cov.wt(std_resid, wt = w, method = "ML")$cov
     }, error = function(e) {
@@ -825,13 +844,10 @@ estimate_dcc_parameters_weighted <- function(
     
     ## Ensure positive definite
     eig <- eigen(Qbar, symmetric = TRUE)
-    if (debug) {
-      cat("Qbar eigenvalues:", eig$values, "\n")
-    }
+    if (debug) cat("Qbar eigenvalues:", eig$values, "\n")
     
     if (any(eig$values < 1e-8)) {
       if (debug) cat("Qbar not PD, regularizing\n")
-      ## Regularize: add small diagonal
       Qbar <- Qbar + diag(1e-6, k)
     }
     
@@ -839,10 +855,8 @@ estimate_dcc_parameters_weighted <- function(
     Q <- array(0, dim = c(k, k, T_eff))
     R <- array(0, dim = c(k, k, T_eff))
     
-    ## Initialize Q and R
+    ## Initialize Q and R properly
     Q[,,1] <- Qbar
-    
-    ## Properly initialize R[,,1] by standardizing Qbar
     Qbar_diag_inv_sqrt <- diag(1/sqrt(diag(Qbar)), k)
     R[,,1] <- Qbar_diag_inv_sqrt %*% Qbar %*% Qbar_diag_inv_sqrt
     
@@ -860,13 +874,11 @@ estimate_dcc_parameters_weighted <- function(
         alpha * (t(z_lag) %*% z_lag) + 
         beta * Q[,,t-1]
       
-      ## Check for invalid Q
       if (any(!is.finite(Q[,,t]))) {
         if (debug) cat("Non-finite Q at t =", t, "\n")
         return(1e10)
       }
       
-      ## Standardize to get correlation
       Q_diag <- diag(Q[,,t])
       if (any(Q_diag <= 0)) {
         if (debug) cat("Non-positive diagonal in Q at t =", t, "\n")
@@ -884,7 +896,6 @@ estimate_dcc_parameters_weighted <- function(
     if (spec$distribution == "mvn") {
       for (t in 1:T_eff) {
         R_t <- R[,,t]
-        ## Ensure positive definite
         if (any(is.na(R_t)) || any(!is.finite(R_t))) {
           ll_vec[t] <- -1e10
           n_bad <- n_bad + 1
@@ -906,7 +917,7 @@ estimate_dcc_parameters_weighted <- function(
       }
     } else if (spec$distribution == "mvt") {
       shape <- dist_params_current$shape
-      if (shape <= 2) return(1e10)  ## Need finite variance
+      if (shape <= 2) return(1e10)
       
       for (t in 1:T_eff) {
         R_t <- R[,,t]
@@ -927,7 +938,6 @@ estimate_dcc_parameters_weighted <- function(
     }
     
     ll_vec[!is.finite(ll_vec)] <- -1e10
-    
     nll <- -sum(w * ll_vec, na.rm = TRUE)
     
     if (debug) {
@@ -945,7 +955,7 @@ estimate_dcc_parameters_weighted <- function(
   for (i in seq_along(all_stage2_pars)) {
     par_name <- names(all_stage2_pars)[i]
     if (grepl("alpha", par_name)) {
-      lower_bounds[i] <- 0.01  ## Enforce minimum alpha to avoid degeneracy
+      lower_bounds[i] <- 0.01
       upper_bounds[i] <- 0.99
     } else if (grepl("beta", par_name)) {
       lower_bounds[i] <- 1e-6
@@ -959,7 +969,6 @@ estimate_dcc_parameters_weighted <- function(
   ## 5. Optimize
   warnings_list <- list()
   
-  ## First, do a test evaluation at starting parameters with debug=TRUE
   cat("\n=== TESTING OBJECTIVE AT START PARAMS ===\n")
   test_nll <- weighted_dcc_loglik(
     params = unlist(all_stage2_pars),
@@ -978,19 +987,18 @@ estimate_dcc_parameters_weighted <- function(
       lower = lower_bounds,
       upper = upper_bounds,
       method = "L-BFGS-B",
-      std_resid = std_residuals,  ## Pass std_residuals
-      w = weights,                ## Pass weights (now guaranteed to match)
+      std_resid = std_residuals,
+      w = weights,
       spec = spec,
       k = k,
-      debug = FALSE  ## Turn off debug for actual optimization
+      debug = FALSE
     )
   }, warning = function(w) {
     warnings_list <<- c(warnings_list, list(w))
     invokeRestart("muffleWarning")
   })
   
-  ## ======================= DIAGNOSTIC begin ==========================
-  
+  ## Diagnostics
   cat("\n=== DCC M-STEP DIAGNOSTIC ===\n")
   cat("Starting DCC params:\n")
   print(unlist(dcc_start_pars))
@@ -999,25 +1007,16 @@ estimate_dcc_parameters_weighted <- function(
   cat("\nOptimization convergence:", opt_result$convergence, "\n")
   cat("Final objective value:", opt_result$value, "\n")
   
-  ## Check if at boundary
-  dcc_param_names <- names(dcc_start_pars)
   alpha_params <- opt_result$par[grepl("alpha", names(opt_result$par))]
   at_boundary <- any(alpha_params < 0.02)
-  
   cat("At boundary:", at_boundary, "\n")
   
   if (at_boundary) {
     cat("\n*** WARNING: DCC alpha parameter at/near boundary ***\n")
-    cat("Interpretation: This state may have CONSTANT (not dynamic) correlation.\n")
-    cat("Consider:\n")
-    cat("  1. This is a valid finding - the state genuinely lacks correlation dynamics\n")
-    cat("  2. Using a constant correlation model for this state\n")
-    cat("  3. Reducing the number of states if multiple states collapse\n")
+    cat("This state appears to have CONSTANT (not dynamic) correlation.\n")
   }
   
-  ## ======================= DIAGNOSTIC end ==========================  
-  
-  ## 6. Extract results
+  ## Extract results
   estimated_pars <- as.list(opt_result$par)
   names(estimated_pars) <- names(all_stage2_pars)
   
@@ -1064,14 +1063,11 @@ estimate_garch_weighted_copula <- function(residuals, weights, spec) {
 #' @return A list of length M containing the updated model fits for each state.
 perform_m_step_parallel_r <- function(y, weights, spec, model_type) {
   
-  ## Required packages for parallel workers
   required_packages <- c("data.table", "xts", "tsgarch", "tsmarch", 
                          "tsdistributions", "mvtnorm")
   
-  ## Iterate over all states in parallel
   updated_fits <- future.apply::future_lapply(1:length(spec), function(j) {
     
-    ## Explicitly load packages on each parallel worker
     library(data.table)
     library(xts)
     library(tsgarch)
@@ -1079,7 +1075,6 @@ perform_m_step_parallel_r <- function(y, weights, spec, model_type) {
     library(tsdistributions)
     library(mvtnorm)
     
-    ## Extract state-specific data
     state_weights <- weights[, j]
     state_spec <- spec[[j]]
     
@@ -1099,9 +1094,8 @@ perform_m_step_parallel_r <- function(y, weights, spec, model_type) {
       model_type = model_type
     )
     
-    ## === Structure the output based on model type ===
+    ## === Structure the output ===
     if (model_type == "univariate") {
-      ## For univariate: separate GARCH and distribution parameters
       all_params <- new_variance_fit$coefficients
       dist_param_names <- names(state_spec$start_pars$dist_pars)
       
@@ -1120,47 +1114,42 @@ perform_m_step_parallel_r <- function(y, weights, spec, model_type) {
       ))
       
     } else {
-      ## For multivariate: structure depends on model type
+      ## === MULTIVARIATE ===
       variance_coeffs <- new_variance_fit$coefficients
-      
-      ## The coefficients already come structured from estimate_garch_weighted_multivariate
-      ## For DCC: list(garch_pars = list(...), dcc_pars = list(...), dist_pars = list(...))
-      ## For GOGARCH: list(garch_pars = list(...), rotation_pars = list(...))
-      ## For Copula: list(garch_pars = list(...), copula_pars = list(...), dist_pars = list(...))
-      
-      ## Flatten DCC/Copula/GOGARCH-specific parameters into the top level
-      ## This matches the structure expected by calculate_loglik_vector_r and C++ code
       
       result <- list(var_pars = new_mean_fit$coefficients)
       
-      ## Add univariate GARCH parameters (always present)
+      ## Add univariate GARCH parameters
       if (!is.null(variance_coeffs$garch_pars)) {
         result$garch_pars <- variance_coeffs$garch_pars
       }
       
-      ## Add model-specific parameters (DCC, Copula, GOGARCH)
-      if (!is.null(variance_coeffs$dcc_pars)) {
-        ## Flatten DCC parameters to top level
+      ## Handle DCC parameters - may be empty for constant correlation
+      if (!is.null(variance_coeffs$dcc_pars) && length(variance_coeffs$dcc_pars) > 0) {
+        ## Dynamic correlation: flatten DCC parameters to top level
         for (par_name in names(variance_coeffs$dcc_pars)) {
           result[[par_name]] <- variance_coeffs$dcc_pars[[par_name]]
         }
+        result$correlation_type <- "dynamic"
+      } else {
+        ## Constant correlation: no DCC parameters
+        result$correlation_type <- "constant"
       }
       
+      ## Handle copula/GOGARCH parameters (future)
       if (!is.null(variance_coeffs$copula_pars)) {
-        ## Flatten Copula parameters to top level
         for (par_name in names(variance_coeffs$copula_pars)) {
           result[[par_name]] <- variance_coeffs$copula_pars[[par_name]]
         }
       }
       
       if (!is.null(variance_coeffs$rotation_pars)) {
-        ## Flatten GOGARCH rotation parameters
         for (par_name in names(variance_coeffs$rotation_pars)) {
           result[[par_name]] <- variance_coeffs$rotation_pars[[par_name]]
         }
       }
       
-      ## Add distribution parameters (if present)
+      ## Add distribution parameters
       if (!is.null(variance_coeffs$dist_pars)) {
         result$dist_pars <- variance_coeffs$dist_pars
       }
