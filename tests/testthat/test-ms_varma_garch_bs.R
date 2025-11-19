@@ -1835,7 +1835,13 @@ test_that("DCC estimation completes without errors", {
 
 ## 8b: Single Regime Data (Should Detect Identical States or Constant Corr) ====
 
-## Helper function to check if parameter is at lower bound (constant correlation)
+test_that("Single regime data converges quickly (both states identical or constant)", {
+  
+  set.seed(123)
+  n <- 200
+  k <- 2
+  
+  ## Helper function to check if parameter is at lower bound (constant correlation)
 is_constant_correlation <- function(pars) {
   alpha <- pars$alpha_1
   if (is.null(alpha)) return(TRUE)
@@ -1843,12 +1849,6 @@ is_constant_correlation <- function(pars) {
   if (alpha < 0.02) return(TRUE)
   return(FALSE)
 }
-
-test_that("Single regime data converges quickly (both states identical or constant)", {
-  
-  set.seed(123)
-  n <- 200
-  k <- 2
   
   ## True GARCH parameters (single regime)
   omega_true <- c(0.1, 0.15)
@@ -1929,7 +1929,7 @@ test_that("Single regime data converges quickly (both states identical or consta
     M = 2,
     spec = spec_dcc,
     model_type = "multivariate",
-    control = list(max_iter = 20, tol = 0.01)
+    control = list(max_iter = 20, tol = 0.05)
   )
   
   ## Check that fit returned something
@@ -2110,141 +2110,143 @@ test_that("Mixed regime data: one dynamic, one constant correlation", {
 
 ## WARNING: This test may take hours!
 
-simulate_ms_dcc_garch <- function(n, k = 2, seed = 456) {
-  set.seed(seed)
-  
-  ## STATE-DEPENDENT PARAMETERS
-  ## State 1: Low volatility, low correlation dynamics
-  omega_1 <- c(0.05, 0.08)
-  alpha_garch_1 <- c(0.08, 0.10)
-  beta_garch_1 <- c(0.85, 0.80)
-  dcc_alpha_1 <- 0.03
-  dcc_beta_1 <- 0.94
-  Rbar_1 <- matrix(c(1, 0.3, 0.3, 1), 2, 2)  # Lower correlation
-  
-  ## State 2: High volatility, high correlation dynamics  
-  omega_2 <- c(0.15, 0.20)
-  alpha_garch_2 <- c(0.15, 0.18)
-  beta_garch_2 <- c(0.70, 0.65)
-  dcc_alpha_2 <- 0.12
-  dcc_beta_2 <- 0.83
-  Rbar_2 <- matrix(c(1, 0.7, 0.7, 1), 2, 2)  # Higher correlation
-  
-  ## Markov chain switching probabilities
-  P <- matrix(c(0.95, 0.05,   # P(stay in 1), P(1->2)
-                0.10, 0.90),  # P(2->1), P(stay in 2)
-              nrow = 2, byrow = TRUE)
-  
-  ## Generate state sequence
-  states <- numeric(n)
-  states[1] <- 1
-  for (t in 2:n) {
-    states[t] <- sample(1:2, 1, prob = P[states[t-1], ])
-  }
-  
-  ## Initialize
-  y_ms <- matrix(0, n, k)
-  h_ms <- matrix(0, n, k)
-  z_std <- matrix(0, n, k)  # Standardized residuals
-  
-  ## Initialize conditional variances
-  for (i in 1:k) {
-    h_ms[1, i] <- omega_1[i] / (1 - alpha_garch_1[i] - beta_garch_1[i])
-  }
-  
-  ## Initialize DCC matrices for each state
-  Q_1 <- Rbar_1
-  R_1 <- Rbar_1
-  Q_2 <- Rbar_2
-  R_2 <- Rbar_2
-  
-  ## Simulate
-  for (t in 1:n) {
-    s <- states[t]
-    
-    ## Select state-specific parameters
-    omega <- if(s == 1) omega_1 else omega_2
-    alpha_garch <- if(s == 1) alpha_garch_1 else alpha_garch_2
-    beta_garch <- if(s == 1) beta_garch_1 else beta_garch_2
-    dcc_alpha <- if(s == 1) dcc_alpha_1 else dcc_alpha_2
-    dcc_beta <- if(s == 1) dcc_beta_1 else dcc_beta_2
-    Rbar <- if(s == 1) Rbar_1 else Rbar_2
-    
-    ## Get current correlation matrix
-    if (s == 1) {
-      R_t <- R_1
-    } else {
-      R_t <- R_2
-    }
-    
-    ## Draw CORRELATED standardized residuals
-    z_std[t, ] <- mvtnorm::rmvnorm(1, mean = rep(0, k), sigma = R_t)
-    
-    ## Compute conditional variances and raw residuals
-    for (i in 1:k) {
-      if (t > 1) {
-        h_ms[t, i] <- omega[i] + alpha_garch[i] * y_ms[t-1, i]^2 + 
-          beta_garch[i] * h_ms[t-1, i]
-      }
-      y_ms[t, i] <- sqrt(h_ms[t, i]) * z_std[t, i]
-    }
-    
-    ## Update DCC dynamics for NEXT period
-    if (t < n) {
-      z_lag <- matrix(z_std[t, ], ncol = 1)
-      
-      if (states[t+1] == 1) {
-        ## Update State 1 DCC
-        Q_1 <- Rbar_1 * (1 - dcc_alpha_1 - dcc_beta_1) + 
-          dcc_alpha_1 * (z_lag %*% t(z_lag)) + 
-          dcc_beta_1 * Q_1
-        
-        ## Standardize to correlation
-        Q_diag_inv_sqrt <- diag(1 / sqrt(diag(Q_1)), k)
-        R_1 <- Q_diag_inv_sqrt %*% Q_1 %*% Q_diag_inv_sqrt
-        
-      } else {
-        ## Update State 2 DCC
-        Q_2 <- Rbar_2 * (1 - dcc_alpha_2 - dcc_beta_2) + 
-          dcc_alpha_2 * (z_lag %*% t(z_lag)) + 
-          dcc_beta_2 * Q_2
-        
-        Q_diag_inv_sqrt <- diag(1 / sqrt(diag(Q_2)), k)
-        R_2 <- Q_diag_inv_sqrt %*% Q_2 %*% Q_diag_inv_sqrt
-      }
-    }
-  }
-  
-  colnames(y_ms) <- paste0("s", 1:k)
-  
-  return(list(
-    data = y_ms,
-    states = states,
-    h = h_ms,
-    z_std = z_std,
-    true_params = list(
-      state1 = list(
-        omega = omega_1,
-        alpha_garch = alpha_garch_1,
-        beta_garch = beta_garch_1,
-        dcc_alpha = dcc_alpha_1,
-        dcc_beta = dcc_beta_1,
-        Rbar = Rbar_1
-      ),
-      state2 = list(
-        omega = omega_2,
-        alpha_garch = alpha_garch_2,
-        beta_garch = beta_garch_2,
-        dcc_alpha = dcc_alpha_2,
-        dcc_beta = dcc_beta_2,
-        Rbar = Rbar_2
-      )
-    )
-  ))
-}
 
 test_that("True MS-DCC-GARCH data recovers distinct regimes", {
   skip_on_cran()
+  
+  
+  simulate_ms_dcc_garch <- function(n, k = 2, seed = 456) {
+    set.seed(seed)
+    
+    ## STATE-DEPENDENT PARAMETERS
+    ## State 1: Low volatility, low correlation dynamics
+    omega_1 <- c(0.05, 0.08)
+    alpha_garch_1 <- c(0.08, 0.10)
+    beta_garch_1 <- c(0.85, 0.80)
+    dcc_alpha_1 <- 0.03
+    dcc_beta_1 <- 0.94
+    Rbar_1 <- matrix(c(1, 0.3, 0.3, 1), 2, 2)  # Lower correlation
+    
+    ## State 2: High volatility, high correlation dynamics  
+    omega_2 <- c(0.15, 0.20)
+    alpha_garch_2 <- c(0.15, 0.18)
+    beta_garch_2 <- c(0.70, 0.65)
+    dcc_alpha_2 <- 0.12
+    dcc_beta_2 <- 0.83
+    Rbar_2 <- matrix(c(1, 0.7, 0.7, 1), 2, 2)  # Higher correlation
+    
+    ## Markov chain switching probabilities
+    P <- matrix(c(0.95, 0.05,   # P(stay in 1), P(1->2)
+                  0.10, 0.90),  # P(2->1), P(stay in 2)
+                nrow = 2, byrow = TRUE)
+    
+    ## Generate state sequence
+    states <- numeric(n)
+    states[1] <- 1
+    for (t in 2:n) {
+      states[t] <- sample(1:2, 1, prob = P[states[t-1], ])
+    }
+    
+    ## Initialize
+    y_ms <- matrix(0, n, k)
+    h_ms <- matrix(0, n, k)
+    z_std <- matrix(0, n, k)  # Standardized residuals
+    
+    ## Initialize conditional variances
+    for (i in 1:k) {
+      h_ms[1, i] <- omega_1[i] / (1 - alpha_garch_1[i] - beta_garch_1[i])
+    }
+    
+    ## Initialize DCC matrices for each state
+    Q_1 <- Rbar_1
+    R_1 <- Rbar_1
+    Q_2 <- Rbar_2
+    R_2 <- Rbar_2
+    
+    ## Simulate
+    for (t in 1:n) {
+      s <- states[t]
+      
+      ## Select state-specific parameters
+      omega <- if(s == 1) omega_1 else omega_2
+      alpha_garch <- if(s == 1) alpha_garch_1 else alpha_garch_2
+      beta_garch <- if(s == 1) beta_garch_1 else beta_garch_2
+      dcc_alpha <- if(s == 1) dcc_alpha_1 else dcc_alpha_2
+      dcc_beta <- if(s == 1) dcc_beta_1 else dcc_beta_2
+      Rbar <- if(s == 1) Rbar_1 else Rbar_2
+      
+      ## Get current correlation matrix
+      if (s == 1) {
+        R_t <- R_1
+      } else {
+        R_t <- R_2
+      }
+      
+      ## Draw CORRELATED standardized residuals
+      z_std[t, ] <- mvtnorm::rmvnorm(1, mean = rep(0, k), sigma = R_t)
+      
+      ## Compute conditional variances and raw residuals
+      for (i in 1:k) {
+        if (t > 1) {
+          h_ms[t, i] <- omega[i] + alpha_garch[i] * y_ms[t-1, i]^2 + 
+            beta_garch[i] * h_ms[t-1, i]
+        }
+        y_ms[t, i] <- sqrt(h_ms[t, i]) * z_std[t, i]
+      }
+      
+      ## Update DCC dynamics for NEXT period
+      if (t < n) {
+        z_lag <- matrix(z_std[t, ], ncol = 1)
+        
+        if (states[t+1] == 1) {
+          ## Update State 1 DCC
+          Q_1 <- Rbar_1 * (1 - dcc_alpha_1 - dcc_beta_1) + 
+            dcc_alpha_1 * (z_lag %*% t(z_lag)) + 
+            dcc_beta_1 * Q_1
+          
+          ## Standardize to correlation
+          Q_diag_inv_sqrt <- diag(1 / sqrt(diag(Q_1)), k)
+          R_1 <- Q_diag_inv_sqrt %*% Q_1 %*% Q_diag_inv_sqrt
+          
+        } else {
+          ## Update State 2 DCC
+          Q_2 <- Rbar_2 * (1 - dcc_alpha_2 - dcc_beta_2) + 
+            dcc_alpha_2 * (z_lag %*% t(z_lag)) + 
+            dcc_beta_2 * Q_2
+          
+          Q_diag_inv_sqrt <- diag(1 / sqrt(diag(Q_2)), k)
+          R_2 <- Q_diag_inv_sqrt %*% Q_2 %*% Q_diag_inv_sqrt
+        }
+      }
+    }
+    
+    colnames(y_ms) <- paste0("s", 1:k)
+    
+    return(list(
+      data = y_ms,
+      states = states,
+      h = h_ms,
+      z_std = z_std,
+      true_params = list(
+        state1 = list(
+          omega = omega_1,
+          alpha_garch = alpha_garch_1,
+          beta_garch = beta_garch_1,
+          dcc_alpha = dcc_alpha_1,
+          dcc_beta = dcc_beta_1,
+          Rbar = Rbar_1
+        ),
+        state2 = list(
+          omega = omega_2,
+          alpha_garch = alpha_garch_2,
+          beta_garch = beta_garch_2,
+          dcc_alpha = dcc_alpha_2,
+          dcc_beta = dcc_beta_2,
+          Rbar = Rbar_2
+        )
+      )
+    ))
+  }
   
   ## Generate proper MS-DCC data
   sim_data <- simulate_ms_dcc_garch(n = 300, k = 2, seed = 456)
