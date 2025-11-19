@@ -58,12 +58,11 @@ create_garch_spec_object_r <- function(
       garch_order = spec$garch_order,
       distribution = spec$distribution
     )
-     
+    
     ## Set parameters from previous M-step
     all_fixed_pars <- c(current_pars$garch_pars, current_pars$dist_pars)
     for (par_name in names(all_fixed_pars)) {
       if (par_name %in% garch_spec_obj$parmatrix$parameter) {
-        #garch_spec_obj$parmatrix[parameter == par_name, value := all_fixed_pars[[par_name]]]
         row_idx <- which(garch_spec_obj$parmatrix$parameter == par_name)
         garch_spec_obj$parmatrix[row_idx, "value"] <- all_fixed_pars[[par_name]]
       }
@@ -112,27 +111,86 @@ create_garch_spec_object_r <- function(
         
         ## CRITICAL: Recompute sigma using TMB with updated parameters
         ## Get parameters in the order TMB expects (estimate == 1)
-        estimate_col <- NULL
-        pars_for_tmb <- estimated_obj$parmatrix[estimate_col == 1]$value
+        estimate <- NULL
+        pars_for_tmb <- estimated_obj$parmatrix[estimate == 1]$value
+        
+        cat("\n=== TMB SIGMA RECOMPUTATION (Series", i, ") ===\n")
+        cat("Parameters for TMB (should reflect NEW values):\n")
+        print(pars_for_tmb)
+        cat("Omega we WANT:", series_garch_pars$omega, "\n")
+        cat("Omega in pars_for_tmb:", pars_for_tmb[1], "\n")
         
         if (!is.null(estimated_obj$tmb) && length(pars_for_tmb) == length(estimated_obj$tmb$par)) {
+          cat("TMB exists and lengths match. Calling tmb$report()...\n")
+          
+          ## Get sigma BEFORE recomputation
+          sigma_before <- as.numeric(estimated_obj$sigma)
+          cat("Sigma BEFORE tmb$report (first 5):", head(sigma_before, 5), "\n")
+          cat("Mean sigma BEFORE:", mean(sigma_before), "\n")
+          
           ## Evaluate TMB at new parameters
           tmb_report <- estimated_obj$tmb$report(pars_for_tmb)
           
-          ## Update sigma (strip initialization period if needed)
+          ## Update sigma (strip initialization period to match the data length)
           maxpq <- max(estimated_obj$spec$model$order)
+          
+          cat("\n=== XTS CREATION DIAGNOSTIC ===\n")
+          cat("Length of tmb_report$sigma:", length(tmb_report$sigma), "\n")
+          cat("maxpq:", maxpq, "\n")
+          cat("Length of residuals_xts[,", i, "]:", length(residuals_xts[,i]), "\n")
+          cat("Class of estimated_obj$sigma:", class(estimated_obj$sigma), "\n")
+          
+          ## Create proper dates for the sigma vector
+          ## The sigma from TMB matches the full residuals length
+          sigma_dates <- index(residuals_xts[,i])
+          
           if (maxpq > 0) {
-            estimated_obj$sigma <- xts::xts(
-              tmb_report$sigma[-(1:maxpq)],
-              order.by = index(estimated_obj$sigma)
-            )
+            ## Strip initialization period from both sigma and dates
+            new_sigma <- tmb_report$sigma[-(1:maxpq)]
+            cat("After stripping", maxpq, "init periods:\n")
+            cat("  Length of new_sigma:", length(new_sigma), "\n")
+            cat("  Length of sigma_dates:", length(sigma_dates), "\n")
           } else {
-            estimated_obj$sigma <- xts::xts(
-              tmb_report$sigma,
-              order.by = index(estimated_obj$sigma)
-            )
+            new_sigma <- tmb_report$sigma
+            cat("No initialization period to strip\n")
+            cat("  Length of new_sigma:", length(new_sigma), "\n")
+            cat("  Length of sigma_dates:", length(sigma_dates), "\n")
+          }
+          cat("=== END XTS DIAGNOSTIC ===\n\n")
+          
+          ## Create xts object with proper dates
+          estimated_obj$sigma <- xts::xts(new_sigma, order.by = sigma_dates)
+          
+          ## Get sigma AFTER recomputation
+          sigma_after <- as.numeric(estimated_obj$sigma)
+          cat("Sigma AFTER tmb$report (first 5):", head(sigma_after, 5), "\n")
+          cat("Mean sigma AFTER:", mean(sigma_after), "\n")
+          cat("Did sigma change?", !identical(sigma_before, sigma_after), "\n")
+          
+          ## Also update standardized residuals
+          ## Make sure we're working with the numeric values
+          if (inherits(estimated_obj$residuals, "xts")) {
+            resid_numeric <- as.numeric(estimated_obj$residuals)
+          } else {
+            resid_numeric <- estimated_obj$residuals
+          }
+          
+          sigma_numeric <- as.numeric(estimated_obj$sigma)
+          
+          ## Create xts object for standardized residuals
+          estimated_obj$std_residuals <- xts::xts(
+            resid_numeric / sigma_numeric,
+            order.by = sigma_dates
+          )
+        } else {
+          cat("WARNING: TMB recomputation SKIPPED!\n")
+          cat("  tmb is NULL?", is.null(estimated_obj$tmb), "\n")
+          if (!is.null(estimated_obj$tmb)) {
+            cat("  Length mismatch: pars_for_tmb has", length(pars_for_tmb), 
+                "but tmb$par has", length(estimated_obj$tmb$par), "\n")
           }
         }
+        cat("=== END TMB RECOMPUTATION ===\n\n")
         
         return(estimated_obj)
       })
@@ -155,7 +213,7 @@ create_garch_spec_object_r <- function(
       }
       
       garch_spec_obj <- do.call(spec_fun, final_args)
-
+      
       
       ## STEP 4: Set DCC-level parameters (now that spec is created)
       
@@ -172,7 +230,6 @@ create_garch_spec_object_r <- function(
           value <- max(value, lower + 1e-8)
           value <- min(value, upper - 1e-8)
           
-          #garch_spec_obj$parmatrix[parameter == par_name, value := value]
           row_idx <- which(garch_spec_obj$parmatrix$parameter == par_name)
           garch_spec_obj$parmatrix[row_idx, "value"] <- value
         }
@@ -189,7 +246,6 @@ create_garch_spec_object_r <- function(
             value <- max(value, lower + 1e-8)
             value <- min(value, upper - 1e-8)
             
-            #garch_spec_obj$parmatrix[parameter == par_name, value := value]
             row_idx <- which(garch_spec_obj$parmatrix$parameter == par_name)
             garch_spec_obj$parmatrix[row_idx, "value"] <- value
           }
@@ -287,6 +343,21 @@ calculate_loglik_vector_r <- function(
     ## === MULTIVARIATE ===
     spec_fun_name <- spec$garch_spec_fun
     
+    ## ==================== DIAGNOSTIC begin ====================
+    if (model_type == "multivariate" && spec_fun_name == "dcc_modelspec") {
+      cat("\n=== DIAGNOSTIC: Sigma values in univariate models ===\n")
+      for (i in 1:ncol(model_residuals)) {
+        uni_model <- garch_spec_obj$univariate[[paste0("series_", i)]]
+        cat("Series", i, ":\n")
+        cat("  omega from parmatrix:", uni_model$parmatrix[parameter == "omega"]$value, "\n")
+        cat("  omega from current_pars:", current_pars$garch_pars[[i]]$omega, "\n")
+        cat("  First 5 sigma values:", head(as.numeric(uni_model$sigma), 5), "\n")
+        cat("  Mean sigma:", mean(as.numeric(uni_model$sigma)), "\n")
+      }
+      cat("=== END DIAGNOSTIC ===\n\n")
+    }
+    ## ==================== DIAGNOSTIC end ====================
+    
     if (spec_fun_name %in% c("dcc_modelspec", "cgarch_modelspec")) {
       ## ==== DCC or Copula-GARCH ====
       
@@ -371,11 +442,28 @@ calculate_loglik_vector_r <- function(
         
         if (spec_fun_name == "dcc_modelspec") {
           if (is_dynamic) {
+            
+            ## ==================== DIAGNOSTIC begin ====================
+            cat("\n=== BEFORE calling .dcc_dynamic_values() ===\n")
+            cat("Parameters being passed:\n")
+            print(pars)
+            cat("\nSigma from univariate[['series_1']]:\n")
+            print(head(as.numeric(garch_spec_obj$univariate[['series_1']]$sigma), 10))
+            cat("\n")
+            ## ==================== DIAGNOSTIC end ====================
+            
             total_nll_vec <- tsmarch:::.dcc_dynamic_values(
               pars, 
               garch_spec_obj, 
               type = "ll_vec"
             )
+            
+            ## ==================== DIAGNOSTIC begin ====================
+            cat("=== AFTER .dcc_dynamic_values() ===\n")
+            cat("Returned NLL vector (first 10):\n")
+            print(head(total_nll_vec, 10))
+            cat("\n")
+            ## ==================== DIAGNOSTIC end ====================
             
             dcc_order <- garch_spec_obj$dynamics$order
             maxpq <- max(dcc_order)
