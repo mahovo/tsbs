@@ -8,10 +8,11 @@ hmm_bootstrap(
   x,
   n_boot = NULL,
   num_states = 2,
-  num_blocks = 100,
+  num_blocks = NULL,
   num_boots = 100,
   parallel = FALSE,
-  num_cores = 1L
+  num_cores = 1L,
+  verbose = FALSE
 )
 }
 \arguments{
@@ -21,13 +22,17 @@ hmm_bootstrap(
 
 \item{num_states}{Integer number of hidden states for the HMM.}
 
-\item{num_blocks}{Integer number of blocks to sample for each bootstrap replicate.}
+\item{num_blocks}{Integer number of blocks to sample for each bootstrap
+replicate.}
 
 \item{num_boots}{Integer number of bootstrap replicates to generate.}
 
 \item{parallel}{Parallelize computation? \code{TRUE} or \code{FALSE}.}
 
 \item{num_cores}{Number of cores.}
+
+\item{verbose}{Logical. If TRUE, prints HMM fitting information and warnings.
+Defaults to FALSE.}
 }
 \value{
 A list of numeric vectors, each one a bootstrap replicate.
@@ -82,6 +87,128 @@ possible hidden state sequences:
 (Beware of the "double use of data" problem: The bootstrap procedure relies
 on regime classification, but the regimes themselves are estimated from the
 same data and depend on the parameters being resampled.)
+}
+\examples{
+\donttest{
+# Requires depmixS4 package
+if (requireNamespace("depmixS4", quietly = TRUE)) {
+  
+  ## Example 1: Univariate time series with regime switching
+  set.seed(123)
+  # Generate data with two regimes
+  n1 <- 100
+  n2 <- 100
+  regime1 <- rnorm(n1, mean = 0, sd = 1)
+  regime2 <- rnorm(n2, mean = 5, sd = 2)
+  x_univar <- c(regime1, regime2)
+  
+  # Generate bootstrap samples
+  boot_samples <- hmm_bootstrap(
+    x = x_univar,
+    n_boot = 150,
+    num_states = 2,
+    num_boots = 100
+  )
+  
+  # Inspect results
+  length(boot_samples)  # 100 bootstrap replicates
+  dim(boot_samples[[1]])  # Each is a 150 x 1 matrix
+  
+  # Compare original and bootstrap distributions
+  original_mean <- mean(x_univar)
+  boot_means <- sapply(boot_samples, mean)
+  
+  hist(boot_means, main = "Bootstrap Distribution of Mean",
+       xlab = "Mean", col = "lightblue")
+  abline(v = original_mean, col = "red", lwd = 2, lty = 2)
+  
+  
+  ## Example 2: Multivariate time series
+  set.seed(456)
+  n <- 200
+  # Two correlated series with regime switching
+  states_true <- rep(1:2, each = n/2)
+  x1 <- ifelse(states_true == 1, 
+               rnorm(n, 0, 1), 
+               rnorm(n, 4, 2))
+  x2 <- 0.7 * x1 + rnorm(n, 0, 0.5)
+  x_multivar <- cbind(x1, x2)
+  
+  boot_samples_mv <- hmm_bootstrap(
+    x = x_multivar,
+    n_boot = 180,
+    num_states = 2,
+    num_boots = 50
+  )
+  
+  dim(boot_samples_mv[[1]])  # 180 x 2 matrix
+  
+  # Compute bootstrap correlation estimates
+  boot_cors <- sapply(boot_samples_mv, function(b) cor(b[,1], b[,2]))
+  original_cor <- cor(x_multivar[,1], x_multivar[,2])
+  
+  hist(boot_cors, main = "Bootstrap Distribution of Correlation",
+       xlab = "Correlation", col = "lightgreen")
+  abline(v = original_cor, col = "red", lwd = 2, lty = 2)
+  
+  
+  ## Example 3: Variable-length bootstrap samples
+  set.seed(789)
+  x_ar <- arima.sim(n = 150, list(ar = 0.8))
+  
+  # Don't specify n_boot to get variable-length samples
+  boot_samples_var <- hmm_bootstrap(
+    x = x_ar,
+    n_boot = NULL,  # Variable length
+    num_states = 2,
+    num_blocks = 15,
+    num_boots = 20
+  )
+  
+  # Check lengths vary
+  sample_lengths <- sapply(boot_samples_var, nrow)
+  summary(sample_lengths)
+  
+  
+  ## Example 4: Using verbose mode for diagnostics
+  set.seed(321)
+  x_diag <- rnorm(100)
+  
+  boot_samples_verbose <- hmm_bootstrap(
+    x = x_diag,
+    n_boot = 80,
+    num_states = 3,
+    num_boots = 5,
+    verbose = TRUE  # Print diagnostic information
+  )
+  
+  
+  ## Example 5: Bootstrap confidence intervals
+  set.seed(654)
+  # Data with heteroskedasticity
+  n <- 200
+  x_hetero <- numeric(n)
+  for (i in 1:n) {
+    sigma <- ifelse(i <= n/2, 1, 3)
+    x_hetero[i] <- rnorm(1, mean = 2, sd = sigma)
+  }
+  
+  boot_samples_ci <- hmm_bootstrap(
+    x = x_hetero,
+    n_boot = 200,
+    num_states = 2,
+    num_boots = 500
+  )
+  
+  # Compute bootstrap confidence interval for the mean
+  boot_means_ci <- sapply(boot_samples_ci, mean)
+  ci_95 <- quantile(boot_means_ci, c(0.025, 0.975))
+  
+  cat("95\% Bootstrap CI for mean:", ci_95[1], "to", ci_95[2], "\n")
+  cat("Original mean:", mean(x_hetero), "\n")
+}
+}
+  
 }
 \references{
 Holst, U., Lindgren, G., Holst, J. and Thuvesholmen, M. (1994), Recursive

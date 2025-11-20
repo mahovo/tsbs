@@ -20,8 +20,8 @@
 #'   `"overlapping"` or `"tapered"`. Default `"overlapping"`.
 #' @param taper_type Tapering window function. Character. One of `"cosine"`, 
 #'   `"bartlett"`, or `"tukey"`.
-#' @param p Probability parameter for the geometric block length (used in 
-#'   Stationary Bootstrap).
+#' @param p numeric \eqn{p \in (0, 1)}. Probability parameter for the geometric block length (used in 
+#'   Stationary Bootstrap). 
 #' @param stationary_max_percentile Stationary max percentile.
 #' @param stationary_max_fraction_of_n Stationary max fraction of n.
 #'
@@ -47,7 +47,7 @@
 #' @examples
 #' set.seed(123)
 #' x <- matrix(rnorm(100), ncol = 1)
-#' boots <- blockBootstrap(x, type = "stationary", num_boots = 5)
+#' boots <- blockBootstrap(x, bs_type = "stationary", num_boots = 5L)
 #' dim(boots[[1]])
 #'
 #' @importFrom Rcpp sourceCpp

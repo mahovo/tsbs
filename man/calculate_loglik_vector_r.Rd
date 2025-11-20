@@ -6,6 +6,15 @@
 \usage{
 calculate_loglik_vector_r(y, current_pars, spec, model_type = "univariate")
 }
+\arguments{
+\item{y}{}
+
+\item{current_pars}{}
+
+\item{spec}{}
+
+\item{model_type}{}
+}
 \description{
 Calculate the Log-Likelihood Vector (R Helper)
 }

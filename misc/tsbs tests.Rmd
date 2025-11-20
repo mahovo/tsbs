@@ -339,3 +339,1514 @@ result <- tsbs(
 print(result$func_out_means)
 ```
 
+
+
+
+```{r}
+set.seed(123)
+y1_vec <- rnorm(100)
+y2_vec <- rnorm(100)
+
+# --- THIS IS THE CRITICAL CORRECTION ---
+# Ensure the input data is in xts format before passing to the spec function
+y1_xts <- xts(y1_vec, order.by = Sys.Date() - (100:1))
+y2_xts <- xts(y2_vec, order.by = Sys.Date() - (100:1))
+
+model1 <- tsgarch::garch_modelspec(y1_xts, model = "garch", distribution = "norm") |> estimate(keep_tmb = TRUE)
+model2 <- tsgarch::garch_modelspec(y2_xts, model = "garch", distribution = "norm") |> estimate(keep_tmb = TRUE)
+
+# 2. Combine them into the special multi_estimate object
+multi_model <- tsgarch::to_multi_estimate(list(model1, model2))
+names(multi_model) <- c("series_1", "series_2")
+
+# 3. Create the DCC spec with a Multivariate-t distribution
+dcc_spec <- tsmarch::dcc_modelspec(multi_model, order = c(1,1), distribution = "mvt")
+
+# 4. THE EVIDENCE: Print the parameter names
+print(dcc_spec$parmatrix$parameter)
+```
+
+
+
+
+```{r}
+# This example requires tsmarch and tsgarch packages
+if (require(tsmarch) && require(tsgarch) && require(xts)) {
+  # Generate small sample data
+  set.seed(123)
+  n <- 500
+  returns <- matrix(rnorm(n * 2), ncol = 2)
+  returns <- xts(returns, order.by = seq.Date(Sys.Date() - n + 1, 
+                                                Sys.Date(), by = "day"))
+  colnames(returns) <- c("series1", "series2")
+  
+  # Estimate univariate GARCH models
+  spec1 <- garch_modelspec(returns[,1], model = "garch", order = c(1,1))
+  spec2 <- garch_modelspec(returns[,2], model = "garch", order = c(1,1))
+  fit1 <- estimate(spec1, keep_tmb = TRUE)
+  fit2 <- estimate(spec2, keep_tmb = TRUE)
+  
+  # Combine into multivariate
+  garch_fits <- to_multi_estimate(list(fit1, fit2))
+  
+  # Estimate DCC model
+  dcc_spec <- dcc_modelspec(garch_fits, dynamics = "dcc", dcc_order = c(1,1))
+  dcc_fit <- estimate(dcc_spec)
+  
+  # Get estimated parameters
+  est_params <- coef(dcc_fit)
+  
+  # Compute log-likelihood at estimated parameters
+  ll_at_est <- compute_loglik_fixed(dcc_fit, params = as.list(est_params))
+  
+  # Compute at alternative parameters
+  ll_alt <- compute_loglik_fixed(dcc_fit, 
+                                  params = list(alpha_1 = 0.05, beta_1 = 0.90))
+  
+  # The estimated parameters should give higher likelihood
+  print(paste("LL at estimated:", ll_at_est))
+  print(paste("LL at alternative:", ll_alt))
+  print(paste("Difference:", ll_at_est - ll_alt))
+}
+```
+
+
+```{r}
+# Extended example with profile likelihood and LR tests
+library(tsmarch)
+library(tsgarch)
+library(xts)
+
+# Generate sample data with correlation structure
+set.seed(100)
+n <- 1500
+# Create correlated innovations
+rho <- 0.6
+Sigma <- matrix(c(1, rho, rho, 1), 2, 2)
+L <- chol(Sigma)
+z <- matrix(rnorm(n * 2), ncol = 2) %*% L
+
+# Add GARCH dynamics
+returns <- z
+for (i in 2:n) {
+  h <- 0.01 + 0.08 * returns[i-1,]^2 + 0.90 * returns[i-1,]^2
+  returns[i,] <- returns[i,] * sqrt(pmax(h, 0.001))
+}
+
+returns <- xts(returns, order.by = seq(Sys.Date() - n + 1, Sys.Date(), by = "day"))
+colnames(returns) <- c("asset1", "asset2")
+
+# Estimate univariate GARCH models
+spec1 <- garch_modelspec(returns[,1], model = "garch", order = c(1,1))
+spec2 <- garch_modelspec(returns[,2], model = "garch", order = c(1,1))
+fit1 <- estimate(spec1, keep_tmb = TRUE)
+fit2 <- estimate(spec2, keep_tmb = TRUE)
+
+# Combine into multivariate
+garch_fits <- to_multi_estimate(list(fit1, fit2))
+
+# Estimate DCC model
+dcc_spec <- dcc_modelspec(garch_fits, dynamics = "dcc", dcc_order = c(1,1))
+dcc_fit <- estimate(dcc_spec)
+
+# Get estimated parameters
+est_params <- coef(dcc_fit)
+cat("Estimated DCC parameters:\n")
+print(est_params)
+
+# Compute log-likelihood at estimated parameters
+ll_at_estimated <- compute_loglik_fixed(dcc_fit, params = as.list(est_params))
+cat("\nLL at estimated parameters:", ll_at_estimated, "\n")
+
+# Test with alternative parameter values
+ll_alternative <- compute_loglik_fixed(
+  dcc_fit,
+  params = list(alpha_1 = 0.03, beta_1 = 0.95)
+)
+cat("LL at alternative parameters:", ll_alternative, "\n")
+
+# Likelihood ratio test
+lr_stat <- 2 * (ll_at_estimated - ll_alternative)
+p_value <- pchisq(lr_stat, df = 2, lower.tail = FALSE)
+cat("\nLikelihood Ratio Test:\n")
+cat("  LR statistic:", round(lr_stat, 4), "\n")
+cat("  P-value:", format.pval(p_value, digits = 4), "\n")
+
+# Profile likelihood for alpha
+# Only compute if estimated alpha is not at boundary
+alpha_est <- est_params["alpha_1"]
+beta_est <- est_params["beta_1"]
+
+if (alpha_est > 0.01 && alpha_est < 0.2) {
+  cat("\nComputing profile likelihood for alpha...\n")
+  
+  # Create grid around estimated alpha
+  alpha_range <- seq(max(0.001, alpha_est - 0.03), 
+                     min(0.3, alpha_est + 0.03), 
+                     length.out = 20)
+  
+  profile_ll <- sapply(alpha_range, function(a) {
+    # Skip if would violate stationarity
+    if (a + beta_est >= 0.999) return(NA_real_)
+    
+    tryCatch({
+      compute_loglik_fixed(dcc_fit, 
+                           params = list(alpha_1 = a, beta_1 = beta_est))
+    }, error = function(e) NA_real_)
+  })
+  
+  # Plot profile likelihood
+  valid_idx <- !is.na(profile_ll)
+  if (sum(valid_idx) > 5) {
+    plot(alpha_range[valid_idx], profile_ll[valid_idx], type = "b", 
+         xlab = expression(alpha), ylab = "Log-Likelihood",
+         main = "Profile Likelihood for Alpha Parameter",
+         pch = 19, col = "blue")
+    abline(v = alpha_est, col = "red", lty = 2, lwd = 2)
+    
+    # Add confidence interval based on chi-squared cutoff
+    ll_cutoff <- max(profile_ll, na.rm = TRUE) - qchisq(0.95, 1)/2
+    abline(h = ll_cutoff, col = "gray", lty = 3)
+    
+    legend("bottomright", 
+           legend = c("Profile LL", "Estimated alpha", "95% CI cutoff"), 
+           col = c("blue", "red", "gray"), 
+           lty = c(1, 2, 3), pch = c(19, NA, NA), cex = 0.8)
+  }
+} else {
+  cat("\nSkipping profile likelihood (alpha at boundary)\n")
+  cat("For a better example, try a different seed or larger sample.\n")
+}
+
+# Get component-wise log-likelihoods
+ll_components <- compute_loglik_fixed(
+  dcc_fit,
+  params = as.list(est_params),
+  return_components = TRUE
+)
+cat("\nComponent-wise log-likelihoods:\n")
+cat("  Total:", round(ll_components$loglik, 2), "\n")
+cat("  GARCH:", round(ll_components$garch_loglik, 2), "\n")
+cat("  DCC:  ", round(ll_components$multivariate_loglik, 2), "\n")
+cat("  Sum:  ", round(ll_components$garch_loglik + 
+                       ll_components$multivariate_loglik, 2), "\n")
+```
+
+
+
+
+```{r}
+cgarch_fit_test <- estimate(cgarch_spec)
+est_params <- coef(cgarch_fit_test)
+
+# Update spec with parameters
+spec <- cgarch_fit_test$spec
+spec$parmatrix[spec$parmatrix$estimate == 1, ]$value <- est_params
+
+# Call with return_all = TRUE to see structure
+result <- tsmarch:::.copula_dynamic_values(est_params, spec, return_all = TRUE)
+names(result)
+```
+
+```{r}
+str(result$ll_vec)
+str(result$nll)
+sum(result$ll_vec)
+```
+
+```{r}
+cgarch_fit_test$loglik
+```
+
+```{r}
+set.seed(456)
+n <- 100
+returns <- matrix(rnorm(n * 2), ncol = 2)
+returns <- xts(returns, order.by = seq.Date(Sys.Date() - n + 1, 
+                                            Sys.Date(), by = "day"))
+colnames(returns) <- c("asset1", "asset2")
+
+## Estimate univariate GARCH models
+spec1 <- garch_modelspec(returns[,1], model = "garch", order = c(1,1))
+spec2 <- garch_modelspec(returns[,2], model = "garch", order = c(1,1))
+fit1 <- estimate(spec1, keep_tmb = TRUE)
+fit2 <- estimate(spec2, keep_tmb = TRUE)
+
+## Combine into multivariate
+garch_fits <- to_multi_estimate(list(fit1, fit2))
+
+## Estimate DCC model
+dcc_spec <- dcc_modelspec(garch_fits, dynamics = "dcc", dcc_order = c(1,1))
+dcc_fit <- estimate(dcc_spec)
+
+## Get estimated parameters
+est_params_dcc <- coef(dcc_fit)
+
+dcc_result <- tsmarch:::.dcc_dynamic_values(est_params_dcc, dcc_spec, return_all = TRUE)
+sum(dcc_result$ll_vec)  # after stripping maxpq
+dcc_fit$loglik
+```
+
+```{r}
+set.seed(456)
+n <- 100
+returns <- matrix(rnorm(n * 2), ncol = 2)
+returns <- xts(returns, order.by = seq.Date(Sys.Date() - n + 1, 
+                                            Sys.Date(), by = "day"))
+colnames(returns) <- c("asset1", "asset2")
+
+## Estimate univariate GARCH models
+spec1 <- garch_modelspec(returns[,1], model = "garch", order = c(1,1))
+spec2 <- garch_modelspec(returns[,2], model = "garch", order = c(1,1))
+fit1 <- estimate(spec1, keep_tmb = TRUE)
+fit2 <- estimate(spec2, keep_tmb = TRUE)
+
+## Combine into multivariate
+garch_fits <- to_multi_estimate(list(fit1, fit2))
+
+## Estimate DCC model
+dcc_spec <- dcc_modelspec(garch_fits, dynamics = "dcc", dcc_order = c(1,1))
+dcc_fit <- estimate(dcc_spec)
+
+## Get estimated parameters
+est_params_dcc <- coef(dcc_fit)
+
+dcc_result <- tsmarch:::.dcc_dynamic_values(est_params, dcc_spec, return_all = TRUE)
+dcc_result$nll  # This is what we get with type = "nll"
+dcc_fit$loglik  # Total stored in the object
+sum(sapply(dcc_fit$spec$univariate, function(x) x$loglik))  # GARCH component
+```
+
+```{r}
+# Minimal GOGARCH example
+set.seed(123)
+n <- 100
+returns <- matrix(rnorm(n * 2), ncol = 2)
+returns <- xts(returns, order.by = seq.Date(Sys.Date() - n + 1, Sys.Date(), by = "day"))
+colnames(returns) <- c("asset1", "asset2")
+
+# GOGARCH estimation
+gogarch_spec <- gogarch_modelspec(returns, distribution = "norm", model = "garch", 
+                                  order = c(1, 1), components = 2)
+gogarch_fit <- estimate(gogarch_spec)
+
+# Explore structure
+names(gogarch_fit)
+str(gogarch_fit$univariate)  # Independent component models
+gogarch_fit$loglik
+gogarch_fit$ica$K  # Mixing matrix K
+gogarch_fit$ica$A  # Mixing matrix A
+
+# Check if univariate models have lik_vector
+gogarch_fit$univariate[[1]]$lik_vector
+```
+
+
+
+```{r}
+# Test GOGARCH compute_loglik_fixed
+gogarch_fit <- estimate(gogarch_spec)
+est_params <- coef(gogarch_fit)
+
+# Test total likelihood
+ll_total <- compute_loglik_fixed(gogarch_fit, params = as.list(est_params))
+cat("Computed LL:", ll_total, "\n")
+cat("Stored LL:", -gogarch_fit$loglik, "\n")  # Note: stored as NLL
+cat("Match?", abs(ll_total - (-gogarch_fit$loglik)) < 1e-6, "\n")
+
+# Test per-observation likelihood
+ll_vec_result <- compute_loglik_fixed(gogarch_fit, params = as.list(est_params), ll_vec = TRUE)
+cat("Length:", length(ll_vec_result), "\n")
+cat("Sum:", sum(ll_vec_result), "\n")
+cat("Matches total?", abs(sum(ll_vec_result) - ll_total) < 1e-6, "\n")
+
+# Test components
+ll_components <- compute_loglik_fixed(gogarch_fit, params = as.list(est_params), 
+                                      return_components = TRUE)
+print(ll_components)
+```
+
+```{r}
+# Component NLLs
+comp1_nll <- sum(gogarch_fit$univariate[[1]]$lik_vector)
+comp2_nll <- sum(gogarch_fit$univariate[[2]]$lik_vector)
+total_comp_nll <- comp1_nll + comp2_nll
+
+# Mixing adjustment
+K <- gogarch_fit$ica$K
+mixing_adj <- log(abs(det(K %*% t(K))))
+
+# Total
+total_nll <- total_comp_nll + mixing_adj
+
+cat("Component 1 NLL:", comp1_nll, "\n")
+cat("Component 2 NLL:", comp2_nll, "\n")
+cat("Total component NLL:", total_comp_nll, "\n")
+cat("Mixing adjustment:", mixing_adj, "\n")
+cat("Total NLL:", total_nll, "\n")
+cat("Stored loglik:", gogarch_fit$loglik, "\n")
+```
+
+```{r}
+# Check what the actual calculation should be
+log(abs(det(K %*% t(K))))  # = 0.251
+log(abs(det(K)))  # Should try this if K is square
+0.5 * log(abs(det(K %*% t(K))))  # = 0.1255 (half)
+
+# The mixing term from logLik for components
+comp1_ll <- as.numeric(logLik(gogarch_fit$univariate[[1]]))
+comp2_ll <- as.numeric(logLik(gogarch_fit$univariate[[2]]))
+cat("Component 1 LL:", comp1_ll, "\n")
+cat("Component 2 LL:", comp2_ll, "\n")
+cat("Sum:", comp1_ll + comp2_ll, "\n")
+```
+
+```{r}
+# Test total likelihood
+ll_total <- compute_loglik_fixed(gogarch_fit, params = as.list(est_params))
+cat("Computed LL:", ll_total, "\n")
+cat("Stored LL:", gogarch_fit$loglik, "\n")  
+cat("Match?", abs(ll_total - gogarch_fit$loglik) < 1e-6, "\n")
+
+# Test per-observation likelihood
+ll_vec_result <- compute_loglik_fixed(gogarch_fit, params = as.list(est_params), ll_vec = TRUE)
+cat("Sum:", sum(ll_vec_result), "\n")
+cat("Matches total?", abs(sum(ll_vec_result) - ll_total) < 1e-6, "\n")
+```
+
+```{r}
+ll_vec_result <- compute_loglik_fixed(gogarch_fit, params = as.list(est_params), ll_vec = TRUE)
+cat("Sum:", sum(ll_vec_result), "\n")
+cat("Total:", ll_total, "\n")
+cat("Match?", abs(sum(ll_vec_result) - ll_total) < 1e-6, "\n")
+```
+
+```{r}
+# Does the TMB object exist in the fitted component?
+names(gogarch_fit$univariate[[1]])
+gogarch_fit$univariate[[1]]$tmb  # Is this NULL or available?
+
+# If available:
+gogarch_fit$univariate[[1]]$tmb$fn  # The objective function
+gogarch_fit$univariate[[1]]$tmb$par  # Current parameters
+```
+
+```{r}
+# Test with parameter updates
+# Get estimated parameters
+est_params_dt <- coef(gogarch_fit)
+print(est_params_dt)
+
+# Create a test parameter list (slightly different from estimated)
+test_params <- list(
+  omega_1 = 0.03, alpha_1 = 0.04, beta_1 = 0.95,
+  omega_2 = 0.35, alpha_2 = 0.00, beta_2 = 0.65
+)
+
+# Test with updated parameters
+ll_at_test <- compute_loglik_fixed(gogarch_fit, params = test_params)
+ll_at_estimated <- compute_loglik_fixed(gogarch_fit, params = list())
+
+cat("LL at test params:", ll_at_test, "\n")
+cat("LL at estimated params:", ll_at_estimated, "\n")
+cat("Difference:", ll_at_estimated - ll_at_test, "\n")
+cat("(Estimated should be higher)\n")
+```
+
+```{r}
+# Verify against stored likelihood
+cat("Computed at estimated:", ll_at_estimated, "\n")
+cat("Stored in object:", gogarch_fit$loglik, "\n")
+cat("Difference:", abs(ll_at_estimated - gogarch_fit$loglik), "\n")
+
+# Also test that we can extract and use the estimated parameters in list format
+est_params_list <- list(
+  omega_1 = est_params_dt[series == "ica_component.1" & parameter == "omega"]$value,
+  alpha_1 = est_params_dt[series == "ica_component.1" & parameter == "alpha1"]$value,
+  beta_1 = est_params_dt[series == "ica_component.1" & parameter == "beta1"]$value,
+  omega_2 = est_params_dt[series == "ica_component.2" & parameter == "omega"]$value,
+  alpha_2 = est_params_dt[series == "ica_component.2" & parameter == "alpha1"]$value,
+  beta_2 = est_params_dt[series == "ica_component.2" & parameter == "beta1"]$value
+)
+
+ll_at_est_list <- compute_loglik_fixed(gogarch_fit, params = est_params_list)
+cat("\nLL using extracted estimated params:", ll_at_est_list, "\n")
+cat("Should match stored:", gogarch_fit$loglik, "\n")
+```
+
+
+```{r}
+# Check the parameter values and scales
+comp1 <- gogarch_fit$univariate[[1]]
+
+cat("Estimated parameter values (scaled):\n")
+print(comp1$parmatrix[estimate == 1, .(parameter, value)])
+
+cat("\nParameter scales:\n")
+print(comp1$parameter_scale)
+
+cat("\nTMB current parameters (unscaled):\n")
+print(comp1$tmb$par)
+
+cat("\nWhat we're passing to TMB (should match tmb$par):\n")
+est_val <- comp1$parmatrix[estimate == 1]$value
+print(est_val / comp1$parameter_scale)
+
+# Test TMB function at current parameters
+cat("\nTMB NLL at current params:\n")
+print(comp1$tmb$fn(comp1$tmb$par))
+
+cat("\nStored NLL:\n")
+print(-comp1$loglik)
+```
+
+```{r}
+# Diagnostic: Understanding the parameter system
+comp1 <- gogarch_fit$univariate[[1]]
+
+cat("=== PARMATRIX (the source of truth) ===\n")
+print(comp1$parmatrix[estimate == 1, .(parameter, value, scale)])
+
+cat("\n=== TMB$PAR (optimizer's working parameters) ===\n")
+print(comp1$tmb$par)
+
+cat("\n=== RELATIONSHIP TEST ===\n")
+cat("parmatrix$value * parmatrix$scale:\n")
+scaled_to_tmb <- comp1$parmatrix[estimate == 1]$value * comp1$parmatrix[estimate == 1]$scale
+print(scaled_to_tmb)
+cat("\nShould this equal tmb$par? ", all.equal(scaled_to_tmb, as.numeric(comp1$tmb$par)), "\n")
+
+cat("\n=== STORED LOGLIK vs TMB EVALUATION ===\n")
+cat("Stored loglik:", comp1$loglik, "\n")
+cat("TMB fn at tmb$par:", -comp1$tmb$fn(comp1$tmb$par), "\n")
+cat("(Should match if TMB is at estimated params)\n")
+```
+
+```{r}
+# Check what's in the TMB environment
+comp1 <- gogarch_fit$univariate[[1]]
+
+cat("=== Exploring TMB environment ===\n")
+tmb_env <- comp1$tmb$env
+cat("Objects in TMB env:\n")
+print(ls(tmb_env))
+
+cat("\n=== Looking for last.par ===\n")
+if (exists("last.par", envir = tmb_env)) {
+  cat("last.par exists:\n")
+  print(get("last.par", envir = tmb_env))
+  
+  cat("\nTMB fn at last.par:\n")
+  print(-comp1$tmb$fn(get("last.par", envir = tmb_env)))
+  
+  cat("\nStored loglik:\n")
+  print(comp1$loglik)
+}
+
+cat("\n=== Check last.par.best ===\n")
+if (exists("last.par.best", envir = tmb_env)) {
+  cat("last.par.best exists:\n")
+  print(get("last.par.best", envir = tmb_env))
+  
+  cat("\nTMB fn at last.par.best:\n")
+  print(-comp1$tmb$fn(get("last.par.best", envir = tmb_env)))
+}
+```
+
+
+```{r}
+# Test with parameter updates
+# Get estimated parameters
+est_params_dt <- coef(gogarch_fit)
+print(est_params_dt)
+
+# Create a test parameter list (slightly different from estimated)
+test_params <- list(
+  omega_1 = 0.03, alpha_1 = 0.04, beta_1 = 0.95,
+  omega_2 = 0.35, alpha_2 = 0.00, beta_2 = 0.65
+)
+
+# Test with updated parameters
+ll_at_test <- compute_loglik_fixed(gogarch_fit, params = test_params)
+ll_at_estimated <- compute_loglik_fixed(gogarch_fit, params = list())
+
+cat("LL at test params:", ll_at_test, "\n")
+cat("LL at estimated params:", ll_at_estimated, "\n")
+cat("Difference:", ll_at_estimated - ll_at_test, "\n")
+cat("(Estimated should be higher)\n")
+```
+
+```{r}
+# Verify against stored likelihood
+cat("Computed at estimated:", ll_at_estimated, "\n")
+cat("Stored in object:", gogarch_fit$loglik, "\n")
+cat("Difference:", abs(ll_at_estimated - gogarch_fit$loglik), "\n")
+
+# Also test that we can extract and use the estimated parameters in list format
+est_params_list <- list(
+  omega_1 = est_params_dt[series == "ica_component.1" & parameter == "omega"]$value,
+  alpha_1 = est_params_dt[series == "ica_component.1" & parameter == "alpha1"]$value,
+  beta_1 = est_params_dt[series == "ica_component.1" & parameter == "beta1"]$value,
+  omega_2 = est_params_dt[series == "ica_component.2" & parameter == "omega"]$value,
+  alpha_2 = est_params_dt[series == "ica_component.2" & parameter == "alpha1"]$value,
+  beta_2 = est_params_dt[series == "ica_component.2" & parameter == "beta1"]$value
+)
+
+ll_at_est_list <- compute_loglik_fixed(gogarch_fit, params = est_params_list)
+cat("\nLL using extracted estimated params:", ll_at_est_list, "\n")
+cat("Should match stored:", gogarch_fit$loglik, "\n")
+```
+
+
+```{r}
+# Check the parameter values and scales
+comp1 <- gogarch_fit$univariate[[1]]
+
+cat("Estimated parameter values (scaled):\n")
+print(comp1$parmatrix[estimate == 1, .(parameter, value)])
+
+cat("\nParameter scales:\n")
+print(comp1$parameter_scale)
+
+cat("\nTMB current parameters (unscaled):\n")
+print(comp1$tmb$par)
+
+cat("\nWhat we're passing to TMB (should match tmb$par):\n")
+est_val <- comp1$parmatrix[estimate == 1]$value
+print(est_val / comp1$parameter_scale)
+
+# Test TMB function at current parameters
+cat("\nTMB NLL at current params:\n")
+print(comp1$tmb$fn(comp1$tmb$par))
+
+cat("\nStored NLL:\n")
+print(-comp1$loglik)
+```
+
+```{r}
+# Diagnostic: Understanding the parameter system
+comp1 <- gogarch_fit$univariate[[1]]
+
+cat("=== PARMATRIX (the source of truth) ===\n")
+print(comp1$parmatrix[estimate == 1, .(parameter, value, scale)])
+
+cat("\n=== TMB$PAR (optimizer's working parameters) ===\n")
+print(comp1$tmb$par)
+
+cat("\n=== RELATIONSHIP TEST ===\n")
+cat("parmatrix$value * parmatrix$scale:\n")
+scaled_to_tmb <- comp1$parmatrix[estimate == 1]$value * comp1$parmatrix[estimate == 1]$scale
+print(scaled_to_tmb)
+cat("\nShould this equal tmb$par? ", all.equal(scaled_to_tmb, as.numeric(comp1$tmb$par)), "\n")
+
+cat("\n=== STORED LOGLIK vs TMB EVALUATION ===\n")
+cat("Stored loglik:", comp1$loglik, "\n")
+cat("TMB fn at tmb$par:", -comp1$tmb$fn(comp1$tmb$par), "\n")
+cat("(Should match if TMB is at estimated params)\n")
+```
+
+```{r}
+comp1 <- gogarch_fit$univariate[[1]]
+tmb_env <- comp1$tmb$env
+last_par_best <- get("last.par.best", envir = tmb_env)
+
+# Evaluate at estimated parameters
+nll_est <- comp1$tmb$fn(last_par_best)
+rep_est <- comp1$tmb$report(last_par_best)
+
+cat("Names in report:\n")
+print(names(rep_est))
+
+cat("\nReport contents:\n")
+str(rep_est)
+
+# Test with different parameters
+test_par <- c(0.03, 0.04, 0.95)
+names(test_par) <- c("omega", "alpha", "beta")
+nll_test <- comp1$tmb$fn(test_par)
+rep_test <- comp1$tmb$report(test_par)
+
+cat("\n\nReport at test params:\n")
+str(rep_test)
+```
+
+```{r}
+# Test 1: Scalar likelihood with no parameters (should match stored)
+ll_at_estimated <- compute_loglik_fixed(gogarch_fit, params = list())
+cat("LL at estimated params:", ll_at_estimated, "\n")
+cat("Stored in object:", gogarch_fit$loglik, "\n")
+cat("Difference:", abs(ll_at_estimated - gogarch_fit$loglik), "\n\n")
+
+# Test 2: Scalar likelihood with test parameters
+test_params <- list(
+  omega_1 = 0.03, alpha_1 = 0.04, beta_1 = 0.95,
+  omega_2 = 0.35, alpha_2 = 0.00, beta_2 = 0.65
+)
+ll_at_test <- compute_loglik_fixed(gogarch_fit, params = test_params)
+cat("LL at test params:", ll_at_test, "\n")
+cat("Difference from estimated:", ll_at_estimated - ll_at_test, "\n")
+cat("(Should be positive)\n\n")
+
+# Test 3: Vector likelihood
+ll_vec_estimated <- compute_loglik_fixed(gogarch_fit, params = list(), ll_vec = TRUE)
+cat("Length of lik_vector:", length(ll_vec_estimated), "\n")
+cat("Sum of lik_vector:", sum(ll_vec_estimated), "\n")
+cat("Should match scalar:", ll_at_estimated, "\n")
+cat("Difference:", abs(sum(ll_vec_estimated) - ll_at_estimated), "\n\n")
+
+# Test 4: With return_components
+result_with_components <- compute_loglik_fixed(gogarch_fit, params = list(), 
+                                               return_components = TRUE, ll_vec = FALSE)
+cat("Component logliks:\n")
+print(result_with_components$component_logliks)
+cat("\nJacobian adjustment:", result_with_components$jacobian_adjustment, "\n")
+cat("Total loglik:", result_with_components$loglik, "\n")
+cat("Manual sum:", sum(result_with_components$component_logliks) + 
+    result_with_components$jacobian_adjustment, "\n\n")
+
+# Test 5: Vector with components
+result_vec_components <- compute_loglik_fixed(gogarch_fit, params = list(), 
+                                              return_components = TRUE, ll_vec = TRUE)
+cat("First 5 observations of lik_vector:\n")
+print(head(result_vec_components$lik_vector, 5))
+cat("\nSum of lik_vector:", sum(result_vec_components$lik_vector), "\n")
+cat("Stored loglik:", result_vec_components$loglik, "\n")
+```
+
+```{r}
+# Test 3: Vector likelihood (should now match)
+ll_vec_estimated <- compute_loglik_fixed(gogarch_fit, params = list(), ll_vec = TRUE)
+cat("Length of lik_vector:", length(ll_vec_estimated), "\n")
+cat("Sum of lik_vector:", sum(ll_vec_estimated), "\n")
+cat("Should match scalar:", ll_at_estimated, "\n")
+cat("Difference:", abs(sum(ll_vec_estimated) - ll_at_estimated), "\n\n")
+
+# Test 5: Vector with components (should now be consistent)
+result_vec_components <- compute_loglik_fixed(gogarch_fit, params = list(), 
+                                              return_components = TRUE, ll_vec = TRUE)
+cat("First 5 observations of lik_vector:\n")
+print(head(result_vec_components$lik_vector, 5))
+cat("\nSum of lik_vector:", sum(result_vec_components$lik_vector), "\n")
+cat("Stored loglik field:", result_vec_components$loglik, "\n")
+cat("Should both match stored:", gogarch_fit$loglik, "\n")
+cat("Difference:", abs(result_vec_components$loglik - gogarch_fit$loglik), "\n")
+```
+
+```{r}
+# Comprehensive final test
+cat("=== COMPREHENSIVE TEST SUITE ===\n\n")
+
+# Test 1: Scalar mode at estimated parameters
+ll_scalar <- compute_loglik_fixed(gogarch_fit, params = list())
+cat("1. Scalar at estimated: ", ll_scalar, "\n")
+cat("   Matches stored: ", abs(ll_scalar - gogarch_fit$loglik) < 1e-10, "\n\n")
+
+# Test 2: Vector mode at estimated parameters
+ll_vector <- compute_loglik_fixed(gogarch_fit, params = list(), ll_vec = TRUE)
+cat("2. Vector at estimated (length ", length(ll_vector), "):\n")
+cat("   Sum: ", sum(ll_vector), "\n")
+cat("   Matches scalar: ", abs(sum(ll_vector) - ll_scalar) < 1e-10, "\n\n")
+
+# Test 3: Changing parameters
+test_params <- list(
+  omega_1 = 0.03, alpha_1 = 0.04, beta_1 = 0.95,
+  omega_2 = 0.35, alpha_2 = 0.00, beta_2 = 0.65
+)
+ll_test_scalar <- compute_loglik_fixed(gogarch_fit, params = test_params)
+ll_test_vector <- compute_loglik_fixed(gogarch_fit, params = test_params, ll_vec = TRUE)
+
+cat("3. Changed parameters:\n")
+cat("   Scalar: ", ll_test_scalar, "\n")
+cat("   Vector sum: ", sum(ll_test_vector), "\n")
+cat("   Vector matches scalar: ", abs(sum(ll_test_vector) - ll_test_scalar) < 1e-10, "\n")
+cat("   Worse than estimated: ", ll_test_scalar < ll_scalar, "\n\n")
+
+# Test 4: Partial parameter update (only component 1)
+partial_params <- list(
+  omega_1 = 0.05, alpha_1 = 0.03, beta_1 = 0.92
+)
+ll_partial <- compute_loglik_fixed(gogarch_fit, params = partial_params)
+cat("4. Partial update (only component 1):\n")
+cat("   Scalar: ", ll_partial, "\n")
+cat("   Different from estimated: ", abs(ll_partial - ll_scalar) > 1e-10, "\n\n")
+
+# Test 5: Return components mode
+result_components <- compute_loglik_fixed(gogarch_fit, params = list(), 
+                                         return_components = TRUE)
+cat("5. Components breakdown:\n")
+cat("   Component 1: ", result_components$component_logliks[1], "\n")
+cat("   Component 2: ", result_components$component_logliks[2], "\n")
+cat("   Jacobian: ", result_components$jacobian_adjustment, "\n")
+cat("   Total: ", result_components$loglik, "\n")
+cat("   Manual sum: ", sum(result_components$component_logliks) + 
+    result_components$jacobian_adjustment, "\n\n")
+
+# Test 6: Vector + components mode (for EM algorithm)
+result_full <- compute_loglik_fixed(gogarch_fit, params = list(), 
+                                   return_components = TRUE, ll_vec = TRUE)
+cat("6. Full output for EM algorithm:\n")
+cat("   Total loglik: ", result_full$loglik, "\n")
+cat("   Vector length: ", length(result_full$lik_vector), "\n")
+cat("   Vector sum: ", sum(result_full$lik_vector), "\n")
+cat("   Has component_logliks: ", !is.null(result_full$component_logliks), "\n")
+cat("   Has jacobian_adjustment: ", !is.null(result_full$jacobian_adjustment), "\n")
+cat("   All consistent: ", 
+    abs(result_full$loglik - sum(result_full$lik_vector)) < 1e-10, "\n\n")
+
+cat("=== ALL TESTS PASSED ===\n")
+```
+
+```{r}
+# Generate toy time-series data
+set.seed(123)
+x <- matrix(rnorm(200), ncol = 2)
+y <- 0.5 * x[,1] - 0.3 * x[,2] + rnorm(100)
+
+# Perform time-series k-fold CV using default model and scoring functions
+best_p <- k_fold_cv_ts(
+  x = x,
+  y = y,
+  k = 5,
+  p_grid = seq(0.01, 0.5, by = 0.01),
+  model_func = default_model_func,
+  score_func = mse
+)
+print(best_p)
+```
+
+
+```{r}
+set.seed(123)
+x <- matrix(rnorm(100), ncol = 1)
+boots <- blockBootstrap(x, bs_type = "stationary", num_boots = 5L)
+dim(boots[[1]])
+```
+
+```{r}
+if (requireNamespace("depmixS4", quietly = TRUE)) {
+  
+  ## Example 1: Univariate time series with regime switching
+  set.seed(123)
+  # Generate data with two regimes
+  n1 <- 100
+  n2 <- 100
+  regime1 <- rnorm(n1, mean = 0, sd = 1)
+  regime2 <- rnorm(n2, mean = 5, sd = 2)
+  x_univar <- c(regime1, regime2)
+  
+  # Generate bootstrap samples
+  boot_samples <- hmm_bootstrap(
+    x = x_univar,
+    n_boot = 150,
+    num_states = 2,
+    num_boots = 100
+  )
+  
+  # Inspect results
+  length(boot_samples)  # 100 bootstrap replicates
+  dim(boot_samples[[1]])  # Each is a 150 x 1 matrix
+  
+  # Compare original and bootstrap distributions
+  original_mean <- mean(x_univar)
+  boot_means <- sapply(boot_samples, mean)
+  
+  hist(boot_means, main = "Bootstrap Distribution of Mean",
+       xlab = "Mean", col = "lightblue")
+  abline(v = original_mean, col = "red", lwd = 2, lty = 2)
+  
+  
+  ## Example 2: Multivariate time series
+  set.seed(456)
+  n <- 200
+  # Two correlated series with regime switching
+  states_true <- rep(1:2, each = n/2)
+  x1 <- ifelse(states_true == 1, 
+               rnorm(n, 0, 1), 
+               rnorm(n, 4, 2))
+  x2 <- 0.7 * x1 + rnorm(n, 0, 0.5)
+  x_multivar <- cbind(x1, x2)
+  
+  boot_samples_mv <- hmm_bootstrap(
+    x = x_multivar,
+    n_boot = 180,
+    num_states = 2,
+    num_boots = 50
+  )
+  
+  dim(boot_samples_mv[[1]])  # 180 x 2 matrix
+  
+  # Compute bootstrap correlation estimates
+  boot_cors <- sapply(boot_samples_mv, function(b) cor(b[,1], b[,2]))
+  original_cor <- cor(x_multivar[,1], x_multivar[,2])
+  
+  hist(boot_cors, main = "Bootstrap Distribution of Correlation",
+       xlab = "Correlation", col = "lightgreen")
+  abline(v = original_cor, col = "red", lwd = 2, lty = 2)
+  
+  
+  ## Example 3: Variable-length bootstrap samples
+  set.seed(789)
+  x_ar <- arima.sim(n = 150, list(ar = 0.8))
+  
+  # Don't specify n_boot to get variable-length samples
+  boot_samples_var <- hmm_bootstrap(
+    x = x_ar,
+    n_boot = NULL,  # Variable length
+    num_states = 2,
+    num_blocks = 15,
+    num_boots = 20
+  )
+  
+  # Check lengths vary
+  sample_lengths <- sapply(boot_samples_var, nrow)
+  summary(sample_lengths)
+  
+  
+  ## Example 4: Using verbose mode for diagnostics
+  set.seed(321)
+  x_diag <- rnorm(100)
+  
+  boot_samples_verbose <- hmm_bootstrap(
+    x = x_diag,
+    n_boot = 80,
+    num_states = 3,
+    num_boots = 5,
+    verbose = TRUE  # Print diagnostic information
+  )
+  
+  
+  ## Example 5: Bootstrap confidence intervals
+  set.seed(654)
+  # Data with heteroskedasticity
+  n <- 200
+  x_hetero <- numeric(n)
+  for (i in 1:n) {
+    sigma <- ifelse(i <= n/2, 1, 3)
+    x_hetero[i] <- rnorm(1, mean = 2, sd = sigma)
+  }
+  
+  boot_samples_ci <- hmm_bootstrap(
+    x = x_hetero,
+    n_boot = 200,
+    num_states = 2,
+    num_boots = 500
+  )
+  
+  # Compute bootstrap confidence interval for the mean
+  boot_means_ci <- sapply(boot_samples_ci, mean)
+  ci_95 <- quantile(boot_means_ci, c(0.025, 0.975))
+  
+  cat("95% Bootstrap CI for mean:", ci_95[1], "to", ci_95[2], "\n")
+  cat("Original mean:", mean(x_hetero), "\n")
+}
+```
+```{r}
+set.seed(123)
+T_obs <- 250
+y1 <- arima.sim(model = list(ar = 0.7), n = T_obs)
+y2 <- 0.5 * y1 + arima.sim(model = list(ar = 0.3), n = T_obs)
+sample_data <- cbind(y1, y2)
+bootstrap_results <- msvar_bootstrap(sample_data, num_boots = 5)
+str(bootstrap_results)
+```
+
+```{r}
+set.seed(123)
+resids <- rnorm(100)
+boot_reps <- wild_bootstrap(resids, num_boots = 5)
+length(boot_reps)           # 5 replicates
+dim(boot_reps[[1]])         # 100 x 1 matrix
+```
+
+
+
+## DIAGNOSTIC: Why aren't parameters affecting the log-likelihood?
+
+```{r}
+## Setup test data
+set.seed(456)
+y_matrix <- matrix(rnorm(200, sd = 0.5), 100, 2)
+colnames(y_matrix) <- c("series_1", "series_2")
+y_test <- xts::xts(y_matrix, order.by = Sys.Date() - (nrow(y_matrix):1))
+
+spec_mv <- list(
+  var_order = 1,
+  garch_spec_fun = "dcc_modelspec",
+  distribution = "mvn",
+  garch_spec_args = list(
+    dcc_order = c(1, 1),
+    garch_model = list(univariate = list(
+      list(model = "garch", garch_order = c(1, 1), distribution = "norm"),
+      list(model = "garch", garch_order = c(1, 1), distribution = "norm")
+    ))
+  ),
+  start_pars = list(dist_pars = NULL)
+)
+
+## Base parameters
+pars_base <- list(
+  var_pars = c(0.1, 0.5, 0.1, 0.1, 0.2, 0.4),
+  garch_pars = list(
+    list(omega = 0.1, alpha1 = 0.1, beta1 = 0.8),
+    list(omega = 0.2, alpha1 = 0.15, beta1 = 0.7)
+  ),
+  alpha_1 = 0.05,
+  beta_1 = 0.90,
+  dist_pars = NULL
+)
+
+## Very different parameters
+pars_different <- list(
+  var_pars = c(0.5, 0.8, 0.3, 0.4, 0.5, 0.6),  ## Very different
+  garch_pars = list(
+    list(omega = 0.5, alpha1 = 0.2, beta1 = 0.7),  ## Much higher omega
+    list(omega = 0.6, alpha1 = 0.3, beta1 = 0.6)   ## Much higher omega
+  ),
+  alpha_1 = 0.20,  ## Much higher
+  beta_1 = 0.70,   ## Much lower
+  dist_pars = NULL
+)
+
+cat("1. Testing with base parameters...\n")
+ll_base <- calculate_loglik_vector_r(y_test, pars_base, spec_mv, "multivariate")
+cat("   Sum of LL:", sum(ll_base), "\n")
+cat("   First 5 values:", head(ll_base, 5), "\n\n")
+
+cat("2. Testing with very different parameters...\n")
+ll_diff <- calculate_loglik_vector_r(y_test, pars_different, spec_mv, "multivariate")
+cat("   Sum of LL:", sum(ll_diff), "\n")
+cat("   First 5 values:", head(ll_diff, 5), "\n\n")
+
+cat("3. Comparison:\n")
+cat("   Are they identical?", identical(ll_base, ll_diff), "\n")
+cat("   Difference in sums:", sum(ll_diff) - sum(ll_base), "\n")
+cat("   Max element difference:", max(abs(ll_diff - ll_base)), "\n\n")
+
+if (identical(ll_base, ll_diff)) {
+  cat("❌ PROBLEM FOUND: Parameters are NOT affecting the log-likelihood!\n\n")
+  
+  cat("This suggests calculate_loglik_vector_r() is:\n")
+  cat("  1. Not reading the parameters from current_pars\n")
+  cat("  2. Using fixed/default parameters instead\n")
+  cat("  3. Or there's an issue in create_garch_spec_object_r()\n\n")
+  
+  cat("NEXT STEPS:\n")
+  cat("  1. Check create_garch_spec_object_r() - does it use current_pars?\n")
+  cat("  2. Check if parameters are being set in the spec object\n")
+  cat("  3. Check if estimate() is using the set parameters\n\n")
+  
+  cat("Let's test create_garch_spec_object_r() directly:\n\n")
+  
+  ## Get residuals
+  var_order <- 1
+  k <- ncol(y_test)
+  T_obs <- nrow(y_test)
+  
+  X_lagged <- matrix(1, nrow = T_obs - var_order, ncol = 1 + k * var_order)
+  X_lagged[, 2:(1+k)] <- coredata(y_test)[1:(T_obs-1), ]
+  y_target <- coredata(y_test)[(var_order+1):T_obs, ]
+  
+  beta_mat_base <- matrix(pars_base$var_pars, nrow = 1 + k * var_order, ncol = k)
+  residuals_base <- y_target - X_lagged %*% beta_mat_base
+  
+  beta_mat_diff <- matrix(pars_different$var_pars, nrow = 1 + k * var_order, ncol = k)
+  residuals_diff <- y_target - X_lagged %*% beta_mat_diff
+  
+  cat("Residuals with base VAR params:\n")
+  cat("  Mean:", mean(residuals_base), "\n")
+  cat("  SD:", sd(residuals_base), "\n\n")
+  
+  cat("Residuals with different VAR params:\n")
+  cat("  Mean:", mean(residuals_diff), "\n")
+  cat("  SD:", sd(residuals_diff), "\n\n")
+  
+  if (identical(residuals_base, residuals_diff)) {
+    cat("❌ Even the residuals are identical! VAR parameters not being used.\n")
+  } else {
+    cat("✓ Residuals are different, so VAR parameters ARE being used.\n")
+    cat("  Issue is likely in GARCH/DCC parameter usage.\n\n")
+    
+    cat("Testing GARCH spec creation:\n")
+    spec_obj_base <- create_garch_spec_object_r(
+      residuals_base, spec_mv, "multivariate", pars_base
+    )
+    
+    spec_obj_diff <- create_garch_spec_object_r(
+      residuals_diff, spec_mv, "multivariate", pars_different
+    )
+    
+    cat("\nBase parameters in spec:\n")
+    print(spec_obj_base$parmatrix[, .(parameter, value, estimate)])
+    
+    cat("\nDifferent parameters in spec:\n")
+    print(spec_obj_diff$parmatrix[, .(parameter, value, estimate)])
+    
+    cat("\nAre the parmatrices identical?\n")
+    cat("  ", identical(spec_obj_base$parmatrix$value, 
+                        spec_obj_diff$parmatrix$value), "\n")
+  }
+  
+} else {
+  cat("✓ GOOD: Parameters ARE affecting the log-likelihood as expected!\n")
+  cat("  The test failure might be due to small parameter changes.\n")
+  cat("  Try using more extreme parameter differences.\n")
+}
+
+cat("\n=== End of diagnostic ===\n")
+```
+
+
+
+## DIAGNOSTIC: Check if parameters are actually being set in spec objects
+
+```{r}
+cat("=== Checking Parameter Setting in Spec Objects ===\n\n")
+
+## Setup
+set.seed(456)
+y_matrix <- matrix(rnorm(200, sd = 0.5), 100, 2)
+colnames(y_matrix) <- c("series_1", "series_2")
+y_test <- xts::xts(y_matrix, order.by = Sys.Date() - (nrow(y_matrix):1))
+
+spec_mv <- list(
+  var_order = 1,
+  garch_spec_fun = "dcc_modelspec",
+  distribution = "mvn",
+  garch_spec_args = list(
+    dcc_order = c(1, 1),
+    garch_model = list(univariate = list(
+      list(model = "garch", garch_order = c(1, 1), distribution = "norm"),
+      list(model = "garch", garch_order = c(1, 1), distribution = "norm")
+    ))
+  ),
+  start_pars = list(dist_pars = NULL)
+)
+
+pars_test <- list(
+  var_pars = c(0.1, 0.5, 0.1, 0.1, 0.2, 0.4),
+  garch_pars = list(
+    list(omega = 0.1, alpha1 = 0.1, beta1 = 0.8),
+    list(omega = 0.2, alpha1 = 0.15, beta1 = 0.7)
+  ),
+  alpha_1 = 0.05,
+  beta_1 = 0.90,
+  dist_pars = NULL
+)
+
+## Compute residuals (same as in calculate_loglik_vector_r)
+var_order <- 1
+k <- ncol(y_test)
+T_obs <- nrow(y_test)
+X_lagged <- matrix(1, nrow = T_obs - var_order, ncol = 1 + k * var_order)
+X_lagged[, 2:(1+k)] <- coredata(y_test)[1:(T_obs-1), ]
+y_target <- coredata(y_test)[(var_order+1):T_obs, ]
+beta_mat <- matrix(pars_test$var_pars, nrow = 1 + k * var_order, ncol = k)
+model_residuals <- y_target - X_lagged %*% beta_mat
+```
+
+```{r}
+cat("1. Testing create_garch_spec_object_r()...\n")
+
+## Call create_garch_spec_object_r
+spec_obj <- create_garch_spec_object_r(
+  model_residuals, 
+  spec_mv, 
+  "multivariate",
+  pars_test
+)
+```
+
+```{r}
+cat("\n2. Checking what parameters are in the spec:\n")
+print(spec_obj$parmatrix[, .(parameter, value, estimate)])
+
+cat("\n3. Comparing to what we requested:\n")
+cat("Requested alpha_1:", pars_test$alpha_1, "\n")
+cat("In spec alpha_1:  ", spec_obj$parmatrix[parameter == "alpha_1"]$value, "\n")
+cat("Match?", 
+    isTRUE(all.equal(pars_test$alpha_1, 
+                     spec_obj$parmatrix[parameter == "alpha_1"]$value)),
+    "\n\n")
+
+cat("Requested beta_1:", pars_test$beta_1, "\n")
+cat("In spec beta_1:  ", spec_obj$parmatrix[parameter == "beta_1"]$value, "\n")
+cat("Match?", 
+    isTRUE(all.equal(pars_test$beta_1, 
+                     spec_obj$parmatrix[parameter == "beta_1"]$value)),
+    "\n\n")
+
+cat("Requested omega[1]:", pars_test$garch_pars[[1]]$omega, "\n")
+omega1_in_spec <- spec_obj$parmatrix[parameter == "omega[1]"]$value
+if (length(omega1_in_spec) > 0) {
+  cat("In spec omega[1]:  ", omega1_in_spec, "\n")
+  cat("Match?", 
+      isTRUE(all.equal(pars_test$garch_pars[[1]]$omega, omega1_in_spec)),
+      "\n\n")
+} else {
+  cat("ERROR: omega[1] not found in spec!\n\n")
+}
+```
+
+```{r}
+cat("4. Testing if changing parameters changes the spec:\n\n")
+
+pars_different <- pars_test
+pars_different$alpha_1 <- 0.99
+pars_different$beta_1 <- 0.01
+
+spec_obj_diff <- create_garch_spec_object_r(
+  model_residuals, 
+  spec_mv, 
+  "multivariate",
+  pars_different
+)
+
+cat("Original spec alpha_1:", spec_obj$parmatrix[parameter == "alpha_1"]$value, "\n")
+cat("New spec alpha_1:     ", spec_obj_diff$parmatrix[parameter == "alpha_1"]$value, "\n")
+cat("Should be different:  ", 
+    spec_obj$parmatrix[parameter == "alpha_1"]$value != 
+      spec_obj_diff$parmatrix[parameter == "alpha_1"]$value, "\n\n")
+
+```
+
+```{r}
+if (spec_obj$parmatrix[parameter == "alpha_1"]$value == 
+    spec_obj_diff$parmatrix[parameter == "alpha_1"]$value) {
+  cat("❌ BUG CONFIRMED: Parameters in current_pars are NOT being set in the spec!\n")
+  cat("   create_garch_spec_object_r() is ignoring the current_pars argument.\n\n")
+  
+  cat("SOLUTION: The fix from artifact 'fix_create_garch_spec' needs to be applied.\n")
+  cat("          After STEP 3 in create_garch_spec_object_r(), add:\n\n")
+  cat("## Set DCC parameters\n")
+  cat("dcc_param_names <- grep('^(alpha|beta|gamma)_[0-9]+$', names(current_pars), value = TRUE)\n")
+  cat("for (par_name in dcc_param_names) {\n")
+  cat("  if (par_name %in% garch_spec_obj$parmatrix$parameter) {\n")
+  cat("    value <- current_pars[[par_name]]\n")
+  cat("    # ... set bounds and assign ...\n")
+  cat("  }\n")
+  cat("}\n")
+} else {
+  cat("✓ GOOD: Parameters ARE being set correctly!\n")
+  cat("   The bug must be elsewhere in calculate_loglik_vector_r().\n")
+}
+
+cat("\n=== End of diagnostic ===\n")
+```
+
+
+## DETAILED DIAGNOSTIC: Trace through DCC spec creation step by step
+
+```{r}
+cat("=== Detailed DCC Spec Creation Diagnostic ===\n\n")
+
+## Setup
+set.seed(456)
+y_matrix <- matrix(rnorm(200, sd = 0.5), 100, 2)
+colnames(y_matrix) <- c("series_1", "series_2")
+y_test <- xts::xts(y_matrix, order.by = Sys.Date() - (nrow(y_matrix):1))
+
+spec_mv <- list(
+  var_order = 1,
+  garch_spec_fun = "dcc_modelspec",
+  distribution = "mvn",
+  garch_spec_args = list(
+    dcc_order = c(1, 1),
+    garch_model = list(univariate = list(
+      list(model = "garch", garch_order = c(1, 1), distribution = "norm"),
+      list(model = "garch", garch_order = c(1, 1), distribution = "norm")
+    ))
+  ),
+  start_pars = list(dist_pars = NULL)
+)
+
+## Get residuals
+var_order <- 1
+k <- ncol(y_test)
+T_obs <- nrow(y_test)
+X_lagged <- matrix(1, nrow = T_obs - var_order, ncol = 1 + k * var_order)
+X_lagged[, 2:(1+k)] <- coredata(y_test)[1:(T_obs-1), ]
+y_target <- coredata(y_test)[(var_order+1):T_obs, ]
+var_pars <- c(0.1, 0.5, 0.1, 0.1, 0.2, 0.4)
+beta_mat <- matrix(var_pars, nrow = 1 + k * var_order, ncol = k)
+model_residuals <- y_target - X_lagged %*% beta_mat
+
+residuals_xts <- xts::xts(model_residuals, order.by = Sys.Date() - (nrow(model_residuals):1))
+```
+
+```{r}
+cat("Step 1: Creating univariate GARCH models...\n")
+
+spec_args <- spec_mv$garch_spec_args
+
+univariate_models <- lapply(1:k, function(i) {
+  cat("  Series", i, "...\n")
+  
+  uni_spec_details <- spec_args$garch_model$univariate[[i]]
+  
+  uni_spec_obj <- tsgarch::garch_modelspec(
+    y = residuals_xts[,i],
+    model = uni_spec_details$model,
+    garch_order = uni_spec_details$garch_order,
+    distribution = uni_spec_details$distribution
+  )
+  
+  cat("    Spec created, estimating...\n")
+  uni_fit <- suppressWarnings(estimate(uni_spec_obj, keep_tmb = TRUE))
+  cat("    Estimated. Parameters:\n")
+  print(uni_fit$parmatrix[, .(parameter, value)])
+  
+  return(uni_fit)
+})
+```
+
+```{r}
+cat("\nStep 2: Combining into multi_estimate object...\n")
+
+multi_estimate_object <- tsgarch::to_multi_estimate(univariate_models)
+names(multi_estimate_object) <- paste0("series_", 1:k)
+
+cat("  Class:", class(multi_estimate_object), "\n")
+cat("  Names:", names(multi_estimate_object), "\n")
+```
+
+
+```{r}
+cat("\nStep 3: Creating DCC spec...\n")
+
+cat("  Using function:", spec_mv$garch_spec_fun, "\n")
+cat("  DCC order:", spec_mv$garch_spec_args$dcc_order, "\n")
+cat("  Distribution:", spec_mv$distribution, "\n")
+
+## Build arguments for dcc_modelspec
+final_args <- list(
+  object = multi_estimate_object,
+  dcc_order = spec_args$dcc_order,
+  distribution = spec_mv$distribution
+)
+
+cat("\n  Arguments to dcc_modelspec:\n")
+cat("    object: multi_estimate (", length(multi_estimate_object), "series )\n")
+cat("    dcc_order:", final_args$dcc_order, "\n")
+cat("    distribution:", final_args$distribution, "\n")
+
+cat("\n  Calling dcc_modelspec...\n")
+dcc_spec <- tsmarch::dcc_modelspec(
+  object = multi_estimate_object,
+  dcc_order = c(1, 1),
+  distribution = "mvn"
+)
+
+cat("  DCC spec created!\n")
+cat("  Class:", class(dcc_spec), "\n")
+```
+
+```{r}
+cat("\nStep 4: Examining DCC spec parameters...\n")
+
+cat("  Parameter matrix:\n")
+print(dcc_spec$parmatrix[, .(parameter, value, estimate, group)])
+
+cat("\n  Full parameter names:\n")
+print(dcc_spec$parmatrix$parameter)
+```
+
+
+```{r}
+cat("\n  Dynamics info:\n")
+if (!is.null(dcc_spec$dynamics)) {
+  cat("    Model:", dcc_spec$dynamics$model, "\n")
+  cat("    Order:", dcc_spec$dynamics$order, "\n")
+} else {
+  cat("    WARNING: No dynamics element in spec!\n")
+}
+
+cat("\n  Checking for specific parameters:\n")
+cat("    Has alpha_1?", "alpha_1" %in% dcc_spec$parmatrix$parameter, "\n")
+cat("    Has beta_1?", "beta_1" %in% dcc_spec$parmatrix$parameter, "\n")
+cat("    Has omega[1]?", "omega[1]" %in% dcc_spec$parmatrix$parameter, "\n")
+cat("    Has alpha1[1]?", "alpha1[1]" %in% dcc_spec$parmatrix$parameter, "\n")
+
+cat("\n=== Analysis ===\n")
+
+if (!"alpha_1" %in% dcc_spec$parmatrix$parameter) {
+  cat("❌ PROBLEM: DCC parameters (alpha_1, beta_1) are NOT in the spec!\n")
+  cat("   This means dcc_modelspec() returned a constant correlation spec.\n\n")
+  
+  cat("Possible causes:\n")
+  cat("1. The dcc_order argument was not passed correctly\n")
+  cat("2. The multi_estimate object is not valid\n")
+  cat("3. tsmarch is detecting something wrong and falling back to constant\n\n")
+  
+  cat("Let's check the dcc_order that was actually used:\n")
+  if (!is.null(dcc_spec$dynamics)) {
+    cat("  Spec dynamics order:", dcc_spec$dynamics$order, "\n")
+    if (all(dcc_spec$dynamics$order == c(0, 0))) {
+      cat("  ❌ Order is (0,0) = constant correlation!\n")
+      cat("     But we requested:", spec_args$dcc_order, "\n")
+    }
+  }
+  
+  cat("\nTrying alternative approach - calling dcc_modelspec differently:\n")
+  
+  ## Try with explicit dynamics argument
+  dcc_spec2 <- tsmarch::dcc_modelspec(
+    object = multi_estimate_object,
+    dcc_order = c(1, 1),
+    dynamics = "dcc",  ## Explicit
+    distribution = "mvn"
+  )
+  
+  cat("  Alternative spec parameters:\n")
+  print(dcc_spec2$parmatrix$parameter)
+  
+  if ("alpha_1" %in% dcc_spec2$parmatrix$parameter) {
+    cat("\n✓ SUCCESS with explicit dynamics='dcc' argument!\n")
+  }
+  
+} else {
+  cat("✓ GOOD: DCC spec has the expected parameters!\n")
+}
+
+cat("\n=== End of diagnostic ===\n")
+```
+
+
+```{r}
+set.seed(123)
+y <- xts(rnorm(100), order.by = Sys.Date() - (100:1))
+
+## Create a univariate fitted object
+spec1 <- garch_modelspec(y, model = "garch", garch_order = c(1,1))
+fit1 <- estimate(spec1, keep_tmb = TRUE)
+
+## Store original omega value
+original_omega <- fit1$parmatrix[parameter == "omega"]$value
+cat("Original omega:", original_omega, "\n")
+
+## Create multi_estimate and DCC spec
+multi <- to_multi_estimate(list(fit1))
+names(multi) <- "series_1"
+dcc_spec <- dcc_modelspec(multi, dynamics = "dcc", dcc_order = c(1,1))
+
+## Now modify fit1 AFTER dcc_spec was created
+fit1$parmatrix[parameter == "omega", value := 999.0]
+
+## Check if the modification appears in dcc_spec
+cat("Omega in fit1 after modification:", fit1$parmatrix[parameter == "omega"]$value, "\n")
+cat("Omega in dcc_spec$univariate:", dcc_spec$univariate$series_1$parmatrix[parameter == "omega"]$value, "\n")
+
+## Are they the same object?
+cat("Same object?:", identical(fit1, dcc_spec$univariate$series_1), "\n")
+```
+
+
+
+```{r}
+set.seed(123)
+y_mat <- matrix(rnorm(200), 100, 2)
+y <- xts(y_mat, order.by = Sys.Date() - (100:1))
+
+## Create two univariate fitted objects
+spec1 <- garch_modelspec(y[,1], model = "garch", garch_order = c(1,1))
+spec2 <- garch_modelspec(y[,2], model = "garch", garch_order = c(1,1))
+fit1 <- estimate(spec1, keep_tmb = TRUE)
+fit2 <- estimate(spec2, keep_tmb = TRUE)
+
+## Store original omega value
+original_omega <- fit1$parmatrix[parameter == "omega"]$value
+cat("Original omega in fit1:", original_omega, "\n")
+
+## Create multi_estimate and DCC spec
+multi <- to_multi_estimate(list(fit1, fit2))
+names(multi) <- c("series_1", "series_2")
+dcc_spec <- dcc_modelspec(multi, dynamics = "dcc", dcc_order = c(1,1))
+
+cat("Omega in dcc_spec$univariate$series_1 (right after creation):", 
+    dcc_spec$univariate$series_1$parmatrix[parameter == "omega"]$value, "\n")
+
+## Now modify fit1 AFTER dcc_spec was created
+fit1$parmatrix[parameter == "omega", value := 999.0]
+
+## Check if the modification appears in dcc_spec
+cat("\nAfter modifying fit1:\n")
+cat("Omega in fit1:", fit1$parmatrix[parameter == "omega"]$value, "\n")
+cat("Omega in multi$series_1:", multi$series_1$parmatrix[parameter == "omega"]$value, "\n")
+cat("Omega in dcc_spec$univariate$series_1:", 
+    dcc_spec$univariate$series_1$parmatrix[parameter == "omega"]$value, "\n")
+
+## Memory addresses to check if same object
+cat("\nMemory addresses:\n")
+cat("fit1 address:", data.table::address(fit1), "\n")
+cat("multi$series_1 address:", data.table::address(multi$series_1), "\n")
+cat("dcc_spec$univariate$series_1 address:", data.table::address(dcc_spec$univariate$series_1), "\n")
+```
+
+
+```{r}
+## What does to_multi_estimate need?
+set.seed(123)
+y_mat <- matrix(rnorm(200), 100, 2)
+y <- xts(y_mat, order.by = Sys.Date() - (100:1))
+
+spec1 <- garch_modelspec(y[,1], model = "garch", garch_order = c(1,1))
+fit1 <- estimate(spec1, keep_tmb = TRUE)
+
+cat("Class of fit1:", paste(class(fit1), collapse=", "), "\n")
+cat("Names in fit1:", paste(names(fit1), collapse=", "), "\n")
+
+## Try creating a "fake" fitted object from tsfilter instead
+filtered1 <- tsfilter(spec1)
+cat("\nClass of filtered1:", paste(class(filtered1), collapse=", "), "\n")
+cat("Names in filtered1:", paste(names(filtered1), collapse=", "), "\n")
+
+## Can we use filtered object?
+cat("\nDoes filtered object have tmb?:", !is.null(filtered1$tmb), "\n")
+```
+```{r}
+# Create your spec
+spec_mv_dcc <- list(
+  list(
+    var_order = 1, 
+    garch_spec_fun = "dcc_modelspec",
+    distribution = "mvn",
+    garch_spec_args = dcc_spec_args, 
+    start_pars = list(
+      var_pars = rep(0.1, 6), 
+      garch_pars = list(
+        list(omega = 0.1, alpha1 = 0.1, beta1 = 0.8),
+        list(omega = 0.1, alpha1 = 0.1, beta1 = 0.8)
+      ),
+      dcc_pars = list(alpha_1 = 0.05, beta_1 = 0.90),
+      dist_pars = NULL
+    )
+  ),
+  list(
+    var_order = 1, 
+    garch_spec_fun = "dcc_modelspec",
+    distribution = "mvn",
+    garch_spec_args = dcc_spec_args, 
+    start_pars = list(
+      var_pars = rep(0.1, 6), 
+      garch_pars = list(
+        list(omega = 0.2, alpha1 = 0.2, beta1 = 0.7),
+        list(omega = 0.2, alpha1 = 0.2, beta1 = 0.7)
+      ),
+      dcc_pars = list(alpha_1 = 0.1, beta_1 = 0.85),
+      dist_pars = NULL
+    )
+  )
+)
+
+# DEBUG: Print the structure
+cat("\n=== Inspecting spec structure ===\n")
+cat("\nspec[[1]]$start_pars names:\n")
+print(names(spec_mv_dcc[[1]]$start_pars))
+
+cat("\nspec[[1]]$start_pars structure:\n")
+print(str(spec_mv_dcc[[1]]$start_pars, max.level = 2))
+
+cat("\nLooking for alpha_1 and beta_1:\n")
+print(spec_mv_dcc[[1]]$start_pars$alpha_1)
+print(spec_mv_dcc[[1]]$start_pars$beta_1)
+```
+

@@ -7,13 +7,15 @@
 .coerce_and_validate_data(x, fail_mode = c("predictably", "gracefully"))
 }
 \arguments{
-\item{x}{The user-provided data (e.g., vector, matrix, data.frame, ts, xts, zoo).}
+\item{x}{The user-provided data (e.g., vector, matrix, data.frame, ts, xts,
+zoo).}
 
 \item{fail_mode}{How to handle validation errors: "predictably" (the default)
 will stop with an informative error. "gracefully" will return NULL.}
 }
 \value{
-A numeric matrix if the input is valid, otherwise stops or returns NULL.
+A numeric matrix if the input is valid, otherwise stops or returns
+NULL.
 }
 \description{
 A robust helper function that takes a user-provided object,

@@ -42,9 +42,9 @@ heuristic is used: The method first calculates the average absolute
 first-order autocorrelation (\eqn{\rho_1}) across all time series columns.
 A candidate block length is then calculated based on this persistence
 measure using the formula \eqn{⌊10/(1−\rho_1)⌋}. The final block length is
-constrained to be between 5 and the square root of the series length,
-ensuring a reasonable value is chosen. For stationary bootstrap,
-\code{block_length} is the expected block length, when \code{p_method="1/n"}.}
+constrained to be between 5 and the square root of the series length.
+For stationary bootstrap, \code{block_length} is the expected block length, when
+\code{p_method="1/n"}.}
 
 \item{bs_type}{Bootstrap type. Character string: One of \code{"moving"},
 \code{"stationary"}, \code{"hmm"}, \code{"msvar"}, \code{"ms_varma_garch"}, or \code{"wild"}.
@@ -61,9 +61,9 @@ between blocks. It follows that \code{block_type="tapered"} can not be used when
 \code{"bartlett"}, or \code{"tukey"}. Only affects \code{block_type="tapered"}. See
 details below.}
 
-\item{tukey_alpha}{alpha parameter for \code{taper_type = "tukey"}. \eqn{\alpha}
-is the fraction of the window length tapered at each end, using indices
-\eqn{0 \dots n−1}, where \eqn{n} is the block length.}
+\item{tukey_alpha}{numeric, alpha parameter for \code{taper_type = "tukey"}.
+\eqn{\alpha \in [0, 1]} is the fraction of the window length tapered at
+each end, using indices \eqn{0 \dots n−1}, where \eqn{n} is the block length.}
 
 \item{num_blocks}{Integer number of blocks per bootstrap replicate.}
 
@@ -77,7 +77,8 @@ to apply on the full data frame.}
 \item{p_method}{Character string to choose method for stationary bootstrap
 parameter: \code{"1/n"}, \code{"plugin"}, or \code{"cross validation"}.}
 
-\item{p}{Optional numeric value for stationary bootstrap \code{p}.}
+\item{p}{numeric \eqn{p \in (0, 1)}. Probability parameter for the geometric
+block length (used in Stationary Bootstrap).}
 
 \item{overlap}{Logical indicating if overlapping blocks are allowed.}
 
@@ -91,63 +92,8 @@ bootstrap (bs_type = "ms_varma_garch"). This argument is required for
 this bootstrap type and must be a list of length \code{num_states}. Each element
 of the list is itself a list specifying the model for that state. The
 structure depends on whether the model is univariate or multivariate.
-Fitting relies on the tsgarch or tsmarch packages, respectively.
-
-\strong{For univariate models (one-column x):}
-Each element spec[\link{j}] must be a list with the following components. For a
-complete list of all possible arguments (e.g., for different GARCH model
-flavors), please refer to the documentation for the tsgarch package
-(\code{?tsgarch} and \code{vignette("garch_models", package = "tsgarch")}).
-\itemize{
-\item \code{arma_order}: A numeric vector c(p,q) for the ARMA(p,q) order.
-\item \code{garch_model}: A character string for the GARCH model type
-(e.g., "garch", "egarch").
-\item \code{garch_order}: A numeric vector c(g,h) for the GARCH(g,h) order.
-\item \code{distribution}: A character string for the conditional
-distribution (e.g., "norm", "std").
-\item \code{start_pars}: A list containing the starting parameters for
-the optimization, with two named elements:
-\itemize{
-\item \code{arma_pars}: A named numeric vector for the ARMA parameters
-(e.g., c(ar1 = 0.5)).
-\item \code{garch_pars}: A named list for the GARCH parameters (e.g.,
-list(omega = 0.1, alpha1 = 0.1, beta1 = 0.8)).
-}
-}
-
-\strong{For multivariate models (multi-column x):}
-Each element spec[\link{j}] must be a list with the following components. For a
-complete list of all possible arguments, please refer to the documentation
-for the relevant tsmarch specification function. For a DCC model see
-\code{?dcc_modelspec.tsgarch.multi_estimate}, for a Copula GARCH model see
-\code{?cgarch_modelspec.tsgarch.multi_estimate}. (See also \code{?tsmarch},
-\code{vignette("tsmarch_demo", package = "tsmarch")} and
-\code{vignette("feasible_multivariate_garch", package = "tsmarch")}.)
-\itemize{
-\item \code{var_order}: An integer p for the VAR(p) order.
-\item \code{garch_spec_fun}: A character string with the name of the
-tsmarch specification function to use (e.g., "dcc_modelspec",
-"gogarch_modelspec").
-\item \code{garch_spec_args}: A list of arguments to pass to the function
-specified in garch_spec_fun. Key arguments include:
-\itemize{
-\item \code{distribution}: The multivariate distribution. Valid
-choices are "mvn" (for multivariate normal) and "mvt" (for
-multivariate Student's t).
-\item For models like DCC or CGARCH, this list must also contain a
-\code{garch_model} definition for the underlying univariate GARCH
-fits.
-}
-\item \code{start_pars}: A list containing the starting parameters, with
-two named elements:
-\itemize{
-\item \code{var_pars}: A numeric vector for the VAR parameters,
-stacked column by column (intercept, lags for eq1, intercept, lags
-for eq2, ...).
-\item \code{garch_pars}: A named list for the multivariate GARCH
-parameters (e.g., list(dcc_alpha = 0.05, dcc_beta = 0.9)).
-}
-}}
+Fitting relies on the tsgarch or tsmarch packages, respectively. See
+details below.}
 
 \item{model_type}{Character string for MS-VARMA-GARCH: \code{"univariate"} or
 \code{"multivariate"}.}
@@ -157,13 +103,14 @@ algorithm.}
 
 \item{parallel}{Parallelize computation? \code{TRUE} or \code{FALSE}.}
 
-\item{num_cores}{Number of cores.}
+\item{num_cores}{Number of cores when \code{parallel=TRUE}.}
 
 \item{fail_mode}{Character string. One of \code{"predictably"} (development/
 debugging - fail fast on any unexpected behavior) or \code{"gracefully"}
 (production/robust pipelines - continue despite validation errors).}
 
-\item{model_func}{Model-fitting function for cross-validation.}
+\item{model_func}{Model-fitting function for cross-validation.
+See \link{k_fold_cv_ts}.}
 
 \item{score_func}{Scoring function for cross-validation.}
 
@@ -185,30 +132,130 @@ series. Supports moving and stationary block, HMM, MSVAR, MS VARMA GARCH and
 wild bootstrap types.
 }
 \details{
-\code{bs_type="moving"}: If \code{n_boot} is set, the last block will be truncated
-when necessary to match the length (\code{n_boot}) of the bootstrap series. If
-\code{n_boot} is not set, \code{block_length} and \code{num_blocks} must be set, and
-\code{n_boot} will automatically be set to \code{block_length * num_blocks}.
+\subsection{Bootstrap types}{
 
-\code{bs_type="stationary"}, \code{bs_type="hmm"}, \code{bs_type="msvar"}: If  \code{n_boot} is
-set, the last block will be truncated when necessary to match the length
-(\code{n_boot}) of the bootstrap series. This is the only way to ensure equal
-length of all bootstrap series, as the length of each block is random. If
-\code{n_boot} is not set, \code{num_blocks} must be set, and the length of each
-bootstrap series will be determined by the number of blocks and the random
-lengths of the individual blocks for that particular series. Note that this
-typically results in bootstrap series of different lengths. For stationary
-bootstrap, \code{block_length} is the expected block length, when
+See documentation for the individual bootstrap functions:
+\itemize{
+\item For moving or stationary block bootstraps, see \code{\link[=blockBootstrap]{blockBootstrap()}}
+\item \code{\link[=hmm_bootstrap]{hmm_bootstrap()}}
+\item \code{\link[=msvar_bootstrap]{msvar_bootstrap()}}
+\item \code{\link[=ms_varma_garch_bs]{ms_varma_garch_bs()}}
+\item \code{\link[=wild_bootstrap]{wild_bootstrap()}}
+}
+\subsection{\code{bs_type="moving"}}{
+
+If \code{n_boot} is set, the last block will be truncated when necessary to
+match the length (\code{n_boot}) of the bootstrap series. If \code{n_boot} is not
+set, \code{block_length} and \code{num_blocks} must be set, and \code{n_boot} will
+automatically be set to \code{block_length * num_blocks}.
+}
+
+\subsection{\code{bs_type="stationary"}, \code{bs_type="hmm"}, \code{bs_type="msvar"}}{
+
+If \code{n_boot} is set, the last block will be truncated when necessary to
+match the length (\code{n_boot}) of the bootstrap series. This is the only way
+to ensure equal length of all bootstrap series, as the length of each block
+is random. If \code{n_boot} is not set, \code{num_blocks} must be set, and the length
+of each bootstrap series will be determined by the number of blocks and the
+random lengths of the individual blocks for that particular series. Note
+that this typically results in bootstrap series of different lengths. For
+stationary bootstrap, \code{block_length} is the expected block length, when
 \code{p_method="1/n"}.
+}
 
-\code{bs_type="wild"}: \code{n_boot}, \code{block_length} and \code{num_blocks} are ignored. The
-length of the bootstrap series is always the same as the original series.
+\subsection{\code{bs_type="wild"}}{
 
-See documentation for the individual bootstrap functions: \code{\link[=hmm_bootstrap]{hmm_bootstrap()}},
-\code{\link[=msvar_bootstrap]{msvar_bootstrap()}}, \code{\link[=ms_varma_garch_bs]{ms_varma_garch_bs()}} and \code{\link[=wild_bootstrap]{wild_bootstrap()}}. For
-moving or stationary block bootstraps, see \code{\link[=blockBootstrap]{blockBootstrap()}}.
+\code{n_boot}, \code{block_length} and \code{num_blocks} are ignored. The length of the
+bootstrap series is always the same as the original series.
+}
 
-\code{taper_type} when \code{block_type="tapered"}:
+\subsection{\code{bs_type = "ms_varma_garch"}}{
+
+\code{spec} list structure:
+
+\itemize{
+\item \strong{For univariate models (one-column x):}
+Each element spec[\link{j}] must be a list with the following components. For a
+complete list of all possible arguments (e.g., for different GARCH model
+flavors), please refer to the documentation for the tsgarch package
+(\code{?tsgarch} and
+\code{vignette("garch_models", package = "tsgarch")}).
+\itemize{
+\item \code{arma_order}: A numeric vector c(p,q) for the ARMA(p,q) order.
+\item \code{garch_model}: A character string for the GARCH model type
+(e.g., "garch", "egarch").
+\item \code{garch_order}: A numeric vector c(g,h) for the GARCH(g,h) order.
+\item \code{distribution}: A character string for the conditional
+distribution.
+\itemize{
+\item \code{"norm"} = Normal
+\item \code{"snorm"} = Skew normal
+\item \code{"std"} = Student t
+\item \code{"sstd"} = Skew Student
+\item \code{"ged"}  = Generalized error
+\item \code{"ged"}  = Skew generalized error
+\item \code{"ghyp"}  = Generalized hyperbolic
+\item \code{"ghst"}  = Generalized hyperbolic skew Student
+\item \code{"jsu"}  = Johnson reparameterized SU
+}
+See \url{https://www.nopredict.com/packages/tsdistributions}.
+\item \code{start_pars}: A list containing the starting parameters for
+the optimization, with two named elements:
+\itemize{
+\item \code{arma_pars}: A named numeric vector for the ARMA parameters
+(e.g., c(ar1 = 0.5)).
+\item \code{garch_pars}: A named list for the GARCH parameters (e.g.,
+list(omega = 0.1, alpha1 = 0.1, beta1 = 0.8)).
+\item \code{dist_pars}: A named list for the starting values for
+univariate dist params (e.g. list(skew = 1.0, shape = 6.0)).
+}
+}
+
+\item \strong{For multivariate models (multi-column x):}
+Each element spec[\link{j}] must be a list with the following components. For a
+complete list of all possible arguments, please refer to the documentation
+for the relevant tsmarch specification function. For a DCC model see
+\code{?dcc_modelspec.tsgarch.multi_estimate}, for a Copula GARCH model see
+\code{?cgarch_modelspec.tsgarch.multi_estimate}. (See also \code{?tsmarch},
+\code{vignette("tsmarch_demo", package = "tsmarch")} and
+\code{vignette("feasible_multivariate_garch", package = "tsmarch")}.)
+\itemize{
+\item \code{var_order}: An integer p for the VAR(p) order.
+\item \code{garch_spec_fun}: A character string with the name of the
+tsmarch specification function to use (e.g., "dcc_modelspec",
+"gogarch_modelspec").
+\item \code{garch_spec_args}: A list of arguments to pass to the function
+specified in garch_spec_fun. Key arguments include:
+\itemize{
+\item \code{distribution}: The multivariate distribution. Valid
+choices are "mvn" (for multivariate normal) and "mvt" (for
+multivariate Student's t).
+\item For models like DCC or CGARCH, this list must also contain a
+\code{garch_model} definition for the underlying univariate GARCH
+fits.
+Note: With the exception of the Copula model, the marginal
+distributions of the univariate GARCH models should always be
+Normal, irrespective of whether a multivariate Normal or Student is
+chosen as the DCC model distribution. There are no checks performed
+for this and it is up to the user to ensure that this is the case.
+}
+\item \code{start_pars}: A list containing the starting parameters, with
+two named elements:
+\itemize{
+\item \code{var_pars}: A numeric vector for the VAR parameters,
+stacked column by column (intercept, lags for eq1, intercept, lags
+for eq2, ...).
+\item \code{garch_pars}: A named list for the multivariate GARCH
+parameters (e.g., list(dcc_alpha = 0.05, dcc_beta = 0.9)).
+}
+}
+}
+}
+
+}
+
+\subsection{\code{taper_type} when \code{block_type="tapered"}}{
+
 For block length \eqn{n}, and index \eqn{i} within the block, and \eqn{0 \leq i \leq n},
 \itemize{
 \item \code{"cosine"}: Hann window
@@ -247,6 +294,7 @@ The window weights \eqn{w[i]} are defined piecewise as follows:
 }
 
 (Harris, 1978)
+}
 }
 \examples{
 set.seed(123)

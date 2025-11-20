@@ -13,9 +13,9 @@
 #'   first-order autocorrelation (\eqn{\rho_1}) across all time series columns. 
 #'   A candidate block length is then calculated based on this persistence 
 #'   measure using the formula \eqn{⌊10/(1−\rho_1)⌋}. The final block length is 
-#'   constrained to be between 5 and the square root of the series length, 
-#'   ensuring a reasonable value is chosen. For stationary bootstrap, 
-#'   `block_length` is the expected block length, when `p_method="1/n"`.
+#'   constrained to be between 5 and the square root of the series length. 
+#'   For stationary bootstrap, `block_length` is the expected block length, when 
+#'   `p_method="1/n"`.
 #' @param bs_type Bootstrap type. Character string: One of `"moving"`, 
 #'   `"stationary"`, `"hmm"`, `"msvar"`, `"ms_varma_garch"`, or `"wild"`. 
 #'   `"msvar"` is a lightweight special case of `"ms_varma_garch"`. See details 
@@ -28,9 +28,9 @@
 #' @param taper_type Tapering window function. Character. One of `"cosine"`, 
 #'   `"bartlett"`, or `"tukey"`. Only affects `block_type="tapered"`. See
 #'   details below.
-#' @param tukey_alpha alpha parameter for `taper_type = "tukey"`. \eqn{\alpha} 
-#'   is the fraction of the window length tapered at each end, using indices 
-#'   \eqn{0 \dots n−1}, where \eqn{n} is the block length.
+#' @param tukey_alpha numeric, alpha parameter for `taper_type = "tukey"`. 
+#'   \eqn{\alpha \in [0, 1]} is the fraction of the window length tapered at 
+#'   each end, using indices \eqn{0 \dots n−1}, where \eqn{n} is the block length.
 #' @param num_blocks Integer number of blocks per bootstrap replicate.
 #' @param num_boots Integer number of bootstrap replicates.
 #' @param func A summary function to apply to each bootstrap replicate or column.
@@ -38,7 +38,8 @@
 #'   to apply on the full data frame.
 #' @param p_method Character string to choose method for stationary bootstrap 
 #'   parameter: `"1/n"`, `"plugin"`, or `"cross validation"`.
-#' @param p Optional numeric value for stationary bootstrap `p`.
+#' @param p numeric \eqn{p \in (0, 1)}. Probability parameter for the geometric 
+#'   block length (used in Stationary Bootstrap). 
 #' @param overlap Logical indicating if overlapping blocks are allowed.
 #' @param num_states Integer number of states for HMM, MSVAR, or 
 #'        MS-VARMA-GARCH models.
@@ -48,104 +49,138 @@
 #'   this bootstrap type and must be a list of length `num_states`. Each element
 #'   of the list is itself a list specifying the model for that state. The
 #'   structure depends on whether the model is univariate or multivariate.
-#'   Fitting relies on the tsgarch or tsmarch packages, respectively.
-#'   
-#'
-#'   \strong{For univariate models (one-column x):}
-#'   Each element spec[[j]] must be a list with the following components. For a
-#'   complete list of all possible arguments (e.g., for different GARCH model
-#'   flavors), please refer to the documentation for the tsgarch package 
-#'   (`?tsgarch` and `vignette("garch_models", package = "tsgarch")`).
-#'   \itemize{
-#'     \item \code{arma_order}: A numeric vector c(p,q) for the ARMA(p,q) order.
-#'     \item \code{garch_model}: A character string for the GARCH model type 
-#'     (e.g., "garch", "egarch").
-#'     \item \code{garch_order}: A numeric vector c(g,h) for the GARCH(g,h) order.
-#'     \item \code{distribution}: A character string for the conditional 
-#'     distribution (e.g., "norm", "std").
-#'     \item \code{start_pars}: A list containing the starting parameters for 
-#'     the optimization, with two named elements:
-#'       \itemize{
-#'         \item \code{arma_pars}: A named numeric vector for the ARMA parameters 
-#'         (e.g., c(ar1 = 0.5)).
-#'         \item \code{garch_pars}: A named list for the GARCH parameters (e.g., 
-#'         list(omega = 0.1, alpha1 = 0.1, beta1 = 0.8)).
-#'       }
-#'   }
-#'
-#'   \strong{For multivariate models (multi-column x):}
-#'   Each element spec[[j]] must be a list with the following components. For a
-#'   complete list of all possible arguments, please refer to the documentation
-#'   for the relevant tsmarch specification function. For a DCC model see 
-#'   `?dcc_modelspec.tsgarch.multi_estimate`, for a Copula GARCH model see 
-#'   `?cgarch_modelspec.tsgarch.multi_estimate`. (See also `?tsmarch`, 
-#'   `vignette("tsmarch_demo", package = "tsmarch")` and 
-#'   `vignette("feasible_multivariate_garch", package = "tsmarch")`.)
-#'   \itemize{
-#'     \item \code{var_order}: An integer p for the VAR(p) order.
-#'     \item \code{garch_spec_fun}: A character string with the name of the 
-#'     tsmarch specification function to use (e.g., "dcc_modelspec", 
-#'     "gogarch_modelspec").
-#'     \item \code{garch_spec_args}: A list of arguments to pass to the function 
-#'     specified in garch_spec_fun. Key arguments include:
-#'       \itemize{
-#'          \item \code{distribution}: The multivariate distribution. Valid 
-#'          choices are "mvn" (for multivariate normal) and "mvt" (for 
-#'          multivariate Student's t).
-#'          \item For models like DCC or CGARCH, this list must also contain a 
-#'          \code{garch_model} definition for the underlying univariate GARCH 
-#'          fits.
-#'       }
-#'     \item \code{start_pars}: A list containing the starting parameters, with 
-#'     two named elements:
-#'       \itemize{
-#'         \item \code{var_pars}: A numeric vector for the VAR parameters, 
-#'         stacked column by column (intercept, lags for eq1, intercept, lags 
-#'         for eq2, ...).
-#'         \item \code{garch_pars}: A named list for the multivariate GARCH 
-#'         parameters (e.g., list(dcc_alpha = 0.05, dcc_beta = 0.9)).
-#'       }
-#'   }
+#'   Fitting relies on the tsgarch or tsmarch packages, respectively. See 
+#'   details below.
 #' @param model_type Character string for MS-VARMA-GARCH: `"univariate"` or 
 #'   `"multivariate"`.
 #' @param control A list of control parameters for the MS-VARMA-GARCH EM 
 #'   algorithm.
 #' @param parallel Parallelize computation? `TRUE` or `FALSE`.
-#' @param num_cores Number of cores.
-#' @param model_func Model-fitting function for cross-validation.
+#' @param num_cores Number of cores when `parallel=TRUE`.
+#' @param model_func Model-fitting function for cross-validation. 
+#'   See [k_fold_cv_ts].
 #' @param score_func Scoring function for cross-validation.
 #' @param stationary_max_percentile Stationary max percentile.
 #' @param stationary_max_fraction_of_n Stationary max fraction of n.
 #' @param fail_mode Character string. One of `"predictably"` (development/
 #'   debugging - fail fast on any unexpected behavior) or `"gracefully"` 
 #'   (production/robust pipelines - continue despite validation errors). 
+#' 
+#' @details 
+#' ## Bootstrap types
+#' 
+#' See documentation for the individual bootstrap functions: 
+#' * For moving or stationary block bootstraps, see [blockBootstrap()]
+#' * [hmm_bootstrap()]  
+#' * [msvar_bootstrap()]
+#' * [ms_varma_garch_bs()]
+#' * [wild_bootstrap()]
+#' 
+#' ### `bs_type="moving"`
+#' If `n_boot` is set, the last block will be truncated when necessary to
+#'   match the length (`n_boot`) of the bootstrap series. If `n_boot` is not
+#'   set, `block_length` and `num_blocks` must be set, and `n_boot` will
+#'   automatically be set to `block_length * num_blocks`.
+#' 
+#' ### `bs_type="stationary"`, `bs_type="hmm"`, `bs_type="msvar"`
+#' If `n_boot` is set, the last block will be truncated when necessary to
+#'   match the length (`n_boot`) of the bootstrap series. This is the only way
+#'   to ensure equal length of all bootstrap series, as the length of each block
+#'   is random. If `n_boot` is not set, `num_blocks` must be set, and the length
+#'   of each bootstrap series will be determined by the number of blocks and the
+#'   random lengths of the individual blocks for that particular series. Note
+#'   that this typically results in bootstrap series of different lengths. For
+#'   stationary bootstrap, `block_length` is the expected block length, when
+#'   `p_method="1/n"`.
+#' 
+#' ### `bs_type="wild"`
+#' `n_boot`, `block_length` and `num_blocks` are ignored. The length of the
+#'   bootstrap series is always the same as the original series.
 #'   
+#' ### `bs_type = "ms_varma_garch"`
 #' 
-#' @details
-#' `bs_type="moving"`: If `n_boot` is set, the last block will be truncated
-#'   when necessary to match the length (`n_boot`) of the bootstrap series. If 
-#'   `n_boot` is not set, `block_length` and `num_blocks` must be set, and  
-#'   `n_boot` will automatically be set to `block_length * num_blocks`.  
-#' 
-#' `bs_type="stationary"`, `bs_type="hmm"`, `bs_type="msvar"`: If  `n_boot` is 
-#'   set, the last block will be truncated when necessary to match the length 
-#'   (`n_boot`) of the bootstrap series. This is the only way to ensure equal 
-#'   length of all bootstrap series, as the length of each block is random. If 
-#'   `n_boot` is not set, `num_blocks` must be set, and the length of each 
-#'   bootstrap series will be determined by the number of blocks and the random 
-#'   lengths of the individual blocks for that particular series. Note that this 
-#'   typically results in bootstrap series of different lengths. For stationary 
-#'   bootstrap, `block_length` is the expected block length, when 
-#'   `p_method="1/n"`.  
-#' 
-#' `bs_type="wild"`: `n_boot`, `block_length` and `num_blocks` are ignored. The
-#'   length of the bootstrap series is always the same as the original series.  
-#' 
-#' See documentation for the individual bootstrap functions: [hmm_bootstrap()], 
-#'   [msvar_bootstrap()], [ms_varma_garch_bs()] and [wild_bootstrap()]. For
-#'   moving or stationary block bootstraps, see [blockBootstrap()].  
+#' `spec` list structure:
+#'
+#' \itemize{
+#' \item \strong{For univariate models (one-column x):}
+#' Each element spec[[j]] must be a list with the following components. For a
+#' complete list of all possible arguments (e.g., for different GARCH model
+#' flavors), please refer to the documentation for the tsgarch package
+#' (`?tsgarch` and
+#' `vignette("garch_models", package = "tsgarch")`).
+#'   \itemize{
+#'     \item \code{arma_order}: A numeric vector c(p,q) for the ARMA(p,q) order.
+#'     \item \code{garch_model}: A character string for the GARCH model type
+#'     (e.g., "garch", "egarch").
+#'     \item \code{garch_order}: A numeric vector c(g,h) for the GARCH(g,h) order.
+#'     \item \code{distribution}: A character string for the conditional
+#'     distribution.
+#'     \itemize{
+#'        \item `"norm"` = Normal
+#'        \item `"snorm"` = Skew normal
+#'        \item `"std"` = Student t
+#'        \item `"sstd"` = Skew Student
+#'        \item `"ged"`  = Generalized error
+#'        \item `"ged"`  = Skew generalized error
+#'        \item `"ghyp"`  = Generalized hyperbolic
+#'        \item `"ghst"`  = Generalized hyperbolic skew Student
+#'        \item `"jsu"`  = Johnson reparameterized SU
+#'     }
+#'     See \url{https://www.nopredict.com/packages/tsdistributions}.
+#'     \item \code{start_pars}: A list containing the starting parameters for
+#'     the optimization, with two named elements:
+#'       \itemize{
+#'         \item \code{arma_pars}: A named numeric vector for the ARMA parameters
+#'         (e.g., c(ar1 = 0.5)).
+#'         \item \code{garch_pars}: A named list for the GARCH parameters (e.g.,
+#'         list(omega = 0.1, alpha1 = 0.1, beta1 = 0.8)).
+#'         \item \code{dist_pars}: A named list for the starting values for
+#'         univariate dist params (e.g. list(skew = 1.0, shape = 6.0)).
+#'       }
+#'   }
+#'
+#' \item \strong{For multivariate models (multi-column x):}  
+#' Each element spec[[j]] must be a list with the following components. For a
+#' complete list of all possible arguments, please refer to the documentation
+#' for the relevant tsmarch specification function. For a DCC model see
+#' `?dcc_modelspec.tsgarch.multi_estimate`, for a Copula GARCH model see
+#' `?cgarch_modelspec.tsgarch.multi_estimate`. (See also `?tsmarch`,
+#' `vignette("tsmarch_demo", package = "tsmarch")` and
+#' `vignette("feasible_multivariate_garch", package = "tsmarch")`.)
+#'   \itemize{
+#'     \item \code{var_order}: An integer p for the VAR(p) order.
+#'     \item \code{garch_spec_fun}: A character string with the name of the
+#'     tsmarch specification function to use (e.g., "dcc_modelspec",
+#'     "gogarch_modelspec").
+#'     \item \code{garch_spec_args}: A list of arguments to pass to the function
+#'     specified in garch_spec_fun. Key arguments include:
+#'       \itemize{
+#'          \item \code{distribution}: The multivariate distribution. Valid
+#'          choices are "mvn" (for multivariate normal) and "mvt" (for
+#'          multivariate Student's t).
+#'          \item For models like DCC or CGARCH, this list must also contain a
+#'          \code{garch_model} definition for the underlying univariate GARCH
+#'          fits.
+#'          Note: With the exception of the Copula model, the marginal
+#'          distributions of the univariate GARCH models should always be
+#'          Normal, irrespective of whether a multivariate Normal or Student is
+#'          chosen as the DCC model distribution. There are no checks performed
+#'          for this and it is up to the user to ensure that this is the case.
+#'       }
+#'     \item \code{start_pars}: A list containing the starting parameters, with
+#'     two named elements:
+#'       \itemize{
+#'         \item \code{var_pars}: A numeric vector for the VAR parameters,
+#'         stacked column by column (intercept, lags for eq1, intercept, lags
+#'         for eq2, ...).
+#'         \item \code{garch_pars}: A named list for the multivariate GARCH
+#'         parameters (e.g., list(dcc_alpha = 0.05, dcc_beta = 0.9)).
+#'       }
+#'   }
+#' } 
 #'   
-#' `taper_type` when `block_type="tapered"`:  
+#' ## `taper_type` when `block_type="tapered"`
+#' 
 #' For block length \eqn{n}, and index \eqn{i} within the block, and \eqn{0 \leq i \leq n},
 #' - `"cosine"`: Hann window 
 #'     \deqn{w(i) = \dfrac{1}{2} \left(1 - \cos \left( \dfrac{2 \pi i}{n - i} \right ) \right)}
@@ -183,6 +218,7 @@
 #'     }  
 #'     
 #' (Harris, 1978)
+#'
 #'
 #' @return A list containing:
 #' \describe{
@@ -296,19 +332,30 @@ tsbs <- function(
     stop("`num_boots` must be a positive integer.")
   
   ## Validate p
-  if(.is_invalid_fraction(p, allow_null = TRUE, fail_mode = fail_mode) ) {
+  if(.not_in_unit_interval(
+      p, 
+      allow_null = TRUE, 
+      interval_type = "open", ## open unit interval, (0, 1)
+      fail_mode = fail_mode
+    ) 
+  ) {
     stop("`p` must be a single number in (0,1) or NULL.")
   }
   
-  ## Validate max block length for stationary bootstrap
-  # if(.is_invalid_fraction(stationary_max_percentile, allow_null = FALSE) ) {
-  #   stop("`stationary_max_percentile` must be a single number in (0,1) or NULL.")
-  # }
-  # if(.is_invalid_fraction(stationary_max_fraction_of_n, allow_null = FALSE) ) {
-  #   stop("`stationary_max_fraction_of_n` must be a single number in (0,1) or NULL.")
-  # }
-  
-  
+  ## Validate tukey_alpha
+  if(block_type == "tapered" && taper_type == "tukey") {
+    if(
+      .not_in_unit_interval(
+        tukey_alpha, 
+        allow_null = FALSE, 
+        interval_type = "closed", ## closed unit interval, [0, 1]
+        fail_mode = fail_mode
+      )
+    ) {
+      stop("`tukey_alpha` must be a single number in [0,1] or NULL.")
+    }
+  }
+
   ## ---- Bootstrap ----
   
   .blockBootstrap <- function() {
@@ -397,18 +444,18 @@ tsbs <- function(
 
 
 #' Check if expression or variable exists and is evaluable
-#' 
+#'
 #' DEPRECATED. Only called by .is_invalid_data(), which is DEPRECATED.
 #'
-#' Helper function that distinguishes between:
-#' 1. Expressions that evaluate successfully (e.g., numeric(0), 1+1)
-#' 2. Undefined variables (e.g., nonexistent_var)
-#' 3. Expressions that fail to evaluate for other reasons
+#' Helper function that distinguishes between: 1. Expressions that evaluate
+#' successfully (e.g., numeric(0), 1+1) 2. Undefined variables (e.g.,
+#' nonexistent_var) 3. Expressions that fail to evaluate for other reasons
 #'
 #' @param x The expression/variable to check (as substitute() result)
 #' @param parent_env The parent environment to check for variable existence
 #'
-#' @returns TRUE if the expression/variable is invalid/non-existent, FALSE otherwise
+#' @returns TRUE if the expression/variable is invalid/non-existent, FALSE
+#'   otherwise
 .check_expression_validity <- function(expr_sub, parent_env = parent.frame()) {
   
   ## First, try to evaluate the expression in the parent environment
@@ -436,14 +483,16 @@ tsbs <- function(
 
 #' @title Coerce, Validate, and Prepare Time Series Data
 #' @description A robust helper function that takes a user-provided object,
-#' validates it, and coerces it into a clean, numeric matrix suitable for
-#' downstream analysis. It provides informative error messages or fails
-#' gracefully based on the specified mode.
+#'   validates it, and coerces it into a clean, numeric matrix suitable for
+#'   downstream analysis. It provides informative error messages or fails
+#'   gracefully based on the specified mode.
 #'
-#' @param x The user-provided data (e.g., vector, matrix, data.frame, ts, xts, zoo).
+#' @param x The user-provided data (e.g., vector, matrix, data.frame, ts, xts,
+#'   zoo).
 #' @param fail_mode How to handle validation errors: "predictably" (the default)
 #'   will stop with an informative error. "gracefully" will return NULL.
-#' @return A numeric matrix if the input is valid, otherwise stops or returns NULL.
+#' @return A numeric matrix if the input is valid, otherwise stops or returns
+#'   NULL.
 #' @keywords internal
 .coerce_and_validate_data <- function(x, fail_mode = c("predictably", "gracefully")) {
   fail_mode <- match.arg(fail_mode)
@@ -711,20 +760,30 @@ tsbs <- function(
 }
 
 
-#' Invalid percentage in decimal fraction form
+#' Value not in unit interval
 #'
-#' Returns TRUE if input percentage is not a valid decimal fraction, FALSE 
-#' otherwise.
+#' Returns TRUE if `p` is not in the unit interval, FALSE otherwise.
 #' 
-#' @param p Percentage (decimal fraction) to validate
-#' @param allow_null Allow null?
+#' If 
+#' 
+#' @param p Value to validate, e.g. a percentage (decimal fraction) .
+#' @param allow_null boolean, allow NULL?
+#' @param interval_type One of `"open"` or `"closed"`. Indicates if the valid
+#'   interval is an open or closed unit interval, i.e. \eqn{p \in (0, 1)} or
+#'   \eqn{p \in [0, 1]} respectively.
 #' @param fail_mode How to handle validation errors: "predictably" (fail fast) 
 #'   or "gracefully" (return FALSE on error)
 #'
 #' @returns boolean
 #' @export
-.is_invalid_fraction <- function(p, allow_null = TRUE, fail_mode = c("predictably", "gracefully")) {
+.not_in_unit_interval <- function(
+    p, 
+    allow_null = TRUE, 
+    interval_type = c("open", "closed"),
+    fail_mode = c("predictably", "gracefully")
+  ) {
   
+  interval_type <- match.arg(interval_type)
   fail_mode <- match.arg(fail_mode)
   
   ## Check if expression/variable is valid and evaluable
@@ -751,10 +810,14 @@ tsbs <- function(
     return(TRUE)
   }
   
-  ## Ultra-consolidated checks: NA, non-finite, out of valid range (0,1)
-  if (safe_check({
-    is.na(p) || !is.finite(p) || p <= 0 || p >= 1
-  })) {
+  ## NA, non-finite, out of valid range (0,1)
+  invalid_expr <- switch(
+    interval_type,
+    open   = is.na(p) || !is.finite(p) || p <= 0 || p >= 1,
+    closed = is.na(p) || !is.finite(p) || p < 0  || p > 1
+  )
+  
+  if (safe_check(invalid_expr)) {
     return(TRUE)
   }
   

@@ -6,10 +6,13 @@
 #' @param x Numeric vector representing the time series.
 #' @param n_boot Length of bootstrap series.
 #' @param num_states Integer number of hidden states for the HMM.
-#' @param num_blocks Integer number of blocks to sample for each bootstrap replicate.
+#' @param num_blocks Integer number of blocks to sample for each bootstrap
+#'   replicate.
 #' @param num_boots Integer number of bootstrap replicates to generate.
 #' @param parallel Parallelize computation? `TRUE` or `FALSE`.
 #' @param num_cores Number of cores.
+#' @param verbose Logical. If TRUE, prints HMM fitting information and warnings.
+#'   Defaults to FALSE.
 #'
 #' @details
 #' This function:
@@ -64,37 +67,285 @@
 #'   Estimation In Switching Autoregressions With A Markov Regime. Journal of 
 #'   Time Series Analysis, 15: 489-506. 
 #'   [https://doi.org/10.1111/j.1467-9892.1994.tb00206.x](https://doi.org/10.1111/j.1467-9892.1994.tb00206.x)
+#' 
+#' @examples
+#' \donttest{
+#' # Requires depmixS4 package
+#' if (requireNamespace("depmixS4", quietly = TRUE)) {
+#'   
+#'   ## Example 1: Univariate time series with regime switching
+#'   set.seed(123)
+#'   # Generate data with two regimes
+#'   n1 <- 100
+#'   n2 <- 100
+#'   regime1 <- rnorm(n1, mean = 0, sd = 1)
+#'   regime2 <- rnorm(n2, mean = 5, sd = 2)
+#'   x_univar <- c(regime1, regime2)
+#'   
+#'   # Generate bootstrap samples
+#'   boot_samples <- hmm_bootstrap(
+#'     x = x_univar,
+#'     n_boot = 150,
+#'     num_states = 2,
+#'     num_boots = 100
+#'   )
+#'   
+#'   # Inspect results
+#'   length(boot_samples)  # 100 bootstrap replicates
+#'   dim(boot_samples[[1]])  # Each is a 150 x 1 matrix
+#'   
+#'   # Compare original and bootstrap distributions
+#'   original_mean <- mean(x_univar)
+#'   boot_means <- sapply(boot_samples, mean)
+#'   
+#'   hist(boot_means, main = "Bootstrap Distribution of Mean",
+#'        xlab = "Mean", col = "lightblue")
+#'   abline(v = original_mean, col = "red", lwd = 2, lty = 2)
+#'   
+#'   
+#'   ## Example 2: Multivariate time series
+#'   set.seed(456)
+#'   n <- 200
+#'   # Two correlated series with regime switching
+#'   states_true <- rep(1:2, each = n/2)
+#'   x1 <- ifelse(states_true == 1, 
+#'                rnorm(n, 0, 1), 
+#'                rnorm(n, 4, 2))
+#'   x2 <- 0.7 * x1 + rnorm(n, 0, 0.5)
+#'   x_multivar <- cbind(x1, x2)
+#'   
+#'   boot_samples_mv <- hmm_bootstrap(
+#'     x = x_multivar,
+#'     n_boot = 180,
+#'     num_states = 2,
+#'     num_boots = 50
+#'   )
+#'   
+#'   dim(boot_samples_mv[[1]])  # 180 x 2 matrix
+#'   
+#'   # Compute bootstrap correlation estimates
+#'   boot_cors <- sapply(boot_samples_mv, function(b) cor(b[,1], b[,2]))
+#'   original_cor <- cor(x_multivar[,1], x_multivar[,2])
+#'   
+#'   hist(boot_cors, main = "Bootstrap Distribution of Correlation",
+#'        xlab = "Correlation", col = "lightgreen")
+#'   abline(v = original_cor, col = "red", lwd = 2, lty = 2)
+#'   
+#'   
+#'   ## Example 3: Variable-length bootstrap samples
+#'   set.seed(789)
+#'   x_ar <- arima.sim(n = 150, list(ar = 0.8))
+#'   
+#'   # Don't specify n_boot to get variable-length samples
+#'   boot_samples_var <- hmm_bootstrap(
+#'     x = x_ar,
+#'     n_boot = NULL,  # Variable length
+#'     num_states = 2,
+#'     num_blocks = 15,
+#'     num_boots = 20
+#'   )
+#'   
+#'   # Check lengths vary
+#'   sample_lengths <- sapply(boot_samples_var, nrow)
+#'   summary(sample_lengths)
+#'   
+#'   
+#'   ## Example 4: Using verbose mode for diagnostics
+#'   set.seed(321)
+#'   x_diag <- rnorm(100)
+#'   
+#'   boot_samples_verbose <- hmm_bootstrap(
+#'     x = x_diag,
+#'     n_boot = 80,
+#'     num_states = 3,
+#'     num_boots = 5,
+#'     verbose = TRUE  # Print diagnostic information
+#'   )
+#'   
+#'   
+#'   ## Example 5: Bootstrap confidence intervals
+#'   set.seed(654)
+#'   # Data with heteroskedasticity
+#'   n <- 200
+#'   x_hetero <- numeric(n)
+#'   for (i in 1:n) {
+#'     sigma <- ifelse(i <= n/2, 1, 3)
+#'     x_hetero[i] <- rnorm(1, mean = 2, sd = sigma)
+#'   }
+#'   
+#'   boot_samples_ci <- hmm_bootstrap(
+#'     x = x_hetero,
+#'     n_boot = 200,
+#'     num_states = 2,
+#'     num_boots = 500
+#'   )
+#'   
+#'   # Compute bootstrap confidence interval for the mean
+#'   boot_means_ci <- sapply(boot_samples_ci, mean)
+#'   ci_95 <- quantile(boot_means_ci, c(0.025, 0.975))
+#'   
+#'   cat("95% Bootstrap CI for mean:", ci_95[1], "to", ci_95[2], "\n")
+#'   cat("Original mean:", mean(x_hetero), "\n")
+#' }
+#' }
 #'   
 #' @export
 hmm_bootstrap <- function(
-    x, # Now accepts a matrix
+    x,
     n_boot = NULL,
     num_states = 2,
-    num_blocks = 100,
+    num_blocks = NULL,
     num_boots = 100,
     parallel = FALSE,
-    num_cores = 1L
+    num_cores = 1L,
+    verbose = FALSE
 ) {
-  if (!requireNamespace("depmixS4", quietly = TRUE)) {
-    stop("depmixS4 package required for HMM bootstrap.")
-  }
-  x <- as.matrix(x)
   
-  ## Create a multivariate formula for depmixS4
+  ## ---- Dependency Check ----
+  if (!requireNamespace("depmixS4", quietly = TRUE)) {
+    stop("depmixS4 package required for HMM bootstrap. Install with: install.packages('depmixS4')",
+         call. = FALSE)
+  }
+  
+  ## ---- Data Preparation ----
+  x <- as.matrix(x)
+  n <- nrow(x)
+  k <- ncol(x)
+  
+  ## Basic sanity checks (detailed validation happens in tsbs())
+  if (n < num_states * 3) {
+    warning("Series length (", n, ") is very short relative to num_states (", num_states, 
+            "). HMM fitting may be unreliable.", call. = FALSE)
+  }
+  
+  ## ---- Create Formula for depmixS4 ----
   df <- as.data.frame(x)
   colnames(df) <- paste0("V", seq_len(ncol(df)))
-  formula <- as.formula(paste("cbind(", paste(colnames(df), collapse = ","), ") ~ 1"))
   
-  model <- depmixS4::depmix(formula, data = df, nstates = num_states, family = gaussian())
-  fit <- depmixS4::fit(model, verbose = FALSE)
-  states <- depmixS4::posterior(fit, type = "viterbi")$state
+  # Build formula based on dimensionality
+  if (k == 1) {
+    formula <- as.formula("V1 ~ 1")
+    family_spec <- list(gaussian())
+  } else {
+    # For multivariate: each variable gets its own response
+    formula_list <- lapply(colnames(df), function(v) as.formula(paste(v, "~ 1")))
+    # Replicate gaussian() family for each variable
+    family_spec <- replicate(k, gaussian(), simplify = FALSE)
+  }
   
-  ## Call the multivariate-aware sampling function
-  .sample_blocks(
-    x, n_boot, num_blocks, states, num_boots,
-    parallel = parallel,
-    num_cores = num_cores
-  )
+  ## ---- Fit HMM ----
+  if (verbose) {
+    message("Fitting ", num_states, "-state Gaussian HMM to ", k, 
+            "-dimensional series of length ", n, "...")
+  }
+  
+  model <- tryCatch({
+    if (k == 1) {
+      depmixS4::depmix(
+        formula, 
+        data = df, 
+        nstates = num_states, 
+        family = family_spec[[1]]
+      )
+    } else {
+      depmixS4::depmix(
+        formula_list, 
+        data = df, 
+        nstates = num_states, 
+        family = family_spec
+      )
+    }
+  }, error = function(e) {
+    stop("Failed to create HMM model specification. ",
+         "This may be due to:\n",
+         "  - Incompatible data structure for depmixS4\n",
+         "  - Issues with the formula specification\n",
+         "  - Data contains invalid values (NA, Inf, NaN)\n",
+         "Original error: ", e$message, call. = FALSE)
+  })
+  
+  fit <- tryCatch({
+    depmixS4::fit(model, verbose = verbose)
+  }, error = function(e) {
+    stop("HMM fitting failed. This could be due to:\n",
+         "  - Convergence issues (try different starting values or simpler model)\n",
+         "  - Data not suitable for ", num_states, "-state HMM (try reducing num_states)\n",
+         "  - Insufficient data (need more observations relative to num_states)\n",
+         "  - Data quality issues (constant values, extreme outliers, perfect multicollinearity)\n",
+         "Original error: ", e$message, call. = FALSE)
+  }, warning = function(w) {
+    if (verbose) {
+      warning("HMM fitting produced a warning: ", w$message, call. = FALSE)
+    }
+    ## Continue with the fit despite warnings
+    suppressWarnings(depmixS4::fit(model, verbose = verbose))
+  })
+  
+  ## Check convergence
+  if (!is.null(fit@message) && verbose) {
+    message("HMM fitting message: ", fit@message)
+  }
+  
+  ## ---- Extract State Sequence ----
+  states <- tryCatch({
+    depmixS4::posterior(fit, type = "viterbi")$state
+  }, error = function(e) {
+    stop("Failed to extract state sequence from fitted HMM. ",
+         "Original error: ", e$message, call. = FALSE)
+  })
+  
+  ## Validate state sequence
+  if (length(states) != n) {
+    stop("State sequence length (", length(states), 
+         ") does not match data length (", n, "). ",
+         "This is an internal error.", call. = FALSE)
+  }
+  
+  if (length(unique(states)) < num_states) {
+    warning("Only ", length(unique(states)), " of ", num_states, 
+            " states were observed in the Viterbi sequence. ",
+            "Some states may be too rare or the model may not fit well.",
+            call. = FALSE)
+  }
+  
+  if (verbose) {
+    state_counts <- table(states)
+    message("State distribution: ", 
+            paste(names(state_counts), "=", state_counts, collapse = ", "))
+  }
+  
+  ## ---- Generate Bootstrap Samples ----
+  if (verbose) {
+    message("Generating ", num_boots, " bootstrap samples...")
+  }
+  
+  bootstrap_samples <- tryCatch({
+    .sample_blocks(
+      x = x, 
+      n_boot = n_boot, 
+      num_blocks = num_blocks, 
+      states = states, 
+      num_boots = num_boots,
+      parallel = parallel,
+      num_cores = num_cores
+    )
+  }, error = function(e) {
+    stop("Bootstrap sampling failed. Original error: ", e$message, call. = FALSE)
+  })
+  
+  if (verbose) {
+    message("Bootstrap complete. Generated ", length(bootstrap_samples), " samples.")
+    if (!is.null(n_boot)) {
+      message("Each sample has length ", n_boot)
+    } else {
+      sample_lengths <- sapply(bootstrap_samples, nrow)
+      message("Sample lengths: min=", min(sample_lengths), 
+              ", max=", max(sample_lengths), 
+              ", mean=", round(mean(sample_lengths), 1))
+    }
+  }
+  
+  bootstrap_samples
 }
 
 
@@ -142,7 +393,6 @@ hmm_bootstrap <- function(
 #'
 #' @return A list of bootstrapped time series matrices.
 #'
-#' @export
 #' @examples
 #' # Generate sample data
 #' set.seed(123)
@@ -157,10 +407,11 @@ hmm_bootstrap <- function(
 #' # View results
 #' # str(bootstrap_results)
 #'
+#' @export
 msvar_bootstrap <- function(
     x,
     n_boot = NULL,
-    num_blocks = 100,
+    num_blocks = NULL,
     num_boots = 100,
     parallel = FALSE,
     num_cores = 1L
@@ -384,7 +635,13 @@ ms_varma_garch_bs <- function(
 #' dim(boot_reps[[1]])         # 100 x 1 matrix
 #'
 #' @export
-wild_bootstrap <- function(x, num_boots = 100) {
+wild_bootstrap <- function(
+    x, 
+    num_boots = 100,
+    parallel = FALSE,
+    num_cores = 2
+    #wild_type = "Rademacher" ## No other options currently implemented
+  ) {
   if (!is.numeric(x)) stop("`x` must be numeric.")
   if (!is.numeric(num_boots) || num_boots < 1) stop("`num_boots` must be a positive integer.")
   

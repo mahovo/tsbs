@@ -4,7 +4,7 @@
 \alias{wild_bootstrap}
 \title{Wild Bootstrap for Time Series Residuals}
 \usage{
-wild_bootstrap(x, num_boots = 100)
+wild_bootstrap(x, num_boots = 100, parallel = FALSE, num_cores = 2)
 }
 \arguments{
 \item{x}{Numeric vector or matrix of residuals.}

@@ -40,7 +40,7 @@ this is inferred from \code{n_length}.}
 
 \item{num_boots}{Number of bootstrap replicates to generate.}
 
-\item{p}{Probability parameter for the geometric block length (used in
+\item{p}{numeric \eqn{p \in (0, 1)}. Probability parameter for the geometric block length (used in
 Stationary Bootstrap).}
 
 \item{stationary_max_percentile}{Stationary max percentile.}
@@ -74,7 +74,7 @@ block structure (\code{num_blocks}).
 \examples{
 set.seed(123)
 x <- matrix(rnorm(100), ncol = 1)
-boots <- blockBootstrap(x, type = "stationary", num_boots = 5)
+boots <- blockBootstrap(x, bs_type = "stationary", num_boots = 5L)
 dim(boots[[1]])
 
 }

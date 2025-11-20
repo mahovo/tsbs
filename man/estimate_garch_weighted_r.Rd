@@ -2,10 +2,23 @@
 % Please edit documentation in R/ms-varma-garch_helper_functions.R
 \name{estimate_garch_weighted_r}
 \alias{estimate_garch_weighted_r}
-\title{Estimate GARCH Parameters (R Helper)}
+\title{Estimate GARCH Parameters (R Helper)
+This function is the core of the M-step; it takes the weights (smoothed
+probabilities) from the E-step and finds the GARCH and distribution
+parameters that maximize the weighted log-likelihood.}
 \usage{
 estimate_garch_weighted_r(residuals, weights, spec, model_type = "univariate")
 }
+\arguments{
+\item{residuals}{}
+
+\item{weights}{}
+
+\item{spec}{}
+
+\item{model_type}{}
+}
 \description{
-Estimate GARCH Parameters (R Helper)
+Estimate both GARCH and distribution parameters (e.g., shape,
+skew) simultaneously for the univariate case.
 }

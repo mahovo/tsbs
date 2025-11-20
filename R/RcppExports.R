@@ -29,7 +29,7 @@ fit_msvar_cpp <- function(y, max_iter = 100L, tol = 1e-6) {
 #' @description Internal C++ function to orchestrate the EM estimation.
 #'              Delegates all statistical calculations (likelihood,
 #'              parameter estimation) to helper functions in R to interface
-#'              with TMB-based packages like tsgarch.
+#'              with the tsgarch and tsmarch packages.
 #' @param y A (T x k) matrix of (differenced) time series data.
 #' @param M The number of states.
 #' @param spec A list of model specifications from R.
