@@ -24,7 +24,8 @@ Imports:
     data.table,
     future,
     future.apply,
-    mvtnorm
+    mvtnorm,
+    ggplot2
 LinkingTo: Rcpp, RcppArmadillo
 Encoding: UTF-8
 License: GPL-3

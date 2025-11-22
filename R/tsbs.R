@@ -246,6 +246,7 @@
 #' )
 #' print(result$func_out_means)
 #'
+#' @import xts
 #' @importFrom stats acf ar
 #' @importFrom Rcpp sourceCpp
 #' 

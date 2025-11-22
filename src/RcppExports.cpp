@@ -92,8 +92,8 @@ BEGIN_RCPP
 END_RCPP
 }
 // fit_ms_varma_garch_cpp
-Rcpp::List fit_ms_varma_garch_cpp(const arma::mat& y, int M, Rcpp::List spec, std::string model_type, Rcpp::List control);
-RcppExport SEXP _tsbs_fit_ms_varma_garch_cpp(SEXP ySEXP, SEXP MSEXP, SEXP specSEXP, SEXP model_typeSEXP, SEXP controlSEXP) {
+Rcpp::List fit_ms_varma_garch_cpp(const arma::mat& y, int M, Rcpp::List spec, std::string model_type, Rcpp::List control, Rcpp::Nullable<Rcpp::List> diagnostics, bool verbose);
+RcppExport SEXP _tsbs_fit_ms_varma_garch_cpp(SEXP ySEXP, SEXP MSEXP, SEXP specSEXP, SEXP model_typeSEXP, SEXP controlSEXP, SEXP diagnosticsSEXP, SEXP verboseSEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
     Rcpp::RNGScope rcpp_rngScope_gen;
@@ -102,7 +102,9 @@ BEGIN_RCPP
     Rcpp::traits::input_parameter< Rcpp::List >::type spec(specSEXP);
     Rcpp::traits::input_parameter< std::string >::type model_type(model_typeSEXP);
     Rcpp::traits::input_parameter< Rcpp::List >::type control(controlSEXP);
-    rcpp_result_gen = Rcpp::wrap(fit_ms_varma_garch_cpp(y, M, spec, model_type, control));
+    Rcpp::traits::input_parameter< Rcpp::Nullable<Rcpp::List> >::type diagnostics(diagnosticsSEXP);
+    Rcpp::traits::input_parameter< bool >::type verbose(verboseSEXP);
+    rcpp_result_gen = Rcpp::wrap(fit_ms_varma_garch_cpp(y, M, spec, model_type, control, diagnostics, verbose));
     return rcpp_result_gen;
 END_RCPP
 }
@@ -114,7 +116,7 @@ static const R_CallMethodDef CallEntries[] = {
     {"_tsbs_tukey_weights", (DL_FUNC) &_tsbs_tukey_weights, 2},
     {"_tsbs_blockBootstrap_cpp", (DL_FUNC) &_tsbs_blockBootstrap_cpp, 12},
     {"_tsbs_fit_msvar_cpp", (DL_FUNC) &_tsbs_fit_msvar_cpp, 3},
-    {"_tsbs_fit_ms_varma_garch_cpp", (DL_FUNC) &_tsbs_fit_ms_varma_garch_cpp, 5},
+    {"_tsbs_fit_ms_varma_garch_cpp", (DL_FUNC) &_tsbs_fit_ms_varma_garch_cpp, 7},
     {NULL, NULL, 0}
 };
 

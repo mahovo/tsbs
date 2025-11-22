@@ -36,7 +36,7 @@ fit_msvar_cpp <- function(y, max_iter = 100L, tol = 1e-6) {
 #' @param model_type "univariate" or "multivariate".
 #' @param control A list with max_iter and tol.
 #' @return A raw list with estimated parameters and results.
-fit_ms_varma_garch_cpp <- function(y, M, spec, model_type, control) {
-    .Call(`_tsbs_fit_ms_varma_garch_cpp`, y, M, spec, model_type, control)
+fit_ms_varma_garch_cpp <- function(y, M, spec, model_type, control, diagnostics = NULL, verbose = FALSE) {
+    .Call(`_tsbs_fit_ms_varma_garch_cpp`, y, M, spec, model_type, control, diagnostics, verbose)
 }
 

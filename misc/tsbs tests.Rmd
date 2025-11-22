@@ -1802,6 +1802,7 @@ cat("Names in filtered1:", paste(names(filtered1), collapse=", "), "\n")
 ## Can we use filtered object?
 cat("\nDoes filtered object have tmb?:", !is.null(filtered1$tmb), "\n")
 ```
+
 ```{r}
 # Create your spec
 spec_mv_dcc <- list(
@@ -1848,5 +1849,432 @@ print(str(spec_mv_dcc[[1]]$start_pars, max.level = 2))
 cat("\nLooking for alpha_1 and beta_1:\n")
 print(spec_mv_dcc[[1]]$start_pars$alpha_1)
 print(spec_mv_dcc[[1]]$start_pars$beta_1)
+```
+
+## Test diagnostic and verbose modes
+
+### Example 1: Basic Diagnostic Collection
+```{r}
+# Simulate some data
+set.seed(42)
+T_sim <- 500
+y_sim <- matrix(rnorm(T_sim * 2, sd = 0.5), ncol = 2)
+colnames(y_sim) <- c("returns_A", "returns_B")
+
+# Setup specifications
+spec_uni_garch <- list(
+  model = "garch",
+  garch_order = c(1, 1),
+  distribution = "norm"
+)
+
+dcc_spec_args <- list(
+  dcc_order = c(1, 1),
+  distribution = "mvn",
+  garch_model = list(
+    univariate = list(spec_uni_garch, spec_uni_garch)
+  )
+)
+
+spec_test <- list(
+  list(
+    var_order = 1,
+    garch_spec_fun = "dcc_modelspec",
+    garch_spec_args = dcc_spec_args,
+    distribution = "mvn",
+    start_pars = list(
+      var_pars = rep(0.1, 6),
+      garch_pars = list(
+        list(omega = 0.1, alpha1 = 0.1, beta1 = 0.7),
+        list(omega = 0.1, alpha1 = 0.1, beta1 = 0.7)
+      ),
+      dcc_pars = list(alpha_1 = 0.05, beta_1 = 0.90)
+    )
+  ),
+  list(
+    var_order = 1,
+    garch_spec_fun = "dcc_modelspec",
+    garch_spec_args = dcc_spec_args,
+    distribution = "mvn",
+    start_pars = list(
+      var_pars = rep(0.1, 6),
+      garch_pars = list(
+        list(omega = 0.15, alpha1 = 0.12, beta1 = 0.75),
+        list(omega = 0.15, alpha1 = 0.12, beta1 = 0.75)
+      ),
+      dcc_pars = list(alpha_1 = 0.08, beta_1 = 0.88)
+    )
+  )
+)
+
+# Fit model WITH diagnostics
+cat("\n=== Fitting model with diagnostic collection ===\n")
+fit_with_diag <- fit_ms_varma_garch(
+  y = y_sim,
+  M = 2,
+  spec = spec_test,
+  model_type = "multivariate",
+  control = list(max_iter = 2, tol = 0.1),
+  collect_diagnostics = TRUE,  # ENABLE DIAGNOSTICS
+  verbose = FALSE               # Compact console output
+)
+```
+
+Inspect diagnostics
+```{r}
+cat("\n=== Diagnostic Summary ===\n")
+summary(fit_with_diag$diagnostics)
+```
+
+Save for later analysis
+```{r}
+save_diagnostics(fit_with_diag$diagnostics, "example_run_diagnostics.rds")
+```
+
+### Example 2: Analyzing Convergence Issues
+```{r}
+# Extract LL evolution
+ll_evolution <- sapply(
+  fit_with_diag$diagnostics$em_iterations,
+  function(x) x$log_lik_after_mstep
+)
+
+ll_changes <- sapply(
+  fit_with_diag$diagnostics$em_iterations,
+  function(x) x$ll_change
+)
+
+# Check for problems
+cat("\n=== Convergence Analysis ===\n")
+cat("Number of iterations:", length(ll_evolution), "\n")
+cat("Total LL improvement:", tail(ll_evolution, 1) - head(ll_evolution, 1), "\n")
+cat("Number of LL decreases:", sum(ll_changes < 0), "\n")
+cat("Largest LL decrease:", min(ll_changes), "\n")
+
+# Identify problematic iterations
+problematic <- which(ll_changes < -1e-4)
+if (length(problematic) > 0) {
+  cat("\nProblematic iterations (LL decreased):\n")
+  for (iter in problematic) {
+    cat("  Iteration", iter, ": LL change =", ll_changes[iter], "\n")
+  }
+}
+```
+
+### Example 3: Parameter Evolution Analysis
+```{r}
+# Extract parameter trajectories
+extract_param_trajectory <- function(diagnostics, state, param_name) {
+  state_key <- paste0("state_", state)
+  state_data <- diagnostics$parameter_evolution[[state_key]]
+  
+  if (is.null(state_data)) return(NULL)
+  
+  trajectory <- sapply(state_data, function(iter_data) {
+    params <- unlist(iter_data$parameters)
+    # Handle nested parameters (garch_pars.1.omega -> omega[1])
+    param_match <- grep(param_name, names(params), value = TRUE)
+    if (length(param_match) > 0) {
+      return(params[[param_match[1]]])
+    } else {
+      return(NA)
+    }
+  })
+  
+  iterations <- sapply(state_data, function(x) x$iteration)
+  
+  return(data.frame(iteration = iterations, value = trajectory))
+}
+
+# Plot DCC alpha evolution for state 1
+alpha_traj_s1 <- extract_param_trajectory(fit_with_diag$diagnostics, 1, "alpha_1")
+
+if (!is.null(alpha_traj_s1) && any(!is.na(alpha_traj_s1$value))) {
+  cat("\n=== DCC Alpha Evolution (State 1) ===\n")
+  print(alpha_traj_s1)
+  
+  # Simple plot
+  plot(alpha_traj_s1$iteration, alpha_traj_s1$value,
+       type = "b", pch = 19,
+       xlab = "EM Iteration", ylab = "Alpha",
+       main = "DCC Alpha Parameter Evolution (State 1)")
+  abline(h = 0.01, col = "red", lty = 2)
+  text(max(alpha_traj_s1$iteration) * 0.8, 0.015, 
+       "Lower Bound", col = "red", pos = 3)
+}
+```
+
+### Example 4: Sigma Stability Analysis
+```{r}
+# Extract sigma evolution
+extract_sigma_stats <- function(diagnostics, state, series) {
+  key <- paste0("state_", state, "_series_", series)
+  sigma_data <- diagnostics$sigma_evolution[[key]]
+  
+  if (is.null(sigma_data)) return(NULL)
+  
+  data.frame(
+    iteration = sapply(sigma_data, function(x) x$iteration),
+    mean_sigma = sapply(sigma_data, function(x) x$mean_sigma),
+    sd_sigma = sapply(sigma_data, function(x) x$sd_sigma),
+    min_sigma = sapply(sigma_data, function(x) x$min_sigma),
+    max_sigma = sapply(sigma_data, function(x) x$max_sigma)
+  )
+}
+
+sigma_stats_s1_series1 <- extract_sigma_stats(fit_with_diag$diagnostics, 1, 1)
+
+if (!is.null(sigma_stats_s1_series1)) {
+  cat("\n=== Sigma Stability (State 1, Series 1) ===\n")
+  print(head(sigma_stats_s1_series1))
+  
+  # Check if sigma is changing
+  sigma_changes <- diff(sigma_stats_s1_series1$mean_sigma)
+  cat("\nSigma changed across iterations:", any(abs(sigma_changes) > 1e-6), "\n")
+  cat("Mean absolute sigma change:", mean(abs(sigma_changes)), "\n")
+  cat("Max absolute sigma change:", max(abs(sigma_changes)), "\n")
+  
+  # Plot sigma evolution
+  plot(sigma_stats_s1_series1$iteration, sigma_stats_s1_series1$mean_sigma,
+       type = "b", pch = 19,
+       xlab = "EM Iteration", ylab = "Mean Sigma",
+       main = "Sigma Evolution (State 1, Series 1)",
+       ylim = range(c(sigma_stats_s1_series1$mean_sigma - sigma_stats_s1_series1$sd_sigma,
+                      sigma_stats_s1_series1$mean_sigma + sigma_stats_s1_series1$sd_sigma)))
+  
+  # Add confidence band
+  polygon(c(sigma_stats_s1_series1$iteration, 
+            rev(sigma_stats_s1_series1$iteration)),
+          c(sigma_stats_s1_series1$mean_sigma - sigma_stats_s1_series1$sd_sigma,
+            rev(sigma_stats_s1_series1$mean_sigma + sigma_stats_s1_series1$sd_sigma)),
+          col = rgb(0, 0, 1, 0.2), border = NA)
+}
+```
+
+### Example 5: Boundary Event Analysis
+```{r}
+if (length(fit_with_diag$diagnostics$boundary_events) > 0) {
+  cat("\n=== Boundary Events Detected ===\n")
+  
+  for (i in seq_along(fit_with_diag$diagnostics$boundary_events)) {
+    event <- fit_with_diag$diagnostics$boundary_events[[i]]
+    cat(sprintf("\nEvent %d:\n", i))
+    cat("  Iteration:", event$iteration, "\n")
+    cat("  State:", event$state, "\n")
+    cat("  Parameter:", event$parameter, "\n")
+    cat("  Value:", round(event$value, 6), "\n")
+    cat("  Boundary:", event$boundary_type, "\n")
+    cat("  Action:", event$action_taken, "\n")
+  }
+  
+  # Analyze: Did boundary event affect convergence?
+  boundary_iters <- sapply(fit_with_diag$diagnostics$boundary_events, 
+                           function(x) x$iteration)
+  
+  cat("\n=== Impact on Convergence ===\n")
+  for (iter in boundary_iters) {
+    if (iter <= length(ll_changes)) {
+      cat("LL change at boundary iteration", iter, ":", ll_changes[iter], "\n")
+      
+      # Look at next few iterations
+      next_iters <- (iter+1):min(iter+3, length(ll_changes))
+      if (length(next_iters) > 0) {
+        cat("  LL changes in next 3 iterations:", 
+            paste(round(ll_changes[next_iters], 6), collapse = ", "), "\n")
+      }
+    }
+  }
+} else {
+  cat("\n=== No Boundary Events Detected ===\n")
+}
+```
+
+### Example 6: Comparative Analysis (With vs Without Diagnostics)
+```{r}
+# Fit same model WITHOUT diagnostics (faster)
+cat("\n=== Fitting model without diagnostic collection ===\n")
+fit_no_diag <- fit_ms_varma_garch(
+  y = y_sim,
+  M = 2,
+  spec = spec_test,
+  model_type = "multivariate",
+  control = list(max_iter = 2, tol = 0.1),
+  collect_diagnostics = FALSE,
+  verbose = FALSE
+)
+
+# Compare results
+cat("\n=== Comparison ===\n")
+cat("With diagnostics - Final LL:", fit_with_diag$log_likelihood, "\n")
+cat("Without diagnostics - Final LL:", fit_no_diag$log_likelihood, "\n")
+cat("Difference:", abs(fit_with_diag$log_likelihood - fit_no_diag$log_likelihood), "\n")
+cat("\n(Results should be identical; diagnostics only collect info)\n")
+```
+
+
+### Example 7: Using ggplot2 for Advanced Visualization
+```{r}
+if (requireNamespace("ggplot2", quietly = TRUE)) {
+  library(ggplot2)
+  
+  cat("\n=== Creating diagnostic plots ===\n")
+  
+  # Plot LL evolution with ggplot2
+  ll_df <- data.frame(
+    iteration = seq_along(ll_evolution),
+    log_likelihood = ll_evolution,
+    ll_change = ll_changes
+  )
+  
+  p1 <- ggplot(ll_df, aes(x = iteration, y = log_likelihood)) +
+    geom_line(size = 1, color = "blue") +
+    geom_point(size = 2) +
+    labs(title = "Log-Likelihood Evolution",
+         x = "EM Iteration",
+         y = "Log-Likelihood") +
+    theme_minimal()
+  
+  print(p1)
+  
+  # Plot LL changes
+  p2 <- ggplot(ll_df[-1,], aes(x = iteration, y = ll_change)) +
+    geom_line(linewidth = 1) +
+    geom_point(size = 2) +
+    geom_hline(yintercept = 0, linetype = "dashed", color = "red") +
+    geom_hline(yintercept = -1e-4, linetype = "dotted", color = "orange") +
+    labs(title = "Log-Likelihood Change per Iteration",
+         x = "EM Iteration",
+         y = "LL Change",
+         subtitle = "Red line = 0, Orange line = -1e-4 (numerical noise threshold)") +
+    theme_minimal()
+  
+  print(p2)
+  
+  # Use built-in plot methods
+  plot(fit_with_diag$diagnostics, type = "ll_evolution")
+  plot(fit_with_diag$diagnostics, type = "parameters")
+}
+```
+
+### Example 8: Investigating Specific Issues
+```{r}
+# Function to analyze a specific iteration in detail
+analyze_iteration <- function(diagnostics, iter) {
+  cat("\n=== Detailed Analysis of Iteration", iter, "===\n")
+  
+  if (iter > length(diagnostics$em_iterations)) {
+    cat("Iteration", iter, "not found in diagnostics\n")
+    return(invisible(NULL))
+  }
+  
+  iter_data <- diagnostics$em_iterations[[iter]]
+  
+  cat("\nLog-Likelihood:\n")
+  cat("  Before M-step:", iter_data$log_lik_before_mstep, "\n")
+  cat("  After M-step:", iter_data$log_lik_after_mstep, "\n")
+  cat("  Change:", iter_data$ll_change, "\n")
+  cat("  Decreased:", iter_data$ll_decreased, "\n")
+  
+  cat("\nTiming:\n")
+  cat("  Duration:", round(iter_data$duration_seconds, 2), "seconds\n")
+  cat("  Timestamp:", format(iter_data$timestamp), "\n")
+  
+  # Check for warnings at this iteration
+  iter_warnings <- Filter(function(w) w$iteration == iter, diagnostics$warnings)
+  if (length(iter_warnings) > 0) {
+    cat("\nWarnings:\n")
+    for (w in iter_warnings) {
+      cat("  Type:", w$type, "\n")
+      cat("  Message:", w$message, "\n")
+    }
+  }
+  
+  # Check for boundary events
+  iter_boundaries <- Filter(function(b) b$iteration == iter, diagnostics$boundary_events)
+  if (length(iter_boundaries) > 0) {
+    cat("\nBoundary Events:\n")
+    for (b in iter_boundaries) {
+      cat("  State:", b$state, "Parameter:", b$parameter, 
+          "Value:", b$value, "Action:", b$action_taken, "\n")
+    }
+  }
+}
+
+# Analyze the first few iterations
+for (i in 1:min(3, length(fit_with_diag$diagnostics$em_iterations))) {
+  analyze_iteration(fit_with_diag$diagnostics, i)
+}
+
+# Find and analyze any problematic iterations
+if (length(problematic) > 0) {
+  cat("\n=== Analyzing Problematic Iterations ===\n")
+  for (iter in problematic[1:min(2, length(problematic))]) {
+    analyze_iteration(fit_with_diag$diagnostics, iter)
+  }
+}
+```
+
+### Example 9: Export Diagnostics for External Analysis
+```{r}
+# Save diagnostics
+save_diagnostics(fit_with_diag$diagnostics, "full_diagnostics.rds")
+
+# Export to CSV for analysis in other tools
+export_diagnostics_to_csv <- function(diagnostics, prefix = "diagnostic") {
+  
+  # EM iterations
+  if (length(diagnostics$em_iterations) > 0) {
+    em_df <- do.call(rbind, lapply(diagnostics$em_iterations, function(x) {
+      data.frame(
+        iteration = x$iteration,
+        ll_before = x$log_lik_before_mstep,
+        ll_after = x$log_lik_after_mstep,
+        ll_change = x$ll_change,
+        ll_decreased = x$ll_decreased,
+        duration_sec = x$duration_seconds,
+        converged = x$converged %||% FALSE,
+        stringsAsFactors = FALSE
+      )
+    }))
+    write.csv(em_df, paste0(prefix, "_em_iterations.csv"), row.names = FALSE)
+    cat("Exported EM iterations to:", paste0(prefix, "_em_iterations.csv"), "\n")
+  }
+  
+  # Boundary events
+  if (length(diagnostics$boundary_events) > 0) {
+    boundary_df <- do.call(rbind, lapply(diagnostics$boundary_events, function(x) {
+      data.frame(
+        iteration = x$iteration,
+        state = x$state,
+        parameter = x$parameter,
+        value = x$value,
+        boundary_type = x$boundary_type,
+        action_taken = x$action_taken,
+        stringsAsFactors = FALSE
+      )
+    }))
+    write.csv(boundary_df, paste0(prefix, "_boundary_events.csv"), row.names = FALSE)
+    cat("Exported boundary events to:", paste0(prefix, "_boundary_events.csv"), "\n")
+  }
+  
+  # Warnings
+  if (length(diagnostics$warnings) > 0) {
+    warning_df <- do.call(rbind, lapply(diagnostics$warnings, function(x) {
+      data.frame(
+        iteration = x$iteration,
+        type = x$type,
+        message = x$message,
+        stringsAsFactors = FALSE
+      )
+    }))
+    write.csv(warning_df, paste0(prefix, "_warnings.csv"), row.names = FALSE)
+    cat("Exported warnings to:", paste0(prefix, "_warnings.csv"), "\n")
+  }
+}
+
+export_diagnostics_to_csv(fit_with_diag$diagnostics, "my_analysis")
+
+cat("\n=== Analysis Complete ===\n")
+cat("Diagnostic files saved for further analysis\n")
 ```
 

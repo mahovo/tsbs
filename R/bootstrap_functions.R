@@ -530,6 +530,8 @@ msvar_bootstrap <- function(
 #'   of a Financial Portfolio with ARMA-APARCH-EVT models based on HACs. 
 #'   [arXiv:2105.09473](http://arxiv.org/abs/2105.09473)
 #'
+#' @import tsgarch
+#' @import tsmarch
 #' @export
 ms_varma_garch_bs <- function(
     x,

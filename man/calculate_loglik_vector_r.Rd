@@ -4,7 +4,16 @@
 \alias{calculate_loglik_vector_r}
 \title{Calculate the Log-Likelihood Vector (R Helper)}
 \usage{
-calculate_loglik_vector_r(y, current_pars, spec, model_type = "univariate")
+calculate_loglik_vector_r(
+  y,
+  current_pars,
+  spec,
+  model_type = "univariate",
+  diagnostics = NULL,
+  iteration = NULL,
+  state = NULL,
+  verbose = FALSE
+)
 }
 \arguments{
 \item{y}{}

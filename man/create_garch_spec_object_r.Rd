@@ -4,14 +4,28 @@
 \alias{create_garch_spec_object_r}
 \title{Create a GARCH Specification Object (Convenience Function)}
 \usage{
-create_garch_spec_object_r(residuals, spec, model_type, current_pars)
+create_garch_spec_object_r(
+  residuals,
+  spec,
+  model_type,
+  current_pars,
+  diagnostics = NULL,
+  iteration = NULL,
+  state = NULL,
+  verbose = FALSE
+)
 }
 \arguments{
-\item{residuals}{}
+\item{residuals}{Numeric}
 
-\item{spec}{}
+\item{spec}{A spec list}
 
-\item{model_type}{}
+\item{model_type}{Character string}
+
+\item{current_pars}{A list of parameters}
+}
+\value{
+A GARCH specification object
 }
 \description{
 This is a convenience function that handles the complex,

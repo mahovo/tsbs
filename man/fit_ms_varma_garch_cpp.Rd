@@ -4,7 +4,15 @@
 \alias{fit_ms_varma_garch_cpp}
 \title{Fit a general MS-ARMA-GARCH model via the EM Algorithm in C++}
 \usage{
-fit_ms_varma_garch_cpp(y, M, spec, model_type, control)
+fit_ms_varma_garch_cpp(
+  y,
+  M,
+  spec,
+  model_type,
+  control,
+  diagnostics = NULL,
+  verbose = FALSE
+)
 }
 \arguments{
 \item{y}{A (T x k) matrix of (differenced) time series data.}

@@ -2,7 +2,7 @@
 % Please edit documentation in R/fit_ms_varma_garch.R
 \name{fit_ms_varma_garch}
 \alias{fit_ms_varma_garch}
-\title{Fit a Flexible N-State Markov-Switching ARMA-GARCH Model}
+\title{Fit a Flexible N-State Markov-Switching Vector-ARMA-GARCH Model}
 \usage{
 fit_ms_varma_garch(
   y,
@@ -12,7 +12,9 @@ fit_ms_varma_garch(
   model_type = c("univariate", "multivariate"),
   control = list(),
   parallel = FALSE,
-  num_cores = 1L
+  num_cores = 1L,
+  collect_diagnostics = FALSE,
+  verbose = FALSE
 )
 }
 \arguments{

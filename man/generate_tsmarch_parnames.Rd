@@ -6,6 +6,12 @@
 \usage{
 generate_tsmarch_parnames(pars)
 }
+\arguments{
+\item{pars}{A nested parameter list.}
+}
+\value{
+A flat named list.
+}
 \description{
 Translates a nested parameter list into the flat named list
 that tsmarch's parmatrix expects (e.g., "omega\link{1}").

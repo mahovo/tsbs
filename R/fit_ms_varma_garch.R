@@ -40,11 +40,18 @@
 #'   smoothed probabilities, and information criteria.
 #'
 #' @export
-fit_ms_varma_garch <- function(y, M, d = 0, spec,
-                               model_type = c("univariate", "multivariate"),
-                               control = list(),
-                               parallel = FALSE,
-                               num_cores = 1L) {
+fit_ms_varma_garch <- function(
+    y, 
+    M, 
+    d = 0, 
+    spec,
+    model_type = c("univariate", "multivariate"),
+    control = list(),
+    parallel = FALSE,
+    num_cores = 1L,
+    collect_diagnostics = FALSE,
+    verbose = FALSE
+  ) {
   
   ## --- 1. Argument and Data Validation ---
   model_type <- match.arg(model_type)
@@ -93,18 +100,29 @@ fit_ms_varma_garch <- function(y, M, d = 0, spec,
   
   T_eff <- nrow(y_effective)
   
-  ## --- 4. Call the C++ Backend ---
-  message("Fitting the MS-ARMA-GARCH model via C++ EM algorithm...")
+  ## --- 4. Initialize Diagnostics Collector (if requested) ---
+  diagnostics <- if (collect_diagnostics) create_diagnostic_collector() else NULL
+  
+  ## --- 5. Call the C++ Backend ---
+  if (verbose) message("Fitting the MS-ARMA-GARCH model via C++ EM algorithm...")
+
   cpp_results <- fit_ms_varma_garch_cpp(
     y = y_effective,
     M = M,
     spec = spec,
     model_type = model_type,
-    control = ctrl
+    control = ctrl,
+    diagnostics = diagnostics,  ## PASS diagnostics to C++
+    verbose = verbose
   )
-  message("Model fitting complete.")
+  if (verbose) message("Model fitting complete.")
   
-  ## --- 5. Post-processing and Formatting Results ---
+  ## --- 6. Extract diagnostics from C++ results (if collected) ---
+  if (collect_diagnostics) {
+    diagnostics <- cpp_results$diagnostics
+  }
+  
+  ## --- 7. Post-processing and Formatting Results ---
   ## Align smoothed probabilities with the original time series
   smoothed_probs_aligned <- matrix(NA_real_, nrow = T_orig, ncol = M)
   colnames(smoothed_probs_aligned) <- paste0("State", 1:M)
@@ -140,7 +158,8 @@ fit_ms_varma_garch <- function(y, M, d = 0, spec,
     y = y_orig,
     call = match.call(),
     convergence = cpp_results$convergence,
-    warnings = cpp_results$warnings
+    warnings = cpp_results$warnings,
+    diagnostics = diagnostics  ## ADD diagnostics to result
   )
   
   class(result) <- "msm.fit"

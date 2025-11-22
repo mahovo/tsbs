@@ -46,7 +46,11 @@ create_garch_spec_object_r <- function(
     residuals, 
     spec, 
     model_type, 
-    current_pars
+    current_pars,
+    diagnostics = NULL,
+    iteration = NULL,
+    state = NULL,
+    verbose = FALSE
 ) {
   residuals_xts <- xts::xts(residuals, order.by = Sys.Date() - (NROW(residuals):1))
   
@@ -90,7 +94,7 @@ create_garch_spec_object_r <- function(
         ## Estimate to get TMB object (with original parameters)
         estimated_obj <- suppressWarnings(estimate(uni_spec_obj, keep_tmb = TRUE))
         
-        ## Now UPDATE the parameter values (but keep estimate = 1)
+        ## Update the parameter values (but keep estimate = 1)
         series_garch_pars <- current_pars$garch_pars[[i]]
         
         for (par_name in names(series_garch_pars)) {
@@ -104,29 +108,33 @@ create_garch_spec_object_r <- function(
             value <- max(value, lower + 1e-8)
             value <- min(value, upper - 1e-8)
             
-            ## Update ONLY the value, keep estimate flag unchanged
+            ## Update only the value, keep estimate flag unchanged
             estimated_obj$parmatrix$value[row_match] <- value
           }
         }
         
-        ## CRITICAL: Recompute sigma using TMB with updated parameters
+        ## Recompute sigma using TMB with updated parameters.
         ## Get parameters in the order TMB expects (estimate == 1)
         estimate <- NULL
         pars_for_tmb <- estimated_obj$parmatrix[estimate == 1]$value
         
-        cat("\n=== TMB SIGMA RECOMPUTATION (Series", i, ") ===\n")
-        cat("Parameters for TMB (should reflect NEW values):\n")
-        print(pars_for_tmb)
-        cat("Omega we WANT:", series_garch_pars$omega, "\n")
-        cat("Omega in pars_for_tmb:", pars_for_tmb[1], "\n")
+        if (verbose) {
+          cat("\n=== TMB SIGMA RECOMPUTATION (Series", i, ") ===\n")
+          cat("Parameters for TMB (should reflect NEW values):\n")
+          print(pars_for_tmb)
+          cat("Omega we WANT:", series_garch_pars$omega, "\n")
+          cat("Omega in pars_for_tmb:", pars_for_tmb[1], "\n")
+        }
         
         if (!is.null(estimated_obj$tmb) && length(pars_for_tmb) == length(estimated_obj$tmb$par)) {
-          cat("TMB exists and lengths match. Calling tmb$report()...\n")
+          if (verbose) cat("TMB exists and lengths match. Calling tmb$report()...\n")
           
-          ## Get sigma BEFORE recomputation
+          ## Get sigma before recomputation
           sigma_before <- as.numeric(estimated_obj$sigma)
-          cat("Sigma BEFORE tmb$report (first 5):", head(sigma_before, 5), "\n")
-          cat("Mean sigma BEFORE:", mean(sigma_before), "\n")
+          if (verbose) {
+            cat("Sigma BEFORE tmb$report (first 5):", head(sigma_before, 5), "\n")
+            cat("Mean sigma BEFORE:", mean(sigma_before), "\n")
+          }
           
           ## Evaluate TMB at new parameters
           tmb_report <- estimated_obj$tmb$report(pars_for_tmb)
@@ -134,11 +142,13 @@ create_garch_spec_object_r <- function(
           ## Update sigma (strip initialization period to match the data length)
           maxpq <- max(estimated_obj$spec$model$order)
           
-          cat("\n=== XTS CREATION DIAGNOSTIC ===\n")
-          cat("Length of tmb_report$sigma:", length(tmb_report$sigma), "\n")
-          cat("maxpq:", maxpq, "\n")
-          cat("Length of residuals_xts[,", i, "]:", length(residuals_xts[,i]), "\n")
-          cat("Class of estimated_obj$sigma:", class(estimated_obj$sigma), "\n")
+          if (verbose) {
+            cat("\n=== XTS CREATION DIAGNOSTIC ===\n")
+            cat("Length of tmb_report$sigma:", length(tmb_report$sigma), "\n")
+            cat("maxpq:", maxpq, "\n")
+            cat("Length of residuals_xts[,", i, "]:", length(residuals_xts[,i]), "\n")
+            cat("Class of estimated_obj$sigma:", class(estimated_obj$sigma), "\n")  ## KEEP THIS
+          }
           
           ## Create proper dates for the sigma vector
           ## The sigma from TMB matches the full residuals length
@@ -147,25 +157,49 @@ create_garch_spec_object_r <- function(
           if (maxpq > 0) {
             ## Strip initialization period from both sigma and dates
             new_sigma <- tmb_report$sigma[-(1:maxpq)]
-            cat("After stripping", maxpq, "init periods:\n")
-            cat("  Length of new_sigma:", length(new_sigma), "\n")
-            cat("  Length of sigma_dates:", length(sigma_dates), "\n")
+            if (verbose) {
+              cat("After stripping", maxpq, "init periods:\n")
+              cat("  Length of new_sigma:", length(new_sigma), "\n")
+              cat("  Length of sigma_dates:", length(sigma_dates), "\n")
+            }
           } else {
             new_sigma <- tmb_report$sigma
-            cat("No initialization period to strip\n")
-            cat("  Length of new_sigma:", length(new_sigma), "\n")
-            cat("  Length of sigma_dates:", length(sigma_dates), "\n")
+            if (verbose) {
+              cat("No initialization period to strip\n")
+              cat("  Length of new_sigma:", length(new_sigma), "\n")
+              cat("  Length of sigma_dates:", length(sigma_dates), "\n")
+            }
           }
-          cat("=== END XTS DIAGNOSTIC ===\n\n")
+          
+          if (verbose) cat("=== END XTS DIAGNOSTIC ===\n\n")
           
           ## Create xts object with proper dates
           estimated_obj$sigma <- xts::xts(new_sigma, order.by = sigma_dates)
           
           ## Get sigma AFTER recomputation
           sigma_after <- as.numeric(estimated_obj$sigma)
-          cat("Sigma AFTER tmb$report (first 5):", head(sigma_after, 5), "\n")
-          cat("Mean sigma AFTER:", mean(sigma_after), "\n")
-          cat("Did sigma change?", !identical(sigma_before, sigma_after), "\n")
+          sigma_changed <- !identical(sigma_before, sigma_after)
+          
+          if (verbose) {
+            cat("Sigma AFTER tmb$report (first 5):", head(sigma_after, 5), "\n")
+            cat("Mean sigma AFTER:", mean(sigma_after), "\n")
+            cat("Did sigma change?", sigma_changed, "\n")
+          }
+          
+          ## DIAGNOSTIC: Collect sigma evolution
+          if (!is.null(diagnostics) && !is.null(iteration) && !is.null(state)) {
+            sigma_summary <- list(
+              mean = mean(sigma_after, na.rm = TRUE),
+              sd = sd(sigma_after, na.rm = TRUE),
+              min = min(sigma_after, na.rm = TRUE),
+              max = max(sigma_after, na.rm = TRUE),
+              first_5 = head(sigma_after, 5),
+              last_5 = tail(sigma_after, 5),
+              changed = sigma_changed
+            )
+            
+            diagnostics <- add_sigma_evolution(diagnostics, iteration, state, i, sigma_summary)
+          }
           
           ## Also update standardized residuals
           ## Make sure we're working with the numeric values
@@ -183,14 +217,28 @@ create_garch_spec_object_r <- function(
             order.by = sigma_dates
           )
         } else {
-          cat("WARNING: TMB recomputation SKIPPED!\n")
-          cat("  tmb is NULL?", is.null(estimated_obj$tmb), "\n")
-          if (!is.null(estimated_obj$tmb)) {
-            cat("  Length mismatch: pars_for_tmb has", length(pars_for_tmb), 
-                "but tmb$par has", length(estimated_obj$tmb$par), "\n")
+          if (verbose) {
+            cat("WARNING: TMB recomputation SKIPPED!\n")
+            cat("  tmb is NULL?", is.null(estimated_obj$tmb), "\n")
+            if (!is.null(estimated_obj$tmb)) {
+              cat("  Length mismatch: pars_for_tmb has", length(pars_for_tmb), 
+                  "but tmb$par has", length(estimated_obj$tmb$par), "\n")
+            }
+          }
+          
+          ## Log warning in diagnostics
+          if (!is.null(diagnostics) && !is.null(iteration) && !is.null(state)) {
+            diagnostics <- add_diagnostic_warning(
+              diagnostics,
+              iteration,
+              "tmb_skip",
+              paste0("TMB recomputation skipped for state ", state, " series ", i),
+              list(tmb_null = is.null(estimated_obj$tmb))
+            )
           }
         }
-        cat("=== END TMB RECOMPUTATION ===\n\n")
+        
+        if (verbose) cat("=== END TMB RECOMPUTATION ===\n\n")
         
         return(estimated_obj)
       })
@@ -277,7 +325,11 @@ calculate_loglik_vector_r <- function(
     y, 
     current_pars, 
     spec, 
-    model_type = "univariate"
+    model_type = "univariate",
+    diagnostics = NULL,
+    iteration = NULL,
+    state = NULL,
+    verbose = FALSE
 ) {
   
   ## 1. Get Residuals from Conditional Mean Model
@@ -307,7 +359,11 @@ calculate_loglik_vector_r <- function(
     model_residuals, 
     spec, 
     model_type, 
-    current_pars
+    current_pars,
+    diagnostics = diagnostics,
+    iteration = iteration,
+    state = state,
+    verbose = verbose
   )
   
   if (model_type == "univariate") {
@@ -344,7 +400,7 @@ calculate_loglik_vector_r <- function(
     spec_fun_name <- spec$garch_spec_fun
     
     ## ==================== DIAGNOSTIC begin ====================
-    if (model_type == "multivariate" && spec_fun_name == "dcc_modelspec") {
+    if (verbose && model_type == "multivariate" && spec_fun_name == "dcc_modelspec") {
       cat("\n=== DIAGNOSTIC: Sigma values in univariate models ===\n")
       for (i in 1:ncol(model_residuals)) {
         uni_model <- garch_spec_obj$univariate[[paste0("series_", i)]]
@@ -368,7 +424,9 @@ calculate_loglik_vector_r <- function(
       
       if (is_constant_corr) {
         ## === CONSTANT CORRELATION ===
-        cat("Using constant correlation (DCC parameters absent or at boundary)\n")
+        if(verbose) {
+          cat("Using constant correlation (DCC parameters absent or at boundary)\n")
+        }
         
         ## Inject distribution parameters only
         if (!is.null(current_pars$dist_pars)) {
@@ -444,12 +502,14 @@ calculate_loglik_vector_r <- function(
           if (is_dynamic) {
             
             ## ==================== DIAGNOSTIC begin ====================
-            cat("\n=== BEFORE calling .dcc_dynamic_values() ===\n")
-            cat("Parameters being passed:\n")
-            print(pars)
-            cat("\nSigma from univariate[['series_1']]:\n")
-            print(head(as.numeric(garch_spec_obj$univariate[['series_1']]$sigma), 10))
-            cat("\n")
+            if (verbose) {
+              cat("\n=== BEFORE calling .dcc_dynamic_values() ===\n")
+              cat("Parameters being passed:\n")
+              print(pars)
+              cat("\nSigma from univariate[['series_1']]:\n")
+              print(head(as.numeric(garch_spec_obj$univariate[['series_1']]$sigma), 10))
+              cat("\n")
+            }
             ## ==================== DIAGNOSTIC end ====================
             
             total_nll_vec <- tsmarch:::.dcc_dynamic_values(
@@ -459,10 +519,12 @@ calculate_loglik_vector_r <- function(
             )
             
             ## ==================== DIAGNOSTIC begin ====================
-            cat("=== AFTER .dcc_dynamic_values() ===\n")
-            cat("Returned NLL vector (first 10):\n")
-            print(head(total_nll_vec, 10))
-            cat("\n")
+            if (verbose) {
+              cat("=== AFTER .dcc_dynamic_values() ===\n")
+              cat("Returned NLL vector (first 10):\n")
+              print(head(total_nll_vec, 10))
+              cat("\n")
+            }
             ## ==================== DIAGNOSTIC end ====================
             
             dcc_order <- garch_spec_obj$dynamics$order
@@ -609,21 +671,50 @@ estimate_arma_weighted_r <- function(y, weights, spec, model_type = "univariate"
 #' @param spec Model specification
 #' @param model_type Either "univariate" or "multivariate"
 #' @return List with coefficients and warnings
-estimate_garch_weighted_r <- function(residuals, weights, spec, model_type = "univariate") {
+estimate_garch_weighted_r <- function(
+    residuals, 
+    weights, 
+    spec, 
+    model_type = "univariate",
+    diagnostics = NULL, 
+    iteration = NULL, 
+    state = NULL,
+    verbose = FALSE
+  ) {
   
   if (model_type == "univariate") {
     ## === UNIVARIATE CASE ===
-    return(estimate_garch_weighted_univariate(residuals, weights, spec))
+    return(
+      estimate_garch_weighted_univariate(
+        residuals = residuals, 
+        weights = weights, 
+        spec = spec,
+        verbose = verbose
+      )
+    )
   } else {
     ## === MULTIVARIATE CASE ===
-    return(estimate_garch_weighted_multivariate(residuals, weights, spec))
+    return(estimate_garch_weighted_multivariate(
+      residuals = residuals, 
+      weights = weights, 
+      spec = spec,
+      diagnostics = diagnostics, 
+      iteration = iteration, 
+      state = state,
+      verbose = verbose
+    ))
   }
 }
 
 
 #' @title Univariate GARCH + Distribution Parameter Estimation
 #' @keywords internal
-estimate_garch_weighted_univariate <- function(residuals, weights, spec) {
+estimate_garch_weighted_univariate <- function(
+    residuals, 
+    weights, 
+    spec,
+    verbose
+  ) {
   ## Combine GARCH and Distribution starting parameters into one vector
   start_pars <- c(spec$start_pars$garch_pars, spec$start_pars$dist_pars)
   
@@ -663,7 +754,12 @@ estimate_garch_weighted_univariate <- function(residuals, weights, spec) {
     
     ## Get the sigma path using the current parameter set
     fit <- try(tsmethods::tsfilter(garch_spec_obj), silent = TRUE)
-    if (inherits(fit, "try-error")) return(1e10)
+    
+    if (inherits(fit, "try-error")) {
+      if (verbose) cat("*** tsfilter failed in weighted_garch_loglik ***\n")
+      return(1e10)
+    }
+    
     sig <- as.numeric(fit$sigma)
     
     ## Calculate log-likelihood using the specified distribution
@@ -719,17 +815,43 @@ estimate_garch_weighted_univariate <- function(residuals, weights, spec) {
 #'   Stage 1: Estimate univariate GARCH parameters for each series
 #'   Stage 2: Estimate dependence parameters (DCC/Copula) or GOGARCH rotation
 #' @keywords internal
-estimate_garch_weighted_multivariate <- function(residuals, weights, spec) {
+estimate_garch_weighted_multivariate <- function(
+    residuals, 
+    weights, 
+    spec, 
+    diagnostics = NULL, 
+    iteration = NULL, 
+    state = NULL,
+    verbose = FALSE
+  ) {
   
   ## Determine model type
   model_type <- spec$garch_spec_fun
   
   if (model_type == "gogarch_modelspec") {
-    return(estimate_garch_weighted_gogarch(residuals, weights, spec))
+    return(estimate_garch_weighted_gogarch(
+      residuals = residuals, 
+      weights = weights, 
+      spec = spec,
+      verbose = verbose
+    ))
   } else if (model_type %in% c("dcc_modelspec", "cgarch_modelspec")) {
-    return(estimate_garch_weighted_dcc(residuals, weights, spec))
+    return(estimate_garch_weighted_dcc(
+      residuals = residuals, 
+      weights = weights, 
+      spec = spec, 
+      diagnostics = diagnostics, 
+      iteration = iteration, 
+      state = state,
+      verbose = verbose
+    ))
   } else if (model_type == "copula_modelspec") {
-    return(estimate_garch_weighted_copula(residuals, weights, spec))
+    return(estimate_garch_weighted_copula(
+      residuals = residuals, 
+      weights = weights, 
+      spec = spec,
+      verbose = verbose
+    ))
   } else {
     stop(paste("Unsupported multivariate model type:", model_type))
   }
@@ -738,7 +860,15 @@ estimate_garch_weighted_multivariate <- function(residuals, weights, spec) {
 
 #' @title DCC Weighted Estimation
 #' @keywords internal
-estimate_garch_weighted_dcc <- function(residuals, weights, spec) {
+estimate_garch_weighted_dcc <- function(
+    residuals, 
+    weights, 
+    spec, 
+    diagnostics = NULL, 
+    iteration = NULL, 
+    state = NULL,
+    verbose = FALSE
+  ) {
   
   k <- ncol(residuals)
   T_obs <- nrow(residuals)
@@ -771,7 +901,12 @@ estimate_garch_weighted_dcc <- function(residuals, weights, spec) {
       )
     )
     
-    uni_result <- estimate_garch_weighted_univariate(series_residuals, w_target, uni_spec)
+    uni_result <- estimate_garch_weighted_univariate(
+      residuals = series_residuals, 
+      weights = w_target, 
+      spec = uni_spec,
+      verbose = verbose
+    )
     garch_pars_list[[i]] <- uni_result$coefficients
     warnings_stage1 <- c(warnings_stage1, uni_result$warnings)
   }
@@ -790,7 +925,8 @@ estimate_garch_weighted_dcc <- function(residuals, weights, spec) {
         dist_pars = dist_start_pars,
         correlation_type = "constant"
       ),
-      warnings = warnings_stage1
+      warnings = warnings_stage1,
+      diagnostics = diagnostics
     ))
   }
   
@@ -801,7 +937,11 @@ estimate_garch_weighted_dcc <- function(residuals, weights, spec) {
     garch_pars = garch_pars_list,
     dcc_start_pars = dcc_start_pars,
     dist_start_pars = dist_start_pars,
-    spec = spec
+    spec = spec,
+    diagnostics = diagnostics,
+    iteration = iteration,
+    state = state,
+    verbose = verbose
   )
   
   ## Check for degeneracy
@@ -809,10 +949,12 @@ estimate_garch_weighted_dcc <- function(residuals, weights, spec) {
   is_degenerate <- any(unlist(alpha_params) < 0.015)  # Near lower bound
   
   if (is_degenerate) {
-    cat("\n=== DCC DEGENERACY DETECTED ===\n")
-    cat("Alpha parameter(s) at lower bound:", unlist(alpha_params), "\n")
-    cat("Switching to CONSTANT CORRELATION model for this state.\n")
-    cat("This is appropriate when correlation lacks meaningful dynamics.\n\n")
+    if(verbose) {
+      cat("\n=== DCC DEGENERACY DETECTED ===\n")
+      cat("Alpha parameter(s) at lower bound:", unlist(alpha_params), "\n")
+      cat("Switching to CONSTANT CORRELATION model for this state.\n")
+      cat("This is appropriate when correlation lacks meaningful dynamics.\n\n")
+    }
     
     ## Return constant correlation specification
     return(list(
@@ -834,7 +976,10 @@ estimate_garch_weighted_dcc <- function(residuals, weights, spec) {
       dist_pars = dcc_result$dist_pars,
       correlation_type = "dynamic"
     ),
-    warnings = c(warnings_stage1, dcc_result$warnings)
+    warnings = c(warnings_stage1, dcc_result$warnings),
+    diagnostics = diagnostics, 
+    iteration = iteration, 
+    state = state
   ))
 }
 
@@ -847,7 +992,11 @@ estimate_dcc_parameters_weighted <- function(
     garch_pars,
     dcc_start_pars, 
     dist_start_pars, 
-    spec
+    spec,
+    diagnostics = NULL,
+    iteration = NULL,
+    state = NULL,
+    verbose = FALSE
 ) {
   
   k <- ncol(residuals)
@@ -860,6 +1009,7 @@ estimate_dcc_parameters_weighted <- function(
   
   ## 1. Get standardized residuals using Stage 1 GARCH parameters
   std_residuals <- matrix(0, nrow = T_obs, ncol = k)
+  
   for (i in 1:k) {
     series_residuals <- residuals[, i]
     series_spec <- spec$garch_spec_args$garch_model$univariate[[i]]
@@ -879,18 +1029,46 @@ estimate_dcc_parameters_weighted <- function(
     }
     
     uni_fit <- tsmethods::tsfilter(uni_spec_obj)
-    std_residuals[, i] <- series_residuals / as.numeric(uni_fit$sigma)
+    sigma_vec <- as.numeric(uni_fit$sigma)
+    std_residuals[, i] <- series_residuals / sigma_vec
+    
+    ## DIAGNOSTIC: Collect sigma evolution
+    if (!is.null(diagnostics) && !is.null(iteration)) {
+      sigma_summary <- list(
+        mean = mean(sigma_vec, na.rm = TRUE),
+        sd = sd(sigma_vec, na.rm = TRUE),
+        min = min(sigma_vec, na.rm = TRUE),
+        max = max(sigma_vec, na.rm = TRUE),
+        first_5 = head(sigma_vec, 5),
+        last_5 = tail(sigma_vec, 5)
+      )
+      
+      diagnostics <- add_sigma_evolution(diagnostics, iteration, state, i, sigma_summary)
+    }
   }
   
   ## 2. Combine DCC and distribution parameters
   all_stage2_pars <- c(dcc_start_pars, dist_start_pars)
   
   if (length(all_stage2_pars) == 0) {
-    return(list(dcc_pars = list(), dist_pars = list(), warnings = list()))
+    return(list(
+      dcc_pars = list(), 
+      dist_pars = list(), 
+      warnings = list(),
+      diagnostics = diagnostics
+    ))
   }
   
   ## 3. Define objective function
-  weighted_dcc_loglik <- function(params, std_resid, w, spec, k, debug = FALSE) {
+  ## NOTE: This function modifies 'diagnostics' in parent scope using <<-
+  weighted_dcc_loglik <- function(
+      params, 
+      std_resid, 
+      w, 
+      spec, 
+      k, 
+      verbose = FALSE
+    ) {
     
     param_list <- as.list(params)
     names(param_list) <- names(all_stage2_pars)
@@ -908,7 +1086,7 @@ estimate_dcc_parameters_weighted <- function(
                    T_eff, length(w)))
     }
     
-    if (debug) {
+    if (verbose) {
       cat("\n=== OBJECTIVE FUNCTION DIAGNOSTIC ===\n")
       cat("Weight summary: min =", min(w), ", max =", max(w), ", mean =", mean(w), "\n")
       cat("Effective sample size:", sum(w)^2 / sum(w^2), "\n")
@@ -919,12 +1097,24 @@ estimate_dcc_parameters_weighted <- function(
     Qbar_result <- tryCatch({
       stats::cov.wt(std_resid, wt = w, method = "ML")$cov
     }, error = function(e) {
-      if (debug) cat("ERROR in cov.wt:", e$message, "\n")
+      if (verbose) cat("ERROR in cov.wt:", e$message, "\n")
       return(NULL)
     })
     
     if (is.null(Qbar_result)) {
-      if (debug) cat("Returning penalty: cov.wt failed\n")
+      if (verbose) cat("Returning penalty: cov.wt failed\n")
+      
+      ## Update diagnostics in parent scope
+      if (!is.null(diagnostics) && !is.null(iteration) && !is.null(state)) {
+        diagnostics <<- add_diagnostic_warning(
+          diagnostics,
+          iteration,
+          "dcc_penalty",
+          "Weighted covariance calculation failed",
+          list(reason = "cov.wt returned NULL")
+        )
+      }
+      
       return(1e10)
     }
     
@@ -932,10 +1122,10 @@ estimate_dcc_parameters_weighted <- function(
     
     ## Ensure positive definite
     eig <- eigen(Qbar, symmetric = TRUE)
-    if (debug) cat("Qbar eigenvalues:", eig$values, "\n")
+    if (verbose) cat("Qbar eigenvalues:", eig$values, "\n")
     
     if (any(eig$values < 1e-8)) {
-      if (debug) cat("Qbar not PD, regularizing\n")
+      if (verbose) cat("Qbar not PD, regularizing\n")
       Qbar <- Qbar + diag(1e-6, k)
     }
     
@@ -953,6 +1143,29 @@ estimate_dcc_parameters_weighted <- function(
     
     ## Check stationarity
     if ((alpha + beta) >= 1 || alpha < 0 || beta < 0) {
+      reason <- if ((alpha + beta) >= 1) {
+        "non-stationary (alpha + beta >= 1)"
+      } else if (alpha < 0) {
+        "negative alpha"
+      } else {
+        "negative beta"
+      }
+      
+      if (verbose) {
+        cat("*** Returning penalty 1e10: DCC parameters", reason, "***\n")
+        cat("  alpha =", alpha, ", beta =", beta, ", sum =", alpha + beta, "\n")
+      }
+      
+      if (!is.null(diagnostics) && !is.null(iteration) && !is.null(state)) {
+        diagnostics <- add_diagnostic_warning(
+          diagnostics,
+          iteration,
+          "dcc_penalty",
+          paste0("DCC parameters ", reason),
+          list(alpha = alpha, beta = beta, sum = alpha + beta)
+        )
+      }
+      
       return(1e10)
     }
     
@@ -963,13 +1176,41 @@ estimate_dcc_parameters_weighted <- function(
         beta * Q[,,t-1]
       
       if (any(!is.finite(Q[,,t]))) {
-        if (debug) cat("Non-finite Q at t =", t, "\n")
+        if (verbose) {
+          cat("*** Returning penalty 1e10: Non-finite Q at t =", t, "***\n")
+        }
+        
+        ## Update diagnostics in parent scope
+        if (!is.null(diagnostics) && !is.null(iteration) && !is.null(state)) {
+          diagnostics <<- add_diagnostic_warning(
+            diagnostics,
+            iteration,
+            "dcc_penalty",
+            paste0("Non-finite Q matrix at t=", t),
+            list(t = t)
+          )
+        }
+        
         return(1e10)
       }
       
       Q_diag <- diag(Q[,,t])
+      
       if (any(Q_diag <= 0)) {
-        if (debug) cat("Non-positive diagonal in Q at t =", t, "\n")
+        if (verbose) {
+          cat("*** Returning penalty 1e10: Non-positive diagonal in Q at t =", t, "***\n")
+        }
+        
+        if (!is.null(diagnostics) && !is.null(iteration) && !is.null(state)) {
+          diagnostics <<- add_diagnostic_warning(
+            diagnostics,
+            iteration,
+            "dcc_penalty",
+            paste0("Non-positive Q diagonal at t=", t),
+            list(t = t, Q_diag_min = min(Q_diag))
+          )
+        }
+        
         return(1e10)
       }
       
@@ -984,36 +1225,75 @@ estimate_dcc_parameters_weighted <- function(
     if (spec$distribution == "mvn") {
       for (t in 1:T_eff) {
         R_t <- R[,,t]
+        
         if (any(is.na(R_t)) || any(!is.finite(R_t))) {
           ll_vec[t] <- -1e10
           n_bad <- n_bad + 1
-          if (debug && n_bad <= 3) cat("Bad R_t at t =", t, "(NA or non-finite)\n")
+          
+          if (verbose && n_bad <= 3) {
+            cat("*** Setting ll_vec[", t, "] = -1e10: Bad R_t (NA or non-finite) ***\n")
+          }
         } else {
           eig <- try(eigen(R_t, symmetric = TRUE, only.values = TRUE)$values, silent = TRUE)
+          
           if (inherits(eig, "try-error") || any(eig <= 0)) {
             ll_vec[t] <- -1e10
             n_bad <- n_bad + 1
-            if (debug && n_bad <= 3) {
+            
+            if (verbose && n_bad <= 3) {
               cat("Bad R_t at t =", t, "(not PD), eigenvalues:", 
                   if(inherits(eig, "try-error")) "ERROR" else paste(eig, collapse=", "), "\n")
             }
           } else {
-            ll_vec[t] <- mvtnorm::dmvnorm(std_resid[t,], mean = rep(0, k), 
-                                          sigma = R_t, log = TRUE)
+            ll_vec[t] <- mvtnorm::dmvnorm(
+              std_resid[t,], 
+              mean = rep(0, k),
+              sigma = R_t, 
+              log = TRUE
+            )
           }
         }
       }
+      
+      if (verbose && n_bad > 0) {
+        cat("Total observations with bad R_t:", n_bad, "/", T_eff, "\n")
+      }
+      
+      if (!is.null(diagnostics) && !is.null(iteration) && !is.null(state) && n_bad > 0) {
+        diagnostics <- add_diagnostic_warning(
+          diagnostics, iteration, "dcc_bad_correlation",
+          paste0("Bad correlation matrices in ", n_bad, " observations"),
+          list(n_bad = n_bad, T_eff = T_eff)
+        )
+      }
     } else if (spec$distribution == "mvt") {
       shape <- dist_params_current$shape
-      if (shape <= 2) return(1e10)
+      
+      if (shape <= 2) {
+        if (verbose) cat("*** Returning penalty 1e10: shape <= 2 ***\n")
+        
+        if (!is.null(diagnostics) && !is.null(iteration) && !is.null(state)) {
+          diagnostics <<- add_diagnostic_warning(
+            diagnostics,
+            iteration,
+            "dcc_penalty",
+            "MVT shape parameter too small (must be > 2)",
+            list(shape = shape)
+          )
+        }
+        
+        return(1e10)
+      }
       
       for (t in 1:T_eff) {
         R_t <- R[,,t]
+        
         if (any(is.na(R_t)) || any(!is.finite(R_t))) {
           ll_vec[t] <- -1e10
           n_bad <- n_bad + 1
         } else {
           eig <- try(eigen(R_t, symmetric = TRUE, only.values = TRUE)$values, silent = TRUE)
+          
           if (inherits(eig, "try-error") || any(eig <= 0)) {
             ll_vec[t] <- -1e10
             n_bad <- n_bad + 1
@@ -1028,9 +1308,20 @@ estimate_dcc_parameters_weighted <- function(
     ll_vec[!is.finite(ll_vec)] <- -1e10
     nll <- -sum(w * ll_vec, na.rm = TRUE)
     
-    if (debug) {
+    if (verbose) {
       cat("Negative log-likelihood:", nll, "\n")
       cat("Number of valid obs:", sum(ll_vec > -1e10), "/", T_eff, "\n")
+    }
+    
+    ## Log bad correlations to diagnostics
+    if (!is.null(diagnostics) && !is.null(iteration) && !is.null(state) && n_bad > 0) {
+      diagnostics <<- add_diagnostic_warning(
+        diagnostics,
+        iteration,
+        "dcc_bad_correlation",
+        paste0("Bad correlation matrices in ", n_bad, " observations"),
+        list(n_bad = n_bad, T_eff = T_eff)
+      )
     }
     
     return(nll)
@@ -1057,16 +1348,18 @@ estimate_dcc_parameters_weighted <- function(
   ## 5. Optimize
   warnings_list <- list()
   
-  cat("\n=== TESTING OBJECTIVE AT START PARAMS ===\n")
-  test_nll <- weighted_dcc_loglik(
-    params = unlist(all_stage2_pars),
-    std_resid = std_residuals,
-    w = weights,
-    spec = spec,
-    k = k,
-    debug = TRUE
-  )
-  cat("Start NLL:", test_nll, "\n")
+  if (verbose) {
+    cat("\n=== TESTING OBJECTIVE AT START PARAMS ===\n")
+    test_nll <- weighted_dcc_loglik(
+      params = unlist(all_stage2_pars),
+      std_resid = std_residuals,
+      w = weights,
+      spec = spec,
+      k = k,
+      verbose = TRUE
+    )
+    cat("Start NLL:", test_nll, "\n")
+  }
   
   opt_result <- withCallingHandlers({
     stats::optim(
@@ -1079,7 +1372,7 @@ estimate_dcc_parameters_weighted <- function(
       w = weights,
       spec = spec,
       k = k,
-      debug = FALSE
+      verbose = FALSE
     )
   }, warning = function(w) {
     warnings_list <<- c(warnings_list, list(w))
@@ -1087,21 +1380,41 @@ estimate_dcc_parameters_weighted <- function(
   })
   
   ## Diagnostics
-  cat("\n=== DCC M-STEP DIAGNOSTIC ===\n")
-  cat("Starting DCC params:\n")
-  print(unlist(dcc_start_pars))
-  cat("\nOptimized DCC params:\n")
-  print(opt_result$par)
-  cat("\nOptimization convergence:", opt_result$convergence, "\n")
-  cat("Final objective value:", opt_result$value, "\n")
+  if (verbose) {
+    cat("\n=== DCC M-STEP DIAGNOSTIC ===\n")
+    cat("Starting DCC params:\n")
+    print(unlist(dcc_start_pars))
+    cat("\nOptimized DCC params:\n")
+    print(opt_result$par)
+    cat("\nOptimization convergence:", opt_result$convergence, "\n")
+    cat("Final objective value:", opt_result$value, "\n")
+  }
   
   alpha_params <- opt_result$par[grepl("alpha", names(opt_result$par))]
   at_boundary <- any(alpha_params < 0.02)
-  cat("At boundary:", at_boundary, "\n")
   
-  if (at_boundary) {
-    cat("\n*** WARNING: DCC alpha parameter at/near boundary ***\n")
-    cat("This state appears to have CONSTANT (not dynamic) correlation.\n")
+  if (verbose) cat("At boundary:", at_boundary, "\n")
+  
+  ## DIAGNOSTIC: Record boundary event
+  if (at_boundary && !is.null(diagnostics) && !is.null(iteration)) {
+    for (pname in names(alpha_params)) {
+      if (alpha_params[[pname]] < 0.02) {
+        diagnostics <- add_boundary_event(
+          diagnostics,
+          iteration = iteration,
+          state = state,
+          parameter_name = pname,
+          value = alpha_params[[pname]],
+          boundary_type = "lower",
+          action_taken = "constant_correlation_fallback"
+        )
+      }
+    }
+    
+    if (verbose) {
+      cat("\n*** WARNING: DCC alpha parameter at/near boundary ***\n")
+      cat("This state appears to have CONSTANT (not dynamic) correlation.\n")
+    }
   }
   
   ## Extract results
@@ -1117,7 +1430,8 @@ estimate_dcc_parameters_weighted <- function(
   return(list(
     dcc_pars = dcc_pars_final,
     dist_pars = dist_pars_final,
-    warnings = warnings_list
+    warnings = warnings_list,
+    diagnostics = diagnostics
   ))
 }
 
@@ -1149,7 +1463,15 @@ estimate_garch_weighted_copula <- function(residuals, weights, spec) {
 #' @param spec The full list of model specifications.
 #' @param model_type "univariate" or "multivariate".
 #' @return A list of length M containing the updated model fits for each state.
-perform_m_step_parallel_r <- function(y, weights, spec, model_type) {
+perform_m_step_parallel_r <- function(
+    y, 
+    weights, 
+    spec, 
+    model_type,
+    diagnostics = NULL, 
+    iteration = NULL,
+    verbose = FALSE
+  ) {
   
   required_packages <- c("data.table", "xts", "tsgarch", "tsmarch", 
                          "tsdistributions", "mvtnorm")
@@ -1179,7 +1501,11 @@ perform_m_step_parallel_r <- function(y, weights, spec, model_type) {
       residuals = new_mean_fit$residuals,
       weights = state_weights,
       spec = state_spec,
-      model_type = model_type
+      model_type = model_type,
+      diagnostics = diagnostics,
+      iteration = iteration,
+      state = j,  # Current state number
+      verbose = verbose
     )
     
     ## === Structure the output ===

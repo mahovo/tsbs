@@ -4,7 +4,15 @@
 \alias{perform_m_step_parallel_r}
 \title{Perform the M-Step in Parallel (R Helper)}
 \usage{
-perform_m_step_parallel_r(y, weights, spec, model_type)
+perform_m_step_parallel_r(
+  y,
+  weights,
+  spec,
+  model_type,
+  diagnostics = NULL,
+  iteration = NULL,
+  verbose = FALSE
+)
 }
 \arguments{
 \item{y}{The time series data.}
@@ -21,4 +29,5 @@ A list of length M containing the updated model fits for each state.
 \description{
 This function is called once per EM iteration from C++. It uses
 the 'future' framework to estimate the parameters for all M states in parallel.
+Handles both univariate and multivariate models with proper parameter structuring.
 }
