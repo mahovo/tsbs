@@ -190,7 +190,6 @@ summary.ms_diagnostics <- function(object, ...) {
 
 #' @title Plot Diagnostics
 #' @description Creates diagnostic plots for EM convergence
-#' @import ggplot2
 #' @export
 plot.ms_diagnostics <- function(x, type = c("all", "ll_evolution", "parameters", "sigma"), ...) {
   

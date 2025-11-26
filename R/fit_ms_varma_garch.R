@@ -20,6 +20,14 @@
 #'   \item{tol}{A numeric value specifying the convergence tolerance for the
 #'     log-likelihood. Defaults to 1e-6.}
 #' }
+#' @param parallel Logical.
+#' @param num_cores Number of cores.
+#' @param collect_diagnostics Logical. Collect diagnostics or not.
+#' @param verbose Logical. If TRUE, print detailed diagnostic information during 
+#'   estimation. Default is FALSE.
+#' @param verbose_file Character string specifying path to file for verbose output.
+#'   If NULL (default), verbose output goes to console. If specified, all verbose
+#'   output is written to this file instead. Only used if verbose = TRUE.
 #'
 #' @details
 #' The `spec` argument is a list of length `M`, where each element `spec[[j]]`
@@ -50,7 +58,8 @@ fit_ms_varma_garch <- function(
     parallel = FALSE,
     num_cores = 1L,
     collect_diagnostics = FALSE,
-    verbose = FALSE
+    verbose = FALSE,
+    verbose_file = NULL
   ) {
   
   ## --- 1. Argument and Data Validation ---
@@ -68,6 +77,28 @@ fit_ms_varma_garch <- function(
   }
   if (any(!is.finite(y_mat))) {
     stop("Input matrix 'y' contains non-finite values (NA, NaN, Inf).")
+  }
+  
+  ## --- Setup verbose output redirection ---
+  if (verbose && !is.null(verbose_file)) {
+    ## Open connection to file
+    verbose_con <- file(verbose_file, open = "wt")
+    
+    ## Redirect cat() output to file
+    ## Save original connection to restore later
+    sink(verbose_con, type = "output")
+    
+    ## Ensure we close and restore on exit
+    on.exit({
+      sink(type = "output")  ## Restore console output
+      close(verbose_con)
+    }, add = TRUE)
+    
+    cat("=== MS-VARMA-GARCH Verbose Output ===\n")
+    cat("Started:", format(Sys.time()), "\n")
+    cat("Data dimensions:", nrow(y_mat), "x", ncol(y_mat), "\n")
+    cat("Number of states:", M, "\n")
+    cat("Model type:", model_type, "\n\n")
   }
   
   ## --- Setup Parallel Backend ---
@@ -145,6 +176,13 @@ fit_ms_varma_garch <- function(
   
   aic <- -2 * cpp_results$log_likelihood + 2 * num_params
   bic <- -2 * cpp_results$log_likelihood + log(T_eff) * num_params
+  
+  ## --- Final message to verbose output ---
+  if (verbose && !is.null(verbose_file)) {
+    cat("\n=== Fitting Complete ===\n")
+    cat("Finished:", format(Sys.time()), "\n")
+    cat("Final log-likelihood:", cpp_results$log_likelihood, "\n")
+  }
   
   ## Assemble the final, user-friendly object
   result <- list(

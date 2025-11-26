@@ -178,6 +178,16 @@
 #'       }
 #'   }
 #' } 
+#' 
+#' ### Additional parameters when \code{bs_type=ms_varma_garch}
+#' \itemize{
+#'  \item \code{collect_diagnostics} Logical. Collect diagnostics or not.
+#'  \item \code{verbose} Logical. If TRUE, print detailed diagnostic information during 
+#'   estimation. Default is FALSE.
+#'  \item \code{verbose_file} Character string specifying path to file for verbose output.
+#'   If NULL (default), verbose output goes to console. If specified, all verbose
+#'   output is written to this file instead. Only used if verbose = TRUE.
+#' }
 #'   
 #' ## `taper_type` when `block_type="tapered"`
 #' 
@@ -245,10 +255,6 @@
 #'   apply_func_to = "cols"
 #' )
 #' print(result$func_out_means)
-#'
-#' @import xts
-#' @importFrom stats acf ar
-#' @importFrom Rcpp sourceCpp
 #' 
 #' @useDynLib tsbs, .registration = TRUE
 #' @export
@@ -414,7 +420,10 @@ tsbs <- function(
       model_type = model_type,
       control = control,
       parallel = parallel,
-      num_cores = num_cores
+      num_cores = num_cores,
+      collect_diagnostics = collect_diagnostics,
+      verbose = verbose,
+      verbose_file = verbose_file
     ),
     wild = wild_bootstrap(
       x, 

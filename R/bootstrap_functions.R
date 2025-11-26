@@ -482,6 +482,12 @@ msvar_bootstrap <- function(
 #' @param control A list of control parameters for the EM algorithm.
 #' @param parallel A logical value indicating whether to use parallel processing.
 #' @param num_cores An integer specifying the number of cores for parallel processing.
+#' @param collect_diagnostics Logical. Collect diagnostics or not.
+#' @param verbose Logical. If TRUE, print detailed diagnostic information during 
+#'   estimation. Default is FALSE.
+#' @param verbose_file Character string specifying path to file for verbose output.
+#'   If NULL (default), verbose output goes to console. If specified, all verbose
+#'   output is written to this file instead. Only used if verbose = TRUE.
 #' 
 #' @details
 #' The fitted model is defined as:  
@@ -530,8 +536,6 @@ msvar_bootstrap <- function(
 #'   of a Financial Portfolio with ARMA-APARCH-EVT models based on HACs. 
 #'   [arXiv:2105.09473](http://arxiv.org/abs/2105.09473)
 #'
-#' @import tsgarch
-#' @import tsmarch
 #' @export
 ms_varma_garch_bs <- function(
     x,
@@ -544,7 +548,10 @@ ms_varma_garch_bs <- function(
     model_type = c("univariate", "multivariate"),
     control = list(),
     parallel = FALSE,
-    num_cores = 1L
+    num_cores = 1L,
+    collect_diagnostics = FALSE,
+    verbose = FALSE,
+    verbose_file = NULL
 ) {
   
   ## ---- 1. Input Validation ----
@@ -564,7 +571,10 @@ ms_varma_garch_bs <- function(
     d = d,
     spec = spec,
     model_type = model_type,
-    control = control
+    control = control,
+    collect_diagnostics = collect_diagnostics,
+    verbose = collect_diagnostics,
+    verbose_file = collect_diagnostics
   )
   
   ## ---- 3. Determine the Most Likely State Sequence ----

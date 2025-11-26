@@ -1853,7 +1853,8 @@ print(spec_mv_dcc[[1]]$start_pars$beta_1)
 
 ## Test diagnostic and verbose modes
 
-### Example 1: Basic Diagnostic Collection
+### Example 1a: Basic Diagnostic Collection
+
 ```{r}
 # Simulate some data
 set.seed(42)
@@ -1930,6 +1931,24 @@ Save for later analysis
 ```{r}
 save_diagnostics(fit_with_diag$diagnostics, "example_run_diagnostics.rds")
 ```
+
+### Example 1b: Write verbose output 
+```{r}
+fit <- fit_ms_varma_garch(
+  y = y_sim,
+  M = 2,
+  spec = spec_test,
+  model_type = "multivariate",
+  control = list(max_iter = 2, tol = 0.2),
+  collect_diagnostics = TRUE,
+  verbose = TRUE,
+  verbose_file = "my_estimation_log.txt"  ## Goes to file
+)
+
+## Then examine the file:
+readLines("my_estimation_log.txt") |> head(50)
+```
+
 
 ### Example 2: Analyzing Convergence Issues
 ```{r}
