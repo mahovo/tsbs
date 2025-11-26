@@ -180,14 +180,19 @@
 #' } 
 #' 
 #' ### Additional parameters when \code{bs_type=ms_varma_garch}
+#' Diagnostic System: A comprehensive diagnostic system monitors convergence and
+#' numerical stability during estimation.
 #' \itemize{
-#'  \item \code{collect_diagnostics} Logical. Collect diagnostics or not.
-#'  \item \code{verbose} Logical. If TRUE, print detailed diagnostic information during 
-#'   estimation. Default is FALSE.
-#'  \item \code{verbose_file} Character string specifying path to file for verbose output.
-#'   If NULL (default), verbose output goes to console. If specified, all verbose
-#'   output is written to this file instead. Only used if verbose = TRUE.
+#'  \item \code{collect_diagnostics} Logical. Enable diagnostics with
+#'    \code{collect_diagnostics = TRUE}.
+#'  \item \code{verbose} Logical. If TRUE, print detailed diagnostic information
+#'    during estimation. Default is FALSE.
+#'  \item \code{verbose_file} Character string specifying path to file for 
+#'    verbose output. If NULL (default), verbose output goes to console. If 
+#'    specified, all verbose output is written to this file instead. Only used if 
+#'    verbose = TRUE.
 #' }
+#' See details in \code{vignette("Diagnostics", package = "tsbs")}.
 #'   
 #' ## `taper_type` when `block_type="tapered"`
 #' 

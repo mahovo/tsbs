@@ -14,7 +14,8 @@ fit_ms_varma_garch(
   parallel = FALSE,
   num_cores = 1L,
   collect_diagnostics = FALSE,
-  verbose = FALSE
+  verbose = FALSE,
+  verbose_file = NULL
 )
 }
 \arguments{
@@ -39,6 +40,19 @@ Defaults to "univariate".}
 \item{tol}{A numeric value specifying the convergence tolerance for the
 log-likelihood. Defaults to 1e-6.}
 }}
+
+\item{parallel}{Logical.}
+
+\item{num_cores}{Number of cores.}
+
+\item{collect_diagnostics}{Logical. Collect diagnostics or not.}
+
+\item{verbose}{Logical. If TRUE, print detailed diagnostic information during
+estimation. Default is FALSE.}
+
+\item{verbose_file}{Character string specifying path to file for verbose output.
+If NULL (default), verbose output goes to console. If specified, all verbose
+output is written to this file instead. Only used if verbose = TRUE.}
 }
 \value{
 An object of class \code{msm.fit} containing the full results of the

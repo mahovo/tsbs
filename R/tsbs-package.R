@@ -1,7 +1,22 @@
-#' @keywords internal
-"_PACKAGE"
-
-## usethis namespace: start
+#' tsbs: Advanced Bootstrap for Time Series
+#'
+#' Generates bootstrap replicates of multivariate or (multiple) univariate time
+#' series. Supports moving and stationary block, HMM, MSVAR, MS VARMA GARCH and 
+#' wild bootstrap types.
+#'
+#' @section Main Function:
+#' \itemize{
+#'   \item \code{\link{tsbs}}: Main user-facing function
+#' }
+#'
+#'
+#' @seealso
+#' Vignettes:
+#' \itemize{
+#'   \item \code{vignette("Diagnostics", package = "tsbs")} - User guide for 
+#'     MS-VARMA-GARCH model fitting diagnostic system 
+#' }
+#'
 #' @import tsgarch
 #' @import tsmarch
 #' @import tsmethods
@@ -10,6 +25,6 @@
 #' @importFrom stats acf ar
 #' @importFrom tsmethods tsfilter
 #' @importFrom Rcpp sourceCpp
-## usethis namespace: end
-NULL
+#' @keywords internal
+"_PACKAGE"
 

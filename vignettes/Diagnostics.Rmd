@@ -1,0 +1,165 @@
+---
+title: "Diagnostic System for MS-VARMA-GARCH Estimation"
+author: "Martin Hoshi Vognsen"
+date: "`r Sys.Date()`"
+output: 
+  rmarkdown::html_vignette:
+    toc: true
+    toc_depth: 3
+    number_sections: true
+vignette: >
+  %\VignetteIndexEntry{Diagnostic System for MS-VARMA-GARCH Estimation}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r setup, include = FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>",
+  fig.width = 7,
+  fig.height = 5,
+  warning = FALSE,
+  message = FALSE
+)
+```
+
+# Overview
+
+The `tsbs` package implements a comprehensive diagnostic system for monitoring the convergence and numerical stability of Markov-Switching VARMA-GARCH models. This system is particularly critical for multivariate DCC specifications, where the interplay between univariate volatility dynamics and correlation dynamics can exhibit complex convergence behavior.
+
+The diagnostic system operates throughout the Expectation-Maximization (EM) algorithm and weighted maximum likelihood estimation procedures, collecting granular information about:
+
+- Log-likelihood evolution across EM iterations
+- Parameter trajectories for all states
+- Conditional volatility ($\sigma_t$) evolution
+- Boundary conditions and degeneracy detection
+- Numerical warnings and optimization failures
+
+# Mathematical Background
+
+## The EM Algorithm
+
+The MS-VARMA-GARCH model maximizes the marginal likelihood:
+
+$$\mathcal{L}(\theta) = \prod_{t=1}^T \sum_{j=1}^M f(y_t \mid Y_{t-1}, S_t=j; \theta_j) P(S_t=j \mid Y_{t-1})$$
+
+where $S_t \in \{1, \ldots, M\}$ denotes the latent state. The EM algorithm iterates between:
+
+**E-step:** Compute smoothed probabilities $\xi_{t|T}^{(j)} = P(S_t=j \mid Y_T; \theta^{(k)})$ using the Hamilton filter and Kim smoother.
+
+**M-step:** Update parameters via weighted maximum likelihood:
+
+$$\theta_j^{(k+1)} = \arg\max_{\theta_j} \sum_{t=1}^T \xi_{t|T}^{(j)} \log f(y_t \mid Y_{t-1}, S_t=j; \theta_j)$$
+
+The diagnostic system monitors the critical property that the complete-data log-likelihood must be non-decreasing:
+
+$$Q(\theta^{(k+1)} \mid \theta^{(k)}) \geq Q(\theta^{(k)} \mid \theta^{(k)})$$
+
+Violations indicate numerical instability in the M-step optimization.
+
+## DCC Dynamics and Degeneracy
+
+For multivariate models with DCC dynamics, the conditional correlation matrix evolves as:
+
+$$Q_t = \bar{Q}(1 - \alpha - \beta) + \alpha z_{t-1}z_{t-1}' + \beta Q_{t-1}$$
+
+$$R_t = \text{diag}(Q_t)^{-1/2} Q_t \text{diag}(Q_t)^{-1/2}$$
+
+where $z_t$ are standardized residuals. Stationarity requires $\alpha + \beta < 1$ with $\alpha, \beta \geq 0$.
+
+**Degeneracy** occurs when $\alpha \to 0$, indicating the correlation dynamics collapse to the constant correlation model $R_t = \bar{R}$. The diagnostic system detects this automatically and switches to the computationally simpler constant correlation specification.
+
+# Activating Diagnostics
+
+## Basic Usage
+
+Diagnostics are activated via the `collect_diagnostics` argument in `tsbs()`:
+
+```{r eval=FALSE}
+library(tsbs)
+
+result <- tsbs(
+  y = data,
+  model_type = "multivariate",
+  M = 2,
+  spec = spec_list,
+  collect_diagnostics = TRUE,
+  verbose = TRUE
+)
+
+# Access diagnostics
+diag <- result$diagnostics
+summary(diag)
+```
+
+## Verbose Output Options
+
+For detailed monitoring during estimation:
+
+```{r eval=FALSE}
+# Console output (default)
+result <- tsbs(
+  y = data,
+  model_type = "multivariate",
+  M = 2,
+  spec = spec_list,
+  collect_diagnostics = TRUE,
+  verbose = TRUE
+)
+
+# File output (recommended for long-running jobs)
+result <- tsbs(
+  y = data,
+  model_type = "multivariate",
+  M = 2,
+  spec = spec_list,
+  collect_diagnostics = TRUE,
+  verbose = TRUE,
+  verbose_file = "fitting_log.txt"
+)
+```
+
+The `verbose_file` option redirects all diagnostic output to a specified file, which is essential for batch processing or when running on remote servers.
+
+# Diagnostic Data Structure
+
+The diagnostic collector returns an S3 object of class `ms_diagnostics` with six components:
+
+## EM Iteration Diagnostics
+
+For each EM iteration $k$, the following information is recorded:
+
+- `log_lik_before_mstep`: $\ell(\theta^{(k)})$ before parameter updates
+- `log_lik_after_mstep`: $\ell(\theta^{(k+1)})$ after parameter updates  
+- `ll_change`: $\Delta \ell^{(k)} = \ell(\theta^{(k+1)}) - \ell(\theta^{(k)})$
+- `ll_decreased`: Boolean flag for violations ($\Delta \ell^{(k)} < -10^{-6}$)
+- `duration_seconds`: Wall-clock time for iteration
+- `converged`: Boolean indicating if tolerance criterion met
+
+**Critical diagnostic:** If `ll_decreased = TRUE`, the M-step optimizer failed to improve the objective. This indicates numerical issues in the weighted likelihood optimization, typically due to:
+
+- Poor starting values
+- Ill-conditioned covariance matrices in DCC models
+- Boundary constraints being violated
+- Numerical precision issues in matrix decompositions
+
+## Parameter Evolution
+
+Nested list structure: `parameter_evolution$state_j[[k]]` contains all parameters for state $j$ at iteration $k$.
+
+For **univariate** models:
+
+```{r eval=FALSE}
+params <- diag$parameter_evolution$state_1[[5]]
+# Contains: arma_pars, garch_pars (omega, alpha, beta), dist_pars (shape, skew)
+```
+
+For **multivariate DCC** models:
+
+```{r eval=FALSE}
+params <- diag$parameter_evolution$state_1[[5]]
+# Contains: 
+#   var_pars (VAR coefficients)
+#   garch_pars (list per series: omega[i], alpha[i], beta[i])
+#   alpha_1, beta_1 (DCC parameters, m

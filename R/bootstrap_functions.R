@@ -573,8 +573,8 @@ ms_varma_garch_bs <- function(
     model_type = model_type,
     control = control,
     collect_diagnostics = collect_diagnostics,
-    verbose = collect_diagnostics,
-    verbose_file = collect_diagnostics
+    verbose = verbose,
+    verbose_file = verbose_file
   )
   
   ## ---- 3. Determine the Most Likely State Sequence ----

@@ -15,7 +15,10 @@ ms_varma_garch_bs(
   model_type = c("univariate", "multivariate"),
   control = list(),
   parallel = FALSE,
-  num_cores = 1L
+  num_cores = 1L,
+  collect_diagnostics = FALSE,
+  verbose = FALSE,
+  verbose_file = NULL
 )
 }
 \arguments{
@@ -44,6 +47,15 @@ to generate. Defaults to 100.}
 \item{parallel}{A logical value indicating whether to use parallel processing.}
 
 \item{num_cores}{An integer specifying the number of cores for parallel processing.}
+
+\item{collect_diagnostics}{Logical. Collect diagnostics or not.}
+
+\item{verbose}{Logical. If TRUE, print detailed diagnostic information during
+estimation. Default is FALSE.}
+
+\item{verbose_file}{Character string specifying path to file for verbose output.
+If NULL (default), verbose output goes to console. If specified, all verbose
+output is written to this file instead. Only used if verbose = TRUE.}
 }
 \value{
 A list of bootstrapped time series matrices.

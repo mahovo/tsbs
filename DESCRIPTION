@@ -25,7 +25,11 @@ Imports:
     future,
     future.apply,
     mvtnorm,
-    ggplot2
+    ggplot2,
+Suggests: 
+    knitr,
+    rmarkdown
+VignetteBuilder: knitr
 LinkingTo: Rcpp, RcppArmadillo
 Encoding: UTF-8
 License: GPL-3

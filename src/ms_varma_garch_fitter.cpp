@@ -216,13 +216,13 @@ Rcpp::List fit_ms_varma_garch_cpp(
       Rcpp::Function add_diagnostic_warning = pkg_env["add_diagnostic_warning"];
       
       diag_collector = Rcpp::as<Rcpp::List>(add_em_iteration_diagnostic(
-        diag_collector,
-        iter + 1,
-        log_lik_before_mstep,
-        log_lik_after_mstep,
-        ll_change,
-        duration_sec,
-        model_fits,
+        diag_collector, // diagnostics
+        iter + 1, // iteration
+        log_lik_before_mstep, // log_lik_before
+        log_lik_after_mstep, // log_lik_after
+        ll_change, // ll_change
+        duration_sec, // duration_sec
+        model_fits, // parameters
         false  // converged flag
       ));
       
