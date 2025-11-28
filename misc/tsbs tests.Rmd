@@ -2146,7 +2146,7 @@ if (requireNamespace("ggplot2", quietly = TRUE)) {
   )
   
   p1 <- ggplot(ll_df, aes(x = iteration, y = log_likelihood)) +
-    geom_line(size = 1, color = "blue") +
+    geom_line(linewidth = 1, color = "blue") +
     geom_point(size = 2) +
     labs(title = "Log-Likelihood Evolution",
          x = "EM Iteration",

@@ -122,6 +122,601 @@ result <- tsbs(
 
 The `verbose_file` option redirects all diagnostic output to a specified file, which is essential for batch processing or when running on remote servers.
 
+
+# Examples
+
+## Example 1: Basic Diagnostic Collection with Realistic DCC Data
+
+This example demonstrates the complete workflow: data simulation, specification 
+construction, model fitting, and diagnostic collection.
+
+### Understanding DCC Data Simulation
+
+First, let's understand how DCC-GARCH data is generated. The process combines:
+1. **Univariate GARCH dynamics** for each series
+2. **Time-varying correlation** between series
+
+```{r example1_data_manual}
+# Manual simulation to understand the DCC process
+set.seed(42)
+n <- 300
+k <- 2
+
+# GARCH parameters (control volatility of each series)
+omega <- c(0.05, 0.08)       # Intercepts
+alpha_garch <- c(0.10, 0.12) # ARCH effects (reaction to shocks)
+beta_garch <- c(0.85, 0.82)  # GARCH effects (persistence)
+
+# DCC parameters (control correlation dynamics)
+dcc_alpha <- 0.04  # How quickly correlation responds to shocks
+dcc_beta <- 0.93   # Persistence of correlation
+Qbar <- matrix(c(1, 0.5, 0.5, 1), 2, 2)  # Long-run correlation
+
+# Initialize
+y_sim <- matrix(0, n, k)
+h <- matrix(0, n, k)  # Conditional variances
+Q <- Qbar             # Dynamic covariance proxy
+R <- Qbar             # Dynamic correlation matrix
+
+# Initialize variances at unconditional levels
+for (i in 1:k) {
+  h[1, i] <- omega[i] / (1 - alpha_garch[i] - beta_garch[i])
+}
+
+# Simulate the process
+for (t in 1:n) {
+  # Step 1: Draw correlated innovations from N(0, R_t)
+  z <- as.vector(mvtnorm::rmvnorm(1, sigma = R))
+  
+  # Step 2: Generate returns with time-varying volatility
+  for (i in 1:k) {
+    y_sim[t, i] <- sqrt(h[t, i]) * z[i]
+    
+    # Step 3: Update GARCH variance for next period
+    if (t < n) {
+      h[t+1, i] <- omega[i] + alpha_garch[i] * y_sim[t, i]^2 + 
+        beta_garch[i] * h[t, i]
+    }
+  }
+  
+  # Step 4: Update DCC correlation for next period
+  if (t < n) {
+    z_mat <- matrix(z, ncol = 1)
+    # DCC recursion: Q_t = (1-α-β)Q̄ + α*z_{t-1}z'_{t-1} + β*Q_{t-1}
+    Q <- Qbar * (1 - dcc_alpha - dcc_beta) + 
+      dcc_alpha * (z_mat %*% t(z_mat)) + 
+      dcc_beta * Q
+    
+    # Standardize Q to correlation matrix R
+    Q_diag_inv_sqrt <- diag(1/sqrt(diag(Q)))
+    R <- Q_diag_inv_sqrt %*% Q %*% Q_diag_inv_sqrt
+  }
+}
+
+colnames(y_sim) <- c("returns_A", "returns_B")
+
+# Examine the simulated data
+cat("Data summary:\n")
+cat("  Mean:", round(colMeans(y_sim), 4), "\n")
+cat("  SD:", round(apply(y_sim, 2, sd), 4), "\n")
+cat("  Correlation:", round(cor(y_sim[,1], y_sim[,2]), 4), "\n")
+```
+
+For convenience, the package provides `simulate_dcc_garch()`:
+
+```{r example1_data_utility}
+# Equivalent using utility function
+y_sim_utility <- simulate_dcc_garch(
+  n = 300,
+  k = 2,
+  omega = c(0.05, 0.08),
+  alpha_garch = c(0.10, 0.12),
+  beta_garch = c(0.85, 0.82),
+  dcc_alpha = 0.04,
+  dcc_beta = 0.93,
+  seed = 42
+)
+
+# Verify equivalence
+all.equal(y_sim, y_sim_utility, check.attributes = FALSE)
+```
+
+### Understanding DCC Specification Construction
+
+The specification must define the model for each state. Key components:
+
+1. **Univariate GARCH specs** - one for each series
+2. **DCC-level arguments** - correlation dynamics and distribution
+3. **Starting parameters** - VAR, GARCH, and DCC parameters
+
+```{r example1_spec_manual}
+# Manual specification construction
+
+# Step 1: Define univariate GARCH specification (used by tsmarch)
+spec_uni_garch <- list(
+  model = "garch",         # GARCH(1,1)
+  garch_order = c(1, 1),   # (p, q)
+  distribution = "norm"    # Normal innovations
+)
+
+# Step 2: Define DCC-level arguments (same for all states)
+dcc_spec_args <- list(
+  dcc_order = c(1, 1),     # DCC(1,1)
+  dynamics = "dcc",        # Dynamic correlation
+  distribution = "mvn",    # Multivariate Normal
+  garch_model = list(
+    univariate = list(spec_uni_garch, spec_uni_garch)  # One per series
+  )
+)
+
+# Step 3: Create state-specific specifications
+# State 1: Low volatility regime
+spec_state1 <- list(
+  var_order = 1,                          # VAR(1) for conditional mean
+  garch_spec_fun = "dcc_modelspec",       # Use DCC model
+  garch_spec_args = dcc_spec_args,
+  distribution = "mvn",
+  start_pars = list(
+    var_pars = rep(0.1, 6),               # 6 = k*(1 + k*p) = 2*(1+2*1)
+    garch_pars = list(                    # List of length k=2
+      list(omega = 0.05, alpha1 = 0.08, beta1 = 0.85),  # Series 1
+      list(omega = 0.05, alpha1 = 0.08, beta1 = 0.85)   # Series 2
+    ),
+    dcc_pars = list(alpha_1 = 0.03, beta_1 = 0.94)
+  )
+)
+
+# State 2: High volatility regime (higher omega, alpha)
+spec_state2 <- list(
+  var_order = 1,
+  garch_spec_fun = "dcc_modelspec",
+  garch_spec_args = dcc_spec_args,
+  distribution = "mvn",
+  start_pars = list(
+    var_pars = rep(0.1, 6),
+    garch_pars = list(
+      list(omega = 0.12, alpha1 = 0.15, beta1 = 0.75),  # Higher vol
+      list(omega = 0.12, alpha1 = 0.15, beta1 = 0.75)
+    ),
+    dcc_pars = list(alpha_1 = 0.08, beta_1 = 0.88)
+  )
+)
+
+# Combine into specification list (length M)
+spec_manual <- list(spec_state1, spec_state2)
+```
+
+For convenience, the package provides `generate_dcc_spec()`:
+
+```{r example1_spec_utility}
+# Equivalent using utility function
+spec_utility <- generate_dcc_spec(
+  M = 2,                  # Number of states
+  k = 2,                  # Number of series
+  var_order = 1,          # VAR order
+  distribution = "mvn",   # Distribution
+  seed = 42
+)
+
+# The utility function creates differentiated starting values
+# State 1: Lower volatility, State 2: Higher volatility
+cat("State 1 omega:", spec_utility[[1]]$start_pars$garch_pars[[1]]$omega, "\n")
+cat("State 2 omega:", spec_utility[[2]]$start_pars$garch_pars[[1]]$omega, "\n")
+```
+
+### Fitting with Diagnostics
+
+Now fit the model with diagnostic collection enabled:
+
+```{r example1_fit}
+# Fit model WITH diagnostics
+fit_with_diag <- fit_ms_varma_garch(
+  y = y_sim,
+  M = 2,
+  spec = spec_utility,  # Using utility-generated spec
+  model_type = "multivariate",
+  control = list(max_iter = 20, tol = 1e-4),
+  collect_diagnostics = TRUE,  # ENABLE DIAGNOSTICS
+  verbose = FALSE
+)
+
+# Access the diagnostic object
+diag <- fit_with_diag$diagnostics
+class(diag)
+```
+
+### Inspecting Basic Diagnostic Components
+
+The diagnostic object has six components. Let's examine them:
+
+```{r example1_inspect}
+# Component 1: EM Iterations
+cat("Number of EM iterations:", length(diag$em_iterations), "\n\n")
+
+# Inspect first iteration
+cat("First iteration structure:\n")
+str(diag$em_iterations[[1]], max.level = 1)
+
+cat("\nFirst iteration details:\n")
+cat("  Log-lik before M-step:", diag$em_iterations[[1]]$log_lik_before_mstep, "\n")
+cat("  Log-lik after M-step:", diag$em_iterations[[1]]$log_lik_after_mstep, "\n")
+cat("  Change:", diag$em_iterations[[1]]$ll_change, "\n")
+cat("  Decreased?:", diag$em_iterations[[1]]$ll_decreased, "\n")
+cat("  Duration:", round(diag$em_iterations[[1]]$duration_seconds, 2), "sec\n")
+
+# Component 2: Parameter Evolution
+cat("\n\nParameter evolution available for states:", 
+    names(diag$parameter_evolution), "\n")
+
+# Inspect state 1 parameters at iteration 1
+cat("\nState 1, Iteration 1 parameters:\n")
+state1_iter1 <- diag$parameter_evolution$state_1[[1]]
+cat("  DCC alpha_1:", state1_iter1$parameters$alpha_1, "\n")
+cat("  DCC beta_1:", state1_iter1$parameters$beta_1, "\n")
+cat("  GARCH omega (series 1):", 
+    state1_iter1$parameters$garch_pars[[1]]$omega, "\n")
+
+# Component 3: Sigma Evolution (if present)
+if (length(diag$sigma_evolution) > 0) {
+  cat("\n\nSigma evolution tracked for:", 
+      names(diag$sigma_evolution)[1:min(2, length(diag$sigma_evolution))], 
+      "...\n")
+}
+
+# Component 4: Warnings
+cat("\nTotal warnings:", length(diag$warnings), "\n")
+if (length(diag$warnings) > 0) {
+  cat("Warning types:", unique(sapply(diag$warnings, function(x) x$type)), "\n")
+}
+
+# Component 5: Boundary Events
+cat("Total boundary events:", length(diag$boundary_events), "\n")
+if (length(diag$boundary_events) > 0) {
+  cat("Boundary events:\n")
+  for (event in diag$boundary_events) {
+    cat("  Iter", event$iteration, ": State", event$state, 
+        "-", event$parameter, "=", round(event$value, 4), "\n")
+  }
+}
+```
+
+### Using the Built-in Summary Method
+
+```{r example1_summary}
+# The summary method provides a comprehensive overview
+summary(fit_with_diag$diagnostics)
+```
+
+## Example 2: Verbose Output to File
+
+For long-running estimations, redirect verbose output to a file:
+
+```{r example2, eval=FALSE}
+fit <- fit_ms_varma_garch(
+  y = y_sim,
+  M = 2,
+  spec = spec_test,
+  model_type = "multivariate",
+  control = list(max_iter = 20, tol = 1e-4),
+  collect_diagnostics = TRUE,
+  verbose = TRUE,
+  verbose_file = "estimation_log.txt"
+)
+
+# Examine the log file
+readLines("estimation_log.txt") |> head(50)
+```
+
+## Example 3: Analyzing Parameter Trajectories
+
+Extract and visualize how parameters evolve across iterations using both manual
+and utility approaches.
+
+```{r example3_manual}
+# Manual extraction (shows the data structure)
+state_key <- "state_1"
+state_data <- diag$parameter_evolution[[state_key]]
+
+# Extract alpha_1 manually
+alpha_trajectory_manual <- sapply(state_data, function(iter_data) {
+  iter_data$parameters$alpha_1 %||% NA
+})
+
+iterations_manual <- sapply(state_data, function(x) x$iteration)
+
+cat("Manual extraction:\n")
+cat("  Iterations:", paste(iterations_manual, collapse = ", "), "\n")
+cat("  Alpha values:", paste(round(alpha_trajectory_manual, 4), collapse = ", "), "\n")
+```
+
+```{r example3_utility}
+# Using utility function (much simpler!)
+alpha_traj <- extract_param_trajectory(diag, state = 1, param_name = "alpha_1")
+
+cat("\nUtility extraction (same result):\n")
+print(head(alpha_traj, 5))
+
+# Can also extract series-specific parameters
+omega_traj_s1 <- extract_param_trajectory(diag, state = 1, 
+                                          param_name = "omega", series = 1)
+omega_traj_s2 <- extract_param_trajectory(diag, state = 1,
+                                          param_name = "omega", series = 2)
+```
+
+```{r example3_plot}
+# Plot parameter evolution
+if (!is.null(alpha_traj) && any(!is.na(alpha_traj$value))) {
+  plot(alpha_traj$iteration, alpha_traj$value,
+       type = "b", pch = 19, col = "blue",
+       xlab = "EM Iteration", 
+       ylab = expression(alpha[1]),
+       main = "DCC Alpha Parameter Evolution (State 1)",
+       ylim = c(0, max(alpha_traj$value, na.rm = TRUE) * 1.1))
+  abline(h = 0.01, col = "red", lty = 2)
+  text(max(alpha_traj$iteration) * 0.7, 0.015, 
+       "Lower Bound", col = "red", pos = 3)
+  grid()
+}
+```
+
+## Example 4: Log-Likelihood Convergence Analysis
+
+```{r example4}
+# Extract LL evolution
+ll_evolution <- sapply(
+  fit_with_diag$diagnostics$em_iterations,
+  function(x) x$log_lik_after_mstep
+)
+
+ll_changes <- sapply(
+  fit_with_diag$diagnostics$em_iterations,
+  function(x) x$ll_change
+)
+
+# Create convergence plot
+par(mfrow = c(2, 1), mar = c(4, 4, 2, 1))
+
+# Plot 1: Log-likelihood trajectory
+plot(seq_along(ll_evolution), ll_evolution,
+     type = "b", pch = 19, col = "darkblue",
+     xlab = "EM Iteration", 
+     ylab = "Log-Likelihood",
+     main = "Log-Likelihood Evolution")
+grid()
+
+# Plot 2: Log-likelihood changes
+plot(seq_along(ll_changes), ll_changes,
+     type = "h", lwd = 2, col = "steelblue",
+     xlab = "EM Iteration", 
+     ylab = "LL Change",
+     main = "Log-Likelihood Change per Iteration")
+abline(h = 0, col = "red", lty = 2)
+abline(h = -1e-4, col = "orange", lty = 3)
+legend("topright", 
+       legend = c("Zero", "Numerical tolerance"),
+       col = c("red", "orange"),
+       lty = c(2, 3), cex = 0.8)
+grid()
+
+# Print summary statistics
+cat("\n=== Convergence Analysis ===\n")
+cat("Total iterations:", length(ll_evolution), "\n")
+cat("Total LL improvement:", 
+    round(ll_evolution[length(ll_evolution)] - ll_evolution[1], 4), "\n")
+cat("Number of LL decreases:", sum(ll_changes < -1e-6), "\n")
+cat("Mean LL change:", round(mean(ll_changes), 6), "\n")
+```
+
+## Example 5: Detecting Boundary Events (DCC Degeneracy)
+
+This example demonstrates how diagnostics reveal when DCC parameters hit boundary constraints:
+
+```{r example5_data}
+# Simulate data with CONSTANT correlation (no DCC dynamics)
+set.seed(123)
+n <- 200
+k <- 2
+
+# Constant correlation throughout
+rho_const <- 0.6
+R_const <- matrix(c(1, rho_const, rho_const, 1), 2, 2)
+
+y_const <- matrix(0, n, k)
+h_const <- matrix(0, n, k)
+
+omega_c <- c(0.1, 0.12)
+alpha_c <- c(0.08, 0.10)
+beta_c <- c(0.88, 0.85)
+
+for (i in 1:k) {
+  h_const[1, i] <- omega_c[i] / (1 - alpha_c[i] - beta_c[i])
+}
+
+for (t in 1:n) {
+  z <- as.vector(mvtnorm::rmvnorm(1, sigma = R_const))
+  
+  for (i in 1:k) {
+    y_const[t, i] <- sqrt(h_const[t, i]) * z[i]
+    
+    if (t < n) {
+      h_const[t+1, i] <- omega_c[i] + alpha_c[i] * y_const[t, i]^2 + 
+        beta_c[i] * h_const[t, i]
+    }
+  }
+}
+
+colnames(y_const) <- c("s1", "s2")
+```
+
+```{r example5_fit}
+# Fit DCC model to constant-correlation data
+fit_boundary <- fit_ms_varma_garch(
+  y = y_const,
+  M = 2,
+  spec = spec_test,
+  model_type = "multivariate",
+  control = list(max_iter = 15, tol = 1e-3),
+  collect_diagnostics = TRUE,
+  verbose = FALSE
+)
+```
+
+```{r example5_analysis}
+# Analyze boundary events
+if (length(fit_boundary$diagnostics$boundary_events) > 0) {
+  cat("\n=== Boundary Events Detected ===\n\n")
+  
+  for (i in seq_along(fit_boundary$diagnostics$boundary_events)) {
+    event <- fit_boundary$diagnostics$boundary_events[[i]]
+    cat(sprintf("Event %d:\n", i))
+    cat("  Iteration:", event$iteration, "\n")
+    cat("  State:", event$state, "\n")
+    cat("  Parameter:", event$parameter, "\n")
+    cat("  Value:", round(event$value, 6), "\n")
+    cat("  Boundary:", event$boundary_type, "\n")
+    cat("  Action:", event$action_taken, "\n\n")
+  }
+  
+  cat("Interpretation: DCC alpha parameters at lower bound indicate\n")
+  cat("the model correctly identified CONSTANT (not dynamic) correlation.\n")
+} else {
+  cat("No boundary events detected.\n")
+}
+
+# Check final correlation types
+cat("\n=== Final Correlation Types ===\n")
+cat("State 1:", 
+    fit_boundary$model_fits[[1]]$correlation_type %||% "dynamic", "\n")
+cat("State 2:", 
+    fit_boundary$model_fits[[2]]$correlation_type %||% "dynamic", "\n")
+```
+
+## Example 6: Using Built-in Plotting Functions
+
+```{r example6, fig.height=8}
+# Use built-in diagnostic plots
+if (requireNamespace("ggplot2", quietly = TRUE)) {
+  plot(fit_with_diag$diagnostics, type = "ll_evolution")
+  plot(fit_with_diag$diagnostics, type = "parameters")
+}
+```
+
+## Example 7: Investigating Specific Problematic Iterations
+
+```{r example7}
+analyze_iteration <- function(diagnostics, iter) {
+  if (iter > length(diagnostics$em_iterations)) {
+    cat("Iteration", iter, "not found\n")
+    return(invisible(NULL))
+  }
+  
+  iter_data <- diagnostics$em_iterations[[iter]]
+  
+  cat("\n=== Iteration", iter, "Analysis ===\n")
+  cat("Log-Likelihood:\n")
+  cat("  Before M-step:", round(iter_data$log_lik_before_mstep, 4), "\n")
+  cat("  After M-step:", round(iter_data$log_lik_after_mstep, 4), "\n")
+  cat("  Change:", round(iter_data$ll_change, 6), "\n")
+  cat("  Decreased:", iter_data$ll_decreased, "\n")
+  cat("Duration:", round(iter_data$duration_seconds, 2), "seconds\n")
+  
+  # Check for warnings
+  iter_warnings <- Filter(
+    function(w) w$iteration == iter, 
+    diagnostics$warnings
+  )
+  if (length(iter_warnings) > 0) {
+    cat("\nWarnings:\n")
+    for (w in iter_warnings) {
+      cat("  Type:", w$type, "\n")
+      cat("  Message:", w$message, "\n")
+    }
+  }
+  
+  # Check for boundary events
+  iter_boundaries <- Filter(
+    function(b) b$iteration == iter,
+    diagnostics$boundary_events
+  )
+  if (length(iter_boundaries) > 0) {
+    cat("\nBoundary Events:\n")
+    for (b in iter_boundaries) {
+      cat("  State:", b$state, "Parameter:", b$parameter,
+          "Value:", round(b$value, 6), "\n")
+    }
+  }
+}
+
+# Analyze first 3 iterations
+for (i in 1:min(3, length(fit_with_diag$diagnostics$em_iterations))) {
+  analyze_iteration(fit_with_diag$diagnostics, i)
+}
+```
+
+## Example 8: Exporting Diagnostics for External Analysis
+
+```{r example8, eval=FALSE}
+# Save diagnostics for archival
+save_diagnostics(fit_with_diag$diagnostics, "my_run_diagnostics.rds")
+
+# Export to CSV for analysis in other tools
+export_diagnostics_to_csv <- function(diagnostics, prefix = "diagnostic") {
+  
+  # EM iterations
+  if (length(diagnostics$em_iterations) > 0) {
+    em_df <- do.call(rbind, lapply(diagnostics$em_iterations, function(x) {
+      data.frame(
+        iteration = x$iteration,
+        ll_before = x$log_lik_before_mstep,
+        ll_after = x$log_lik_after_mstep,
+        ll_change = x$ll_change,
+        ll_decreased = x$ll_decreased,
+        duration_sec = x$duration_seconds,
+        converged = x$converged %||% FALSE,
+        stringsAsFactors = FALSE
+      )
+    }))
+    write.csv(em_df, paste0(prefix, "_em_iterations.csv"), row.names = FALSE)
+  }
+  
+  # Boundary events
+  if (length(diagnostics$boundary_events) > 0) {
+    boundary_df <- do.call(rbind, lapply(diagnostics$boundary_events, function(x) {
+      data.frame(
+        iteration = x$iteration,
+        state = x$state,
+        parameter = x$parameter,
+        value = x$value,
+        boundary_type = x$boundary_type,
+        action_taken = x$action_taken,
+        stringsAsFactors = FALSE
+      )
+    }))
+    write.csv(boundary_df, paste0(prefix, "_boundary_events.csv"), 
+              row.names = FALSE)
+  }
+  
+  # Warnings
+  if (length(diagnostics$warnings) > 0) {
+    warning_df <- do.call(rbind, lapply(diagnostics$warnings, function(x) {
+      data.frame(
+        iteration = x$iteration,
+        type = x$type,
+        message = x$message,
+        stringsAsFactors = FALSE
+      )
+    }))
+    write.csv(warning_df, paste0(prefix, "_warnings.csv"), row.names = FALSE)
+  }
+}
+
+export_diagnostics_to_csv(fit_with_diag$diagnostics, "example_run")
+
+# Load in separate session
+diag_reloaded <- load_diagnostics("my_run_diagnostics.rds")
+summary(diag_reloaded)
+```
+
 # Diagnostic Data Structure
 
 The diagnostic collector returns an S3 object of class `ms_diagnostics` with six components:
@@ -162,4 +757,304 @@ params <- diag$parameter_evolution$state_1[[5]]
 # Contains: 
 #   var_pars (VAR coefficients)
 #   garch_pars (list per series: omega[i], alpha[i], beta[i])
-#   alpha_1, beta_1 (DCC parameters, m
+#   alpha_1, beta_1 (DCC parameters, may be absent if constant correlation)
+#   dist_pars (e.g., shape for MVT)
+#   correlation_type ("dynamic" or "constant")
+```
+
+The `correlation_type` field is diagnostic: if `"constant"`, the DCC parameters were at the boundary and the model automatically switched to constant correlation for that state.
+
+## Volatility Evolution
+
+Tracks the conditional standard deviation process $\sigma_{i,t}$ for each series $i$ in each state $j$.
+
+Structure: `sigma_evolution$state_j_series_i[[k]]` contains:
+
+- `mean_sigma`, `sd_sigma`, `min_sigma`, `max_sigma`: Summary statistics of $\{\sigma_{i,t}\}_{t=1}^T$
+- `first_5`, `last_5`: Initial and terminal values for pattern detection
+- `changed`: Boolean indicating if $\sigma_t$ was successfully recomputed with new parameters
+
+**Diagnostic value:** Volatility should evolve smoothly across iterations. Sharp discontinuities or failure to update (`changed = FALSE`) indicate:
+
+- TMB (Template Model Builder) compilation issues
+- Parameter values outside the valid domain
+- Numerical overflow/underflow in GARCH recursions
+
+## Boundary Events
+
+Records when parameters approach their constraint boundaries during optimization. Each event contains:
+
+- `parameter`: Parameter name (e.g., `"alpha_1"`)
+- `value`: Numeric value at boundary
+- `boundary_type`: `"lower"` or `"upper"`
+- `action_taken`: Automatic remediation (e.g., `"constant_correlation_fallback"`)
+
+**Example:** If DCC parameter $\alpha_1 < 0.015$ (near the lower bound 0.01), the system logs:
+
+```{r eval=FALSE}
+boundary_event <- list(
+  iteration = 8,
+  state = 2,
+  parameter = "alpha_1",
+  value = 0.0123,
+  boundary_type = "lower",
+  action_taken = "constant_correlation_fallback"
+)
+```
+
+This indicates state 2 has minimal correlation dynamics and is better modeled with constant correlation.
+
+## Warnings
+
+All warnings encountered during estimation, categorized by type:
+
+- `"ll_decrease"`: M-step decreased log-likelihood
+- `"dcc_penalty"`: DCC optimization returned penalty value ($10^{10}$) due to invalid parameters
+- `"dcc_bad_correlation"`: Non-positive-definite correlation matrices at some time points
+- `"tmb_skip"`: TMB recomputation was skipped (parameter/dimension mismatch)
+
+Each warning includes:
+
+- `iteration`: EM iteration when warning occurred
+- `message`: Human-readable description
+- `details`: List with diagnostic information (e.g., number of bad observations)
+
+## Convergence Information
+
+Summary of convergence behavior (populated by `summary.ms_diagnostics()`):
+
+- Total EM iterations
+- Final log-likelihood value
+- Total log-likelihood improvement
+- Number of iterations with decreased likelihood
+- Total computation time
+
+# Interpreting Diagnostic Output
+
+## Healthy Convergence Pattern
+
+```{r eval=FALSE}
+summary(diag)
+```
+
+Expected output:
+
+```
+=== MS-VARMA-GARCH Diagnostic Summary ===
+
+EM ITERATIONS:
+  Total iterations: 15
+  Initial LL: -2450.32
+  Final LL: -2398.76
+  Total LL improvement: 51.56
+  LL decreased in 0 iterations
+  Mean LL change per iteration: 3.44
+  Min LL change: 0.00001
+  Max LL change: 15.23
+  Total computation time: 245.67 seconds
+
+BOUNDARY EVENTS:
+  Total boundary events: 0
+
+WARNINGS:
+  Total warnings: 0
+```
+
+**Interpretation:**
+
+- Monotonic likelihood increase ($\Delta \ell^{(k)} \geq 0$ for all $k$)
+- Convergence achieved (minimum change $< 10^{-5}$)
+- No numerical issues
+
+## DCC Degeneracy (Expected Behavior)
+
+```
+BOUNDARY EVENTS:
+  Total boundary events: 1
+    Iteration 6: State 2 - alpha_1 = 0.0118 at lower boundary 
+                 -> constant_correlation_fallback
+```
+
+**Interpretation:** State 2 exhibits constant (not dynamic) correlation. This is a **feature, not a bug**—the model correctly identifies when correlation dynamics are absent and switches to the simpler, more stable constant correlation specification. The state-dependent model becomes:
+
+$$f(y_t \mid S_t=2) = f_{\text{MVN}}(z_t; \bar{R})$$
+
+where $\bar{R}$ is the unconditional correlation matrix.
+
+## Problematic Convergence
+
+```
+EM ITERATIONS:
+  LL decreased in 3 iterations
+  Min LL change: -2.14
+
+WARNINGS:
+  Total warnings: 8
+    dcc_penalty: 3
+    dcc_bad_correlation: 5
+```
+
+**Interpretation:** The M-step optimizer encountered numerical difficulties. Common causes:
+
+1. **Ill-conditioned weighted covariance:** When $\xi_{t|T}^{(j)}$ concentrates on few observations, $\bar{Q}_j$ may be nearly singular.
+
+2. **DCC non-stationarity:** Optimizer explored $\alpha + \beta \geq 1$ during search.
+
+3. **Near-singular correlation matrices:** Some $R_t$ had eigenvalues $\approx 0$.
+
+**Remediation strategies:**
+
+- Reduce the number of states ($M$)
+- Increase the convergence tolerance (`control = list(tol = 1e-4)`)
+- Use better starting values (from a simpler model)
+- Check for data issues (extreme outliers, near-perfect collinearity)
+
+# Visualization
+
+## Log-Likelihood Trajectory
+
+```{r eval=FALSE}
+plot(diag, type = "ll_evolution")
+```
+
+Produces two plots:
+
+1. **Log-likelihood vs. iteration:** Should be monotonically increasing and asymptotically flat.
+
+2. **Log-likelihood change vs. iteration:** Should decay to zero. Negative spikes indicate M-step failures.
+
+## Parameter Trajectories
+
+```{r eval=FALSE}
+plot(diag, type = "parameters")
+```
+
+Displays parameter evolution faceted by parameter type. Look for:
+
+- **Convergence:** Parameters should stabilize (flat trajectories near the end)
+- **Instability:** Oscillating parameters indicate identification problems or multimodality
+- **Boundary behavior:** Parameters hugging bounds suggest model misspecification
+
+## Volatility Evolution
+
+```{r eval=FALSE}
+plot(diag, type = "sigma")
+```
+
+Shows mean volatility $\pm$ one standard deviation across iterations for each series in each state.
+
+**Expected pattern:** Smooth evolution with decreasing variance as parameters converge.
+
+**Warning signs:**
+
+- Discontinuous jumps (numerical issues)
+- Increasing spread (non-convergence)
+- Constant trajectories (parameters not updating)
+
+# Advanced Diagnostic Techniques
+
+## Extracting Specific Iteration Data
+
+```{r eval=FALSE}
+# Get parameters for state 1 at iteration 10
+params_10 <- diag$parameter_evolution$state_1[[10]]
+
+# DCC parameters across all iterations for state 2
+alpha_trajectory <- sapply(
+  diag$parameter_evolution$state_2,
+  function(x) x$parameters$alpha_1
+)
+```
+
+## Identifying Problematic States
+
+```{r eval=FALSE}
+# Find states that switched to constant correlation
+constant_states <- sapply(names(diag$parameter_evolution), function(state_key) {
+  state_params <- diag$parameter_evolution[[state_key]]
+  final_params <- state_params[[length(state_params)]]
+  
+  if (!is.null(final_params$parameters$correlation_type)) {
+    return(final_params$parameters$correlation_type == "constant")
+  }
+  return(FALSE)
+})
+
+which(constant_states)  # Returns state indices
+```
+
+## Analyzing Likelihood Decomposition
+
+The M-step change in log-likelihood can be decomposed:
+
+$$\Delta \ell^{(k)} = \sum_{j=1}^M \Delta \ell_j^{(k)}$$
+
+where $\Delta \ell_j^{(k)}$ is the contribution from state $j$. While not directly stored, this can be reconstructed from the state-specific likelihoods in future package versions.
+
+## Persistence and Post-Analysis
+
+```{r eval=FALSE}
+# Save diagnostics for later analysis
+save_diagnostics(diag, filepath = "run_2024_diagnostics.rds")
+
+# Load in separate session
+diag <- load_diagnostics("run_2024_diagnostics.rds")
+summary(diag)
+```
+
+This enables:
+
+- Comparing multiple model specifications
+- Archiving results for reproducibility
+- Offline analysis of long-running jobs
+
+# Computational Overhead
+
+Diagnostic collection imposes minimal overhead:
+
+- **EM iteration tracking:** Negligible (simple scalar operations)
+- **Parameter storage:** $O(Mp)$ per iteration, where $p$ is the number of parameters per state
+- **Sigma tracking:** $O(MkT)$ per iteration for $k$ series and $T$ observations
+- **Total overhead:** Typically $< 5\%$ of total runtime
+
+For very large $T$ (e.g., $T > 10^5$), consider:
+
+- Thinning sigma storage (every $n$-th iteration)
+- Storing summary statistics only (mean, variance)
+- Disabling sigma tracking for univariate models
+
+# Troubleshooting Guide
+
+| Symptom | Likely Cause | Solution |
+|---------|-------------|----------|
+| LL decreases every iteration | Poor starting values | Initialize from simpler model |
+| LL oscillates | Multimodal likelihood | Increase EM tolerance, try multiple starts |
+| Many `dcc_penalty` warnings | Invalid parameter space exploration | Tighten optimizer bounds |
+| `tmb_skip` warnings | Dimension mismatch | Check spec consistency (internal bug) |
+| All states → constant correlation | Over-parameterized model | Reduce $M$ or use simpler GARCH specs |
+| Very slow convergence ($>100$ iterations) | Flat likelihood region | Check identification, consider penalties |
+| `dcc_bad_correlation` > 10% of observations | Numerical instability | Increase DCC lower bounds, check for outliers |
+
+# Best Practices
+
+1. **Always enable diagnostics during development:** Set `collect_diagnostics = TRUE` until you are confident the model specification is appropriate.
+
+2. **Use verbose file output for production runs:** Avoid console clutter and enable post-hoc analysis with `verbose_file`.
+
+3. **Monitor the first 5-10 iterations closely:** Most numerical issues manifest early. If the likelihood decreases in iterations 1-5, stop and investigate.
+
+4. **Expect boundary events in DCC models:** It is common (and correct) for some states to have constant correlation. This is not a failure.
+
+5. **Archive diagnostics with results:** Store diagnostic objects alongside fitted models for reproducibility and debugging.
+
+6. **Compare diagnostics across model specifications:** Use diagnostic plots to select $M$, GARCH orders, and distributional assumptions.
+
+# References
+
+Dempster, A. P., Laird, N. M., & Rubin, D. B. (1977). Maximum likelihood from incomplete data via the EM algorithm. *Journal of the Royal Statistical Society: Series B*, 39(1), 1-22.
+
+Engle, R. (2002). Dynamic conditional correlation: A simple class of multivariate generalized autoregressive conditional heteroskedasticity models. *Journal of Business & Economic Statistics*, 20(3), 339-350.
+
+Hamilton, J. D. (1989). A new approach to the economic analysis of nonstationary time series and the business cycle. *Econometrica*, 57(2), 357-384.
+
+Kim, C. J. (1994). Dynamic linear models with Markov-switching. *Journal of Econometrics*, 60(1-2), 1-22.
