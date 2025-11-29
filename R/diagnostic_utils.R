@@ -1071,3 +1071,80 @@ generate_dcc_spec <- function(M,
   
   return(spec_list)
 }
+
+
+#' @title Generate Single-State DCC Specification
+#' @description Creates a specification for a single-state (no regime switching) 
+#'   DCC-GARCH model. Useful for testing parameter recovery.
+#' @keywords internal
+generate_single_state_dcc_spec <- function(k = 2,
+                                           var_order = 1,
+                                           garch_order = c(1, 1),
+                                           distribution = "mvn",
+                                           omega = NULL,
+                                           alpha_garch = NULL,
+                                           beta_garch = NULL,
+                                           dcc_alpha = NULL,
+                                           dcc_beta = NULL,
+                                           seed = NULL) {
+  
+  if (!is.null(seed)) set.seed(seed)
+  
+  # Default parameter values
+  omega <- omega %||% rep(0.1, k)
+  alpha_garch <- alpha_garch %||% rep(0.1, k)
+  beta_garch <- beta_garch %||% rep(0.8, k)
+  dcc_alpha <- dcc_alpha %||% 0.05
+  dcc_beta <- dcc_beta %||% 0.90
+  
+  # Univariate GARCH spec
+  spec_uni_garch <- list(
+    model = "garch",
+    garch_order = garch_order,
+    distribution = "norm"
+  )
+  
+  # DCC arguments
+  dcc_spec_args <- list(
+    dcc_order = c(1, 1),
+    dynamics = "dcc",
+    distribution = distribution,
+    garch_model = list(
+      univariate = replicate(k, spec_uni_garch, simplify = FALSE)
+    )
+  )
+  
+  # Build GARCH parameter list
+  garch_pars_list <- lapply(1:k, function(i) {
+    list(
+      omega = omega[i],
+      alpha1 = alpha_garch[i],
+      beta1 = beta_garch[i]
+    )
+  })
+  
+  # Distribution parameters
+  dist_pars <- if (distribution == "mvt") {
+    list(shape = 8.0)
+  } else {
+    NULL
+  }
+  
+  # Complete specification (wrapped in list for consistency with M-state case)
+  spec_list <- list(
+    list(
+      var_order = var_order,
+      garch_spec_fun = "dcc_modelspec",
+      garch_spec_args = dcc_spec_args,
+      distribution = distribution,
+      start_pars = list(
+        var_pars = rep(0.1, k * (1 + k * var_order)),
+        garch_pars = garch_pars_list,
+        dcc_pars = list(alpha_1 = dcc_alpha, beta_1 = dcc_beta),
+        dist_pars = dist_pars
+      )
+    )
+  )
+  
+  return(spec_list)
+}
