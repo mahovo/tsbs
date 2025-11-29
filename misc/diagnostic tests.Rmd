@@ -1,5 +1,5 @@
-## NOTE: This is actually not a test, it just writes diagnostics to console
-## (no log saved)
+
+```{r}
 test_that("DIAGNOSTIC: Convergence criteria and tolerance analysis", {
   skip_on_cran()
   
@@ -318,8 +318,9 @@ test_that("DIAGNOSTIC: Convergence criteria and tolerance analysis", {
     cat("  Recommend stricter tolerance\n")
   }
 })
+```
 
-
+```{r}
 test_that("DIAGNOSTIC: Detailed M-step analysis with beta near zero", {
   skip_on_cran()
   
@@ -496,8 +497,11 @@ test_that("DIAGNOSTIC: Detailed M-step analysis with beta near zero", {
   cat("3. Check if optimizer is reporting convergence or hitting bounds\n")
   cat("4. Look for any 'Returning penalty' messages\n")
 })
+```
 
 
+
+```{r}
 test_that("DIAGNOSTIC: Does beta lower bound = 0.01 prevent LL decreases?", {
   skip_on_cran()
   
@@ -646,3 +650,4 @@ test_that("DIAGNOSTIC: Does beta lower bound = 0.01 prevent LL decreases?", {
   saveRDS(fit, "fit_beta_bounded.rds")
   assign("fit_beta_bounded", fit, envir = .GlobalEnv)
 })
+```
