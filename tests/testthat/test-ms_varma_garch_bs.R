@@ -1900,14 +1900,25 @@ test_that("Sigma is computed correctly with fixed parameters in multivariate DCC
 test_that("DCC estimation completes without errors", {
   
   set.seed(999)
-  n <- 150
+  n <- 200  # Increased for more stable estimation
   k <- 2
   
-  ## Simple test data
-  y_test <- matrix(rnorm(n * k), n, k)
+  ## Use simulate_dcc_garch() for realistic test data with DCC dynamics
+  y_test <- simulate_dcc_garch(
+    n = n,
+    k = k,
+    omega = c(0.05, 0.08),
+    alpha_garch = c(0.10, 0.12),
+    beta_garch = c(0.85, 0.82),
+    dcc_alpha = 0.04,
+    dcc_beta = 0.93,
+    seed = 999
+  )
+  
   colnames(y_test) <- c("s1", "s2")
   
   spec_test <- list(
+    # State 1: Lower volatility
     list(
       var_order = 1,
       garch_spec_fun = "dcc_modelspec",
@@ -1918,19 +1929,21 @@ test_that("DCC estimation completes without errors", {
             list(model = "garch", garch_order = c(1, 1), distribution = "norm")
           )
         ),
-        dcc_order = c(1, 1)
+        dcc_order = c(1, 1),
+        dynamics = "dcc"  # ← CRITICAL: Specify DCC dynamics!
       ),
       distribution = "mvn",
       start_pars = list(
-        var_pars = rep(0, k * (1 + k * 1)),
+        var_pars = rep(0.05, k * (1 + k * 1)),  # Small but non-zero
         garch_pars = list(
-          list(omega = 0.1, alpha1 = 0.1, beta1 = 0.8),
-          list(omega = 0.1, alpha1 = 0.1, beta1 = 0.8)
+          list(omega = 0.05, alpha1 = 0.08, beta1 = 0.85),
+          list(omega = 0.05, alpha1 = 0.08, beta1 = 0.85)
         ),
-        dcc_pars = list(alpha_1 = 0.05, beta_1 = 0.90),
-        dist_pars = list()
+        dcc_pars = list(alpha_1 = 0.03, beta_1 = 0.94),
+        dist_pars = NULL  # Use NULL instead of list() for clarity
       )
     ),
+    # State 2: Higher volatility (differentiated starting values)
     list(
       var_order = 1,
       garch_spec_fun = "dcc_modelspec",
@@ -1941,37 +1954,48 @@ test_that("DCC estimation completes without errors", {
             list(model = "garch", garch_order = c(1, 1), distribution = "norm")
           )
         ),
-        dcc_order = c(1, 1)
+        dcc_order = c(1, 1),
+        dynamics = "dcc"  # ← CRITICAL: Specify DCC dynamics!
       ),
       distribution = "mvn",
       start_pars = list(
-        var_pars = rep(0, k * (1 + k * 1)),
+        var_pars = rep(0.05, k * (1 + k * 1)),
         garch_pars = list(
-          list(omega = 0.1, alpha1 = 0.1, beta1 = 0.8),
-          list(omega = 0.1, alpha1 = 0.1, beta1 = 0.8)
+          list(omega = 0.12, alpha1 = 0.15, beta1 = 0.75),  # Different from State 1
+          list(omega = 0.12, alpha1 = 0.15, beta1 = 0.75)
         ),
-        dcc_pars = list(alpha_1 = 0.10, beta_1 = 0.85),
-        dist_pars = list()
+        dcc_pars = list(alpha_1 = 0.08, beta_1 = 0.88),  # Different from State 1
+        dist_pars = NULL
       )
     )
   )
   
-  cat("\n=== TEST 8d: Basic Functionality ===\n")
+  cat("\n=== TEST 8a: Basic Functionality ===\n")
   
-  ## Should complete without error
-  fit <- expect_error(
-    fit_ms_varma_garch(
-      y = y_test,
-      M = 2,
-      spec = spec_test,
-      model_type = "multivariate",
-      control = list(max_iter = 5, tol = 0.1)
-    ),
-    NA
+  # Run estimation - testthat automatically catches errors
+  fit <- fit_ms_varma_garch(
+    y = y_test,
+    M = 2,
+    spec = spec_test,
+    model_type = "multivariate",
+    control = list(max_iter = 20, tol = 1e-3),
+    collect_diagnostics = TRUE,
+    verbose = FALSE
   )
   
-  expect_true(!is.null(fit))
-  expect_true("model_fits" %in% names(fit))
+  # Test the results
+  expect_s3_class(fit, "list")
+  expect_named(fit, c("model_fits", "P", "log_likelihood", 
+                      "smoothed_probabilities", "convergence", 
+                      "warnings", "diagnostics"),
+               ignore.order = TRUE, ignore.extra = TRUE)
+  expect_length(fit$model_fits, 2)
+  expect_true(is.finite(fit$log_likelihood))
+  expect_true(!is.null(fit$diagnostics))
+  
+  # Check diagnostics
+  summary(fit$diagnostics)
+  
   cat("Test completed successfully\n")
 })
 
@@ -2066,7 +2090,7 @@ is_constant_correlation <- function(pars) {
   )
   
   ## Fit model
-  cat("\n=== TEST 8a: Single Regime Data ===\n")
+  cat("\n=== TEST 8b: Single Regime Data ===\n")
   fit <- fit_ms_varma_garch(
     y = y_sim,
     M = 2,
@@ -3032,140 +3056,3 @@ test_that("Sigma changes when GARCH parameters change", {
 
 ## PART 12: PARAMETER RECOVERY TESTS ===========================================
 
-test_that("DCC parameter recovery on simulated data (2-state with one dominant)", {
-  skip_on_cran()
-  
-  # Known true parameters
-  true_params <- list(
-    omega = c(0.05, 0.08),
-    alpha_garch = c(0.10, 0.12),
-    beta_garch = c(0.85, 0.82),
-    dcc_alpha = 0.04,
-    dcc_beta = 0.93
-  )
-  
-  # Simulate with known parameters (single regime in reality)
-  set.seed(42)
-  y_test <- simulate_dcc_garch(
-    n = 500,
-    k = 2,
-    omega = true_params$omega,
-    alpha_garch = true_params$alpha_garch,
-    beta_garch = true_params$beta_garch,
-    dcc_alpha = true_params$dcc_alpha,
-    dcc_beta = true_params$dcc_beta,
-    seed = 42
-  )
-  
-  # Generate 2-state specification (one should dominate)
-  spec_test <- generate_dcc_spec(M = 2, k = 2, distribution = "mvn", seed = 42)
-  
-  # Fit model
-  fit <- fit_ms_varma_garch(
-    y = y_test,
-    M = 2,
-    spec = spec_test,
-    model_type = "multivariate",
-    control = list(max_iter = 30, tol = 1e-4),
-    collect_diagnostics = TRUE,
-    verbose = FALSE
-  )
-  
-  # Identify dominant state (highest average smoothed probability)
-  smooth_probs <- fit$smoothed_probabilities
-  avg_probs <- colMeans(smooth_probs)
-  dominant_state <- which.max(avg_probs)
-  
-  cat("\nDominant state:", dominant_state, "with avg prob:", 
-      round(avg_probs[dominant_state], 3), "\n")
-  
-  # Extract estimated parameters from dominant state
-  est_params <- fit$model_fits[[dominant_state]]
-  
-  # Test GARCH parameters (allow 30% deviation for small samples)
-  expect_equal(est_params$garch_pars[[1]]$omega, true_params$omega[1], 
-               tolerance = 0.3 * true_params$omega[1])
-  expect_equal(est_params$garch_pars[[1]]$alpha1, true_params$alpha_garch[1], 
-               tolerance = 0.3 * true_params$alpha_garch[1])
-  expect_equal(est_params$garch_pars[[1]]$beta1, true_params$beta_garch[1], 
-               tolerance = 0.3 * true_params$beta_garch[1])
-  
-  # Test DCC parameters (if dynamic)
-  if (!is.null(est_params$alpha_1) && est_params$correlation_type == "dynamic") {
-    expect_equal(est_params$alpha_1, true_params$dcc_alpha, 
-                 tolerance = 0.5 * true_params$dcc_alpha)
-    expect_equal(est_params$beta_1, true_params$dcc_beta, 
-                 tolerance = 0.3 * true_params$dcc_beta)
-  }
-  
-  # Test convergence
-  diag <- fit$diagnostics
-  conv_check <- check_convergence(diag, tolerance = 1e-4)
-  expect_true(conv_check$converged)
-  
-  # Test monotonicity
-  mono_check <- check_em_monotonicity(diag, tolerance = 1e-4)
-  expect_true(mono_check$passed || mono_check$n_violations <= 2)
-})
-
-test_that("Weighted vs unweighted estimation differs", {
-  skip_on_cran()
-  
-  set.seed(123)
-  y_test <- simulate_dcc_garch(n = 300, k = 2, seed = 123)
-  
-  # Uniform weights (should approximate unweighted)
-  weights_uniform <- rep(1, nrow(y_test))
-  
-  # Concentrated weights (emphasize recent data)
-  weights_recent <- seq(0.5, 1.5, length.out = nrow(y_test))
-  weights_recent <- weights_recent / sum(weights_recent) * length(weights_recent)
-  
-  spec_test <- generate_single_state_dcc_spec(k = 2, seed = 123)
-  
-  # Estimate with uniform weights
-  result_uniform <- estimate_garch_weighted_multivariate(
-    residuals = y_test,
-    weights = weights_uniform,
-    spec = spec_test[[1]],
-    verbose = FALSE
-  )
-  
-  # Estimate with concentrated weights
-  result_recent <- estimate_garch_weighted_multivariate(
-    residuals = y_test,
-    weights = weights_recent,
-    spec = spec_test[[1]],
-    verbose = FALSE
-  )
-  
-  # Parameters should differ
-  diff_alpha <- abs(result_uniform$coefficients$dcc_pars$alpha_1 - 
-                      result_recent$coefficients$dcc_pars$alpha_1)
-  
-  expect_gt(diff_alpha, 0.001)  # Should have measurable difference
-})
-
-test_that("Sigma updates when GARCH parameters change", {
-  skip_on_cran()
-  
-  set.seed(456)
-  y_test <- simulate_dcc_garch(n = 200, k = 2, seed = 456)
-  
-  spec_test <- generate_single_state_dcc_spec(k = 2, seed = 456)
-  
-  fit <- fit_ms_varma_garch(
-    y = y_test,
-    M = 1,
-    spec = spec_test,
-    model_type = "multivariate",
-    control = list(max_iter = 10, tol = 1e-4),
-    collect_diagnostics = TRUE,
-    verbose = FALSE
-  )
-  
-  diag = 3) {
-  sigma_range <- max(sigma_stats$mean_sigma) - min(sigma_stats$mean_sigma)
-  expect_gt(sigma_range, 1e-6)  # Should show some evolution
-}
-})

@@ -8,7 +8,7 @@
 
 #' @title Generate Correct Parameter Names for tsmarch
 #' @description Translates a nested parameter list into the flat named list
-#'              that tsmarch's parmatrix expects (e.g., "omega[1]").
+#'              that tsmarch's parmatrix expects (e.g., "omega\[1\]").
 #' @param pars A nested parameter list.
 #' @return A flat named list.
 #' @keywords internal
@@ -945,7 +945,20 @@ estimate_garch_weighted_dcc <- function(
   alpha_params <- dcc_result$dcc_pars[grepl("alpha", names(dcc_result$dcc_pars))]
   is_degenerate <- any(unlist(alpha_params) < 0.015)  # Near lower bound
   
+  # DEBUG: Add this
+  if (!is.null(iteration)) {
+    cat(sprintf("\n[DEBUG] Degeneracy check (State %d, Iter %d):\n", state, iteration))
+    cat(sprintf("  alpha values: %s\n", paste(unlist(alpha_params), collapse=", ")))
+    cat(sprintf("  is_degenerate: %s\n", is_degenerate))
+  }
+  
   if (is_degenerate) {
+    
+    # DEBUG: Add this
+    if (!is.null(iteration)) {
+      cat(sprintf("  ACTION: Switching to constant correlation\n"))
+    }
+    
     if(verbose) {
       cat("\n=== DCC DEGENERACY DETECTED ===\n")
       cat("Alpha parameter(s) at lower bound:", unlist(alpha_params), "\n")
@@ -961,7 +974,8 @@ estimate_garch_weighted_dcc <- function(
         dist_pars = dcc_result$dist_pars,
         correlation_type = "constant"
       ),
-      warnings = c(warnings_stage1, dcc_result$warnings)
+      warnings = c(warnings_stage1, dcc_result$warnings),
+      diagnostics = diagnostics  # DEBUG: Is this being returned?
     ))
   }
   
@@ -1505,6 +1519,12 @@ perform_m_step_parallel_r <- function(
       verbose = verbose
     )
     
+    # DEBUG: Add this
+    if (!is.null(iteration) && !is.null(new_variance_fit$diagnostics)) {
+      cat(sprintf("[DEBUG] State %d returned diagnostics with %d boundary events\n",
+                  j, length(new_variance_fit$diagnostics$boundary_events)))
+    }
+    
     ## === Structure the output ===
     if (model_type == "univariate") {
       all_params <- new_variance_fit$coefficients
@@ -1569,6 +1589,15 @@ perform_m_step_parallel_r <- function(
     }
     
   }, future.seed = TRUE, future.packages = required_packages)
+  
+  # DEBUG: Add this to check what's being returned
+  if (!is.null(iteration)) {
+    cat(sprintf("\n[DEBUG] After future_lapply, iteration %d:\n", iteration))
+    for (j in seq_along(updated_fits)) {
+      has_diag <- "diagnostics" %in% names(updated_fits[[j]])
+      cat(sprintf("  State %d returned diagnostics? %s\n", j, has_diag))
+    }
+  }
   
   return(updated_fits)
 }

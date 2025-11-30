@@ -14,6 +14,6 @@ A flat named list.
 }
 \description{
 Translates a nested parameter list into the flat named list
-that tsmarch's parmatrix expects (e.g., "omega\link{1}").
+that tsmarch's parmatrix expects (e.g., "omega[1]").
 }
 \keyword{internal}

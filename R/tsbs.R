@@ -103,7 +103,7 @@
 #'
 #' \itemize{
 #' \item \strong{For univariate models (one-column x):}
-#' Each element spec[[j]] must be a list with the following components. For a
+#' Each element spec\[\[j\]\] must be a list with the following components. For a
 #' complete list of all possible arguments (e.g., for different GARCH model
 #' flavors), please refer to the documentation for the tsgarch package
 #' (`?tsgarch` and
@@ -140,7 +140,7 @@
 #'   }
 #'
 #' \item \strong{For multivariate models (multi-column x):}  
-#' Each element spec[[j]] must be a list with the following components. For a
+#' Each element spec\[\[j\]\] must be a list with the following components. For a
 #' complete list of all possible arguments, please refer to the documentation
 #' for the relevant tsmarch specification function. For a DCC model see
 #' `?dcc_modelspec.tsgarch.multi_estimate`, for a Copula GARCH model see

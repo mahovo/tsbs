@@ -175,7 +175,7 @@ bootstrap series is always the same as the original series.
 
 \itemize{
 \item \strong{For univariate models (one-column x):}
-Each element spec[\link{j}] must be a list with the following components. For a
+Each element spec[[j]] must be a list with the following components. For a
 complete list of all possible arguments (e.g., for different GARCH model
 flavors), please refer to the documentation for the tsgarch package
 (\code{?tsgarch} and
@@ -212,7 +212,7 @@ univariate dist params (e.g. list(skew = 1.0, shape = 6.0)).
 }
 
 \item \strong{For multivariate models (multi-column x):}
-Each element spec[\link{j}] must be a list with the following components. For a
+Each element spec[[j]] must be a list with the following components. For a
 complete list of all possible arguments, please refer to the documentation
 for the relevant tsmarch specification function. For a DCC model see
 \code{?dcc_modelspec.tsgarch.multi_estimate}, for a Copula GARCH model see
