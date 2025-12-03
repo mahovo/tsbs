@@ -66,6 +66,10 @@ Rcpp::List fit_ms_varma_garch_cpp(
   //Rcpp::Function perform_m_step_parallel_r = pkg_env["perform_m_step_parallel_r"];
   Rcpp::Function perform_m_step_r = pkg_env["perform_m_step_r"];
   
+  // Extract DCC control parameters
+  double dcc_threshold = Rcpp::as<double>(control["dcc_boundary_threshold"]);
+  std::string dcc_criterion = Rcpp::as<std::string>(control["dcc_boundary_criterion"]);
+  
   // Load diagnostic functions if needed
   // Rcpp::Function add_em_iteration_diagnostic = R_NilValue;
   // Rcpp::Function add_parameter_evolution = R_NilValue;
@@ -161,7 +165,9 @@ Rcpp::List fit_ms_varma_garch_cpp(
         model_type,
         Rcpp::Named("diagnostics") = diag_collector,
         Rcpp::Named("iteration") = iter + 1,
-        Rcpp::Named("verbose") = verbose
+        Rcpp::Named("verbose") = verbose,
+        Rcpp::Named("dcc_threshold") = dcc_threshold,
+        Rcpp::Named("dcc_criterion") = dcc_criterion
       ));
       
       // Extract fits and diagnostics
@@ -174,7 +180,9 @@ Rcpp::List fit_ms_varma_garch_cpp(
         smooth_probs, 
         spec, 
         model_type,
-        Rcpp::Named("verbose") = verbose
+        Rcpp::Named("verbose") = verbose,
+        Rcpp::Named("dcc_threshold") = dcc_threshold,
+        Rcpp::Named("dcc_criterion") = dcc_criterion
       ));
       
       // Extract just fits (no diagnostics)

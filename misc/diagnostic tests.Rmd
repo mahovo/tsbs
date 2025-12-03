@@ -721,6 +721,166 @@ WARNING: This test may take hours!
 
 
 
+## Test 8e: Test "DCC estimation with BIC criterion (default)"
+```{r}
+#test_that("DCC estimation with BIC criterion (default)", {
+  
+  set.seed(999)
+  y_test <- simulate_dcc_garch(
+    n = 200, k = 2,
+    omega = c(0.05, 0.08),
+    alpha_garch = c(0.10, 0.12),
+    beta_garch = c(0.85, 0.82),
+    dcc_alpha = 0.04,
+    dcc_beta = 0.93,
+    seed = 999
+  )
+  
+  spec_test <- generate_dcc_spec(M = 2, k = 2, seed = 999)
+  
+  fit <- fit_ms_varma_garch(
+    y = y_test,
+    M = 2,
+    spec = spec_test,
+    model_type = "multivariate",
+    control = list(
+      max_iter = 20,
+      tol = 1e-3
+      # Using defaults: dcc_boundary_criterion = "bic"
+    ),
+    collect_diagnostics = TRUE,
+    verbose = TRUE,
+    verbose_file = "../output/verbose_test_8e.log"
+  )
+  
+  # Check results
+  diag <- fit$diagnostics
+  
+  cat("\n=== DIAGNOSTIC SUMMARY ===\n")
+  summary(diag)
+  
+  cat("\n=== CONVERGENCE CHECK ===\n")
+  conv_check <- check_convergence(diag, tolerance = 1e-3)
+  print(conv_check)
+  
+  cat("\n=== MONOTONICITY CHECK ===\n")
+  mono_check <- check_em_monotonicity(diag, tolerance = 1e-6)
+  print(mono_check)
+  
+  cat("\n=== FINAL MODEL STRUCTURE ===\n")
+  for (j in 1:2) {
+    cat(sprintf("State %d: %s correlation\n", j,
+                fit$model_fits[[j]]$correlation_type %||% "dynamic"))
+  }
+  
+  # Tests
+  expect_true(!is.null(fit))
+  expect_true(!is.null(fit$diagnostics))
+  
+  # Should have fewer LL decreases than before
+  expect_lte(mono_check$n_violations, 3)
+#})
+```
+
+
+## Test 8f: Test "DCC estimation with AIC criterion"
+
+```{r}
+#test_that("DCC estimation with AIC criterion", {
+  
+  set.seed(999)
+  y_test <- simulate_dcc_garch(n = 200, k = 2, seed = 999)
+  spec_test <- generate_dcc_spec(M = 2, k = 2, seed = 999)
+  
+  fit <- fit_ms_varma_garch(
+    y = y_test,
+    M = 2,
+    spec = spec_test,
+    model_type = "multivariate",
+    control = list(
+      max_iter = 20,
+      tol = 1e-3,
+      dcc_boundary_criterion = "aic"  # Use AIC
+    ),
+    collect_diagnostics = TRUE,
+    verbose = FALSE,
+    verbose_file = "../output/verbose_test_8f.log"
+  )
+  
+  cat("\n=== Testing AIC Criterion ===\n")
+  summary(fit$diagnostics)
+  
+  expect_true(!is.null(fit))
+#})
+```
+
+
+## Test 8g: Test "DCC estimation with threshold criterion (old behavior)"
+
+```{r}
+test_that("DCC estimation with threshold criterion (old behavior)", {
+  
+  set.seed(999)
+  y_test <- simulate_dcc_garch(n = 200, k = 2, seed = 999)
+  spec_test <- generate_dcc_spec(M = 2, k = 2, seed = 999)
+  
+  fit <- fit_ms_varma_garch(
+    y = y_test,
+    M = 2,
+    spec = spec_test,
+    model_type = "multivariate",
+    control = list(
+      max_iter = 20,
+      tol = 1e-3,
+      dcc_boundary_criterion = "threshold",
+      dcc_boundary_threshold = 0.02
+    ),
+    collect_diagnostics = TRUE,
+    verbose = FALSE,
+    verbose_file = "../output/verbose_test_8g.log"
+  )
+  
+  cat("\n=== Testing Threshold Criterion ===\n")
+  summary(fit$diagnostics)
+  
+  expect_true(!is.null(fit))
+})
+```
+
+
+## Test 8h: Test "DCC estimation without refitting"
+```{r}
+#test_that("DCC estimation without refitting", {
+  
+  set.seed(999)
+  y_test <- simulate_dcc_garch(n = 200, k = 2, seed = 999)
+  spec_test <- generate_dcc_spec(M = 2, k = 2, seed = 999)
+  
+  fit <- fit_ms_varma_garch(
+    y = y_test,
+    M = 2,
+    spec = spec_test,
+    model_type = "multivariate",
+    control = list(
+      max_iter = 20,
+      tol = 1e-3,
+      dcc_allow_refitting = FALSE  # Disable refitting
+    ),
+    collect_diagnostics = TRUE,
+    verbose = FALSE,
+    verbose_file = "../output/verbose_test_8h.log"
+  )
+  
+  cat("\n=== Testing Without Refitting ===\n")
+  summary(fit$diagnostics)
+  
+  expect_true(!is.null(fit))
+#})
+```
+
+
+
+
 
 ## Other diagnostic tests
 
@@ -1376,3 +1536,7 @@ test_that("DIAGNOSTIC: Does beta lower bound = 0.01 prevent LL decreases?", {
   assign("fit_beta_bounded", fit, envir = .GlobalEnv)
 })
 ```
+
+
+
+

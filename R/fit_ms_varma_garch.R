@@ -113,95 +113,308 @@ fit_ms_varma_garch <- function(
   # }
   
   ## --- 2. Set Control Parameters ---
-  ctrl <- list(max_iter = 100, tol = 1e-6)
-  ctrl[names(control)] <- control 
+  # ctrl <- list(max_iter = 100, tol = 1e-6)
+  # ctrl[names(control)] <- control 
+  ## Default control parameters
+  control_defaults <- list(
+    max_iter = 50,
+    tol = 1e-4,
+    dcc_boundary_threshold = 0.02,
+    dcc_boundary_criterion = "bic",  # "threshold", "aic", or "bic"
+    dcc_allow_refitting = TRUE
+  )
   
-  ## --- 3. Pre-processing: Handle Differencing ---
-  y_orig <- y_mat
-  T_orig <- nrow(y_orig)
+  control <- modifyList(control_defaults, control)
   
-  if (d > 0) {
-    if (T_orig <= d) {
-      stop("The number of observations must be greater than the differencing order 'd'.")
-    }
-    y_effective <- as.matrix(diff(y_orig, differences = d))
-  } else {
-    y_effective <- y_orig
+  ## Validate control parameters
+  if (!control$dcc_boundary_criterion %in% c("threshold", "aic", "bic")) {
+    stop("control$dcc_boundary_criterion must be 'threshold', 'aic', or 'bic'")
   }
   
-  T_eff <- nrow(y_effective)
+  if (control$dcc_boundary_threshold <= 0 || control$dcc_boundary_threshold >= 1) {
+    stop("control$dcc_boundary_threshold must be between 0 and 1")
+  }
+  
+  ## --- 3. Pre-processing: Handle Differencing ---
+  # y_orig <- y_mat
+  # T_orig <- nrow(y_orig)
+  # 
+  # if (d > 0) {
+  #   if (T_orig <= d) {
+  #     stop("The number of observations must be greater than the differencing order 'd'.")
+  #   }
+  #   y_effective <- as.matrix(diff(y_orig, differences = d))
+  # } else {
+  #   y_effective <- y_orig
+  # }
+  # 
+  # T_eff <- nrow(y_effective)
+  
+  if (d > 0) {
+    y_diff <- diff(y, differences = d)
+  } else {
+    y_diff <- y
+  }
   
   ## --- 4. Initialize Diagnostics Collector (if requested) ---
-  diagnostics <- if (collect_diagnostics) create_diagnostic_collector() else NULL
+  diagnostics <- if (collect_diagnostics) {
+    create_diagnostic_collector()
+  } else {
+    NULL
+  }
   
   ## --- 5. Call the C++ Backend ---
-  if (verbose) message("Fitting the MS-ARMA-GARCH model via C++ EM algorithm...")
+  #if (verbose) message("Fitting the MS-ARMA-GARCH model via C++ EM algorithm...")
+  if (verbose) {
+    cat("\n=== MS-VARMA-GARCH Model Fitting ===\n")
+    cat("Model type:", model_type, "\n")
+    cat("Number of states:", M, "\n")
+    cat("Sample size:", nrow(y_diff), "\n")
+    cat("Control parameters:\n")
+    cat("  max_iter:", control$max_iter, "\n")
+    cat("  tol:", control$tol, "\n")
+    cat("  dcc_boundary_threshold:", control$dcc_boundary_threshold, "\n")
+    cat("  dcc_boundary_criterion:", control$dcc_boundary_criterion, "\n")
+    cat("  dcc_allow_refitting:", control$dcc_allow_refitting, "\n\n")
+    cat("Fitting the MS-ARMA-GARCH model via C++ EM algorithm...\n")
+  }
 
-  cpp_results <- fit_ms_varma_garch_cpp(
-    y = y_effective,
+  ## === INITIAL FIT: Dynamic correlation for all states ===
+  # cpp_results <- fit_ms_varma_garch_cpp(
+  #   y = y_effective,
+  #   M = M,
+  #   spec = spec,
+  #   model_type = model_type,
+  #   control = ctrl,
+  #   diagnostics = diagnostics,  ## PASS diagnostics to C++
+  #   verbose = verbose
+  # )
+  fit_result <- fit_ms_varma_garch_cpp(
+    y = y_diff,
     M = M,
     spec = spec,
     model_type = model_type,
-    control = ctrl,
-    diagnostics = diagnostics,  ## PASS diagnostics to C++
+    control = control,
+    diagnostics = diagnostics,
     verbose = verbose
   )
+  
+  ## === SHORT-CIRCUIT: Check if any states hit boundary ===
+  if (control$dcc_allow_refitting && model_type == "multivariate") {
+    
+    boundary_states <- detect_boundary_states(
+      fit_result, 
+      threshold = control$dcc_boundary_threshold,
+      criterion = control$dcc_boundary_criterion
+    )
+    
+    if (length(boundary_states) > 0) {
+      if (verbose) {
+        cat("\n=== BOUNDARY DETECTION ===\n")
+        cat("States", paste(boundary_states, collapse = ", "), 
+            "hit DCC parameter boundary.\n")
+        cat("Refitting with constant correlation for these states...\n\n")
+      }
+      
+      ## Create modified spec with constant correlation for boundary states
+      spec_refit <- spec
+      for (j in boundary_states) {
+        spec_refit[[j]]$force_constant_correlation <- TRUE
+      }
+      
+      ## Refit with mixed specification
+      fit_refit <- fit_ms_varma_garch_cpp(
+        y = y_diff,
+        M = M,
+        spec = spec_refit,
+        model_type = model_type,
+        control = control,
+        diagnostics = if (collect_diagnostics) create_diagnostic_collector() else NULL,
+        verbose = verbose
+      )
+      
+      ## Compare models using appropriate criterion
+      if (control$dcc_boundary_criterion %in% c("aic", "bic")) {
+        # Count DCC parameters in each model
+        k_original <- count_dcc_parameters(fit_result$model_fits)
+        k_refit <- count_dcc_parameters(fit_refit$model_fits)
+        
+        n <- nrow(y_diff)
+        
+        if (control$dcc_boundary_criterion == "aic") {
+          ic_original <- -2 * fit_result$log_likelihood + 2 * k_original
+          ic_refit <- -2 * fit_refit$log_likelihood + 2 * k_refit
+        } else {  # bic
+          ic_original <- -2 * fit_result$log_likelihood + log(n) * k_original
+          ic_refit <- -2 * fit_refit$log_likelihood + log(n) * k_refit
+        }
+        
+        if (verbose) {
+          cat("\n=== MODEL COMPARISON ===\n")
+          cat("Original (all dynamic):\n")
+          cat("  Log-likelihood:", fit_result$log_likelihood, "\n")
+          cat("  DCC parameters:", k_original, "\n")
+          cat(" ", toupper(control$dcc_boundary_criterion), ":", ic_original, "\n")
+          cat("Refit (mixed constant/dynamic):\n")
+          cat("  Log-likelihood:", fit_refit$log_likelihood, "\n")
+          cat("  DCC parameters:", k_refit, "\n")
+          cat(" ", toupper(control$dcc_boundary_criterion), ":", ic_refit, "\n")
+          cat("Winner:", ifelse(ic_refit < ic_original, "REFIT", "ORIGINAL"), "\n\n")
+        }
+        
+        if (ic_refit < ic_original) {
+          fit_result <- fit_refit
+        }
+      } else {
+        # For threshold criterion, always use refit
+        fit_result <- fit_refit
+      }
+    }
+  }
+  
   if (verbose) message("Model fitting complete.")
   
-  ## --- 6. Extract diagnostics from C++ results (if collected) ---
-  if (collect_diagnostics) {
-    diagnostics <- cpp_results$diagnostics
-  }
+  # ## --- 6. Extract diagnostics from C++ results (if collected) ---
+  # if (collect_diagnostics) {
+  #   diagnostics <- cpp_results$diagnostics
+  # }
+  # 
+  # ## --- 7. Post-processing and Formatting Results ---
+  # ## Align smoothed probabilities with the original time series
+  # smoothed_probs_aligned <- matrix(NA_real_, nrow = T_orig, ncol = M)
+  # colnames(smoothed_probs_aligned) <- paste0("State", 1:M)
+  # 
+  # ## The C++ output is aligned with the effective (differenced) data.
+  # ## We need to pad it to match the original data's length.
+  # padding <- T_orig - T_eff
+  # if (padding > 0) {
+  #   smoothed_probs_aligned[(padding + 1):T_orig, ] <- cpp_results$smoothed_probabilities[1:T_eff, ]
+  # } else {
+  #   smoothed_probs_aligned <- cpp_results$smoothed_probabilities
+  # }
+  # 
+  # ## Calculate AIC/BIC
+  # ## Count number of estimated parameters
+  # num_mean_pars <- sum(unlist(lapply(cpp_results$model_fits, function(fit) length(fit$arma_pars %||% fit$var_pars))))
+  # num_garch_pars <- sum(unlist(lapply(cpp_results$model_fits, function(fit) length(fit$garch_pars))))
+  # num_trans_pars <- M * (M - 1) ## M*(M-1) free parameters in transition matrix
+  # num_params <- num_mean_pars + num_garch_pars + num_trans_pars
+  # 
+  # aic <- -2 * cpp_results$log_likelihood + 2 * num_params
+  # bic <- -2 * cpp_results$log_likelihood + log(T_eff) * num_params
+  # 
+  # ## --- Final message to verbose output ---
+  # if (verbose && !is.null(verbose_file)) {
+  #   cat("\n=== Fitting Complete ===\n")
+  #   cat("Finished:", format(Sys.time()), "\n")
+  #   cat("Final log-likelihood:", cpp_results$log_likelihood, "\n")
+  # }
+  # 
+  # ## Assemble the final, user-friendly object
+  # result <- list(
+  #   model_fits = cpp_results$model_fits,
+  #   P = cpp_results$P,
+  #   log_likelihood = cpp_results$log_likelihood,
+  #   smoothed_probabilities = smoothed_probs_aligned,
+  #   aic = aic,
+  #   bic = bic,
+  #   d = d,
+  #   y = y_orig,
+  #   call = match.call(),
+  #   convergence = cpp_results$convergence,
+  #   warnings = cpp_results$warnings,
+  #   diagnostics = diagnostics  ## ADD diagnostics to result
+  # )
+  # 
+  # class(result) <- "msm.fit"
+  # return(result)
   
-  ## --- 7. Post-processing and Formatting Results ---
-  ## Align smoothed probabilities with the original time series
-  smoothed_probs_aligned <- matrix(NA_real_, nrow = T_orig, ncol = M)
-  colnames(smoothed_probs_aligned) <- paste0("State", 1:M)
-  
-  ## The C++ output is aligned with the effective (differenced) data.
-  ## We need to pad it to match the original data's length.
-  padding <- T_orig - T_eff
-  if (padding > 0) {
-    smoothed_probs_aligned[(padding + 1):T_orig, ] <- cpp_results$smoothed_probabilities[1:T_eff, ]
-  } else {
-    smoothed_probs_aligned <- cpp_results$smoothed_probabilities
-  }
-  
-  ## Calculate AIC/BIC
-  ## Count number of estimated parameters
-  num_mean_pars <- sum(unlist(lapply(cpp_results$model_fits, function(fit) length(fit$arma_pars %||% fit$var_pars))))
-  num_garch_pars <- sum(unlist(lapply(cpp_results$model_fits, function(fit) length(fit$garch_pars))))
-  num_trans_pars <- M * (M - 1) ## M*(M-1) free parameters in transition matrix
-  num_params <- num_mean_pars + num_garch_pars + num_trans_pars
-  
-  aic <- -2 * cpp_results$log_likelihood + 2 * num_params
-  bic <- -2 * cpp_results$log_likelihood + log(T_eff) * num_params
-  
-  ## --- Final message to verbose output ---
-  if (verbose && !is.null(verbose_file)) {
-    cat("\n=== Fitting Complete ===\n")
-    cat("Finished:", format(Sys.time()), "\n")
-    cat("Final log-likelihood:", cpp_results$log_likelihood, "\n")
-  }
-  
-  ## Assemble the final, user-friendly object
+  ## Prepare output
   result <- list(
-    model_fits = cpp_results$model_fits,
-    P = cpp_results$P,
-    log_likelihood = cpp_results$log_likelihood,
-    smoothed_probabilities = smoothed_probs_aligned,
-    aic = aic,
-    bic = bic,
+    model_fits = fit_result$model_fits,
+    P = fit_result$P,
+    log_likelihood = fit_result$log_likelihood,
+    smoothed_probabilities = fit_result$smoothed_probabilities,
+    aic = fit_result$aic,
+    bic = fit_result$bic,
     d = d,
-    y = y_orig,
+    y = y,
     call = match.call(),
-    convergence = cpp_results$convergence,
-    warnings = cpp_results$warnings,
-    diagnostics = diagnostics  ## ADD diagnostics to result
+    convergence = fit_result$convergence,
+    warnings = fit_result$warnings
   )
   
-  class(result) <- "msm.fit"
+  if (collect_diagnostics) {
+    result$diagnostics <- fit_result$diagnostics
+  }
+  
+  class(result) <- c("ms_varma_garch_fit", "list")
+  
   return(result)
+}
+
+
+#' @title Detect States at DCC Parameter Boundary
+#' @keywords internal
+detect_boundary_states <- function(fit_result, threshold, criterion) {
+  
+  boundary_states <- integer(0)
+  
+  for (j in seq_along(fit_result$model_fits)) {
+    state_fit <- fit_result$model_fits[[j]]
+    
+    # Skip if already constant
+    if (!is.null(state_fit$correlation_type) && 
+        state_fit$correlation_type == "constant") {
+      next
+    }
+    
+    # Check alpha parameters
+    alpha_names <- grep("^alpha_[0-9]+$", names(state_fit), value = TRUE)
+    
+    if (length(alpha_names) > 0) {
+      alpha_values <- sapply(alpha_names, function(nm) state_fit[[nm]])
+      
+      if (criterion == "threshold") {
+        # Simple threshold check
+        if (any(alpha_values < threshold)) {
+          boundary_states <- c(boundary_states, j)
+        }
+      } else {
+        # For AIC/BIC, always recheck boundary states
+        # (comparison happens later)
+        if (any(alpha_values < threshold)) {
+          boundary_states <- c(boundary_states, j)
+        }
+      }
+    }
+  }
+  
+  return(boundary_states)
+}
+
+
+#' @title Count DCC Parameters in Model
+#' @keywords internal
+count_dcc_parameters <- function(model_fits) {
+  
+  k <- 0
+  
+  for (j in seq_along(model_fits)) {
+    state_fit <- model_fits[[j]]
+    
+    # Count dynamic correlation parameters
+    if (is.null(state_fit$correlation_type) || 
+        state_fit$correlation_type == "dynamic") {
+      # Count alpha and beta parameters
+      alpha_names <- grep("^alpha_[0-9]+$", names(state_fit), value = TRUE)
+      beta_names <- grep("^beta_[0-9]+$", names(state_fit), value = TRUE)
+      k <- k + length(alpha_names) + length(beta_names)
+    }
+    # Constant correlation adds 0 parameters
+  }
+  
+  return(k)
 }
 
 
