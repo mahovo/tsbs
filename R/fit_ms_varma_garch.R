@@ -102,15 +102,15 @@ fit_ms_varma_garch <- function(
   }
   
   ## --- Setup Parallel Backend ---
-  if (parallel) {
-    if (!requireNamespace("future.apply", quietly = TRUE)) {
-      stop("The 'future.apply' package is required for parallel execution.")
-    }
-    ## Set up the parallel plan. multisession is generally safer.
-    future::plan(future::multisession, workers = num_cores)
-    ## Ensure the plan is reset when the function exits
-    on.exit(future::plan(future::sequential), add = TRUE)
-  }
+  # if (parallel) {
+  #   if (!requireNamespace("future.apply", quietly = TRUE)) {
+  #     stop("The 'future.apply' package is required for parallel execution.")
+  #   }
+  #   ## Set up the parallel plan. multisession is generally safer.
+  #   future::plan(future::multisession, workers = num_cores)
+  #   ## Ensure the plan is reset when the function exits
+  #   on.exit(future::plan(future::sequential), add = TRUE)
+  # }
   
   ## --- 2. Set Control Parameters ---
   ctrl <- list(max_iter = 100, tol = 1e-6)

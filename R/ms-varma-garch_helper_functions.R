@@ -830,6 +830,7 @@ estimate_garch_weighted_multivariate <- function(
       residuals = residuals, 
       weights = weights, 
       spec = spec,
+      diagnostics = diagnostics,
       verbose = verbose
     ))
   } else if (model_type %in% c("dcc_modelspec", "cgarch_modelspec")) {
@@ -847,6 +848,7 @@ estimate_garch_weighted_multivariate <- function(
       residuals = residuals, 
       weights = weights, 
       spec = spec,
+      diagnostics = diagnostics,
       verbose = verbose
     ))
   } else {
@@ -913,6 +915,30 @@ estimate_garch_weighted_dcc <- function(
   dcc_start_pars <- spec$start_pars$dcc_pars
   dist_start_pars <- spec$start_pars$dist_pars
   
+  ## Check if this state was constant in the previous iteration
+  was_constant_before <- !is.null(spec$start_pars$correlation_type) && 
+    spec$start_pars$correlation_type == "constant"
+  
+  if (was_constant_before) {
+    ## Once constant, stay constant - don't try to re-estimate DCC
+    if (verbose) {
+      cat(sprintf("\n=== State %d: Maintaining CONSTANT correlation (was constant before) ===\n",
+                  state))
+    }
+    
+    return(list(
+      coefficients = list(
+        garch_pars = garch_pars_list,
+        dcc_pars = list(),
+        dist_pars = dist_start_pars,
+        correlation_type = "constant",
+        degeneracy_reason = "maintained_from_previous_iteration"
+      ),
+      warnings = warnings_stage1,
+      diagnostics = diagnostics
+    ))
+  }
+
   if (is.null(dcc_start_pars) || length(dcc_start_pars) == 0) {
     ## No DCC parameters - already constant correlation
     return(list(
@@ -941,41 +967,110 @@ estimate_garch_weighted_dcc <- function(
     verbose = verbose
   )
   
-  ## Check for degeneracy
-  alpha_params <- dcc_result$dcc_pars[grepl("alpha", names(dcc_result$dcc_pars))]
-  is_degenerate <- any(unlist(alpha_params) < 0.015)  # Near lower bound
-  
-  # DEBUG: Add this
-  if (!is.null(iteration)) {
-    cat(sprintf("\n[DEBUG] Degeneracy check (State %d, Iter %d):\n", state, iteration))
-    cat(sprintf("  alpha values: %s\n", paste(unlist(alpha_params), collapse=", ")))
-    cat(sprintf("  is_degenerate: %s\n", is_degenerate))
+  ## Update diagnostics from the result
+  if (!is.null(dcc_result$diagnostics)) {
+    diagnostics <- dcc_result$diagnostics
   }
   
+  ## Check for degeneracy
+  # alpha_params <- dcc_result$dcc_pars[grepl("alpha", names(dcc_result$dcc_pars))]
+  
+  alpha_params <- dcc_result$dcc_pars[grepl("alpha", names(dcc_result$dcc_pars))]
+  beta_params <- dcc_result$dcc_pars[grepl("beta", names(dcc_result$dcc_pars))]
+
+  # Degeneracy if no alpha params OR alpha near zero
+  # is_degenerate <- any(unlist(alpha_params) < 0.015)  # Near lower bound
+  is_degenerate <- is.null(alpha_params) || 
+    length(alpha_params) == 0 || 
+    any(unlist(alpha_params) <= 0.0101)
+  
+  # if (is_degenerate) {
+  #   
+  #   # DEBUG: Add this
+  #   if (!is.null(iteration)) {
+  #     cat(sprintf("  ACTION: Switching to constant correlation\n"))
+  #   }
+  #   
+  #   if(verbose) {
+  #     cat("\n=== DCC DEGENERACY DETECTED ===\n")
+  #     cat("Alpha parameter(s) at lower bound:", unlist(alpha_params), "\n")
+  #     cat("Switching to CONSTANT CORRELATION model for this state.\n")
+  #     cat("This is appropriate when correlation lacks meaningful dynamics.\n\n")
+  #   }
+  #   
+  #   ## Return constant correlation specification
+  #   return(list(
+  #     coefficients = list(
+  #       garch_pars = garch_pars_list,
+  #       dcc_pars = list(),  ## Empty - signals constant correlation
+  #       dist_pars = dcc_result$dist_pars,
+  #       correlation_type = "constant"
+  #     ),
+  #     warnings = c(warnings_stage1, dcc_result$warnings),
+  #     diagnostics = diagnostics  # DEBUG: Is this being returned?
+  #   ))
+  # }
+  
   if (is_degenerate) {
-    
-    # DEBUG: Add this
-    if (!is.null(iteration)) {
-      cat(sprintf("  ACTION: Switching to constant correlation\n"))
+    # Determine reason
+    degeneracy_reason <- if (is.null(alpha_params) || length(alpha_params) == 0) {
+      "no DCC parameters returned"
+    } else {
+      sprintf("alpha near zero (min: %.6f)", min(unlist(alpha_params)))
     }
     
-    if(verbose) {
-      cat("\n=== DCC DEGENERACY DETECTED ===\n")
-      cat("Alpha parameter(s) at lower bound:", unlist(alpha_params), "\n")
-      cat("Switching to CONSTANT CORRELATION model for this state.\n")
-      cat("This is appropriate when correlation lacks meaningful dynamics.\n\n")
+    if(verbose || !is.null(diagnostics)) {
+      cat(sprintf("\n=== DCC DEGENERACY DETECTED (State %d, Iteration %d) ===\n",
+                  state, iteration))
+      cat("Reason:", degeneracy_reason, "\n")
+      if (!is.null(alpha_params) && length(alpha_params) > 0) {
+        cat("Alpha:", paste(round(unlist(alpha_params), 6), collapse = ", "), "\n")
+        cat("Beta:", paste(round(unlist(beta_params), 6), collapse = ", "), "\n")
+      }
+      cat("Action: Switching to CONSTANT CORRELATION model.\n")
+      cat("Interpretation: Correlations are stable over time in this regime.\n\n")
+    }
+    
+    ## RECORD BOUNDARY EVENT
+    if (!is.null(diagnostics) && !is.null(iteration) && !is.null(state)) {
+      if (!is.null(alpha_params) && length(alpha_params) > 0) {
+        # Alpha params exist but are small
+        for (pname in names(alpha_params)) {
+          diagnostics <- add_boundary_event(
+            diagnostics,
+            iteration = iteration,
+            state = state,
+            parameter_name = pname,
+            value = alpha_params[[pname]],
+            boundary_type = "lower",
+            action_taken = paste0("constant_correlation_fallback: ", degeneracy_reason)
+          )
+        }
+      } else {
+        # No alpha params returned at all
+        diagnostics <- add_boundary_event(
+          diagnostics,
+          iteration = iteration,
+          state = state,
+          parameter_name = "alpha_1",
+          value = NA,
+          boundary_type = "lower",
+          action_taken = paste0("constant_correlation_fallback: ", degeneracy_reason)
+        )
+      }
     }
     
     ## Return constant correlation specification
     return(list(
       coefficients = list(
         garch_pars = garch_pars_list,
-        dcc_pars = list(),  ## Empty - signals constant correlation
+        dcc_pars = list(),
         dist_pars = dcc_result$dist_pars,
-        correlation_type = "constant"
+        correlation_type = "constant",
+        degeneracy_reason = degeneracy_reason
       ),
       warnings = c(warnings_stage1, dcc_result$warnings),
-      diagnostics = diagnostics  # DEBUG: Is this being returned?
+      diagnostics = diagnostics
     ))
   }
   
@@ -988,9 +1083,7 @@ estimate_garch_weighted_dcc <- function(
       correlation_type = "dynamic"
     ),
     warnings = c(warnings_stage1, dcc_result$warnings),
-    diagnostics = diagnostics, 
-    iteration = iteration, 
-    state = state
+    diagnostics = diagnostics
   ))
 }
 
@@ -1399,6 +1492,12 @@ estimate_dcc_parameters_weighted <- function(
     print(opt_result$par)
     cat("\nOptimization convergence:", opt_result$convergence, "\n")
     cat("Final objective value:", opt_result$value, "\n")
+    cat("Optimizer convergence code:", opt_result$convergence, "\n")
+    cat("  0 = success, 1 = maxit reached, 51/52 = warning\n")
+    cat("Starting NLL:", test_nll, "\n")
+    cat("Final NLL:", opt_result$value, "\n")
+    cat("Improvement:", test_nll - opt_result$value, "\n")
+    cat("Function evaluations:", opt_result$counts[1], "\n")
   }
   
   alpha_params <- opt_result$par[grepl("alpha", names(opt_result$par))]
@@ -1407,26 +1506,26 @@ estimate_dcc_parameters_weighted <- function(
   if (verbose) cat("At boundary:", at_boundary, "\n")
   
   ## DIAGNOSTIC: Record boundary event
-  if (at_boundary && !is.null(diagnostics) && !is.null(iteration)) {
-    for (pname in names(alpha_params)) {
-      if (alpha_params[[pname]] < 0.02) {
-        diagnostics <- add_boundary_event(
-          diagnostics,
-          iteration = iteration,
-          state = state,
-          parameter_name = pname,
-          value = alpha_params[[pname]],
-          boundary_type = "lower",
-          action_taken = "constant_correlation_fallback"
-        )
-      }
-    }
-    
-    if (verbose) {
-      cat("\n*** WARNING: DCC alpha parameter at/near boundary ***\n")
-      cat("This state appears to have CONSTANT (not dynamic) correlation.\n")
-    }
-  }
+  # if (at_boundary && !is.null(diagnostics) && !is.null(iteration)) {
+  #   for (pname in names(alpha_params)) {
+  #     if (alpha_params[[pname]] < 0.02) {
+  #       diagnostics <- add_boundary_event(
+  #         diagnostics,
+  #         iteration = iteration,
+  #         state = state,
+  #         parameter_name = pname,
+  #         value = alpha_params[[pname]],
+  #         boundary_type = "lower",
+  #         action_taken = "constant_correlation_fallback"
+  #       )
+  #     }
+  #   }
+  #   
+  #   if (verbose) {
+  #     cat("\n*** WARNING: DCC alpha parameter at/near boundary ***\n")
+  #     cat("This state appears to have CONSTANT (not dynamic) correlation.\n")
+  #   }
+  # }
   
   ## Extract results
   estimated_pars <- as.list(opt_result$par)
@@ -1466,9 +1565,11 @@ estimate_garch_weighted_copula <- function(residuals, weights, spec) {
 
 
 #' @title Perform the M-Step in Parallel (R Helper)
-#' @description This function is called once per EM iteration from C++. It uses
-#' the 'future' framework to estimate the parameters for all M states in parallel.
-#' Handles both univariate and multivariate models with proper parameter structuring.
+#' @description
+#' *** THIS FUNCTION IS NOW DEPRECATED. Using perform_m_step_r() instead ***
+#' This function is called once per EM iteration from C++. It uses the 'future'
+#' framework to estimate the parameters for all M states in parallel. Handles
+#' both univariate and multivariate models with proper parameter structuring.
 #' @param y The time series data.
 #' @param weights The (T x M) matrix of smoothed probabilities from the E-step.
 #' @param spec The full list of model specifications.
@@ -1518,12 +1619,6 @@ perform_m_step_parallel_r <- function(
       state = j,  # Current state number
       verbose = verbose
     )
-    
-    # DEBUG: Add this
-    if (!is.null(iteration) && !is.null(new_variance_fit$diagnostics)) {
-      cat(sprintf("[DEBUG] State %d returned diagnostics with %d boundary events\n",
-                  j, length(new_variance_fit$diagnostics$boundary_events)))
-    }
     
     ## === Structure the output ===
     if (model_type == "univariate") {
@@ -1590,16 +1685,151 @@ perform_m_step_parallel_r <- function(
     
   }, future.seed = TRUE, future.packages = required_packages)
   
-  # DEBUG: Add this to check what's being returned
-  if (!is.null(iteration)) {
-    cat(sprintf("\n[DEBUG] After future_lapply, iteration %d:\n", iteration))
-    for (j in seq_along(updated_fits)) {
-      has_diag <- "diagnostics" %in% names(updated_fits[[j]])
-      cat(sprintf("  State %d returned diagnostics? %s\n", j, has_diag))
+  return(updated_fits)
+}
+
+
+## =============================================================================
+## SIMPLIFIED M-STEP WITHOUT PARALLELIZATION
+## =============================================================================
+## This version removes parallel execution from the M-step, making diagnostics
+## work naturally and simplifying the code significantly.
+
+## === STEP 1: Rename and Simplify perform_m_step_parallel_r() ===
+## File: R/ms-varma-garch_helper_functions.R
+## 
+## Replace perform_m_step_parallel_r() with this simpler version:
+
+#' @title Perform the M-Step (Sequential Execution)
+#' @description This function is called once per EM iteration from C++. It
+#' estimates the parameters for all M states sequentially, properly handling
+#' diagnostics collection.
+#' @param y The time series data.
+#' @param weights The (T x M) matrix of smoothed probabilities from the E-step.
+#' @param spec The full list of model specifications.
+#' @param model_type "univariate" or "multivariate".
+#' @param diagnostics Diagnostic collector object (ms_diagnostics class).
+#' @param iteration Current EM iteration number.
+#' @param verbose Logical indicating whether to print progress.
+#' @return A list of length M containing the updated model fits for each state.
+perform_m_step_r <- function(
+    y, 
+    weights, 
+    spec, 
+    model_type,
+    diagnostics = NULL, 
+    iteration = NULL,
+    verbose = FALSE
+) {
+  
+  M <- length(spec)
+  updated_fits <- vector("list", M)
+  
+  ## Process each state sequentially
+  for (j in 1:M) {
+    
+    state_weights <- weights[, j]
+    state_spec <- spec[[j]]
+    
+    ## === M-Step Stage 1: Update Mean Parameters ===
+    new_mean_fit <- estimate_arma_weighted_r(
+      y = y,
+      weights = state_weights,
+      spec = state_spec,
+      model_type = model_type
+    )
+    
+    ## === M-Step Stage 2: Update Variance Parameters ===
+    new_variance_fit <- estimate_garch_weighted_r(
+      residuals = new_mean_fit$residuals,
+      weights = state_weights,
+      spec = state_spec,
+      model_type = model_type,
+      diagnostics = diagnostics,  # Pass diagnostics directly
+      iteration = iteration,
+      state = j,
+      verbose = verbose
+    )
+    
+    ## Update diagnostics from this state
+    if (!is.null(new_variance_fit$diagnostics)) {
+      diagnostics <- new_variance_fit$diagnostics
+    }
+    
+    ## === Structure the output ===
+    if (model_type == "univariate") {
+      all_params <- new_variance_fit$coefficients
+      dist_param_names <- names(state_spec$start_pars$dist_pars)
+      
+      if (length(dist_param_names) > 0) {
+        estimated_dist_pars <- all_params[dist_param_names]
+        estimated_garch_pars <- all_params[!names(all_params) %in% dist_param_names]
+      } else {
+        estimated_dist_pars <- list()
+        estimated_garch_pars <- all_params
+      }
+      
+      updated_fits[[j]] <- list(
+        arma_pars = new_mean_fit$coefficients,
+        garch_pars = estimated_garch_pars,
+        dist_pars = estimated_dist_pars
+      )
+      
+    } else {
+      ## === MULTIVARIATE ===
+      variance_coeffs <- new_variance_fit$coefficients
+      
+      result <- list(var_pars = new_mean_fit$coefficients)
+      
+      ## Add univariate GARCH parameters
+      if (!is.null(variance_coeffs$garch_pars)) {
+        result$garch_pars <- variance_coeffs$garch_pars
+      }
+      
+      ## Handle DCC parameters - may be empty for constant correlation
+      if (!is.null(variance_coeffs$dcc_pars) && length(variance_coeffs$dcc_pars) > 0) {
+        ## Dynamic correlation: flatten DCC parameters to top level
+        for (par_name in names(variance_coeffs$dcc_pars)) {
+          result[[par_name]] <- variance_coeffs$dcc_pars[[par_name]]
+        }
+        result$correlation_type <- "dynamic"
+      } else {
+        ## Constant correlation: no DCC parameters
+        result$correlation_type <- "constant"
+      }
+      
+      ## Handle copula/GOGARCH parameters (future)
+      if (!is.null(variance_coeffs$copula_pars)) {
+        for (par_name in names(variance_coeffs$copula_pars)) {
+          result[[par_name]] <- variance_coeffs$copula_pars[[par_name]]
+        }
+      }
+      
+      if (!is.null(variance_coeffs$rotation_pars)) {
+        for (par_name in names(variance_coeffs$rotation_pars)) {
+          result[[par_name]] <- variance_coeffs$rotation_pars[[par_name]]
+        }
+      }
+      
+      ## Add distribution parameters
+      if (!is.null(variance_coeffs$dist_pars)) {
+        result$dist_pars <- variance_coeffs$dist_pars
+      }
+      
+      ## Store degeneracy reason if present
+      if (!is.null(variance_coeffs$degeneracy_reason)) {
+        result$degeneracy_reason <- variance_coeffs$degeneracy_reason
+      }
+      
+      updated_fits[[j]] <- result
     }
   }
   
-  return(updated_fits)
+  ## Return both fits and updated diagnostics
+  return(list(
+    fits = updated_fits,
+    diagnostics = diagnostics
+  ))
 }
 
 

@@ -572,8 +572,8 @@ ms_varma_garch_bs <- function(
     spec = spec,
     model_type = model_type,
     control = control,
-    parallel = parallel,
-    num_cores = num_cores,
+    # parallel = parallel,
+    # num_cores = num_cores,
     collect_diagnostics = collect_diagnostics,
     verbose = verbose,
     verbose_file = verbose_file

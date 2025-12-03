@@ -63,7 +63,8 @@ Rcpp::List fit_ms_varma_garch_cpp(
   
   Rcpp::Environment pkg_env = Rcpp::Environment::namespace_env("tsbs");
   Rcpp::Function calculate_loglik_vector_r = pkg_env["calculate_loglik_vector_r"];
-  Rcpp::Function perform_m_step_parallel_r = pkg_env["perform_m_step_parallel_r"];
+  //Rcpp::Function perform_m_step_parallel_r = pkg_env["perform_m_step_parallel_r"];
+  Rcpp::Function perform_m_step_r = pkg_env["perform_m_step_r"];
   
   // Load diagnostic functions if needed
   // Rcpp::Function add_em_iteration_diagnostic = R_NilValue;
@@ -128,6 +129,7 @@ Rcpp::List fit_ms_varma_garch_cpp(
     P = trans_mat.each_col() / arma::sum(trans_mat, 1);
     
     // Call M-step with diagnostics if collecting
+    /*
     if (collect_diagnostics) {
       model_fits = Rcpp::as<Rcpp::List>(perform_m_step_parallel_r(
         y, 
@@ -140,12 +142,43 @@ Rcpp::List fit_ms_varma_garch_cpp(
       ));
     } else {
       model_fits = Rcpp::as<Rcpp::List>(perform_m_step_parallel_r(
+      
         y, 
         smooth_probs, 
         spec, 
         model_type,
         Rcpp::Named("verbose") = verbose
       ));
+    }
+     */
+    Rcpp::List m_step_result;
+    
+    if (collect_diagnostics) {
+      m_step_result = Rcpp::as<Rcpp::List>(perform_m_step_r(
+        y, 
+        smooth_probs, 
+        spec, 
+        model_type,
+        Rcpp::Named("diagnostics") = diag_collector,
+        Rcpp::Named("iteration") = iter + 1,
+        Rcpp::Named("verbose") = verbose
+      ));
+      
+      // Extract fits and diagnostics
+      model_fits = Rcpp::as<Rcpp::List>(m_step_result["fits"]);
+      diag_collector = Rcpp::as<Rcpp::List>(m_step_result["diagnostics"]);
+      
+    } else {
+      m_step_result = Rcpp::as<Rcpp::List>(perform_m_step_r(
+        y, 
+        smooth_probs, 
+        spec, 
+        model_type,
+        Rcpp::Named("verbose") = verbose
+      ));
+      
+      // Extract just fits (no diagnostics)
+      model_fits = Rcpp::as<Rcpp::List>(m_step_result["fits"]);
     }
     
     // Recompute likelihoods with NEW parameters

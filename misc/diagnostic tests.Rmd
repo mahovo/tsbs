@@ -87,11 +87,9 @@ Run tests from test-ms_varma_garch_bs.R, PART 8 with diagnostics.
     spec = spec_test,
     model_type = "multivariate",
     control = list(max_iter = 20, tol = 1e-3),
-    parallel = TRUE,
-    num_cores = 2L,
     collect_diagnostics = TRUE,
-    verbose = FALSE#, TRUE,
-    #verbose_file = "../output/verbose_test_8a.log"
+    verbose = TRUE,
+    verbose_file = "../output/verbose_test_8a.log"
   )
   
   # Test the results
@@ -277,9 +275,9 @@ plot(alpha_traj$iteration, alpha_traj$value, type = "b",
   
   cat("\n=== Estimated Parameters ===\n")
   cat("\nState 1:\n")
-  print(str(state1_pars, max.level = 2))
+  print(str(state1_pars, max.level = 3))
   cat("\nState 2:\n")
-  print(str(state2_pars, max.level = 2))
+  print(str(state2_pars, max.level = 3))
   
   ## Check that states are either:
   ## 1. Nearly identical, OR
@@ -846,8 +844,6 @@ test_that("DIAGNOSTIC: Convergence criteria and tolerance analysis", {
     spec = spec_test,
     model_type = "multivariate",
     control = list(max_iter = 100, tol = 0.001),
-    #parallel = TRUE,
-    #num_cores = 4L,
     collect_diagnostics = TRUE,
     verbose = FALSE
   )
