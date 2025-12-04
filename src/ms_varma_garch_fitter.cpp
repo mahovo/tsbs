@@ -89,6 +89,8 @@ Rcpp::List fit_ms_varma_garch_cpp(
     auto start = std::chrono::high_resolution_clock::now();
     Rcpp::checkUserInterrupt();
     
+    Rcpp::Rcout << "\n" << std::endl;
+    Rcpp::Rcout << "\n==========================================================" << std::endl;
     Rcpp::Rcout << "EM Iteration " << iter + 1 << "... ";
     
     // --- E-STEP ---
@@ -227,6 +229,7 @@ Rcpp::List fit_ms_varma_garch_cpp(
     
     // Output to console
     if (verbose) {
+      Rcpp::Rcout << "\n=== EM ITERATION " << (iter + 1) << " ===" << std::endl;
       Rcpp::Rcout << "\n=== EM ITERATION " << (iter + 1) << " ===" << std::endl;
       Rcpp::Rcout << "  LL before M-step: " << log_lik_before_mstep << std::endl;
       Rcpp::Rcout << "  LL after M-step:  " << log_lik_after_mstep << std::endl;

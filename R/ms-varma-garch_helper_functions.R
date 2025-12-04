@@ -1361,7 +1361,8 @@ estimate_garch_weighted_dcc <- function(
     k_const <- 0
     
     ## Compute effective sample size for BIC
-    n_eff <- sum(w_target^2) / sum(w_target)
+    ### Use total sample size, sum(w_target^2)/sum(w_target)
+    n_eff <- length(w_target)
     
     ## Compute information criterion
     if (dcc_criterion == "aic") {
@@ -1869,10 +1870,7 @@ estimate_dcc_parameters_weighted <- function(
   #   }
   # }
   
-  ## Compute the weighted log-likelihood for model comparison
-  ## This is the objective we just optimized (but positive, since we minimized NLL)
-  weighted_ll <- -opt_result$value
-  
+
   ## Extract results
   estimated_pars <- as.list(opt_result$par)
   names(estimated_pars) <- names(all_stage2_pars)
@@ -1883,10 +1881,14 @@ estimate_dcc_parameters_weighted <- function(
   dcc_pars_final <- estimated_pars[dcc_param_names]
   dist_pars_final <- estimated_pars[dist_param_names]
   
+  ## Compute the weighted log-likelihood for model comparison
+  ## This is the objective we just optimized (but positive, since we minimized NLL)
+  weighted_ll <- -opt_result$value
+  
   return(list(
     dcc_pars = dcc_pars_final,
     dist_pars = dist_pars_final,
-    weighted_ll = weighted_ll,  # ADD THIS
+    weighted_ll = weighted_ll,
     warnings = warnings_list,
     diagnostics = diagnostics
   ))
