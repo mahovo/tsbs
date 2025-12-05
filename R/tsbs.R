@@ -289,6 +289,9 @@ tsbs <- function(
     num_cores = 1L,
     fail_mode = c("predictably", "gracefully"),
     ...
+    #collect_diagnostics = FALSE,
+    #verbose = FALSE,
+    #verbose_file = NULL
 ) {
   
   ## ---- Validation ----
@@ -426,9 +429,10 @@ tsbs <- function(
       control = control,
       parallel = parallel,
       num_cores = num_cores,
-      collect_diagnostics = collect_diagnostics,
-      verbose = verbose,
-      verbose_file = verbose_file
+      ...
+      # collect_diagnostics = collect_diagnostics,
+      # verbose = verbose,
+      # verbose_file = verbose_file
     ),
     wild = wild_bootstrap(
       x, 

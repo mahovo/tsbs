@@ -89,7 +89,7 @@ Rcpp::List fit_ms_varma_garch_cpp(
     auto start = std::chrono::high_resolution_clock::now();
     Rcpp::checkUserInterrupt();
     
-    Rcpp::Rcout << "\n" << std::endl;
+    Rcpp::Rcout << "" << std::endl;
     Rcpp::Rcout << "\n==========================================================" << std::endl;
     Rcpp::Rcout << "EM Iteration " << iter + 1 << "... ";
     

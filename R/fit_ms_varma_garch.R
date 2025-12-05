@@ -43,9 +43,9 @@
 #' 
 #' For mathematical expression of the model see [ms_varma_garch_bs()].
 #'
-#' @return An object of class `msm.fit` containing the full results of the
-#'   estimation, including model fits for each state, the transition matrix,
-#'   smoothed probabilities, and information criteria.
+#' @return A list containing the full results of the estimation, including model
+#'   fits for each state, the transition matrix, smoothed probabilities, and
+#'   information criteria.
 #'
 #' @export
 fit_ms_varma_garch <- function(
@@ -64,19 +64,24 @@ fit_ms_varma_garch <- function(
   
   ## --- 1. Argument and Data Validation ---
   model_type <- match.arg(model_type)
+  
   if (!is.numeric(M) || M < 2 || M != round(M)) stop("'M' must be an integer >= 2.")
   if (!is.numeric(d) || d < 0 || d != round(d)) stop("'d' must be a non-negative integer.")
   if (!is.list(spec) || length(spec) != M) stop("'spec' must be a list of length M.")
   
-  if (!is.matrix(y) && !is.data.frame(y)) {
-    stop("Input 'y' must be a numeric matrix or data frame.")
-  }
-  y_mat <- as.matrix(y)
-  if (!is.numeric(y_mat)) {
+  if (!is.numeric(y)) {
     stop("Input 'y' must be numeric.")
   }
-  if (any(!is.finite(y_mat))) {
+  
+  if (any(!is.finite(y))) {
     stop("Input matrix 'y' contains non-finite values (NA, NaN, Inf).")
+  }
+  
+  if (!is.matrix(y)) {
+    if(!is.data.frame(y)) {
+      stop("Input 'y' must be a numeric matrix or data frame.")
+    }
+    y <- as.matrix(y)
   }
   
   ## --- Setup verbose output redirection ---
@@ -96,7 +101,7 @@ fit_ms_varma_garch <- function(
     
     cat("=== MS-VARMA-GARCH Verbose Output ===\n")
     cat("Started:", format(Sys.time()), "\n")
-    cat("Data dimensions:", nrow(y_mat), "x", ncol(y_mat), "\n")
+    cat("Data dimensions:", nrow(y), "x", ncol(y), "\n")
     cat("Number of states:", M, "\n")
     cat("Model type:", model_type, "\n\n")
   }
@@ -151,6 +156,9 @@ fit_ms_varma_garch <- function(
   # T_eff <- nrow(y_effective)
   
   if (d > 0) {
+    if (nrow(y) <= d) {
+      stop("The number of observations must be greater than the differencing order 'd'.")
+    }
     y_diff <- diff(y, differences = d)
   } else {
     y_diff <- y
@@ -348,7 +356,8 @@ fit_ms_varma_garch <- function(
     result$diagnostics <- fit_result$diagnostics
   }
   
-  class(result) <- c("ms_varma_garch_fit", "list")
+  #class(result) <- "msm.fit"
+  #class(result) <- c("ms_varma_garch_fit", "list")
   
   return(result)
 }

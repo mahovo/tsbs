@@ -1784,7 +1784,7 @@ estimate_dcc_parameters_weighted <- function(
       lower_bounds[i] <- 0.01
       upper_bounds[i] <- 0.99
     } else if (grepl("beta", par_name)) {
-      lower_bounds[i] <- 1e-6 #0.01 
+      lower_bounds[i] <- 1e-6 #Test value: 0.01 
       upper_bounds[i] <- 0.99
     } else if (par_name == "shape") {
       lower_bounds[i] <- 2.1
