@@ -869,237 +869,6 @@ estimate_garch_weighted_multivariate <- function(
 }
 
 
-#' #' @title DCC Weighted Estimation
-#' #' @keywords internal
-#' estimate_garch_weighted_dcc <- function(
-#'     residuals, 
-#'     weights, 
-#'     spec, 
-#'     diagnostics = NULL, 
-#'     iteration = NULL, 
-#'     state = NULL,
-#'     verbose = FALSE
-#'   ) {
-#'   
-#'   k <- ncol(residuals)
-#'   T_obs <- nrow(residuals)
-#'   
-#'   ## Adjust weights to match residuals length
-#'   if (length(weights) > T_obs) {
-#'     n_to_remove <- length(weights) - T_obs
-#'     w_target <- weights[(n_to_remove + 1):length(weights)]
-#'   } else if (length(weights) < T_obs) {
-#'     stop("Weights vector is shorter than residuals - this should not happen")
-#'   } else {
-#'     w_target <- weights
-#'   }
-#'   
-#'   ## === STAGE 1: Estimate Univariate GARCH for Each Series ===
-#'   garch_pars_list <- list()
-#'   warnings_stage1 <- list()
-#'   
-#'   for (i in 1:k) {
-#'     series_residuals <- residuals[, i]
-#'     series_spec <- spec$garch_spec_args$garch_model$univariate[[i]]
-#'     
-#'     uni_spec <- list(
-#'       garch_model = series_spec$model,
-#'       garch_order = series_spec$garch_order,
-#'       distribution = series_spec$distribution,
-#'       start_pars = list(
-#'         garch_pars = spec$start_pars$garch_pars[[i]],
-#'         dist_pars = NULL
-#'       )
-#'     )
-#'     
-#'     uni_result <- estimate_garch_weighted_univariate(
-#'       residuals = series_residuals, 
-#'       weights = w_target, 
-#'       spec = uni_spec,
-#'       verbose = verbose
-#'     )
-#'     garch_pars_list[[i]] <- uni_result$coefficients
-#'     warnings_stage1 <- c(warnings_stage1, uni_result$warnings)
-#'   }
-#'   
-#'   ## === STAGE 2: Estimate DCC Parameters (with degeneracy detection) ===
-#'   
-#'   dcc_start_pars <- spec$start_pars$dcc_pars
-#'   dist_start_pars <- spec$start_pars$dist_pars
-#'   
-#'   ## Check if this state was constant in the previous iteration
-#'   was_constant_before <- !is.null(spec$start_pars$correlation_type) && 
-#'     spec$start_pars$correlation_type == "constant"
-#'   
-#'   if (was_constant_before) {
-#'     ## Once constant, stay constant - don't try to re-estimate DCC
-#'     if (verbose) {
-#'       cat(sprintf("\n=== State %d: Maintaining CONSTANT correlation (was constant before) ===\n",
-#'                   state))
-#'     }
-#'     
-#'     return(list(
-#'       coefficients = list(
-#'         garch_pars = garch_pars_list,
-#'         dcc_pars = list(),
-#'         dist_pars = dist_start_pars,
-#'         correlation_type = "constant",
-#'         degeneracy_reason = "maintained_from_previous_iteration"
-#'       ),
-#'       warnings = warnings_stage1,
-#'       diagnostics = diagnostics
-#'     ))
-#'   }
-#' 
-#'   if (is.null(dcc_start_pars) || length(dcc_start_pars) == 0) {
-#'     ## No DCC parameters - already constant correlation
-#'     return(list(
-#'       coefficients = list(
-#'         garch_pars = garch_pars_list,
-#'         dcc_pars = list(),
-#'         dist_pars = dist_start_pars,
-#'         correlation_type = "constant"
-#'       ),
-#'       warnings = warnings_stage1,
-#'       diagnostics = diagnostics
-#'     ))
-#'   }
-#'   
-#'   ## Attempt DCC estimation
-#'   dcc_result <- estimate_dcc_parameters_weighted(
-#'     residuals = residuals,
-#'     weights = w_target,
-#'     garch_pars = garch_pars_list,
-#'     dcc_start_pars = dcc_start_pars,
-#'     dist_start_pars = dist_start_pars,
-#'     spec = spec,
-#'     diagnostics = diagnostics,
-#'     iteration = iteration,
-#'     state = state,
-#'     verbose = verbose
-#'   )
-#'   
-#'   ## Update diagnostics from the result
-#'   if (!is.null(dcc_result$diagnostics)) {
-#'     diagnostics <- dcc_result$diagnostics
-#'   }
-#'   
-#'   ## Check for degeneracy
-#'   # alpha_params <- dcc_result$dcc_pars[grepl("alpha", names(dcc_result$dcc_pars))]
-#'   
-#'   alpha_params <- dcc_result$dcc_pars[grepl("alpha", names(dcc_result$dcc_pars))]
-#'   beta_params <- dcc_result$dcc_pars[grepl("beta", names(dcc_result$dcc_pars))]
-#' 
-#'   # Degeneracy if no alpha params OR alpha near zero
-#'   # is_degenerate <- any(unlist(alpha_params) < 0.015)  # Near lower bound
-#'   is_degenerate <- is.null(alpha_params) || 
-#'     length(alpha_params) == 0 || 
-#'     any(unlist(alpha_params) <= 0.0101)
-#'   
-#'   # if (is_degenerate) {
-#'   #   
-#'   #   # DEBUG: Add this
-#'   #   if (!is.null(iteration)) {
-#'   #     cat(sprintf("  ACTION: Switching to constant correlation\n"))
-#'   #   }
-#'   #   
-#'   #   if(verbose) {
-#'   #     cat("\n=== DCC DEGENERACY DETECTED ===\n")
-#'   #     cat("Alpha parameter(s) at lower bound:", unlist(alpha_params), "\n")
-#'   #     cat("Switching to CONSTANT CORRELATION model for this state.\n")
-#'   #     cat("This is appropriate when correlation lacks meaningful dynamics.\n\n")
-#'   #   }
-#'   #   
-#'   #   ## Return constant correlation specification
-#'   #   return(list(
-#'   #     coefficients = list(
-#'   #       garch_pars = garch_pars_list,
-#'   #       dcc_pars = list(),  ## Empty - signals constant correlation
-#'   #       dist_pars = dcc_result$dist_pars,
-#'   #       correlation_type = "constant"
-#'   #     ),
-#'   #     warnings = c(warnings_stage1, dcc_result$warnings),
-#'   #     diagnostics = diagnostics  # DEBUG: Is this being returned?
-#'   #   ))
-#'   # }
-#'   
-#'   if (is_degenerate) {
-#'     # Determine reason
-#'     degeneracy_reason <- if (is.null(alpha_params) || length(alpha_params) == 0) {
-#'       "no DCC parameters returned"
-#'     } else {
-#'       sprintf("alpha near zero (min: %.6f)", min(unlist(alpha_params)))
-#'     }
-#'     
-#'     if(verbose || !is.null(diagnostics)) {
-#'       cat(sprintf("\n=== DCC DEGENERACY DETECTED (State %d, Iteration %d) ===\n",
-#'                   state, iteration))
-#'       cat("Reason:", degeneracy_reason, "\n")
-#'       if (!is.null(alpha_params) && length(alpha_params) > 0) {
-#'         cat("Alpha:", paste(round(unlist(alpha_params), 6), collapse = ", "), "\n")
-#'         cat("Beta:", paste(round(unlist(beta_params), 6), collapse = ", "), "\n")
-#'       }
-#'       cat("Action: Switching to CONSTANT CORRELATION model.\n")
-#'       cat("Interpretation: Correlations are stable over time in this regime.\n\n")
-#'     }
-#'     
-#'     ## RECORD BOUNDARY EVENT
-#'     if (!is.null(diagnostics) && !is.null(iteration) && !is.null(state)) {
-#'       if (!is.null(alpha_params) && length(alpha_params) > 0) {
-#'         # Alpha params exist but are small
-#'         for (pname in names(alpha_params)) {
-#'           diagnostics <- add_boundary_event(
-#'             diagnostics,
-#'             iteration = iteration,
-#'             state = state,
-#'             parameter_name = pname,
-#'             value = alpha_params[[pname]],
-#'             boundary_type = "lower",
-#'             action_taken = paste0("constant_correlation_fallback: ", degeneracy_reason)
-#'           )
-#'         }
-#'       } else {
-#'         # No alpha params returned at all
-#'         diagnostics <- add_boundary_event(
-#'           diagnostics,
-#'           iteration = iteration,
-#'           state = state,
-#'           parameter_name = "alpha_1",
-#'           value = NA,
-#'           boundary_type = "lower",
-#'           action_taken = paste0("constant_correlation_fallback: ", degeneracy_reason)
-#'         )
-#'       }
-#'     }
-#'     
-#'     ## Return constant correlation specification
-#'     return(list(
-#'       coefficients = list(
-#'         garch_pars = garch_pars_list,
-#'         dcc_pars = list(),
-#'         dist_pars = dcc_result$dist_pars,
-#'         correlation_type = "constant",
-#'         degeneracy_reason = degeneracy_reason
-#'       ),
-#'       warnings = c(warnings_stage1, dcc_result$warnings),
-#'       diagnostics = diagnostics
-#'     ))
-#'   }
-#'   
-#'   ## DCC dynamics are meaningful
-#'   return(list(
-#'     coefficients = list(
-#'       garch_pars = garch_pars_list,
-#'       dcc_pars = dcc_result$dcc_pars,
-#'       dist_pars = dcc_result$dist_pars,
-#'       correlation_type = "dynamic"
-#'     ),
-#'     warnings = c(warnings_stage1, dcc_result$warnings),
-#'     diagnostics = diagnostics
-#'   ))
-#' }
-
-
 #' @title DCC Weighted Estimation
 #' @keywords internal
 estimate_garch_weighted_dcc <- function(
@@ -1155,6 +924,36 @@ estimate_garch_weighted_dcc <- function(
     garch_pars_list[[i]] <- uni_result$coefficients
     warnings_stage1 <- c(warnings_stage1, uni_result$warnings)
   }
+  
+  ## === CHECK FOR OMEGA BOUNDARY CONDITIONS ===
+  ## tsgarch applies an omega boundary threshold of 1e-12, so 1e-8 is more
+  ## tight, serving as a kind of "early warning".
+  omega_boundary_threshold <- 1e-8
+
+for (i in 1:k) {
+  omega_est <- garch_pars_list[[i]]$omega
+  
+  if (!is.null(omega_est) && omega_est < omega_boundary_threshold) {
+    ## Issue warning
+    warning(sprintf(
+      "State %s, Series %d: GARCH omega near boundary (%.2e < %.2e). Volatility dynamics may be degenerate.",
+      if (!is.null(state)) state else "?", i, omega_est, omega_boundary_threshold
+    ))
+    
+    ## Log boundary event
+    if (!is.null(diagnostics) && !is.null(iteration) && !is.null(state)) {
+      diagnostics <- add_boundary_event(
+        diagnostics,
+        iteration = iteration,
+        state = state,
+        parameter_name = sprintf("omega_series_%d", i),
+        value = omega_est,
+        boundary_type = "lower",
+        action_taken = "warning_issued"
+      )
+    }
+  }
+}
   
   ## === STAGE 2: DCC Parameters ===
   
@@ -1305,36 +1104,6 @@ estimate_garch_weighted_dcc <- function(
   
   ## Get dynamic likelihood (already computed)
   ll_dynamic <- dcc_result$weighted_ll
-  
-  # ll_constant <- const_result$weighted_ll
-  # 
-  # ## Count parameters
-  # k_dyn <- length(alpha_params) + length(beta_params)
-  # k_const <- 0
-  # 
-  # ## Compute effective sample size for BIC
-  # n_eff <- sum(w_target^2) / sum(w_target)
-  # 
-  # ## Compute information criterion
-  # if (dcc_criterion == "aic") {
-  #   ic_dynamic <- -2 * ll_dynamic + 2 * k_dyn
-  #   ic_constant <- -2 * ll_constant + 2 * k_const
-  # } else {  # bic
-  #   ic_dynamic <- -2 * ll_dynamic + log(n_eff) * k_dyn
-  #   ic_constant <- -2 * ll_constant + log(n_eff) * k_const
-  # }
-  # 
-  # use_constant <- (ic_constant < ic_dynamic)
-  # 
-  # if (verbose) {
-  #   cat(sprintf("\n=== Model Selection (State %d, Iter %d) ===\n", state, iteration))
-  #   cat(sprintf("Criterion: %s\n", toupper(dcc_criterion)))
-  #   cat(sprintf("Dynamic:  LL=%.4f, k=%d, %s=%.4f\n", 
-  #               ll_dynamic, k_dyn, toupper(dcc_criterion), ic_dynamic))
-  #   cat(sprintf("Constant: LL=%.4f, k=%d, %s=%.4f\n", 
-  #               ll_constant, k_const, toupper(dcc_criterion), ic_constant))
-  #   cat(sprintf("Decision: %s\n\n", ifelse(use_constant, "CONSTANT", "DYNAMIC")))
-  # }
   
   ## Safety check - if weighted_ll wasn't returned, we have a problem
   if (is.null(ll_dynamic) || !is.finite(ll_dynamic)) {
@@ -1774,23 +1543,61 @@ estimate_dcc_parameters_weighted <- function(
     return(nll)
   }
   
-  ## 4. Get bounds
+  ## 4. Get bounds - use tsmarch-consistent defaults with small epsilon for stability
+  ##
+  ## tsmarch parmatrix bounds are [0, 1] for alpha/beta/gamma
+  ## We use a small epsilon (1e-8) to avoid exact boundary values which can
+  ## cause numerical issues in the optimizer and likelihood computation.
+  ##
+  ## The epsilon is much smaller than the degeneracy threshold (0.02 by default)
+  ## so it won't interfere with the constant/dynamic correlation decision.
+  
   lower_bounds <- numeric(length(all_stage2_pars))
   upper_bounds <- numeric(length(all_stage2_pars))
   
+  ## Small epsilon for numerical stability at boundaries.
+  ## Above machine precision by typically below optimizer step size, and small 
+  ## enough to be economically meaningless. Also, alpha below 0.02 triggers 
+  ## constant correlation fallback anyway.
+  bound_epsilon <- 1e-8
+  
   for (i in seq_along(all_stage2_pars)) {
     par_name <- names(all_stage2_pars)[i]
-    if (grepl("alpha", par_name)) {
-      lower_bounds[i] <- 0.01
-      upper_bounds[i] <- 0.99
-    } else if (grepl("beta", par_name)) {
-      lower_bounds[i] <- 1e-6 #Test value: 0.01 
-      upper_bounds[i] <- 0.99
+    
+    if (grepl("^(alpha|beta|gamma)_[0-9]+$", par_name)) {
+      ## DCC dynamics parameters: consistent bounds matching tsmarch
+      ## tsmarch uses [0, 1] but we add epsilon for numerical stability
+      lower_bounds[i] <- bound_epsilon
+      upper_bounds[i] <- 1 - bound_epsilon
+      
     } else if (par_name == "shape") {
-      lower_bounds[i] <- 2.1
+      ## Student-t degrees of freedom
+      ## Must be > 2 for finite variance
+      lower_bounds[i] <- 2.01
       upper_bounds[i] <- 100
+      
+    } else {
+      ## Unknown parameter - use wide bounds with warning
+      warning(sprintf("Unknown parameter '%s' in DCC estimation - using default bounds [0, 1]", 
+                      par_name))
+      lower_bounds[i] <- bound_epsilon
+      upper_bounds[i] <- 1 - bound_epsilon
     }
   }
+  
+  ## Additional constraint: ensure starting values are within bounds
+  ## This prevents optimizer failures at initialization
+  start_pars <- unlist(all_stage2_pars)
+  for (i in seq_along(start_pars)) {
+    if (start_pars[i] <= lower_bounds[i]) {
+      start_pars[i] <- lower_bounds[i] + bound_epsilon
+    }
+    if (start_pars[i] >= upper_bounds[i]) {
+      start_pars[i] <- upper_bounds[i] - bound_epsilon
+    }
+  }
+  
+  
   
   ## 5. Optimize
   warnings_list <- list()
@@ -1847,29 +1654,6 @@ estimate_dcc_parameters_weighted <- function(
   at_boundary <- any(alpha_params < 0.02)
   
   if (verbose) cat("At boundary:", at_boundary, "\n")
-  
-  ## DIAGNOSTIC: Record boundary event
-  # if (at_boundary && !is.null(diagnostics) && !is.null(iteration)) {
-  #   for (pname in names(alpha_params)) {
-  #     if (alpha_params[[pname]] < 0.02) {
-  #       diagnostics <- add_boundary_event(
-  #         diagnostics,
-  #         iteration = iteration,
-  #         state = state,
-  #         parameter_name = pname,
-  #         value = alpha_params[[pname]],
-  #         boundary_type = "lower",
-  #         action_taken = "constant_correlation_fallback"
-  #       )
-  #     }
-  #   }
-  #   
-  #   if (verbose) {
-  #     cat("\n*** WARNING: DCC alpha parameter at/near boundary ***\n")
-  #     cat("This state appears to have CONSTANT (not dynamic) correlation.\n")
-  #   }
-  # }
-  
 
   ## Extract results
   estimated_pars <- as.list(opt_result$par)
@@ -2070,27 +1854,7 @@ perform_m_step_r <- function(
     
     state_weights <- weights[, j]
     state_spec <- spec[[j]]
-    
-    # ## === M-Step Stage 1: Update Mean Parameters ===
-    # new_mean_fit <- estimate_arma_weighted_r(
-    #   y = y,
-    #   weights = state_weights,
-    #   spec = state_spec,
-    #   model_type = model_type
-    # )
-    # 
-    # ## === M-Step Stage 2: Update Variance Parameters ===
-    # new_variance_fit <- estimate_garch_weighted_r(
-    #   residuals = new_mean_fit$residuals,
-    #   weights = state_weights,
-    #   spec = state_spec,
-    #   model_type = model_type,
-    #   diagnostics = diagnostics,  # Pass diagnostics directly
-    #   iteration = iteration,
-    #   state = j,
-    #   verbose = verbose
-    # )
-    
+
     ## Check if this state is forced to constant correlation
     force_constant <- !is.null(state_spec$force_constant_correlation) && 
       state_spec$force_constant_correlation
@@ -2113,9 +1877,9 @@ perform_m_step_r <- function(
       iteration = iteration,
       state = j,
       verbose = verbose,
-      dcc_threshold = dcc_threshold,     # Pass through
-      dcc_criterion = dcc_criterion,     # Pass through
-      force_constant = force_constant    # NEW
+      dcc_threshold = dcc_threshold,     ## Pass through
+      dcc_criterion = dcc_criterion,     ## Pass through
+      force_constant = force_constant
     )
     
     ## Update diagnostics from this state

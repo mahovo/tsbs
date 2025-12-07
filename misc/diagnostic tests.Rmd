@@ -2238,3 +2238,286 @@ State 1 : alpha= 0.2015 , beta= 0.01
 State 2 : alpha= 0.1901 , beta= 0.1894 
 
 
+```{r}
+# ============================================================================
+## DIAGNOSTIC: Investigate tsgarch omega bounds and behavior
+## ============================================================================
+## 
+## Questions to answer:
+## 1. What are tsgarch's internal bounds for omega?
+## 2. What happens when we feed it near-zero variance data?
+## 3. Does tsgarch issue warnings or errors at boundaries?
+##
+## Run this script and share the output.
+## ============================================================================
+
+#library(tsgarch)
+#library(xts)
+
+cat("=== CONFIRMED: tsgarch omega bounds ===\n")
+cat("Omega lower bound: 1e-12\n")
+cat("Omega upper bound: ~97.9\n\n")
+
+
+cat("=== DIAGNOSTIC 2: Near-zero variance data ===\n\n")
+
+test_sds <- c(0.1, 0.01, 0.001, 0.0001, 1e-5, 1e-6, 1e-7, 1e-8)
+
+for (sd_val in test_sds) {
+  cat("Testing sd =", format(sd_val, scientific = TRUE), "...\n")
+  
+  set.seed(123)
+  test_data <- xts(rnorm(200, sd = sd_val), order.by = Sys.Date() - (200:1))
+  
+  spec <- garch_modelspec(
+    y = test_data,
+    model = "garch",
+    garch_order = c(1, 1),
+    distribution = "norm"
+  )
+  
+  fit <- tryCatch({
+    suppressWarnings(tsmethods::estimate(spec))
+  }, error = function(e) {
+    cat("  ERROR:", e$message, "\n")
+    return(NULL)
+  })
+  
+  if (!is.null(fit)) {
+    omega_est <- fit$parmatrix[parameter == "omega"]$value
+    alpha_est <- fit$parmatrix[parameter == "alpha1"]$value
+    beta_est <- fit$parmatrix[parameter == "beta1"]$value
+    
+    cat(sprintf("  omega = %.2e, alpha = %.4f, beta = %.4f\n", 
+                omega_est, alpha_est, beta_est))
+    
+    ## Check if near lower bound (1e-12)
+    if (omega_est < 1e-10) {
+      cat("  *** OMEGA NEAR LOWER BOUND! ***\n")
+    }
+  }
+  cat("\n")
+}
+
+
+cat("\n=== DIAGNOSTIC 3: Constant/zero data ===\n\n")
+
+set.seed(123)
+constant_data <- xts(rep(0.01, 200), order.by = Sys.Date() - (200:1))
+
+spec_const <- garch_modelspec(
+  y = constant_data,
+  model = "garch",
+  garch_order = c(1, 1),
+  distribution = "norm"
+)
+
+cat("Fitting GARCH to constant data...\n")
+
+fit_const <- tryCatch({
+  suppressWarnings(tsmethods::estimate(spec_const))
+}, error = function(e) {
+  cat("ERROR:", e$message, "\n")
+  return(NULL)
+})
+
+if (!is.null(fit_const)) {
+  omega_est <- fit_const$parmatrix[parameter == "omega"]$value
+  cat(sprintf("  omega = %.2e\n", omega_est))
+  if (omega_est < 1e-10) {
+    cat("  *** OMEGA AT/NEAR LOWER BOUND! ***\n")
+  }
+}
+
+
+cat("\n=== DIAGNOSTIC 4: Near-zero data (sd = 1e-10) ===\n\n")
+
+set.seed(123)
+extreme_data <- xts(rnorm(200, sd = 1e-10), order.by = Sys.Date() - (200:1))
+
+spec_extreme <- garch_modelspec(
+  y = extreme_data,
+  model = "garch",
+  garch_order = c(1, 1),
+  distribution = "norm"
+)
+
+cat("Fitting GARCH to sd=1e-10 data...\n")
+
+fit_extreme <- tryCatch({
+  suppressWarnings(tsmethods::estimate(spec_extreme))
+}, error = function(e) {
+  cat("ERROR:", e$message, "\n")
+  return(NULL)
+})
+
+if (!is.null(fit_extreme)) {
+  omega_est <- fit_extreme$parmatrix[parameter == "omega"]$value
+  cat(sprintf("  omega = %.2e\n", omega_est))
+  if (omega_est < 1e-10) {
+    cat("  *** OMEGA AT/NEAR LOWER BOUND! ***\n")
+  }
+}
+
+cat("\n=== END DIAGNOSTICS ===\n")
+```
+
+```{r}
+## ============================================================================
+## DEBUG: Why isn't omega boundary detection triggering?
+## ============================================================================
+
+#library(tsbs)  ## Or source your files
+
+set.seed(123)
+n <- 200
+k <- 2
+
+## Low variance data (same as test)
+y_low_var <- matrix(rnorm(n * k, sd = 0.001), ncol = k)
+colnames(y_low_var) <- c("s1", "s2")
+
+residuals_data <- y_low_var
+colnames(residuals_data) <- c("series_1", "series_2")
+
+spec_dcc <- list(
+  garch_spec_fun = "dcc_modelspec",
+  distribution = "mvn",
+  garch_spec_args = list(
+    dcc_order = c(1, 1),
+    dynamics = "dcc",
+    garch_model = list(univariate = list(
+      list(model = "garch", garch_order = c(1, 1), distribution = "norm"),
+      list(model = "garch", garch_order = c(1, 1), distribution = "norm")
+    ))
+  ),
+  start_pars = list(
+    garch_pars = list(
+      list(omega = 0.01, alpha1 = 0.1, beta1 = 0.8),
+      list(omega = 0.01, alpha1 = 0.1, beta1 = 0.8)
+    ),
+    dcc_pars = list(alpha_1 = 0.05, beta_1 = 0.90),
+    dist_pars = NULL
+  )
+)
+
+weights <- rep(1, nrow(residuals_data))
+diagnostics <- create_diagnostic_collector()
+
+cat("=== Calling estimate_garch_weighted_dcc ===\n\n")
+
+result <- estimate_garch_weighted_dcc(
+  residuals = residuals_data,
+  weights = weights,
+  spec = spec_dcc,
+  diagnostics = diagnostics,
+  iteration = 1,
+  state = 1,
+  verbose = TRUE  ## Enable verbose!
+)
+
+cat("\n=== Examining results ===\n\n")
+
+cat("Structure of garch_pars:\n")
+str(result$coefficients$garch_pars)
+
+cat("\n\nOmega values:\n")
+for (i in 1:k) {
+  omega_val <- result$coefficients$garch_pars[[i]]$omega
+  cat(sprintf("  Series %d: omega = %.2e", i, omega_val))
+  if (!is.null(omega_val) && omega_val < 1e-8) {
+    cat(" *** BELOW THRESHOLD ***")
+  }
+  cat("\n")
+}
+
+cat("\n\nBoundary events in returned diagnostics:\n")
+print(result$diagnostics$boundary_events)
+
+cat("\n\nAll boundary events (omega-related):\n")
+omega_events <- Filter(
+  function(e) grepl("omega", e$parameter),
+  result$diagnostics$boundary_events
+)
+print(omega_events)
+cat("Count:", length(omega_events), "\n")
+```
+
+
+```{r}
+## ============================================================================
+## DEBUG: Find what SD triggers omega < 1e-8 via estimate_garch_weighted_dcc
+## ============================================================================
+
+#library(tsbs)
+
+test_sds <- c(0.01, 0.001, 0.0001, 1e-5, 1e-6)
+
+cat("Testing different SDs to find omega boundary trigger point:\n\n")
+
+for (sd_val in test_sds) {
+  set.seed(123)
+  n <- 200
+  k <- 2
+  
+  y_test <- matrix(rnorm(n * k, sd = sd_val), ncol = k)
+  colnames(y_test) <- c("s1", "s2")
+  
+  residuals_data <- y_test
+  colnames(residuals_data) <- c("series_1", "series_2")
+  
+  spec_dcc <- list(
+    garch_spec_fun = "dcc_modelspec",
+    distribution = "mvn",
+    garch_spec_args = list(
+      dcc_order = c(1, 1),
+      dynamics = "dcc",
+      garch_model = list(univariate = list(
+        list(model = "garch", garch_order = c(1, 1), distribution = "norm"),
+        list(model = "garch", garch_order = c(1, 1), distribution = "norm")
+      ))
+    ),
+    start_pars = list(
+      garch_pars = list(
+        list(omega = 0.01, alpha1 = 0.1, beta1 = 0.8),
+        list(omega = 0.01, alpha1 = 0.1, beta1 = 0.8)
+      ),
+      dcc_pars = list(alpha_1 = 0.05, beta_1 = 0.90),
+      dist_pars = NULL
+    )
+  )
+  
+  weights <- rep(1, nrow(residuals_data))
+  diagnostics <- create_diagnostic_collector()
+  
+  result <- tryCatch({
+    estimate_garch_weighted_dcc(
+      residuals = residuals_data,
+      weights = weights,
+      spec = spec_dcc,
+      diagnostics = diagnostics,
+      iteration = 1,
+      state = 1,
+      verbose = FALSE
+    )
+  }, error = function(e) {
+    cat(sprintf("SD = %.0e: ERROR - %s\n", sd_val, e$message))
+    return(NULL)
+  })
+  
+  if (!is.null(result)) {
+    omega1 <- result$coefficients$garch_pars[[1]]$omega
+    omega2 <- result$coefficients$garch_pars[[2]]$omega
+    
+    flag1 <- if (omega1 < 1e-8) " *** BELOW 1e-8 ***" else ""
+    flag2 <- if (omega2 < 1e-8) " *** BELOW 1e-8 ***" else ""
+    
+    cat(sprintf("SD = %.0e: omega1 = %.2e%s, omega2 = %.2e%s\n", 
+                sd_val, omega1, flag1, omega2, flag2))
+  }
+}
+
+cat("\n\nConclusion: Adjust test to use SD that produces omega < 1e-8,\n")
+cat("OR adjust threshold to catch realistic boundary cases.\n")
+```
+

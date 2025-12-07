@@ -1,6 +1,6 @@
-## == == == == == == == == == == == == == == == == == == == == == == ==
+## = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = =
 ## Unit Tests for MS-VARMA-GARCH Functionality
-## == == == == == == == == == == == == == == == == == == == == == == == 
+## = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = =
 
 ## ---- Test Setup ----
 ## Create minimal data and specifications for testing.
@@ -467,6 +467,7 @@ test_that("Full estimation converges (univariate)", {
 ## WARNING: This test may take a long time
 test_that("tsbs() with ms_varma_garch runs without error (univariate)", {
   skip_on_cran()
+  
   result <- tsbs(
     x = y_test,
     bs_type = "ms_varma_garch",
@@ -722,6 +723,7 @@ test_that("tsbs() with ms_varma_garch runs without error (multivariate)", {
 context("Generalized Univariate Log-Likelihood Calculation")
 
 test_that("calculate_loglik_vector_r works for 'norm' distribution", {
+  
   set.seed(123)
   y_test <- arima.sim(model = list(ar = 0.5), n = 100)
   
@@ -744,7 +746,7 @@ test_that("calculate_loglik_vector_r works for 'norm' distribution", {
     "univariate"
   )
   
-  # Ground truth
+  ## Ground truth
   residuals <- stats::arima(
     y_test, 
     order = c(1,0,0), 
@@ -760,7 +762,7 @@ test_that("calculate_loglik_vector_r works for 'norm' distribution", {
   garch_spec_obj$parmatrix[estimate == 1, value := c(0.1, 0.1, 0.8)]
   fit_truth <- tsmethods::tsfilter(garch_spec_obj)
   
-  # Use the 'residuals' variable we already have, not fit_truth$residuals
+  ## Use the 'residuals' variable we already have, not fit_truth$residuals
   ll_vec_truth <- dnorm(residuals, 0, fit_truth$sigma, log = TRUE)
   
   T_eff <- length(ll_vec_truth)
@@ -774,6 +776,7 @@ test_that("calculate_loglik_vector_r works for 'norm' distribution", {
 
 
 test_that("calculate_loglik_vector_r works for 'std' distribution", {
+  
   set.seed(123)
   y_test <- arima.sim(model = list(ar = 0.5), n = 100)
   
@@ -1899,6 +1902,7 @@ test_that("Sigma is computed correctly with fixed parameters in multivariate DCC
 ## 8a: Basic Functionality Test ================================================
 
 test_that("DCC estimation completes without errors", {
+  skip_on_cran()
   
   set.seed(999)
   n <- 200  # Increased for more stable estimation
@@ -1919,7 +1923,7 @@ test_that("DCC estimation completes without errors", {
   colnames(y_test) <- c("s1", "s2")
   
   spec_test <- list(
-    # State 1: Lower volatility
+    ## State 1: Lower volatility
     list(
       var_order = 1,
       garch_spec_fun = "dcc_modelspec",
@@ -1931,7 +1935,7 @@ test_that("DCC estimation completes without errors", {
           )
         ),
         dcc_order = c(1, 1),
-        dynamics = "dcc"  # ← CRITICAL: Specify DCC dynamics!
+        dynamics = "dcc"  ## ← CRITICAL: Specify DCC dynamics!
       ),
       distribution = "mvn",
       start_pars = list(
@@ -1941,10 +1945,10 @@ test_that("DCC estimation completes without errors", {
           list(omega = 0.05, alpha1 = 0.08, beta1 = 0.85)
         ),
         dcc_pars = list(alpha_1 = 0.03, beta_1 = 0.94),
-        dist_pars = NULL  # Use NULL instead of list() for clarity
+        dist_pars = NULL  ## Use NULL instead of list() for clarity
       )
     ),
-    # State 2: Higher volatility (differentiated starting values)
+    ## State 2: Higher volatility (differentiated starting values)
     list(
       var_order = 1,
       garch_spec_fun = "dcc_modelspec",
@@ -1956,16 +1960,16 @@ test_that("DCC estimation completes without errors", {
           )
         ),
         dcc_order = c(1, 1),
-        dynamics = "dcc"  # ← CRITICAL: Specify DCC dynamics!
+        dynamics = "dcc"  ## ← CRITICAL: Specify DCC dynamics!
       ),
       distribution = "mvn",
       start_pars = list(
         var_pars = rep(0.05, k * (1 + k * 1)),
         garch_pars = list(
-          list(omega = 0.12, alpha1 = 0.15, beta1 = 0.75),  # Different from State 1
+          list(omega = 0.12, alpha1 = 0.15, beta1 = 0.75),  ## Different from State 1
           list(omega = 0.12, alpha1 = 0.15, beta1 = 0.75)
         ),
-        dcc_pars = list(alpha_1 = 0.08, beta_1 = 0.88),  # Different from State 1
+        dcc_pars = list(alpha_1 = 0.08, beta_1 = 0.88),  ## Different from State 1
         dist_pars = NULL
       )
     )
@@ -1973,7 +1977,7 @@ test_that("DCC estimation completes without errors", {
   
   cat("\n=== TEST 8a: Basic Functionality ===\n")
   
-  # Run estimation - testthat automatically catches errors
+  ## Run estimation - testthat automatically catches errors
   fit <- fit_ms_varma_garch(
     y = y_test,
     M = 2,
@@ -1984,7 +1988,7 @@ test_that("DCC estimation completes without errors", {
     verbose = FALSE
   )
   
-  # Test the results
+  ## Test the results
   expect_named(fit, c("model_fits", "P", "log_likelihood", 
                       "smoothed_probabilities", "aic", "bic", "d", "y", "call", 
                       "convergence", "warnings", "diagnostics"))
@@ -1992,7 +1996,7 @@ test_that("DCC estimation completes without errors", {
   expect_true(is.finite(fit$log_likelihood))
   expect_true(!is.null(fit$diagnostics))
   
-  # Check diagnostics
+  ## Check diagnostics
   summary(fit$diagnostics)
   
   cat("Test completed successfully\n")
@@ -2002,6 +2006,7 @@ test_that("DCC estimation completes without errors", {
 ## 8b: Single Regime Data (Should Detect Identical States or Constant Corr) ====
 
 test_that("Single regime data converges quickly (both states identical or constant)", {
+  skip_on_cran()
   
   set.seed(123)
   n <- 200
@@ -2137,6 +2142,7 @@ is_constant_correlation <- function(pars) {
 ## 8c: Mixed Regime Data (One Dynamic, One Constant Correlation) ===============
 
 test_that("Mixed regime data: one dynamic, one constant correlation", {
+  skip_on_cran()
   
   set.seed(789)
   n <- 250
@@ -2276,7 +2282,6 @@ test_that("Mixed regime data: one dynamic, one constant correlation", {
 
 test_that("True MS-DCC-GARCH data recovers distinct regimes", {
   skip_on_cran()
-  
   
   simulate_ms_dcc_garch <- function(n, k = 2, seed = 456) {
     set.seed(seed)
@@ -2533,97 +2538,100 @@ test_that("True MS-DCC-GARCH data recovers distinct regimes", {
 ## Test 8e: Test "DCC estimation with BIC criterion (default)" =================
 
 test_that("DCC estimation with BIC criterion (default)", {
-
-set.seed(999)
-y_test <- simulate_dcc_garch(
-  n = 200, k = 2,
-  omega = c(0.05, 0.08),
-  alpha_garch = c(0.10, 0.12),
-  beta_garch = c(0.85, 0.82),
-  dcc_alpha = 0.04,
-  dcc_beta = 0.93,
-  seed = 999
-)
-
-spec_test <- generate_dcc_spec(M = 2, k = 2, seed = 999)
-
-fit <- fit_ms_varma_garch(
-  y = y_test,
-  M = 2,
-  spec = spec_test,
-  model_type = "multivariate",
-  control = list(
-    max_iter = 20,
-    tol = 1e-3
-    # Using defaults: dcc_boundary_criterion = "bic"
-  ),
-  collect_diagnostics = TRUE,
-  verbose = TRUE,
-  verbose_file = "../output/verbose_test_8e.log"
-)
-
-# Check results
-diag <- fit$diagnostics
-
-cat("\n=== DIAGNOSTIC SUMMARY ===\n")
-summary(diag)
-
-cat("\n=== CONVERGENCE CHECK ===\n")
-conv_check <- check_convergence(diag, tolerance = 1e-3)
-print(conv_check)
-
-cat("\n=== MONOTONICITY CHECK ===\n")
-mono_check <- check_em_monotonicity(diag, tolerance = 1e-6)
-print(mono_check)
-
-cat("\n=== FINAL MODEL STRUCTURE ===\n")
-for (j in 1:2) {
-  cat(sprintf("State %d: %s correlation\n", j,
-              fit$model_fits[[j]]$correlation_type %||% "dynamic"))
-}
-
-# Tests
-expect_true(!is.null(fit))
-expect_true(!is.null(fit$diagnostics))
-
-# Should have fewer LL decreases than before
-expect_lte(mono_check$n_violations, 3)
+  skip_on_cran()
+  
+  set.seed(999)
+  y_test <- simulate_dcc_garch(
+    n = 200, k = 2,
+    omega = c(0.05, 0.08),
+    alpha_garch = c(0.10, 0.12),
+    beta_garch = c(0.85, 0.82),
+    dcc_alpha = 0.04,
+    dcc_beta = 0.93,
+    seed = 999
+  )
+  
+  spec_test <- generate_dcc_spec(M = 2, k = 2, seed = 999)
+  
+  fit <- fit_ms_varma_garch(
+    y = y_test,
+    M = 2,
+    spec = spec_test,
+    model_type = "multivariate",
+    control = list(
+      max_iter = 20,
+      tol = 1e-3
+      ## Using defaults: dcc_boundary_criterion = "bic"
+    ),
+    collect_diagnostics = FALSE,
+    verbose = FALSE,
+    verbose_file = NULL
+  )
+  
+  ## Check results
+  diag <- fit$diagnostics
+  
+  cat("\n=== DIAGNOSTIC SUMMARY ===\n")
+  summary(diag)
+  
+  cat("\n=== CONVERGENCE CHECK ===\n")
+  conv_check <- check_convergence(diag, tolerance = 1e-3)
+  print(conv_check)
+  
+  cat("\n=== MONOTONICITY CHECK ===\n")
+  mono_check <- check_em_monotonicity(diag, tolerance = 1e-6)
+  print(mono_check)
+  
+  cat("\n=== FINAL MODEL STRUCTURE ===\n")
+  for (j in 1:2) {
+    cat(sprintf("State %d: %s correlation\n", j,
+                fit$model_fits[[j]]$correlation_type %||% "dynamic"))
+  }
+  
+  ## Tests
+  expect_true(!is.null(fit))
+  expect_true(!is.null(fit$diagnostics))
+  
+  ## Should have fewer LL decreases than before
+  expect_lte(mono_check$n_violations, 3)
 })
 
 
 ## Test 8f: Test "DCC estimation with AIC criterion" ===========================
 
 test_that("DCC estimation with AIC criterion", {
-
-set.seed(999)
-y_test <- simulate_dcc_garch(n = 200, k = 2, seed = 999)
-spec_test <- generate_dcc_spec(M = 2, k = 2, seed = 999)
-
-fit <- fit_ms_varma_garch(
-  y = y_test,
-  M = 2,
-  spec = spec_test,
-  model_type = "multivariate",
-  control = list(
-    max_iter = 20,
-    tol = 1e-3,
-    dcc_boundary_criterion = "aic"  # Use AIC
-  ),
-  collect_diagnostics = TRUE,
-  verbose = FALSE,
-  verbose_file = "../output/verbose_test_8f.log"
-)
-
-cat("\n=== Testing AIC Criterion ===\n")
-summary(fit$diagnostics)
-
-expect_true(!is.null(fit))
+  skip_on_cran()
+  
+  set.seed(999)
+  y_test <- simulate_dcc_garch(n = 200, k = 2, seed = 999)
+  spec_test <- generate_dcc_spec(M = 2, k = 2, seed = 999)
+  
+  fit <- fit_ms_varma_garch(
+    y = y_test,
+    M = 2,
+    spec = spec_test,
+    model_type = "multivariate",
+    control = list(
+      max_iter = 20,
+      tol = 1e-3,
+      dcc_boundary_criterion = "aic"  ## Use AIC
+    ),
+    collect_diagnostics = TRUE,
+    verbose = FALSE,
+    verbose_file = "../output/verbose_test_8f.log"
+  )
+  
+  cat("\n=== Testing AIC Criterion ===\n")
+  summary(fit$diagnostics)
+  
+  expect_true(!is.null(fit))
 })
 
 
 ## Test 8g: Test "DCC estimation with threshold criterion (old behavior)" ======
 
 test_that("DCC estimation with threshold criterion (old behavior)", {
+  skip_on_cran()
   
   set.seed(999)
   y_test <- simulate_dcc_garch(n = 200, k = 2, seed = 999)
@@ -2655,88 +2663,90 @@ test_that("DCC estimation with threshold criterion (old behavior)", {
 ## Test 8h: Test "DCC estimation without refitting"
 
 test_that("DCC estimation without refitting", {
-
-set.seed(999)
-y_test <- simulate_dcc_garch(n = 200, k = 2, seed = 999)
-spec_test <- generate_dcc_spec(M = 2, k = 2, seed = 999)
-
-fit <- fit_ms_varma_garch(
-  y = y_test,
-  M = 2,
-  spec = spec_test,
-  model_type = "multivariate",
-  control = list(
-    max_iter = 20,
-    tol = 1e-3,
-    dcc_allow_refitting = FALSE  # Disable refitting
-  ),
-  collect_diagnostics = TRUE,
-  verbose = FALSE,
-  verbose_file = "../output/verbose_test_8h.log"
-)
-
-cat("\n=== Testing Without Refitting ===\n")
-summary(fit$diagnostics)
-
-expect_true(!is.null(fit))
+  skip_on_cran()
+  
+  set.seed(999)
+  y_test <- simulate_dcc_garch(n = 200, k = 2, seed = 999)
+  spec_test <- generate_dcc_spec(M = 2, k = 2, seed = 999)
+  
+  fit <- fit_ms_varma_garch(
+    y = y_test,
+    M = 2,
+    spec = spec_test,
+    model_type = "multivariate",
+    control = list(
+      max_iter = 20,
+      tol = 1e-3,
+      dcc_allow_refitting = FALSE  ## Disable refitting
+    ),
+    collect_diagnostics = TRUE,
+    verbose = FALSE,
+    verbose_file = "../output/verbose_test_8h.log"
+  )
+  
+  cat("\n=== Testing Without Refitting ===\n")
+  summary(fit$diagnostics)
+  
+  expect_true(!is.null(fit))
 })
 
 
 ## Test 8i: Test "BIC criterion correctly switches to constant" ================
 
 test_that("BIC criterion correctly switches to constant", {
-
-# Simulate data with CONSTANT correlation (alpha=0)
-set.seed(42)
-y_const <- simulate_dcc_garch(
-  n = 300, k = 2,
-  omega = c(0.05, 0.08),
-  alpha_garch = c(0.10, 0.12),
-  beta_garch = c(0.85, 0.82),
-  dcc_alpha = 0.0,  # TRUE CONSTANT
-  dcc_beta = 0.0,
-  seed = 42
-)
-
-spec_test <- generate_dcc_spec(M = 2, k = 2, seed = 42)
-
-fit <- fit_ms_varma_garch(
-  y = y_const,
-  M = 2,
-  spec = spec_test,
-  model_type = "multivariate",
-  control = list(
-    max_iter = 30,
-    tol = 1e-3,
-    dcc_boundary_criterion = "bic"
-  ),
-  collect_diagnostics = TRUE,
-  verbose = TRUE,  # SEE THE MODEL SELECTION IN ACTION
-  verbose_file = "../output/verbose_test_8i.log"
-)
-
-diag <- fit$diagnostics
-
-cat("\n=== RESULTS ===\n")
-cat("Boundary events:", length(diag$boundary_events), "\n")
-cat("LL decreases:", check_em_monotonicity(diag)$n_violations, "\n")
-
-# At least one state should be constant
-has_constant <- any(sapply(fit$model_fits, function(s) {
-  !is.null(s$correlation_type) && s$correlation_type == "constant"
-}))
-
-expect_true(has_constant)
-
-# Should have boundary events recorded
-expect_gt(length(diag$boundary_events), 0)
-
-# Print model selection output
-cat("\nFinal model structure:\n")
-for (j in 1:2) {
-  cat(sprintf("State %d: %s\n", j, 
-              fit$model_fits[[j]]$correlation_type %||% "dynamic"))
-}
+  skip_on_cran()
+  
+  ## Simulate data with CONSTANT correlation (alpha=0)
+  set.seed(42)
+  y_const <- simulate_dcc_garch(
+    n = 300, k = 2,
+    omega = c(0.05, 0.08),
+    alpha_garch = c(0.10, 0.12),
+    beta_garch = c(0.85, 0.82),
+    dcc_alpha = 0.0,  ## TRUE CONSTANT
+    dcc_beta = 0.0,
+    seed = 42
+  )
+  
+  spec_test <- generate_dcc_spec(M = 2, k = 2, seed = 42)
+  
+  fit <- fit_ms_varma_garch(
+    y = y_const,
+    M = 2,
+    spec = spec_test,
+    model_type = "multivariate",
+    control = list(
+      max_iter = 30,
+      tol = 1e-3,
+      dcc_boundary_criterion = "bic"
+    ),
+    collect_diagnostics = TRUE,
+    verbose = TRUE,
+    verbose_file = "../output/verbose_test_8i.log"
+  )
+  
+  diag <- fit$diagnostics
+  
+  cat("\n=== RESULTS ===\n")
+  cat("Boundary events:", length(diag$boundary_events), "\n")
+  cat("LL decreases:", check_em_monotonicity(diag)$n_violations, "\n")
+  
+  ## At least one state should be constant
+  has_constant <- any(sapply(fit$model_fits, function(s) {
+    !is.null(s$correlation_type) && s$correlation_type == "constant"
+  }))
+  
+  expect_true(has_constant)
+  
+  ## Should have boundary events recorded
+  expect_gt(length(diag$boundary_events), 0)
+  
+  ## Print model selection output
+  cat("\nFinal model structure:\n")
+  for (j in 1:2) {
+    cat(sprintf("State %d: %s\n", j, 
+                fit$model_fits[[j]]$correlation_type %||% "dynamic"))
+  }
 })
 
 
@@ -2758,7 +2768,7 @@ test_that("Diagnostic collector initializes correctly", {
 test_that("EM iteration diagnostics are recorded correctly", {
   diag <- create_diagnostic_collector()
   
-  # Add iteration data
+  ## Add iteration data
   diag <- add_em_iteration_diagnostic(
     diag, 
     iteration = 1,
@@ -2775,7 +2785,7 @@ test_that("EM iteration diagnostics are recorded correctly", {
   expect_equal(diag$em_iterations[[1]]$ll_change, 10.0)
   expect_false(diag$em_iterations[[1]]$ll_decreased)
   
-  # Add another with LL decrease
+  ## Add another with LL decrease
   diag <- add_em_iteration_diagnostic(
     diag,
     iteration = 2,
@@ -2863,12 +2873,12 @@ test_that("Warnings are collected correctly", {
 test_that("Summary method works", {
   diag <- create_diagnostic_collector()
   
-  # Add some data
+  ## Add some data
   diag <- add_em_iteration_diagnostic(diag, 1, -500, -490, 10, 2.5, list())
   diag <- add_em_iteration_diagnostic(diag, 2, -490, -485, 5, 2.3, list())
   diag <- add_boundary_event(diag, 2, 1, "alpha_1", 0.01, "lower", "fallback")
   
-  # Should not error
+  ## Should not error
   expect_output(summary(diag), "MS-VARMA-GARCH Diagnostic Summary")
   expect_output(summary(diag), "Total iterations: 2")
   expect_output(summary(diag), "Total boundary events: 1")
@@ -2895,209 +2905,6 @@ test_that("Diagnostic save and load works", {
 ## PART 10: DCC Parameter Recovery with Known Ground Truth =====================
 
 context("MS-VARMA-GARCH: DCC Parameter Recovery")
-
-## ERROR: Simulations using tsmarch ARE WRONG!!!
-
-# test_that("DCC parameters can be recovered from simulated 1-state data (MVN)", {
-#   skip_on_cran()
-#   
-#   ## 1. TRUE PARAMETERS
-#   true_params <- list(
-#     # VAR parameters (intercept + 2 lags for 2 series = 6 params)
-#     var_pars = c(0.1, 0.5, 0.1, 0.1, 0.2, 0.4),
-#     # Univariate GARCH for each series
-#     garch_pars = list(
-#       series_1 = list(omega = 0.05, alpha1 = 0.1, beta1 = 0.85),
-#       series_2 = list(omega = 0.08, alpha1 = 0.12, beta1 = 0.82)
-#     ),
-#     # DCC dynamics
-#     dcc_pars = list(alpha_1 = 0.05, beta_1 = 0.90)
-#   )
-#   
-#   ## 2. SIMULATE DATA
-#   set.seed(42)
-#   T_sim <- 500
-#   k <- 2
-#   
-#   # Simulate using tsmarch
-#   spec_uni_garch <- list(
-#     model = "garch", 
-#     garch_order = c(1,1), 
-#     distribution = "norm"
-#   )
-#   
-#   dcc_spec_sim <- tsmarch::dcc_modelspec(
-#     dcc_order = c(1,1),
-#     dynamics = "dcc",
-#     distribution = "mvn",
-#     garch_model = list(
-#       univariate = list(spec_uni_garch, spec_uni_garch)
-#     )
-#   )
-# 
-#   
-#   # Set parameters
-#   dcc_spec_sim$parmatrix[parameter == "omega[1]", value := true_params$garch_pars$series_1$omega]
-#   dcc_spec_sim$parmatrix[parameter == "alpha1[1]", value := true_params$garch_pars$series_1$alpha1]
-#   dcc_spec_sim$parmatrix[parameter == "beta1[1]", value := true_params$garch_pars$series_1$beta1]
-#   dcc_spec_sim$parmatrix[parameter == "omega[2]", value := true_params$garch_pars$series_2$omega]
-#   dcc_spec_sim$parmatrix[parameter == "alpha1[2]", value := true_params$garch_pars$series_2$alpha1]
-#   dcc_spec_sim$parmatrix[parameter == "beta1[2]", value := true_params$garch_pars$series_2$beta1]
-#   dcc_spec_sim$parmatrix[parameter == "alpha_1", value := true_params$dcc_pars$alpha_1]
-#   dcc_spec_sim$parmatrix[parameter == "beta_1", value := true_params$dcc_pars$beta_1]
-#   
-#   # Simulate DCC path
-#   sim_dcc <- tsmarch::simulate(dcc_spec_sim, nsim = T_sim, seed = 42)
-#   y_sim <- sim_dcc$series
-#   
-#   ## 3. FIT 1-STATE MODEL (should recover parameters)
-#   spec_test <- list(
-#     list(
-#       var_order = 1,
-#       garch_spec_fun = "dcc_modelspec",
-#       distribution = "mvn",
-#       garch_spec_args = list(
-#         dcc_order = c(1,1),
-#         distribution = "mvn",
-#         garch_model = list(
-#           univariate = list(spec_uni_garch, spec_uni_garch)
-#         )
-#       ),
-#       start_pars = list(
-#         var_pars = rep(0.1, 6),
-#         garch_pars = list(
-#           list(omega = 0.1, alpha1 = 0.1, beta1 = 0.7),
-#           list(omega = 0.1, alpha1 = 0.1, beta1 = 0.7)
-#         ),
-#         dcc_pars = list(alpha_1 = 0.03, beta_1 = 0.95),
-#         dist_pars = NULL
-#       )
-#     )
-#   )
-#   
-#   # Fit with diagnostics enabled
-#   fit <- fit_ms_varma_garch(
-#     y = y_sim,
-#     M = 1,
-#     spec = spec_test,
-#     model_type = "multivariate",
-#     control = list(max_iter = 50, tol = 0.01),
-#     collect_diagnostics = TRUE  # NEW PARAMETER
-#   )
-#   
-#   ## 4. CHECK PARAMETER RECOVERY
-#   est_params <- fit$model_fits[[1]]
-#   
-#   # GARCH parameters (allow reasonable tolerance)
-#   expect_equal(est_params$garch_pars[[1]]$omega, 
-#                true_params$garch_pars$series_1$omega, 
-#                tolerance = 0.03)
-#   expect_equal(est_params$garch_pars[[1]]$alpha1, 
-#                true_params$garch_pars$series_1$alpha1, 
-#                tolerance = 0.05)
-#   expect_equal(est_params$garch_pars[[1]]$beta1, 
-#                true_params$garch_pars$series_1$beta1, 
-#                tolerance = 0.05)
-#   
-#   expect_equal(est_params$garch_pars[[2]]$omega, 
-#                true_params$garch_pars$series_2$omega, 
-#                tolerance = 0.03)
-#   expect_equal(est_params$garch_pars[[2]]$alpha1, 
-#                true_params$garch_pars$series_2$alpha1, 
-#                tolerance = 0.05)
-#   expect_equal(est_params$garch_pars[[2]]$beta1, 
-#                true_params$garch_pars$series_2$beta1, 
-#                tolerance = 0.05)
-#   
-#   # DCC parameters
-#   expect_equal(est_params$alpha_1, 
-#                true_params$dcc_pars$alpha_1, 
-#                tolerance = 0.03)
-#   expect_equal(est_params$beta_1, 
-#                true_params$dcc_pars$beta_1, 
-#                tolerance = 0.05)
-#   
-#   ## 5. CHECK DIAGNOSTICS
-#   expect_true(!is.null(fit$diagnostics))
-#   #expect_s3_class(fit$diagnostics, "ms_diagnostics")
-#   
-#   # Check monotonic improvement (allowing small numerical noise)
-#   ll_changes <- sapply(fit$diagnostics$em_iterations, function(x) x$ll_change)
-#   n_decreases <- sum(ll_changes < -1e-4)  # More than numerical noise
-#   expect_true(n_decreases <= 2, 
-#               info = paste("Too many LL decreases:", n_decreases))
-#   
-#   # Check convergence
-#   final_iter <- fit$diagnostics$em_iterations[[length(fit$diagnostics$em_iterations)]]
-#   expect_true(abs(final_iter$ll_change) < 0.01 || 
-#                 final_iter$iteration >= 50)
-# })
-
-
-
-## ERROR: 'M' must be an integer >= 2. !!!
-
-# test_that("DCC degeneracy detection works correctly", {
-#   skip_on_cran()
-#   
-#   ## Simulate data with NO dynamic correlation (constant correlation)
-#   set.seed(123)
-#   T_sim <- 300
-#   
-#   # Independent series with constant volatility
-#   y_sim <- matrix(rnorm(T_sim * 2), ncol = 2)
-#   colnames(y_sim) <- c("s1", "s2")
-#   
-#   # Try to fit DCC model
-#   spec_uni_garch <- list(model = "garch", garch_order = c(1,1), distribution = "norm")
-#   
-#   spec_test <- list(
-#     list(
-#       var_order = 1,
-#       garch_spec_fun = "dcc_modelspec",
-#       distribution = "mvn",
-#       garch_spec_args = list(
-#         dcc_order = c(1,1),
-#         distribution = "mvn",
-#         garch_model = list(univariate = list(spec_uni_garch, spec_uni_garch))
-#       ),
-#       start_pars = list(
-#         var_pars = rep(0.1, 6),
-#         garch_pars = list(
-#           list(omega = 0.1, alpha1 = 0.1, beta1 = 0.7),
-#           list(omega = 0.1, alpha1 = 0.1, beta1 = 0.7)
-#         ),
-#         dcc_pars = list(alpha_1 = 0.03, beta_1 = 0.95)
-#       )
-#     )
-#   )
-#   
-#   fit <- fit_ms_varma_garch(
-#     y = y_sim,
-#     M = 1,
-#     spec = spec_test,
-#     model_type = "multivariate",
-#     control = list(max_iter = 20, tol = 0.05),
-#     collect_diagnostics = TRUE
-#   )
-#   
-#   # Should detect degeneracy and fall back to constant correlation
-#   est_params <- fit$model_fits[[1]]
-#   
-#   # Check for constant correlation indicator
-#   expect_true(is.null(est_params$alpha_1) || 
-#                 est_params$correlation_type == "constant" ||
-#                 est_params$alpha_1 < 0.02)
-#   
-#   # Check diagnostic boundary events
-#   boundary_events <- fit$diagnostics$boundary_events
-#   alpha_at_boundary <- any(sapply(boundary_events, function(x) {
-#     grepl("alpha", x$parameter) && x$value < 0.02
-#   }))
-#   
-#   expect_true(alpha_at_boundary || est_params$correlation_type == "constant")
-# })
-
 
 test_that("Weighted vs unweighted likelihood differs appropriately", {
   skip_on_cran()
@@ -3127,13 +2934,13 @@ test_that("Weighted vs unweighted likelihood differs appropriately", {
     )
   )
   
-  # Uniform weights (equivalent to unweighted)
+  ## Uniform weights (equivalent to unweighted)
   weights_uniform <- rep(1, T_test)
   
-  # Non-uniform weights (down-weight first half)
+  ## Non-uniform weights (down-weight first half)
   weights_nonuniform <- c(rep(0.5, T_test/2), rep(1.0, T_test/2))
   
-  # Fit univariate GARCH only (simpler test)
+  ## Fit univariate GARCH only (simpler test)
   residuals <- matrix(rnorm(T_test * 2), ncol = 2)
   
   fit_uniform <- estimate_garch_weighted_multivariate(
@@ -3148,11 +2955,11 @@ test_that("Weighted vs unweighted likelihood differs appropriately", {
     spec = spec_test
   )
   
-  # Parameters should differ (though perhaps slightly)
+  ## Parameters should differ (though perhaps slightly)
   omega1_diff <- abs(fit_uniform$coefficients$garch_pars[[1]]$omega - 
                        fit_weighted$coefficients$garch_pars[[1]]$omega)
   
-  # Not identical, but might be small
+  ## Not identical, but might be small
   expect_true(omega1_diff > 1e-10 || TRUE)  # Always pass but log the difference
   cat("\nParameter difference (omega):", omega1_diff, "\n")
 })
@@ -3162,74 +2969,13 @@ test_that("Weighted vs unweighted likelihood differs appropriately", {
 
 context("MS-VARMA-GARCH: Convergence Properties")
 
-## ERROR: 'M' must be an integer >= 2 !!
-
-# test_that("EM iterations show monotonic or near-monotonic LL improvement", {
-#   skip_on_cran()
-#   
-#   set.seed(789)
-#   y_test <- matrix(rnorm(300 * 2), ncol = 2)
-#   colnames(y_test) <- c("s1", "s2")
-#   
-#   spec_uni <- list(model = "garch", garch_order = c(1,1), distribution = "norm")
-#   
-#   spec_test <- list(
-#     list(
-#       var_order = 1,
-#       garch_spec_fun = "dcc_modelspec",
-#       distribution = "mvn",
-#       garch_spec_args = list(
-#         dcc_order = c(1,1),
-#         distribution = "mvn",
-#         garch_model = list(univariate = list(spec_uni, spec_uni))
-#       ),
-#       start_pars = list(
-#         var_pars = rep(0.1, 6),
-#         garch_pars = list(
-#           list(omega = 0.1, alpha1 = 0.1, beta1 = 0.7),
-#           list(omega = 0.1, alpha1 = 0.1, beta1 = 0.7)
-#         ),
-#         dcc_pars = list(alpha_1 = 0.05, beta_1 = 0.90)
-#       )
-#     )
-#   )
-#   
-#   fit <- fit_ms_varma_garch(
-#     y = y_test,
-#     M = 1,
-#     spec = spec_test,
-#     model_type = "multivariate",
-#     control = list(max_iter = 30, tol = 0.05),
-#     collect_diagnostics = TRUE
-#   )
-#   
-#   # Check diagnostics
-#   ll_changes <- sapply(fit$diagnostics$em_iterations, function(x) x$ll_change)
-#   
-#   # Allow small numerical decreases (< 1e-4) but not large ones
-#   large_decreases <- sum(ll_changes < -1e-4)
-#   
-#   expect_true(large_decreases <= 3,
-#               info = paste("Too many large LL decreases:", large_decreases,
-#                            "\nLL changes:", paste(round(ll_changes, 6), collapse = ", ")))
-#   
-#   # Final LL should be better than initial
-#   ll_initial <- fit$diagnostics$em_iterations[[1]]$log_lik_before_mstep
-#   ll_final <- fit$diagnostics$em_iterations[[length(fit$diagnostics$em_iterations)]]$log_lik_after_mstep
-#   
-#   expect_true(ll_final > ll_initial - 0.1,  # Allow tiny numerical issues
-#               info = paste("Final LL not better than initial:",
-#                            "Initial =", ll_initial, "Final =", ll_final))
-# })
-
-
 test_that("Sigma changes when GARCH parameters change", {
   skip_on_cran()
   
   set.seed(999)
   residuals <- rnorm(200)
   
-  # Create spec with parameter set 1
+  ## Create spec with parameter set 1
   spec1 <- list(
     garch_model = "garch",
     garch_order = c(1,1),
@@ -3239,7 +2985,7 @@ test_that("Sigma changes when GARCH parameters change", {
     )
   )
   
-  # Create spec with parameter set 2 (different)
+  ## Create spec with parameter set 2 (different)
   spec2 <- list(
     garch_model = "garch",
     garch_order = c(1,1),
@@ -3249,7 +2995,7 @@ test_that("Sigma changes when GARCH parameters change", {
     )
   )
   
-  # Get sigma for both
+  ## Get sigma for both
   pars1 <- list(garch_pars = list(omega = 0.1, alpha1 = 0.1, beta1 = 0.8))
   pars2 <- list(garch_pars = list(omega = 0.2, alpha1 = 0.15, beta1 = 0.75))
   
@@ -3262,7 +3008,7 @@ test_that("Sigma changes when GARCH parameters change", {
   sigma1 <- as.numeric(fit1$sigma)
   sigma2 <- as.numeric(fit2$sigma)
   
-  # Sigmas should be different
+  ## Sigmas should be different
   sigma_diff <- mean(abs(sigma1 - sigma2))
   expect_true(sigma_diff > 1e-6,
               info = paste("Sigma did not change! Difference:", sigma_diff))
@@ -3270,5 +3016,534 @@ test_that("Sigma changes when GARCH parameters change", {
 
 
 
-## PART 12: PARAMETER RECOVERY TESTS ===========================================
+## PART 12: DCC Boundary Handling Tests ========================================
 
+context("MS-VARMA-GARCH: DCC Boundary Handling")
+
+test_that("DCC parameter bounds are consistent (alpha and beta use same bounds)", {
+  skip_on_cran()
+  
+  ## This test verifies Issue 1 fix: alpha and beta should have consistent bounds
+  ## Previously alpha had lower bound 0.01, beta had 1e-6 (inconsistent)
+  
+  ## Create simple test data
+  set.seed(123)
+  n <- 100
+  k <- 2
+  test_data <- matrix(rnorm(n * k), ncol = k)
+  colnames(test_data) <- c("series_1", "series_2")
+  test_xts <- xts::xts(test_data, order.by = Sys.Date() - (n:1))
+  
+  ## Estimate univariate GARCH models (required by dcc_modelspec)
+  uni_models <- lapply(1:k, function(i) {
+    suppressWarnings(
+      tsmethods::estimate(
+        tsgarch::garch_modelspec(
+          y = test_xts[, i],
+          model = "garch",
+          garch_order = c(1, 1),
+          distribution = "norm"
+        )
+      )
+    )
+  })
+  
+  ## Convert to multi_estimate object
+  multi_est <- tsgarch::to_multi_estimate(uni_models)
+  names(multi_est) <- c("series_1", "series_2")
+  
+  ## Create DCC spec - this is the correct way to call dcc_modelspec
+  dcc_spec <- tsmarch::dcc_modelspec(
+    object = multi_est,
+    dcc_order = c(1, 1),
+    dynamics = "dcc",
+    distribution = "mvn"
+  )
+  
+  ## Extract bounds from parmatrix
+  alpha_row <- dcc_spec$parmatrix[parameter == "alpha_1"]
+  beta_row <- dcc_spec$parmatrix[parameter == "beta_1"]
+  
+  ## Both should have the same bounds [0, 1]
+  expect_equal(alpha_row$lower, beta_row$lower,
+               info = "Alpha and beta should have same lower bound")
+  expect_equal(alpha_row$upper, beta_row$upper,
+               info = "Alpha and beta should have same upper bound")
+  
+  ## Bounds should be [0, 1]
+  expect_equal(alpha_row$lower, 0)
+  expect_equal(alpha_row$upper, 1)
+})
+
+
+test_that("Near-zero DCC parameters correctly trigger constant correlation fallback", {
+  skip_on_cran()
+  
+  ## Simulate data with effectively constant correlation (very small DCC params)
+  ## The estimator should detect this and fall back to constant correlation
+  
+  set.seed(42)
+  y_const <- simulate_dcc_garch(
+    n = 200,
+    k = 2,
+    omega = c(0.08, 0.10),
+    alpha_garch = c(0.10, 0.12),
+    beta_garch = c(0.85, 0.82),
+    dcc_alpha = 0.005,  ## Very small - effectively constant
+    dcc_beta = 0.005,   ## Very small - effectively constant
+    seed = 42
+  )
+  
+  colnames(y_const) <- c("s1", "s2")
+  
+  ## Compute residuals for DCC estimation
+  var_order <- 1
+  k <- 2
+  T_obs <- nrow(y_const)
+  
+  X_lagged <- matrix(1, nrow = T_obs - var_order, ncol = 1 + k * var_order)
+  X_lagged[, 2:(1 + k)] <- y_const[1:(T_obs - 1), ]
+  y_target <- y_const[(var_order + 1):T_obs, ]
+  
+  ## Simple OLS for VAR residuals
+  beta_hat <- solve(t(X_lagged) %*% X_lagged) %*% t(X_lagged) %*% y_target
+  residuals_data <- y_target - X_lagged %*% beta_hat
+  colnames(residuals_data) <- c("series_1", "series_2")
+  
+  ## Estimate DCC with our function
+  spec_dcc <- list(
+    garch_spec_fun = "dcc_modelspec",
+    distribution = "mvn",
+    garch_spec_args = list(
+      dcc_order = c(1, 1),
+      dynamics = "dcc",
+      garch_model = list(univariate = list(
+        list(model = "garch", garch_order = c(1, 1), distribution = "norm"),
+        list(model = "garch", garch_order = c(1, 1), distribution = "norm")
+      ))
+    ),
+    start_pars = list(
+      garch_pars = list(
+        list(omega = 0.1, alpha1 = 0.1, beta1 = 0.8),
+        list(omega = 0.1, alpha1 = 0.1, beta1 = 0.8)
+      ),
+      dcc_pars = list(alpha_1 = 0.05, beta_1 = 0.90),
+      dist_pars = NULL
+    )
+  )
+  
+  weights <- rep(1, nrow(residuals_data))
+  
+  result <- estimate_garch_weighted_r(
+    residuals = residuals_data,
+    weights = weights,
+    spec = spec_dcc,
+    model_type = "multivariate"
+  )
+  
+  ## Should detect degeneracy and fall back to constant correlation
+  ## OR estimate very small DCC parameters
+  
+  if (result$coefficients$correlation_type == "constant") {
+    ## Correct behavior: detected constant correlation
+    expect_equal(length(result$coefficients$dcc_pars), 0,
+                 info = "Constant correlation should have empty dcc_pars")
+  } else {
+    ## Also acceptable: estimated very small DCC parameters
+    expect_true(result$coefficients$dcc_pars$alpha_1 < 0.02,
+                info = "If dynamic, alpha should be very small for near-constant data")
+  }
+})
+
+
+test_that("Moderate DCC parameters are estimated without boundary issues", {
+  skip_on_cran()
+  
+  ## Simulate data with clear dynamic correlation
+  set.seed(123)
+  y_dynamic <- simulate_dcc_garch(
+    n = 300,
+    k = 2,
+    omega = c(0.05, 0.08),
+    alpha_garch = c(0.10, 0.12),
+    beta_garch = c(0.85, 0.82),
+    dcc_alpha = 0.06,  ## Moderate - clearly dynamic
+    dcc_beta = 0.92,   ## High persistence
+    seed = 123
+  )
+  
+  colnames(y_dynamic) <- c("s1", "s2")
+  
+  ## Compute residuals
+  var_order <- 1
+  k <- 2
+  T_obs <- nrow(y_dynamic)
+  
+  X_lagged <- matrix(1, nrow = T_obs - var_order, ncol = 1 + k * var_order)
+  X_lagged[, 2:(1 + k)] <- y_dynamic[1:(T_obs - 1), ]
+  y_target <- y_dynamic[(var_order + 1):T_obs, ]
+  
+  beta_hat <- solve(t(X_lagged) %*% X_lagged) %*% t(X_lagged) %*% y_target
+  residuals_data <- y_target - X_lagged %*% beta_hat
+  colnames(residuals_data) <- c("series_1", "series_2")
+  
+  ## Estimate DCC
+  spec_dcc <- list(
+    garch_spec_fun = "dcc_modelspec",
+    distribution = "mvn",
+    garch_spec_args = list(
+      dcc_order = c(1, 1),
+      dynamics = "dcc",
+      garch_model = list(univariate = list(
+        list(model = "garch", garch_order = c(1, 1), distribution = "norm"),
+        list(model = "garch", garch_order = c(1, 1), distribution = "norm")
+      ))
+    ),
+    start_pars = list(
+      garch_pars = list(
+        list(omega = 0.1, alpha1 = 0.1, beta1 = 0.8),
+        list(omega = 0.1, alpha1 = 0.1, beta1 = 0.8)
+      ),
+      dcc_pars = list(alpha_1 = 0.05, beta_1 = 0.90),
+      dist_pars = NULL
+    )
+  )
+  
+  weights <- rep(1, nrow(residuals_data))
+  
+  result <- estimate_garch_weighted_r(
+    residuals = residuals_data,
+    weights = weights,
+    spec = spec_dcc,
+    model_type = "multivariate"
+  )
+  
+  ## Should stay dynamic (not fall back to constant)
+  expect_equal(result$coefficients$correlation_type, "dynamic",
+               info = "Moderate DCC data should produce dynamic correlation")
+  
+  ## Should have DCC parameters
+  expect_true(length(result$coefficients$dcc_pars) > 0,
+              info = "Dynamic correlation should have dcc_pars")
+  
+  ## Alpha should not be stuck at old boundary (0.01)
+  ## With new bounds (1e-8), optimizer can explore freely
+  expect_true(result$coefficients$dcc_pars$alpha_1 > 0,
+              info = "Alpha should be positive")
+  expect_true(result$coefficients$dcc_pars$alpha_1 < 1,
+              info = "Alpha should be less than 1")
+  
+  ## Stationarity constraint
+  persistence <- result$coefficients$dcc_pars$alpha_1 + 
+    result$coefficients$dcc_pars$beta_1
+  expect_true(persistence < 1,
+              info = "DCC should satisfy stationarity constraint")
+})
+
+
+test_that("Parameter space exploration works below old alpha bound of 0.01", {
+  skip_on_cran()
+  
+  ## This test verifies the key fix: optimizer can now explore alpha < 0.01
+  ## Previously, alpha was bounded at 0.01 which prevented exploration
+  
+  set.seed(789)
+  
+  ## Simulate data with alpha = 0.008 (below old bound of 0.01)
+  y_low_alpha <- simulate_dcc_garch(
+    n = 250,
+    k = 2,
+    omega = c(0.05, 0.08),
+    alpha_garch = c(0.10, 0.12),
+    beta_garch = c(0.85, 0.82),
+    dcc_alpha = 0.008,  ## Below old bound of 0.01!
+    dcc_beta = 0.90,
+    seed = 789
+  )
+  
+  colnames(y_low_alpha) <- c("s1", "s2")
+  
+  ## Compute residuals
+  var_order <- 1
+  k <- 2
+  T_obs <- nrow(y_low_alpha)
+  
+  X_lagged <- matrix(1, nrow = T_obs - var_order, ncol = 1 + k * var_order)
+  X_lagged[, 2:(1 + k)] <- y_low_alpha[1:(T_obs - 1), ]
+  y_target <- y_low_alpha[(var_order + 1):T_obs, ]
+  
+  beta_hat <- solve(t(X_lagged) %*% X_lagged) %*% t(X_lagged) %*% y_target
+  residuals_data <- y_target - X_lagged %*% beta_hat
+  colnames(residuals_data) <- c("series_1", "series_2")
+  
+  ## Estimate DCC
+  spec_dcc <- list(
+    garch_spec_fun = "dcc_modelspec",
+    distribution = "mvn",
+    garch_spec_args = list(
+      dcc_order = c(1, 1),
+      dynamics = "dcc",
+      garch_model = list(univariate = list(
+        list(model = "garch", garch_order = c(1, 1), distribution = "norm"),
+        list(model = "garch", garch_order = c(1, 1), distribution = "norm")
+      ))
+    ),
+    start_pars = list(
+      garch_pars = list(
+        list(omega = 0.1, alpha1 = 0.1, beta1 = 0.8),
+        list(omega = 0.1, alpha1 = 0.1, beta1 = 0.8)
+      ),
+      dcc_pars = list(alpha_1 = 0.05, beta_1 = 0.90),
+      dist_pars = NULL
+    )
+  )
+  
+  weights <- rep(1, nrow(residuals_data))
+  
+  result <- estimate_garch_weighted_r(
+    residuals = residuals_data,
+    weights = weights,
+    spec = spec_dcc,
+    model_type = "multivariate"
+  )
+  
+  ## KEY TEST: Optimizer should NOT be stuck at 0.01
+  ## With the fix, it can explore to 1e-8 if needed
+  
+  if (result$coefficients$correlation_type == "dynamic") {
+    ## If stayed dynamic, alpha should not be stuck at old bound
+    alpha_est <- result$coefficients$dcc_pars$alpha_1
+    
+    ## Should not be exactly 0.01 (old bound)
+    expect_true(abs(alpha_est - 0.01) > 1e-6 || alpha_est < 0.01,
+                info = paste("Alpha should not be stuck at old bound 0.01.",
+                             "Estimated:", alpha_est))
+  } else {
+    ## Constant fallback is also acceptable for very low alpha
+    ## This means the optimizer explored the space and chose constant
+    expect_equal(result$coefficients$correlation_type, "constant")
+  }
+})
+
+
+test_that("GARCH omega boundary detection triggers for low-variance data", {
+  skip_on_cran()
+  
+  ## Based on diagnostic: sd=1e-05 produces omega ≈ 1e-12, below threshold of 1e-8
+  ## This test verifies the actual implementation detects this condition.
+  
+  set.seed(123)
+  n <- 200
+  k <- 2
+  
+  ## Very low variance data that will push omega below 1e-8
+  ## (sd=1e-05 produces omega at tsgarch's floor of 1e-12)
+  y_low_var <- matrix(rnorm(n * k, sd = 1e-05), ncol = k)
+  colnames(y_low_var) <- c("s1", "s2")
+  
+  ## Use data directly as residuals
+  residuals_data <- y_low_var
+  colnames(residuals_data) <- c("series_1", "series_2")
+  
+  spec_dcc <- list(
+    garch_spec_fun = "dcc_modelspec",
+    distribution = "mvn",
+    garch_spec_args = list(
+      dcc_order = c(1, 1),
+      dynamics = "dcc",
+      garch_model = list(univariate = list(
+        list(model = "garch", garch_order = c(1, 1), distribution = "norm"),
+        list(model = "garch", garch_order = c(1, 1), distribution = "norm")
+      ))
+    ),
+    start_pars = list(
+      garch_pars = list(
+        list(omega = 0.01, alpha1 = 0.1, beta1 = 0.8),
+        list(omega = 0.01, alpha1 = 0.1, beta1 = 0.8)
+      ),
+      dcc_pars = list(alpha_1 = 0.05, beta_1 = 0.90),
+      dist_pars = NULL
+    )
+  )
+  
+  weights <- rep(1, nrow(residuals_data))
+  diagnostics <- create_diagnostic_collector()
+  
+  ## Call the actual function - expect warnings about omega
+  expect_warning(
+    result <- estimate_garch_weighted_dcc(
+      residuals = residuals_data,
+      weights = weights,
+      spec = spec_dcc,
+      diagnostics = diagnostics,
+      iteration = 1,
+      state = 1,
+      verbose = FALSE
+    ),
+    regexp = "omega near boundary",
+    info = "Should warn when omega < 1e-8"
+  )
+  
+  ## Verify boundary events were recorded
+  omega_events <- Filter(
+    function(e) grepl("omega", e$parameter),
+    result$diagnostics$boundary_events
+  )
+  
+  expect_true(length(omega_events) > 0,
+              info = "Should record omega boundary event(s)")
+  
+  ## Check the recorded values are actually below threshold
+  for (event in omega_events) {
+    expect_true(event$value < 1e-8,
+                info = sprintf("%s value %.2e should be < 1e-8", 
+                               event$parameter, event$value))
+    expect_equal(event$boundary_type, "lower")
+    expect_equal(event$action_taken, "warning_issued")
+  }
+})
+
+
+test_that("GARCH omega boundary detection does NOT trigger for normal data", {
+  skip_on_cran()
+  
+  ## Normal variance data should NOT trigger omega boundary detection
+  
+  set.seed(456)
+  n <- 200
+  k <- 2
+  
+  ## Normal variance data (sd = 0.1 produced omega ≈ 5e-3 in diagnostic)
+  y_normal <- matrix(rnorm(n * k, sd = 0.1), ncol = k)
+  colnames(y_normal) <- c("s1", "s2")
+  
+  residuals_data <- y_normal
+  colnames(residuals_data) <- c("series_1", "series_2")
+  
+  spec_dcc <- list(
+    garch_spec_fun = "dcc_modelspec",
+    distribution = "mvn",
+    garch_spec_args = list(
+      dcc_order = c(1, 1),
+      dynamics = "dcc",
+      garch_model = list(univariate = list(
+        list(model = "garch", garch_order = c(1, 1), distribution = "norm"),
+        list(model = "garch", garch_order = c(1, 1), distribution = "norm")
+      ))
+    ),
+    start_pars = list(
+      garch_pars = list(
+        list(omega = 0.01, alpha1 = 0.1, beta1 = 0.8),
+        list(omega = 0.01, alpha1 = 0.1, beta1 = 0.8)
+      ),
+      dcc_pars = list(alpha_1 = 0.05, beta_1 = 0.90),
+      dist_pars = NULL
+    )
+  )
+  
+  weights <- rep(1, nrow(residuals_data))
+  diagnostics <- create_diagnostic_collector()
+  
+  ## Should NOT warn about omega
+  result <- estimate_garch_weighted_dcc(
+    residuals = residuals_data,
+    weights = weights,
+    spec = spec_dcc,
+    diagnostics = diagnostics,
+    iteration = 1,
+    state = 1,
+    verbose = FALSE
+  )
+  
+  ## Verify NO omega boundary events were recorded
+  omega_events <- Filter(
+    function(e) grepl("omega", e$parameter),
+    result$diagnostics$boundary_events
+  )
+  
+  expect_equal(length(omega_events), 0,
+               info = "Should NOT record omega boundary events for normal data")
+  
+  ## Verify omega estimates are reasonable (well above threshold)
+  for (i in 1:k) {
+    omega_est <- result$coefficients$garch_pars[[i]]$omega
+    expect_true(omega_est > 1e-8,
+                info = sprintf("Series %d omega (%.2e) should be > 1e-8", i, omega_est))
+  }
+})
+
+
+test_that("Full MS-DCC estimation handles boundaries correctly across states", {
+  skip_on_cran()
+  
+  ## Integration test: Run full MS-DCC fit and verify boundary handling
+  
+  set.seed(456)
+  y_test <- simulate_dcc_garch(
+    n = 200,
+    k = 2,
+    omega = c(0.05, 0.08),
+    alpha_garch = c(0.10, 0.12),
+    beta_garch = c(0.85, 0.82),
+    dcc_alpha = 0.04,
+    dcc_beta = 0.93,
+    seed = 456
+  )
+  
+  colnames(y_test) <- c("s1", "s2")
+  
+  spec_test <- generate_dcc_spec(M = 2, k = 2, seed = 456)
+  
+  fit <- fit_ms_varma_garch(
+    y = y_test,
+    M = 2,
+    spec = spec_test,
+    model_type = "multivariate",
+    control = list(max_iter = 20, tol = 1e-3),
+    collect_diagnostics = TRUE,
+    verbose = FALSE
+  )
+  
+  ## Basic structure checks
+  expect_true(!is.null(fit))
+  expect_true(!is.null(fit$model_fits))
+  expect_length(fit$model_fits, 2)
+  
+  ## Check each state has valid structure
+  for (j in 1:2) {
+    state_fit <- fit$model_fits[[j]]
+    
+    ## Must have GARCH parameters
+    expect_true(!is.null(state_fit$garch_pars),
+                info = paste("State", j, "should have garch_pars"))
+    
+    ## Must have correlation type
+    expect_true(!is.null(state_fit$correlation_type),
+                info = paste("State", j, "should have correlation_type"))
+    expect_true(state_fit$correlation_type %in% c("constant", "dynamic"),
+                info = paste("State", j, "correlation_type should be valid"))
+    
+    ## If dynamic, check DCC parameters are valid
+    if (state_fit$correlation_type == "dynamic") {
+      expect_true(!is.null(state_fit$alpha_1),
+                  info = paste("State", j, "dynamic should have alpha_1"))
+      expect_true(!is.null(state_fit$beta_1),
+                  info = paste("State", j, "dynamic should have beta_1"))
+      
+      ## Stationarity check
+      persistence <- state_fit$alpha_1 + state_fit$beta_1
+      expect_true(persistence < 1,
+                  info = paste("State", j, "should satisfy stationarity"))
+    }
+  }
+  
+  ## Check diagnostics recorded boundary events if any occurred
+  if (length(fit$diagnostics$boundary_events) > 0) {
+    for (event in fit$diagnostics$boundary_events) {
+      expect_true(!is.null(event$iteration))
+      expect_true(!is.null(event$state))
+      expect_true(!is.null(event$parameter))
+      expect_true(!is.null(event$action_taken))
+    }
+  }
+})
