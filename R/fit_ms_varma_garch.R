@@ -105,21 +105,9 @@ fit_ms_varma_garch <- function(
     cat("Number of states:", M, "\n")
     cat("Model type:", model_type, "\n\n")
   }
-  
-  ## --- Setup Parallel Backend ---
-  # if (parallel) {
-  #   if (!requireNamespace("future.apply", quietly = TRUE)) {
-  #     stop("The 'future.apply' package is required for parallel execution.")
-  #   }
-  #   ## Set up the parallel plan. multisession is generally safer.
-  #   future::plan(future::multisession, workers = num_cores)
-  #   ## Ensure the plan is reset when the function exits
-  #   on.exit(future::plan(future::sequential), add = TRUE)
-  # }
+
   
   ## --- 2. Set Control Parameters ---
-  # ctrl <- list(max_iter = 100, tol = 1e-6)
-  # ctrl[names(control)] <- control 
   ## Default control parameters
   control_defaults <- list(
     max_iter = 50,
@@ -141,20 +129,6 @@ fit_ms_varma_garch <- function(
   }
   
   ## --- 3. Pre-processing: Handle Differencing ---
-  # y_orig <- y_mat
-  # T_orig <- nrow(y_orig)
-  # 
-  # if (d > 0) {
-  #   if (T_orig <= d) {
-  #     stop("The number of observations must be greater than the differencing order 'd'.")
-  #   }
-  #   y_effective <- as.matrix(diff(y_orig, differences = d))
-  # } else {
-  #   y_effective <- y_orig
-  # }
-  # 
-  # T_eff <- nrow(y_effective)
-  
   if (d > 0) {
     if (nrow(y) <= d) {
       stop("The number of observations must be greater than the differencing order 'd'.")
@@ -188,15 +162,6 @@ fit_ms_varma_garch <- function(
   }
 
   ## === INITIAL FIT: Dynamic correlation for all states ===
-  # cpp_results <- fit_ms_varma_garch_cpp(
-  #   y = y_effective,
-  #   M = M,
-  #   spec = spec,
-  #   model_type = model_type,
-  #   control = ctrl,
-  #   diagnostics = diagnostics,  ## PASS diagnostics to C++
-  #   verbose = verbose
-  # )
   fit_result <- fit_ms_varma_garch_cpp(
     y = y_diff,
     M = M,

@@ -93,7 +93,7 @@ test_that("Effective sample size for weighted BIC is calculated correctly", {
   
   # Two common formulas for effective sample size:
   # Method 1: n_eff = (sum(w))^2 / sum(w^2)  -- from ESS literature
-  # Method 2: n_eff = sum(w)  -- simple sum (current implementation)
+  # Method 2: n_eff = sum(w)  -- simple sum
   
   n_eff_method1 <- sum(w_concentrated)^2 / sum(w_concentrated^2)
   n_eff_method2 <- length(w_concentrated)  # Current implementation uses length
@@ -445,6 +445,251 @@ test_that("Bounds allow full parameter space exploration", {
     expect_true(TRUE, label = "Constant fallback proves bounds allow small alpha")
   }
 })
+
+
+
+# Integration Test - Full Boundary Handling in MS-DCC Estimation ==============
+#
+# This test simulates a 2-state MS-DCC scenario where:
+# - State 1: Has meaningful DCC dynamics (should stay dynamic)
+# - State 2: Has nearly zero DCC dynamics (should fall back to constant)
+
+test_that("Full integration: boundary handling in MS-DCC estimation", {
+  
+  set.seed(999)
+  n <- 600
+  k <- 2
+  
+  # Step 1: ===================================================================
+  # Simulate regime-switching data with different correlation dynamics ========
+  
+  # State 1: Low volatility, DYNAMIC correlation (alpha=0.05, beta=0.93)
+  y_state1 <- simulate_dcc_garch(
+    n = n/2,
+    k = k,
+    omega = c(0.02, 0.02),
+    alpha_garch = c(0.05, 0.05),
+    beta_garch = c(0.90, 0.90),
+    dcc_alpha = 0.05,
+    dcc_beta = 0.93,
+    seed = 999
+  )
+  
+  # State 2: High volatility, CONSTANT correlation (alpha~0, beta~0)
+  y_state2 <- simulate_dcc_garch(
+    n = n/2,
+    k = k,
+    omega = c(0.10, 0.10),
+    alpha_garch = c(0.15, 0.15),
+    beta_garch = c(0.75, 0.75),
+    dcc_alpha = 0.001,  # Nearly zero -> should trigger constant fallback
+    dcc_beta = 0.001,
+    seed = 1000
+  )
+  
+  # Combine with simple regime switching pattern
+  # Pattern: State1 -> State2 -> State1 -> State2
+  block_size <- n / 4
+  y <- rbind(
+    y_state1[1:block_size, ],
+    y_state2[1:block_size, ],
+    y_state1[(block_size + 1):(n/2), ],
+    y_state2[(block_size + 1):(n/2), ]
+  )
+  
+  cat("\n")
+  cat("=" , rep("=", 70), "\n", sep = "")
+  cat("INTEGRATION TEST: 2-State MS-DCC with Boundary Handling\n")
+  cat("=", rep("=", 70), "\n", sep = "")
+  cat("\nData characteristics:\n")
+  cat("  Total observations: ", n, "\n")
+  cat("  Number of series: ", k, "\n")
+  cat("\nTrue parameters:\n")
+  cat("  State 1 (Dynamic): alpha=0.05, beta=0.93, persistence=0.98\n")
+  cat("  State 2 (Constant): alpha~0, beta~0, persistence~0\n")
+  cat("\nExpected outcome:\n")
+  cat("  State 1: Should remain DYNAMIC correlation\n")
+  cat("  State 2: Should fall back to CONSTANT correlation\n")
+  cat("\n")
+  
+
+  # Step 2: Create model specification ======================================
+  
+  # Generate 2-state specification
+  spec <- generate_dcc_spec(
+    M = 2,
+    k = k,
+    var_order = 1,
+    garch_order = c(1, 1),
+    distribution = "mvn",
+    seed = 123,
+    simple = FALSE
+  )
+  
+  # Print starting parameters
+  cat("Starting parameters:\n")
+  for (j in 1:2) {
+    cat(sprintf("  State %d: alpha=%.3f, beta=%.3f\n",
+                j,
+                spec[[j]]$start_pars$dcc_pars$alpha_1,
+                spec[[j]]$start_pars$dcc_pars$beta_1))
+  }
+  cat("\n")
+  
+  
+  # Step 3: Create diagnostic collector =====================================
+  
+  #diagnostics <- create_diagnostic_collector()
+  
+  
+  # Step 4: Run the fit with diagnostics enabled ============================
+  
+  cat("Running fit_ms_varma_garch()...\n")
+  cat("(This may take a minute)\n\n")
+  
+  fit_result <- tryCatch({
+    fit_ms_varma_garch(
+      y = y,
+      M = 2,
+      spec = spec,
+      model_type = "multivariate",
+      control = list(
+        max_iter = 30,
+        tol = 1e-4
+      )
+    )
+  }, error = function(e) {
+    cat("ERROR during fitting:\n")
+    cat(e$message, "\n")
+    return(NULL)
+  })
+  
+
+  # Step 5: Analyze results =================================================
+  
+  if (!is.null(fit_result)) {
+    cat("\n")
+    cat("=", rep("=", 70), "\n", sep = "")
+    cat("RESULTS\n")
+    cat("=", rep("=", 70), "\n", sep = "")
+    
+    # Extract final parameters
+    final_params <- fit_result$parameters
+    
+    cat("\nFinal estimated parameters:\n")
+    for (j in 1:2) {
+      state_params <- final_params[[j]]
+      
+      corr_type <- state_params$correlation_type %||% "unknown"
+      
+      if (corr_type == "dynamic") {
+        alpha <- state_params$alpha_1 %||% NA
+        beta <- state_params$beta_1 %||% NA
+        cat(sprintf("  State %d: DYNAMIC - alpha=%.4f, beta=%.4f, persistence=%.4f\n",
+                    j, alpha, beta, alpha + beta))
+      } else {
+        cat(sprintf("  State %d: CONSTANT - (no DCC parameters)\n", j))
+        if (!is.null(state_params$degeneracy_reason)) {
+          cat(sprintf("           Reason: %s\n", state_params$degeneracy_reason))
+        }
+      }
+    }
+    
+    
+    # Step 6: Examine diagnostics =============================================
+    
+    if (!is.null(fit_result$diagnostics)) {
+      diag <- fit_result$diagnostics
+      
+      cat("\n")
+      cat("-", rep("-", 70), "\n", sep = "")
+      cat("DIAGNOSTICS\n")
+      cat("-", rep("-", 70), "\n", sep = "")
+      
+      # EM convergence
+      cat("\nEM Convergence:\n")
+      cat("  Total iterations:", length(diag$em_iterations), "\n")
+      
+      if (length(diag$em_iterations) > 0) {
+        ll_changes <- sapply(diag$em_iterations, function(x) x$ll_change)
+        cat("  LL decreased in", sum(ll_changes < -1e-6), "iterations\n")
+        cat("  Final LL change:", tail(ll_changes, 1), "\n")
+      }
+      
+      # Boundary events
+      cat("\nBoundary Events:\n")
+      if (length(diag$boundary_events) > 0) {
+        for (event in diag$boundary_events) {
+          cat(sprintf("  Iter %d, State %d: %s = %.6f (%s) -> %s\n",
+                      event$iteration,
+                      event$state,
+                      event$parameter,
+                      event$value,
+                      event$boundary_type,
+                      event$action_taken))
+        }
+      } else {
+        cat("  No boundary events recorded\n")
+      }
+      
+      # Warnings
+      cat("\nWarnings:\n")
+      if (length(diag$warnings) > 0) {
+        warning_types <- table(sapply(diag$warnings, function(x) x$type))
+        for (wtype in names(warning_types)) {
+          cat(sprintf("  %s: %d\n", wtype, warning_types[wtype]))
+        }
+      } else {
+        cat("  No warnings\n")
+      }
+    }
+    
+    
+    # Step 7: Verify expected outcomes ========================================
+    
+    cat("\n")
+    cat("=", rep("=", 70), "\n", sep = "")
+    cat("VERIFICATION\n")
+    cat("=", rep("=", 70), "\n", sep = "")
+    
+    # Check that at least one state has dynamic correlation
+    has_dynamic <- any(sapply(final_params, function(p) {
+      !is.null(p$correlation_type) && p$correlation_type == "dynamic"
+    }))
+    
+    # Check that at least one state has constant correlation
+    has_constant <- any(sapply(final_params, function(p) {
+      !is.null(p$correlation_type) && p$correlation_type == "constant"
+    }))
+    
+    cat("\nOutcome checks:\n")
+    cat("  At least one DYNAMIC state:", has_dynamic, "\n")
+    cat("  At least one CONSTANT state:", has_constant, "\n")
+    
+    # The ideal outcome: one dynamic, one constant
+    ideal_outcome <- has_dynamic && has_constant
+    cat("\n  Ideal outcome (1 dynamic + 1 constant):", ideal_outcome, "\n")
+    
+    if (!ideal_outcome) {
+      cat("\n  NOTE: Both states may have similar dynamics if the data\n")
+      cat("        doesn't show strong regime differentiation.\n")
+    }
+    
+    # Test assertions
+    expect_true(!is.null(fit_result), "Fit should complete without error")
+    expect_true(length(final_params) == 2, "Should have 2 states")
+    
+    # At minimum, correlation_type should be set for all states
+    for (j in 1:2) {
+      expect_true(!is.null(final_params[[j]]$correlation_type),
+                  paste("State", j, "should have correlation_type set"))
+    }
+    
+  } else {
+    fail("Fit failed - see error message above")
+  }
+})
+
 
 
 

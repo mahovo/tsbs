@@ -667,6 +667,13 @@ estimate_arma_weighted_r <- function(y, weights, spec, model_type = "univariate"
 #' @param weights Vector of weights from E-step
 #' @param spec Model specification
 #' @param model_type Either "univariate" or "multivariate"
+#' @param diagnostics
+#' @param iteration
+#' @param state
+#' @param verbose
+#' @param dcc_threshold
+#' @param dcc_criterion
+#' @param force_constant
 #' @return List with coefficients and warnings
 estimate_garch_weighted_r <- function(
     residuals, 
@@ -1131,7 +1138,8 @@ for (i in 1:k) {
     
     ## Compute effective sample size for BIC
     ### Use total sample size, sum(w_target^2)/sum(w_target)
-    n_eff <- length(w_target)
+    #n_eff <- length(w_target)
+    n_eff <- (sum(w_target))^2 /sum(w_target^2)
     
     ## Compute information criterion
     if (dcc_criterion == "aic") {
@@ -1574,7 +1582,7 @@ estimate_dcc_parameters_weighted <- function(
       ## Student-t degrees of freedom
       ## Must be > 2 for finite variance
       lower_bounds[i] <- 2.01
-      upper_bounds[i] <- 100
+      upper_bounds[i] <- 1e10 ## No upper boundary: Approaches normal dist
       
     } else {
       ## Unknown parameter - use wide bounds with warning
@@ -1833,6 +1841,8 @@ perform_m_step_parallel_r <- function(
 #' @param diagnostics Diagnostic collector object (ms_diagnostics class).
 #' @param iteration Current EM iteration number.
 #' @param verbose Logical indicating whether to print progress.
+#' @param dcc_threshold
+#' @param dcc_criterion
 #' @return A list of length M containing the updated model fits for each state.
 perform_m_step_r <- function(
     y, 
