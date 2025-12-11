@@ -736,18 +736,22 @@ diagnostic_summary_stats <- function(diagnostics) {
 
 ## === SIMULATION FUNCTIONS FOR TESTING ===
 
-#' Simulate DCC-GARCH Data
+' Simulate DCC-GARCH Data with Higher-Order Support
 #'
-#' Simulate realistic multivariate time series data from a DCC-GARCH process.
-#' This function is primarily intended for testing and examples.
+#' Simulate realistic multivariate time series data from a DCC(p,q)-GARCH process.
+#' Extends the original simulate_dcc_garch() to support arbitrary DCC orders.
 #'
 #' @param n Integer number of observations to simulate
 #' @param k Integer number of series (default: 2)
 #' @param omega Numeric vector of length k: GARCH intercepts (default: c(0.05, 0.08))
 #' @param alpha_garch Numeric vector of length k: ARCH effects (default: c(0.10, 0.12))
 #' @param beta_garch Numeric vector of length k: GARCH effects (default: c(0.85, 0.82))
-#' @param dcc_alpha Numeric: DCC alpha parameter (default: 0.04)
-#' @param dcc_beta Numeric: DCC beta parameter (default: 0.93)
+#' @param dcc_alpha Numeric scalar or vector: DCC alpha parameters. 
+#'   For DCC(p,1): scalar. For DCC(p,q) with q>1: vector of length q.
+#'   (default: 0.04)
+#' @param dcc_beta Numeric scalar or vector: DCC beta parameters.
+#'   For DCC(1,q): scalar. For DCC(p,q) with p>1: vector of length p.
+#'   (default: 0.93)
 #' @param Qbar Matrix (k x k): Unconditional correlation matrix. If NULL, uses
 #'   moderate correlation (0.5 off-diagonal)
 #' @param seed Integer random seed for reproducibility
@@ -755,30 +759,39 @@ diagnostic_summary_stats <- function(diagnostics) {
 #' @return A matrix of dimension (n x k) with simulated returns
 #'
 #' @details
-#' The function simulates data from the DCC-GARCH model:
+#' The function simulates data from the DCC(p,q)-GARCH model:
 #' \deqn{y_{i,t} = \sqrt{h_{i,t}} z_{i,t}}
 #' \deqn{h_{i,t} = \omega_i + \alpha_i y_{i,t-1}^2 + \beta_i h_{i,t-1}}
-#' \deqn{Q_t = \bar{Q}(1-\alpha-\beta) + \alpha z_{t-1}z_{t-1}' + \beta Q_{t-1}}
+#' \deqn{Q_t = \bar{Q}(1 - \sum\alpha - \sum\beta) + \sum_{j=1}^{q} \alpha_j z_{t-j}z_{t-j}' + \sum_{j=1}^{p} \beta_j Q_{t-j}}
 #' \deqn{R_t = \text{diag}(Q_t)^{-1/2} Q_t \text{diag}(Q_t)^{-1/2}}
 #'
 #' where \eqn{z_t \sim N(0, R_t)}.
 #'
+#' For backward compatibility, scalar dcc_alpha and dcc_beta produce DCC(1,1).
+#'
 #' @examples
 #' \dontrun{
-#' # Simulate 500 observations with default parameters
+#' # Simulate 500 observations with default DCC(1,1) parameters
 #' y <- simulate_dcc_garch(n = 500, seed = 42)
 #' 
-#' # Custom parameters with higher volatility
-#' y_high_vol <- simulate_dcc_garch(
+#' # DCC(2,1): two beta lags, one alpha lag
+#' y_dcc21 <- simulate_dcc_garch(
 #'   n = 300,
-#'   omega = c(0.15, 0.20),
-#'   alpha_garch = c(0.15, 0.18),
-#'   beta_garch = c(0.70, 0.65),
+#'   dcc_alpha = 0.05,
+#'   dcc_beta = c(0.50, 0.40),
 #'   seed = 123
 #' )
 #' 
+#' # DCC(2,2): two lags each
+#' y_dcc22 <- simulate_dcc_garch(
+#'   n = 300,
+#'   dcc_alpha = c(0.03, 0.02),
+#'   dcc_beta = c(0.50, 0.40),
+#'   seed = 456
+#' )
+#' 
 #' # Constant correlation (set dcc_alpha = 0)
-#' y_const <- simulate_dcc_garch(n = 200, dcc_alpha = 0, dcc_beta = 0, seed = 456)
+#' y_const <- simulate_dcc_garch(n = 200, dcc_alpha = 0, dcc_beta = 0, seed = 789)
 #' }
 #'
 #' @export
@@ -811,25 +824,41 @@ simulate_dcc_garch <- function(n,
   if (any((alpha_garch + beta_garch) >= 1)) {
     stop("GARCH process must be stationary: alpha + beta < 1")
   }
-  if (dcc_alpha < 0 || dcc_beta < 0) {
-    stop("dcc_alpha and dcc_beta must be non-negative")
-  }
-  if ((dcc_alpha + dcc_beta) >= 1 && (dcc_alpha > 0 || dcc_beta > 0)) {
-    stop("DCC process must be stationary: dcc_alpha + dcc_beta < 1")
+  
+  ## Convert scalars to vectors for uniform handling
+  dcc_alpha <- as.numeric(dcc_alpha)
+  dcc_beta <- as.numeric(dcc_beta)
+  
+  q_order <- length(dcc_alpha)  ## Number of alpha lags (ARCH-like)
+  p_order <- length(dcc_beta)   ## Number of beta lags (GARCH-like)
+  
+  if (any(dcc_alpha < 0) || any(dcc_beta < 0)) {
+    stop("All dcc_alpha and dcc_beta values must be non-negative")
   }
   
-  # Set seed if provided
+  ## Check DCC stationarity: sum(alpha) + sum(beta) < 1
+  dcc_persistence <- sum(dcc_alpha) + sum(dcc_beta)
+  has_dcc_dynamics <- dcc_persistence > 0
+  
+  if (has_dcc_dynamics && dcc_persistence >= 1) {
+    stop(sprintf(
+      "DCC process must be stationary: sum(alpha) + sum(beta) < 1, got %.4f",
+      dcc_persistence
+    ))
+  }
+  
+  ## Set seed if provided
   if (!is.null(seed)) {
     set.seed(seed)
   }
   
-  # Default Qbar (unconditional correlation)
+  ## Default Qbar (unconditional correlation)
   if (is.null(Qbar)) {
     Qbar <- matrix(0.5, k, k)
     diag(Qbar) <- 1
   }
   
-  # Validate Qbar
+  ## Validate Qbar
   if (!is.matrix(Qbar) || nrow(Qbar) != k || ncol(Qbar) != k) {
     stop("Qbar must be a k x k matrix")
   }
@@ -841,43 +870,95 @@ simulate_dcc_garch <- function(n,
     stop("Qbar must be positive definite")
   }
   
-  # Initialize
+  ## Determine maximum lag needed
+  max_lag <- max(p_order, q_order)
+  
+  ## Initialize storage
   y_sim <- matrix(0, n, k)
   h <- matrix(0, n, k)
+  z_history <- vector("list", max_lag)  ## Store lagged z vectors
+  Q_history <- vector("list", max_lag)  ## Store lagged Q matrices
+  
+  ## Initialize all history with Qbar and zero z
+  for (j in seq_len(max_lag)) {
+    z_history[[j]] <- rep(0, k)
+    Q_history[[j]] <- Qbar
+  }
+  
+  ## Current Q and R
   Q <- Qbar
   R <- Qbar
   
-  # Initialize conditional variances
+  ## Initialize conditional variances at unconditional level
   for (i in 1:k) {
     h[1, i] <- omega[i] / (1 - alpha_garch[i] - beta_garch[i])
   }
   
-  # Simulate
+  ## Intercept weight for DCC recursion
+  intercept_weight <- 1 - dcc_persistence
+  
+  ## Simulate
   for (t in 1:n) {
-    # Draw correlated innovations
+    ## Draw correlated innovations from current R
     z <- as.vector(mvtnorm::rmvnorm(1, sigma = R))
     
-    # Generate returns
+    ## Generate returns
     for (i in 1:k) {
       y_sim[t, i] <- sqrt(h[t, i]) * z[i]
       
-      # Update variance for next period
+      ## Update variance for next period
       if (t < n) {
         h[t+1, i] <- omega[i] + alpha_garch[i] * y_sim[t, i]^2 + 
           beta_garch[i] * h[t, i]
       }
     }
     
-    # Update DCC dynamics for next period
-    if (t < n && (dcc_alpha > 0 || dcc_beta > 0)) {
-      z_mat <- matrix(z, ncol = 1)
-      Q <- Qbar * (1 - dcc_alpha - dcc_beta) + 
-        dcc_alpha * (z_mat %*% t(z_mat)) + 
-        dcc_beta * Q
+    ## Update DCC dynamics for next period
+    if (t < n && has_dcc_dynamics) {
       
-      # Standardize to correlation
-      Q_diag_inv_sqrt <- diag(1/sqrt(diag(Q)))
+      ## Shift history: move everything back one slot
+      ## Most recent goes to position 1
+      if (max_lag > 1) {
+        for (j in max_lag:2) {
+          z_history[[j]] <- z_history[[j-1]]
+          Q_history[[j]] <- Q_history[[j-1]]
+        }
+      }
+      z_history[[1]] <- z
+      Q_history[[1]] <- Q
+      
+      ## Compute new Q using higher-order recursion:
+      ## Q_t = Qbar * (1 - sum(alpha) - sum(beta)) 
+      ##     + sum_{j=1}^{q} alpha_j * z_{t-j} z_{t-j}'
+      ##     + sum_{j=1}^{p} beta_j * Q_{t-j}
+      
+      Q_new <- Qbar * intercept_weight
+      
+      ## Add alpha terms (lagged outer products of z)
+      for (j in seq_len(q_order)) {
+        z_lag <- z_history[[j]]
+        Q_new <- Q_new + dcc_alpha[j] * (z_lag %*% t(z_lag))
+      }
+      
+      ## Add beta terms (lagged Q matrices)
+      for (j in seq_len(p_order)) {
+        Q_new <- Q_new + dcc_beta[j] * Q_history[[j]]
+      }
+      
+      Q <- Q_new
+      
+      ## Standardize to correlation matrix
+      Q_diag <- diag(Q)
+      if (any(Q_diag <= 0)) {
+        ## Numerical issue - regularize
+        Q <- Q + diag(1e-6, k)
+        Q_diag <- diag(Q)
+      }
+      Q_diag_inv_sqrt <- diag(1/sqrt(Q_diag))
       R <- Q_diag_inv_sqrt %*% Q %*% Q_diag_inv_sqrt
+      
+      ## Ensure R stays valid correlation matrix
+      diag(R) <- 1
     }
   }
   
@@ -885,6 +966,156 @@ simulate_dcc_garch <- function(n,
   
   return(y_sim)
 }
+
+#' #' Simulate DCC-GARCH Data
+#' #'
+#' #' Simulate realistic multivariate time series data from a DCC-GARCH process.
+#' #' This function is primarily intended for testing and examples.
+#' #'
+#' #' @param n Integer number of observations to simulate
+#' #' @param k Integer number of series (default: 2)
+#' #' @param omega Numeric vector of length k: GARCH intercepts (default: c(0.05, 0.08))
+#' #' @param alpha_garch Numeric vector of length k: ARCH effects (default: c(0.10, 0.12))
+#' #' @param beta_garch Numeric vector of length k: GARCH effects (default: c(0.85, 0.82))
+#' #' @param dcc_alpha Numeric: DCC alpha parameter (default: 0.04)
+#' #' @param dcc_beta Numeric: DCC beta parameter (default: 0.93)
+#' #' @param Qbar Matrix (k x k): Unconditional correlation matrix. If NULL, uses
+#' #'   moderate correlation (0.5 off-diagonal)
+#' #' @param seed Integer random seed for reproducibility
+#' #'
+#' #' @return A matrix of dimension (n x k) with simulated returns
+#' #'
+#' #' @details
+#' #' The function simulates data from the DCC-GARCH model:
+#' #' \deqn{y_{i,t} = \sqrt{h_{i,t}} z_{i,t}}
+#' #' \deqn{h_{i,t} = \omega_i + \alpha_i y_{i,t-1}^2 + \beta_i h_{i,t-1}}
+#' #' \deqn{Q_t = \bar{Q}(1-\alpha-\beta) + \alpha z_{t-1}z_{t-1}' + \beta Q_{t-1}}
+#' #' \deqn{R_t = \text{diag}(Q_t)^{-1/2} Q_t \text{diag}(Q_t)^{-1/2}}
+#' #'
+#' #' where \eqn{z_t \sim N(0, R_t)}.
+#' #'
+#' #' @examples
+#' #' \dontrun{
+#' #' # Simulate 500 observations with default parameters
+#' #' y <- simulate_dcc_garch(n = 500, seed = 42)
+#' #' 
+#' #' # Custom parameters with higher volatility
+#' #' y_high_vol <- simulate_dcc_garch(
+#' #'   n = 300,
+#' #'   omega = c(0.15, 0.20),
+#' #'   alpha_garch = c(0.15, 0.18),
+#' #'   beta_garch = c(0.70, 0.65),
+#' #'   seed = 123
+#' #' )
+#' #' 
+#' #' # Constant correlation (set dcc_alpha = 0)
+#' #' y_const <- simulate_dcc_garch(n = 200, dcc_alpha = 0, dcc_beta = 0, seed = 456)
+#' #' }
+#' #'
+#' #' @export
+#' simulate_dcc_garch <- function(n, 
+#'                                k = 2,
+#'                                omega = c(0.05, 0.08),
+#'                                alpha_garch = c(0.10, 0.12),
+#'                                beta_garch = c(0.85, 0.82),
+#'                                dcc_alpha = 0.04,
+#'                                dcc_beta = 0.93,
+#'                                Qbar = NULL,
+#'                                seed = NULL) {
+#'   
+#'   # Input validation
+#'   if (n <= 0 || n != round(n)) {
+#'     stop("n must be a positive integer")
+#'   }
+#'   if (k <= 0 || k != round(k)) {
+#'     stop("k must be a positive integer")
+#'   }
+#'   if (length(omega) != k || length(alpha_garch) != k || length(beta_garch) != k) {
+#'     stop("omega, alpha_garch, and beta_garch must have length k")
+#'   }
+#'   if (any(omega <= 0)) {
+#'     stop("All omega values must be positive")
+#'   }
+#'   if (any(alpha_garch < 0) || any(beta_garch < 0)) {
+#'     stop("alpha_garch and beta_garch must be non-negative")
+#'   }
+#'   if (any((alpha_garch + beta_garch) >= 1)) {
+#'     stop("GARCH process must be stationary: alpha + beta < 1")
+#'   }
+#'   if (dcc_alpha < 0 || dcc_beta < 0) {
+#'     stop("dcc_alpha and dcc_beta must be non-negative")
+#'   }
+#'   if ((dcc_alpha + dcc_beta) >= 1 && (dcc_alpha > 0 || dcc_beta > 0)) {
+#'     stop("DCC process must be stationary: dcc_alpha + dcc_beta < 1")
+#'   }
+#'   
+#'   # Set seed if provided
+#'   if (!is.null(seed)) {
+#'     set.seed(seed)
+#'   }
+#'   
+#'   # Default Qbar (unconditional correlation)
+#'   if (is.null(Qbar)) {
+#'     Qbar <- matrix(0.5, k, k)
+#'     diag(Qbar) <- 1
+#'   }
+#'   
+#'   # Validate Qbar
+#'   if (!is.matrix(Qbar) || nrow(Qbar) != k || ncol(Qbar) != k) {
+#'     stop("Qbar must be a k x k matrix")
+#'   }
+#'   if (!all(diag(Qbar) == 1)) {
+#'     stop("Qbar must have 1s on the diagonal")
+#'   }
+#'   eig_vals <- eigen(Qbar, symmetric = TRUE, only.values = TRUE)$values
+#'   if (any(eig_vals < 0)) {
+#'     stop("Qbar must be positive definite")
+#'   }
+#'   
+#'   # Initialize
+#'   y_sim <- matrix(0, n, k)
+#'   h <- matrix(0, n, k)
+#'   Q <- Qbar
+#'   R <- Qbar
+#'   
+#'   # Initialize conditional variances
+#'   for (i in 1:k) {
+#'     h[1, i] <- omega[i] / (1 - alpha_garch[i] - beta_garch[i])
+#'   }
+#'   
+#'   # Simulate
+#'   for (t in 1:n) {
+#'     # Draw correlated innovations
+#'     z <- as.vector(mvtnorm::rmvnorm(1, sigma = R))
+#'     
+#'     # Generate returns
+#'     for (i in 1:k) {
+#'       y_sim[t, i] <- sqrt(h[t, i]) * z[i]
+#'       
+#'       # Update variance for next period
+#'       if (t < n) {
+#'         h[t+1, i] <- omega[i] + alpha_garch[i] * y_sim[t, i]^2 + 
+#'           beta_garch[i] * h[t, i]
+#'       }
+#'     }
+#'     
+#'     # Update DCC dynamics for next period
+#'     if (t < n && (dcc_alpha > 0 || dcc_beta > 0)) {
+#'       z_mat <- matrix(z, ncol = 1)
+#'       Q <- Qbar * (1 - dcc_alpha - dcc_beta) + 
+#'         dcc_alpha * (z_mat %*% t(z_mat)) + 
+#'         dcc_beta * Q
+#'       
+#'       # Standardize to correlation
+#'       Q_diag_inv_sqrt <- diag(1/sqrt(diag(Q)))
+#'       R <- Q_diag_inv_sqrt %*% Q %*% Q_diag_inv_sqrt
+#'     }
+#'   }
+#'   
+#'   colnames(y_sim) <- paste0("series_", 1:k)
+#'   
+#'   return(y_sim)
+#' }
 
 
 #' Generate Model Specification for DCC-GARCH
