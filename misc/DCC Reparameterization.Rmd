@@ -1,0 +1,351 @@
+---
+title: "DCC Reparameterization"
+author: "Martin Hoshi Vognsen"
+date: "`r Sys.Date()`"
+output: 
+  rmarkdown::html_vignette:
+    toc: true
+    toc_depth: 3
+    number_sections: true
+vignette: >
+  %\VignetteIndexEntry{Diagnostic System for MS-VARMA-GARCH Estimation}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r setup, include = FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>",
+  fig.width = 7,
+  fig.height = 5,
+  warning = FALSE,
+  message = FALSE
+)
+```
+
+
+# DCC Reparameterization: Standalone Visualization
+
+## Setup
+
+```{r}
+library(mvtnorm)
+```
+
+
+### Transformation Functions
+```{r}
+to_reparam <- function(alpha, beta) {
+  persistence <- alpha + beta
+  ratio <- alpha / persistence
+  c(persistence = persistence, ratio = ratio)
+}
+
+from_reparam <- function(persistence, ratio) {
+  alpha <- persistence * ratio
+  beta <- persistence * (1 - ratio)
+  c(alpha = alpha, beta = beta)
+}
+```
+
+### Objective Functions
+```{r}
+## DCC negative log-likelihood (original parameterization)
+dcc_nll_original <- function(alpha, beta, std_resid, weights = NULL) {
+  
+  T_obs <- nrow(std_resid)
+  k <- ncol(std_resid)
+  if (is.null(weights)) weights <- rep(1, T_obs)
+  
+  ## Penalty for constraint violations
+  if (alpha <= 0 || alpha >= 1 || beta <= 0 || beta >= 1) return(1e10)
+  if ((alpha + beta) >= 1) return(1e10)
+  
+  ## Qbar
+ Qbar <- cov.wt(std_resid, wt = weights, method = "ML")$cov
+  eig <- eigen(Qbar, symmetric = TRUE)
+  if (any(eig$values < 1e-8)) Qbar <- Qbar + diag(1e-6, k)
+  
+  ## DCC recursion
+  Q <- Qbar
+  ll_total <- 0
+  
+  for (t in 1:T_obs) {
+    if (t > 1) {
+      z_lag <- std_resid[t-1, , drop = FALSE]
+      Q <- Qbar * (1 - alpha - beta) + alpha * (t(z_lag) %*% z_lag) + beta * Q
+    }
+    
+    if (any(!is.finite(Q))) return(1e10)
+    Q_diag <- diag(Q)
+    if (any(Q_diag <= 0)) return(1e10)
+    
+    R <- diag(1/sqrt(Q_diag)) %*% Q %*% diag(1/sqrt(Q_diag))
+    
+    eig_R <- eigen(R, symmetric = TRUE, only.values = TRUE)$values
+    if (any(eig_R <= 0)) {
+      ll_total <- ll_total - 1e10 * weights[t]
+    } else {
+      ll_total <- ll_total + weights[t] * dmvnorm(std_resid[t,], sigma = R, log = TRUE)
+    }
+  }
+  
+  return(-ll_total)
+}
+
+
+## DCC negative log-likelihood (reparameterized)
+dcc_nll_reparam <- function(persistence, ratio, std_resid, weights = NULL) {
+  
+  ## Transform to original parameters (stationarity guaranteed!)
+  alpha <- persistence * ratio
+  beta <- persistence * (1 - ratio)
+  
+  T_obs <- nrow(std_resid)
+  k <- ncol(std_resid)
+  if (is.null(weights)) weights <- rep(1, T_obs)
+  
+  ## Only check box constraints (no stationarity check needed!)
+  if (persistence <= 0 || persistence >= 1 || ratio <= 0 || ratio >= 1) return(1e10)
+  
+  ## Qbar
+  Qbar <- cov.wt(std_resid, wt = weights, method = "ML")$cov
+  eig <- eigen(Qbar, symmetric = TRUE)
+  if (any(eig$values < 1e-8)) Qbar <- Qbar + diag(1e-6, k)
+  
+  ## DCC recursion
+  Q <- Qbar
+  ll_total <- 0
+  
+  for (t in 1:T_obs) {
+    if (t > 1) {
+      z_lag <- std_resid[t-1, , drop = FALSE]
+      Q <- Qbar * (1 - alpha - beta) + alpha * (t(z_lag) %*% z_lag) + beta * Q
+    }
+    
+    if (any(!is.finite(Q))) return(1e10)
+    Q_diag <- diag(Q)
+    if (any(Q_diag <= 0)) return(1e10)
+    
+    R <- diag(1/sqrt(Q_diag)) %*% Q %*% diag(1/sqrt(Q_diag))
+    
+    eig_R <- eigen(R, symmetric = TRUE, only.values = TRUE)$values
+    if (any(eig_R <= 0)) {
+      ll_total <- ll_total - 1e10 * weights[t]
+    } else {
+      ll_total <- ll_total + weights[t] * dmvnorm(std_resid[t,], sigma = R, log = TRUE)
+    }
+  }
+  
+  return(-ll_total)
+}
+```
+
+
+## Generate Test Data
+```{r}
+generate_dcc_data <- function(n = 300, true_alpha = 0.05, true_beta = 0.90, 
+                               rho = 0.5, seed = 123) {
+  set.seed(seed)
+  k <- 2
+  
+  Qbar <- matrix(c(1, rho, rho, 1), 2, 2)
+  Q <- Qbar
+  std_resid <- matrix(0, n, k)
+  
+  for (t in 1:n) {
+    if (t > 1) {
+      z_lag <- std_resid[t-1, , drop = FALSE]
+      Q <- Qbar * (1 - true_alpha - true_beta) + 
+        true_alpha * (t(z_lag) %*% z_lag) + true_beta * Q
+    }
+    R <- cov2cor(Q)
+    std_resid[t, ] <- rmvnorm(1, sigma = R)
+  }
+  
+  return(std_resid)
+}
+```
+
+
+## Visualization: Side-by-Side Surface Plots
+```{r}
+plot_surfaces <- function(std_resid, n_grid = 40) {
+  
+  cat("Computing objective surfaces...\n")
+  
+  ## --- Original parameterization ---
+  alpha_seq <- seq(0.01, 0.98, length.out = n_grid)
+  beta_seq <- seq(0.01, 0.98, length.out = n_grid)
+  
+  nll_original <- matrix(NA, n_grid, n_grid)
+  
+  for (i in seq_along(alpha_seq)) {
+    for (j in seq_along(beta_seq)) {
+      if ((alpha_seq[i] + beta_seq[j]) < 1) {
+        nll_original[i, j] <- dcc_nll_original(alpha_seq[i], beta_seq[j], std_resid)
+      }
+    }
+    if (i %% 10 == 0) cat("  Original:", round(100*i/n_grid), "%\n")
+  }
+  
+  ## --- Reparameterized ---
+  persistence_seq <- seq(0.01, 0.99, length.out = n_grid)
+  ratio_seq <- seq(0.01, 0.99, length.out = n_grid)
+  
+  nll_reparam <- matrix(NA, n_grid, n_grid)
+  
+  for (i in seq_along(persistence_seq)) {
+    for (j in seq_along(ratio_seq)) {
+      nll_reparam[i, j] <- dcc_nll_reparam(persistence_seq[i], ratio_seq[j], std_resid)
+    }
+    if (i %% 10 == 0) cat("  Reparam:", round(100*i/n_grid), "%\n")
+  }
+  
+  ## Cap extreme values
+  nll_original[nll_original > 1e9] <- NA
+  nll_reparam[nll_reparam > 1e9] <- NA
+  
+  ## Find common color scale
+  all_vals <- c(nll_original[is.finite(nll_original)], 
+                nll_reparam[is.finite(nll_reparam)])
+  zlim <- quantile(all_vals, c(0.01, 0.99), na.rm = TRUE)
+  
+  ## --- Create plots ---
+  par(mfrow = c(1, 2))
+  
+  # Original
+  image(alpha_seq, beta_seq, nll_original,
+        xlab = expression(alpha), ylab = expression(beta),
+        main = "Original: (α, β)",
+        col = hcl.colors(50, "YlOrRd", rev = TRUE),
+        zlim = zlim)
+  contour(alpha_seq, beta_seq, nll_original, add = TRUE, 
+          nlevels = 10, col = "gray30")
+  # Stationarity boundary
+  abline(a = 1, b = -1, col = "red", lwd = 3, lty = 2)
+  text(0.25, 0.85, "α + β = 1\n(INVALID)", col = "red", font = 2)
+  # Invalid region shading
+  polygon(c(0, 1, 1), c(1, 1, 0), col = rgb(1, 0, 0, 0.2), border = NA)
+  
+  # Reparameterized
+  image(persistence_seq, ratio_seq, nll_reparam,
+        xlab = "persistence (α + β)", ylab = "ratio (α/(α+β))",
+        main = "Reparameterized: (persistence, ratio)",
+        col = hcl.colors(50, "YlOrRd", rev = TRUE),
+        zlim = zlim)
+  contour(persistence_seq, ratio_seq, nll_reparam, add = TRUE, 
+          nlevels = 10, col = "gray30")
+  text(0.5, 0.5, "Entire space\nis VALID", col = "darkgreen", font = 2, cex = 1.2)
+  
+  par(mfrow = c(1, 1))
+  
+  cat("Done!\n")
+  
+  invisible(list(original = nll_original, reparam = nll_reparam))
+}
+```
+
+
+
+## Compare Optimizers
+```{r}
+compare_optimizers <- function(std_resid, start_alpha = 0.05, start_beta = 0.90) {
+  
+  cat("\n", rep("=", 60), "\n", sep = "")
+  cat("OPTIMIZER COMPARISON\n")
+  cat("Start: alpha =", start_alpha, ", beta =", start_beta, "\n")
+  cat(rep("=", 60), "\n\n")
+  
+  eps <- 1e-8
+  
+  ## --- Original ---
+  n_penalty_orig <- 0
+  obj_orig <- function(p) {
+    val <- dcc_nll_original(p[1], p[2], std_resid)
+    if (val >= 1e9) n_penalty_orig <<- n_penalty_orig + 1
+    val
+  }
+  
+  t1 <- Sys.time()
+  res_orig <- optim(c(start_alpha, start_beta), obj_orig, method = "L-BFGS-B",
+                    lower = c(eps, eps), upper = c(1-eps, 1-eps))
+  t1 <- Sys.time() - t1
+  
+  cat("ORIGINAL PARAMETERIZATION:\n")
+  cat(sprintf("  Result: α=%.4f, β=%.4f (sum=%.4f)\n", 
+              res_orig$par[1], res_orig$par[2], sum(res_orig$par)))
+  cat(sprintf("  NLL: %.2f\n", res_orig$value))
+  cat(sprintf("  Penalty triggers: %d\n", n_penalty_orig))
+  cat(sprintf("  Converged: %s\n", res_orig$convergence == 0))
+  cat(sprintf("  Time: %.3f sec\n\n", as.numeric(t1, units = "secs")))
+  
+  ## --- Reparameterized ---
+  start_rep <- to_reparam(start_alpha, start_beta)
+  n_penalty_rep <- 0
+  obj_rep <- function(p) {
+    val <- dcc_nll_reparam(p[1], p[2], std_resid)
+    if (val >= 1e9) n_penalty_rep <<- n_penalty_rep + 1
+    val
+  }
+  
+  t2 <- Sys.time()
+  res_rep <- optim(c(start_rep["persistence"], start_rep["ratio"]), obj_rep, 
+                   method = "L-BFGS-B",
+                   lower = c(eps, eps), upper = c(1-eps, 1-eps))
+  t2 <- Sys.time() - t2
+  
+  final <- from_reparam(res_rep$par[1], res_rep$par[2])
+  
+  cat("REPARAMETERIZED:\n")
+  cat(sprintf("  Result: persistence=%.4f, ratio=%.4f\n", 
+              res_rep$par[1], res_rep$par[2]))
+  cat(sprintf("  → α=%.4f, β=%.4f (sum=%.4f)\n", 
+              final["alpha"], final["beta"], sum(final)))
+  cat(sprintf("  NLL: %.2f\n", res_rep$value))
+  cat(sprintf("  Penalty triggers: %d\n", n_penalty_rep))
+  cat(sprintf("  Converged: %s\n", res_rep$convergence == 0))
+  cat(sprintf("  Time: %.3f sec\n\n", as.numeric(t2, units = "secs")))
+  
+  ## --- Summary ---
+  cat(rep("-", 60), "\n", sep = "")
+  cat("SUMMARY:\n")
+  cat(sprintf("  Penalty reduction: %d → %d\n", n_penalty_orig, n_penalty_rep))
+  cat(sprintf("  NLL difference: %.4f\n", res_orig$value - res_rep$value))
+  cat(sprintf("  Parameters match: %s\n", 
+              max(abs(res_orig$par[1] - final["alpha"]), 
+                  abs(res_orig$par[2] - final["beta"])) < 0.01))
+  
+  invisible(list(original = res_orig, reparam = res_rep))
+}
+```
+
+
+
+## Main
+```{r}
+cat("\n")
+cat(rep("=", 70), "\n", sep = "")
+cat("DCC REPARAMETERIZATION DIAGNOSTIC\n")
+cat(rep("=", 70), "\n\n")
+
+# Generate data
+cat("Generating DCC data with true alpha=0.05, beta=0.90...\n")
+std_resid <- generate_dcc_data(n = 300, true_alpha = 0.05, true_beta = 0.90)
+cat("Done. Sample correlation:", round(cor(std_resid)[1,2], 3), "\n\n")
+
+# Compare optimizers with different starting points
+compare_optimizers(std_resid, start_alpha = 0.05, start_beta = 0.90)
+compare_optimizers(std_resid, start_alpha = 0.45, start_beta = 0.50)
+compare_optimizers(std_resid, start_alpha = 0.001, start_beta = 0.95)
+
+# Plot surfaces
+cat("\nGenerating surface plots (may take ~30 seconds)...\n")
+plot_surfaces(std_resid, n_grid = 40)
+
+cat("\n\nDiagnostic complete!\n")
+cat("Key insight: The reparameterized surface has NO invalid region.\n")
+cat("The optimizer can explore freely without hitting penalties.\n")
+```
+

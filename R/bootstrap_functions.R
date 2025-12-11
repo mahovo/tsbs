@@ -529,6 +529,44 @@ msvar_bootstrap <- function(
 #' entire model. The EM algorithm using a Hamilton Filter & Kim Smoother for the 
 #' E-step is used to find the Maximum Likelihood Estimate (MLE) of \eqn{\Psi}.
 #' 
+#' The tsbs package uses different optimization strategies for DCC models
+#' depending on the model order:
+#' 
+#' \strong{DCC(1,1) - Reparameterized Optimization}
+#' 
+#' For the common DCC(1,1) case, we use a reparameterization that transforms
+
+#' the constrained problem into an unconstrained one:
+#' \itemize{
+#'   \item Original: \eqn{\alpha \in (0,1), \beta \in (0,1), \alpha + \beta < 1}
+#'   \item Reparameterized: \eqn{persistence \in (0,1), ratio \in (0,1)}
+#' }
+#' 
+#' where \eqn{persistence = \alpha + \beta} and \eqn{ratio = \alpha/(\alpha + \beta)}.
+#' 
+#' This eliminates the stationarity constraint since \eqn{\alpha + \beta = persistence < 1}
+#' is automatically satisfied by the box constraint on persistence.
+#' 
+#' Benefits:
+#' \itemize{
+#'   \item No penalty function discontinuities
+#'   \item More stable optimization near high-persistence regions
+#'   \item Eliminates "dcc_penalty" warnings from optimizer exploration
+#' }
+#' 
+#' \strong{DCC(p,q) with max(p,q) > 1 - Penalty Method}
+#' 
+#' For higher-order DCC models, reparameterization becomes significantly more
+#' complex (requiring softmax distributions over parameter vectors). We therefore
+#' use the standard penalty method:
+#' \itemize{
+#'   \item Box constraints: \eqn{\alpha_j, \beta_j \in (\epsilon, 1-\epsilon)}
+#'   \item Stationarity enforced via penalty when \eqn{\sum \alpha + \sum \beta \geq 1}
+#' }
+#' 
+#' This may result in optimizer instability warnings for models with high
+#' persistence, but maintains correctness for arbitrary DCC orders.
+#' 
 #' @return A list of bootstrapped time series matrices.
 #' 
 #' @references

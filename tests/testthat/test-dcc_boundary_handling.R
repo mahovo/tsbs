@@ -77,6 +77,8 @@ test_that("DCC bounds should match tsmarch parmatrix bounds", {
 
 # Test effective sample size calculation for weighted BIC =====================
 
+## OBS: THIS TEST IS MEANINGLESS!
+
 test_that("Effective sample size for weighted BIC is calculated correctly", {
   skip_on_cran()
   

@@ -41,6 +41,10 @@ generate_tsmarch_parnames <- function(pars) {
 #' @param spec A spec list
 #' @param model_type Character string
 #' @param current_pars A list of parameters
+#' @param diagnostics
+#' @param iteration
+#' @param state
+#' @param verbose
 #' @return A GARCH specification object
 create_garch_spec_object_r <- function(
     residuals, 
@@ -147,7 +151,7 @@ create_garch_spec_object_r <- function(
             cat("Length of tmb_report$sigma:", length(tmb_report$sigma), "\n")
             cat("maxpq:", maxpq, "\n")
             cat("Length of residuals_xts[,", i, "]:", length(residuals_xts[,i]), "\n")
-            cat("Class of estimated_obj$sigma:", class(estimated_obj$sigma), "\n")  ## KEEP THIS
+            cat("Class of estimated_obj$sigma:", class(estimated_obj$sigma), "\n")
           }
           
           ## Create proper dates for the sigma vector
@@ -318,6 +322,10 @@ create_garch_spec_object_r <- function(
 #' @param current_pars 
 #' @param spec 
 #' @param model_type 
+#' @param diagnostics
+#' @param iteration
+#' @param state
+#' @param verbose
 calculate_loglik_vector_r <- function(
     y, 
     current_pars, 
@@ -1381,12 +1389,24 @@ estimate_dcc_parameters_weighted <- function(
       }
       
       if (!is.null(diagnostics) && !is.null(iteration) && !is.null(state)) {
-        diagnostics <- add_diagnostic_warning(
+        ## Use <<- to update diagnostics in parent scope (objective function context)
+        diagnostics <<- add_diagnostic_warning(
           diagnostics,
           iteration,
           "dcc_penalty",
           paste0("DCC parameters ", reason),
           list(alpha = alpha, beta = beta, sum = alpha + beta)
+        )
+        
+        ## Also log as a boundary event for consistency with other boundary handling
+        diagnostics <<- add_boundary_event(
+          diagnostics,
+          iteration = iteration,
+          state = state,
+          parameter_name = "alpha_plus_beta",
+          value = alpha + beta,
+          boundary_type = "upper",
+          action_taken = paste0("penalty_applied: ", reason)
         )
       }
       
@@ -1483,13 +1503,13 @@ estimate_dcc_parameters_weighted <- function(
         cat("Total observations with bad R_t:", n_bad, "/", T_eff, "\n")
       }
       
-      if (!is.null(diagnostics) && !is.null(iteration) && !is.null(state) && n_bad > 0) {
-        diagnostics <- add_diagnostic_warning(
-          diagnostics, iteration, "dcc_bad_correlation",
-          paste0("Bad correlation matrices in ", n_bad, " observations"),
-          list(n_bad = n_bad, T_eff = T_eff)
-        )
-      }
+      # if (!is.null(diagnostics) && !is.null(iteration) && !is.null(state) && n_bad > 0) {
+      #   diagnostics <- add_diagnostic_warning(
+      #     diagnostics, iteration, "dcc_bad_correlation",
+      #     paste0("Bad correlation matrices in ", n_bad, " observations"),
+      #     list(n_bad = n_bad, T_eff = T_eff)
+      #   )
+      # }
     } else if (spec$distribution == "mvt") {
       shape <- dist_params_current$shape
       

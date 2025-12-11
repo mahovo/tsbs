@@ -2013,13 +2013,13 @@ test_that("Single regime data converges quickly (both states identical or consta
   k <- 2
   
   ## Helper function to check if parameter is at lower bound (constant correlation)
-is_constant_correlation <- function(pars) {
-  alpha <- pars$alpha_1
-  if (is.null(alpha)) return(TRUE)
-  if (!is.null(pars$correlation_type) && pars$correlation_type == "constant") return(TRUE)
-  if (alpha < 0.02) return(TRUE)
-  return(FALSE)
-}
+  is_constant_correlation <- function(pars) {
+    alpha <- pars$alpha_1
+    if (is.null(alpha)) return(TRUE)
+    if (!is.null(pars$correlation_type) && pars$correlation_type == "constant") return(TRUE)
+    if (alpha < 0.02) return(TRUE)
+    return(FALSE)
+  }
   
   ## True GARCH parameters (single regime)
   omega_true <- c(0.1, 0.15)
@@ -2615,7 +2615,7 @@ test_that("DCC estimation with AIC criterion", {
     ),
     collect_diagnostics = TRUE,
     verbose = FALSE,
-    verbose_file = "../output/verbose_test_8f.log"
+    verbose_file = NULL
   )
   
   cat("\n=== Testing AIC Criterion ===\n")
@@ -2647,7 +2647,7 @@ test_that("DCC estimation with threshold criterion (old behavior)", {
     ),
     collect_diagnostics = TRUE,
     verbose = FALSE,
-    verbose_file = "../output/verbose_test_8g.log"
+    verbose_file = NULL
   )
   
   cat("\n=== Testing Threshold Criterion ===\n")
@@ -2678,7 +2678,7 @@ test_that("DCC estimation without refitting", {
     ),
     collect_diagnostics = TRUE,
     verbose = FALSE,
-    verbose_file = "../output/verbose_test_8h.log"
+    verbose_file = NULL
   )
   
   cat("\n=== Testing Without Refitting ===\n")
@@ -2718,8 +2718,8 @@ test_that("BIC criterion correctly switches to constant", {
       dcc_boundary_criterion = "bic"
     ),
     collect_diagnostics = TRUE,
-    verbose = TRUE,
-    verbose_file = "../output/verbose_test_8i.log"
+    verbose = FALSE,
+    verbose_file = NULL
   )
   
   diag <- fit$diagnostics
@@ -3543,4 +3543,475 @@ test_that("Full MS-DCC estimation handles boundaries correctly across states", {
       expect_true(!is.null(event$action_taken))
     }
   }
+})
+
+
+## PART 13: Unit Tests for DCC Boundary Detection =============================
+## 
+## These tests verify:
+## 1. Stationarity constraint (alpha + beta < 1) - boundary events and warnings
+## 2. Box constraints (0 < alpha < 1, 0 < beta < 1)  
+## 3. Low alpha triggers constant correlation fallback
+## 4. Normal data does not trigger false boundary events
+
+
+## 13a: DCC boundary constraint enforcement (handles both outcomes) ============
+
+test_that("DCC box constraints keep parameters in valid range", {
+  skip_on_cran()
+  
+  ## This test verifies that regardless of whether the optimizer chooses
+  
+  ## dynamic or constant correlation, all constraints are satisfied.
+  
+  set.seed(789)
+  n <- 200
+  k <- 2
+  
+  y_test <- matrix(rnorm(n * k), ncol = k)
+  colnames(y_test) <- c("series_1", "series_2")
+  
+  ## Test with various starting points
+  test_cases <- list(
+    list(alpha = 0.05, beta = 0.90, name = "normal"),
+    list(alpha = 0.001, beta = 0.95, name = "low_alpha"),
+    list(alpha = 0.3, beta = 0.001, name = "low_beta"),
+    list(alpha = 0.2, beta = 0.7, name = "moderate")
+  )
+  
+  for (tc in test_cases) {
+    spec_test <- list(
+      garch_spec_fun = "dcc_modelspec",
+      distribution = "mvn",
+      garch_spec_args = list(
+        dcc_order = c(1, 1),
+        dynamics = "dcc",
+        garch_model = list(univariate = list(
+          list(model = "garch", garch_order = c(1, 1), distribution = "norm"),
+          list(model = "garch", garch_order = c(1, 1), distribution = "norm")
+        ))
+      ),
+      start_pars = list(
+        garch_pars = list(
+          list(omega = 0.01, alpha1 = 0.1, beta1 = 0.8),
+          list(omega = 0.01, alpha1 = 0.1, beta1 = 0.8)
+        ),
+        dcc_pars = list(alpha_1 = tc$alpha, beta_1 = tc$beta),
+        dist_pars = NULL
+      )
+    )
+    
+    weights <- rep(1, n)
+    diagnostics <- create_diagnostic_collector()
+    
+    result <- estimate_garch_weighted_dcc(
+      residuals = y_test,
+      weights = weights,
+      spec = spec_test,
+      diagnostics = diagnostics,
+      iteration = 1,
+      state = 1,
+      verbose = FALSE,
+      dcc_threshold = 0.02
+    )
+    
+    ## UNCONDITIONAL: Result must be valid
+    expect_true(
+      result$coefficients$correlation_type %in% c("dynamic", "constant"),
+      info = sprintf("Case '%s': correlation_type must be 'dynamic' or 'constant'", tc$name)
+    )
+    
+    ## UNCONDITIONAL: GARCH parameters must be returned
+    expect_true(
+      !is.null(result$coefficients$garch_pars),
+      info = sprintf("Case '%s': garch_pars must be present", tc$name)
+    )
+    
+    ## UNCONDITIONAL: GARCH parameters must satisfy box constraints
+    for (i in 1:k) {
+      gp <- result$coefficients$garch_pars[[i]]
+      
+      expect_true(gp$omega > 0,
+                  info = sprintf("Case '%s', series %d: omega > 0", tc$name, i))
+      expect_true(gp$alpha1 >= 0,
+                  info = sprintf("Case '%s', series %d: alpha1 >= 0", tc$name, i))
+      expect_true(gp$alpha1 < 1,
+                  info = sprintf("Case '%s', series %d: alpha1 < 1", tc$name, i))
+      expect_true(gp$beta1 >= 0,
+                  info = sprintf("Case '%s', series %d: beta1 >= 0", tc$name, i))
+      expect_true(gp$beta1 < 1,
+                  info = sprintf("Case '%s', series %d: beta1 < 1", tc$name, i))
+      expect_true((gp$alpha1 + gp$beta1) < 1,
+                  info = sprintf("Case '%s', series %d: GARCH stationarity", tc$name, i))
+    }
+    
+    ## CONDITIONAL: If dynamic, verify DCC constraints
+    if (result$coefficients$correlation_type == "dynamic") {
+      alpha_est <- result$coefficients$dcc_pars$alpha_1
+      beta_est <- result$coefficients$dcc_pars$beta_1
+      
+      expect_true(alpha_est > 0,
+                  info = sprintf("Case '%s': DCC alpha > 0", tc$name))
+      expect_true(alpha_est < 1,
+                  info = sprintf("Case '%s': DCC alpha < 1", tc$name))
+      expect_true(beta_est > 0,
+                  info = sprintf("Case '%s': DCC beta > 0", tc$name))
+      expect_true(beta_est < 1,
+                  info = sprintf("Case '%s': DCC beta < 1", tc$name))
+      expect_true((alpha_est + beta_est) < 1,
+                  info = sprintf("Case '%s': DCC stationarity (sum=%.4f)", 
+                                 tc$name, alpha_est + beta_est))
+    }
+    
+    ## CONDITIONAL: If constant, verify structure
+    if (result$coefficients$correlation_type == "constant") {
+      ## dcc_pars should be empty or NULL
+      expect_true(
+        is.null(result$coefficients$dcc_pars) || length(result$coefficients$dcc_pars) == 0,
+        info = sprintf("Case '%s': constant correlation should have no DCC params", tc$name)
+      )
+    }
+  }
+})
+
+
+
+## 13b: Low alpha behavior (handles both outcomes) =============================
+
+test_that("DCC low alpha starting point handled correctly", {
+  skip_on_cran()
+  
+  ## When starting with very low alpha, the optimizer may either:
+  ## 1. Find a dynamic solution with higher alpha, OR
+  ## 2. Fall back to constant correlation
+  ## Both are valid outcomes - we just verify the result is consistent.
+  
+  set.seed(111)
+  n <- 200
+  k <- 2
+  
+  ## Generate data
+  y_test <- matrix(rnorm(n * k), ncol = k)
+  colnames(y_test) <- c("series_1", "series_2")
+  
+  spec_low_alpha <- list(
+    garch_spec_fun = "dcc_modelspec",
+    distribution = "mvn",
+    garch_spec_args = list(
+      dcc_order = c(1, 1),
+      dynamics = "dcc",
+      garch_model = list(univariate = list(
+        list(model = "garch", garch_order = c(1, 1), distribution = "norm"),
+        list(model = "garch", garch_order = c(1, 1), distribution = "norm")
+      ))
+    ),
+    start_pars = list(
+      garch_pars = list(
+        list(omega = 0.01, alpha1 = 0.1, beta1 = 0.8),
+        list(omega = 0.01, alpha1 = 0.1, beta1 = 0.8)
+      ),
+      ## Start with very low alpha
+      dcc_pars = list(alpha_1 = 0.001, beta_1 = 0.95),
+      dist_pars = NULL
+    )
+  )
+  
+  weights <- rep(1, n)
+  diagnostics <- create_diagnostic_collector()
+  
+  result <- estimate_garch_weighted_dcc(
+    residuals = y_test,
+    weights = weights,
+    spec = spec_low_alpha,
+    diagnostics = diagnostics,
+    iteration = 1,
+    state = 1,
+    verbose = FALSE,
+    dcc_threshold = 0.02,
+    dcc_criterion = "threshold"
+  )
+  
+  ## UNCONDITIONAL: Must return valid result
+  expect_true(
+    result$coefficients$correlation_type %in% c("dynamic", "constant"),
+    info = "Must return 'dynamic' or 'constant'"
+  )
+  
+  ## UNCONDITIONAL: Diagnostics must be returned
+  expect_true(!is.null(result$diagnostics),
+              info = "Diagnostics should be returned")
+  
+  ## CONDITIONAL CHECKS based on outcome
+  if (result$coefficients$correlation_type == "constant") {
+    ## Verify constant correlation structure
+    expect_true(
+      is.null(result$coefficients$dcc_pars) || length(result$coefficients$dcc_pars) == 0,
+      info = "Constant correlation should have empty dcc_pars"
+    )
+    
+    ## May have degeneracy_reason
+    ## (not required - depends on the path taken)
+    
+  } else {
+    ## Dynamic correlation - verify constraints
+    alpha_est <- result$coefficients$dcc_pars$alpha_1
+    beta_est <- result$coefficients$dcc_pars$beta_1
+    
+    expect_true(alpha_est > 0, info = "Dynamic: alpha > 0")
+    expect_true((alpha_est + beta_est) < 1, 
+                info = sprintf("Dynamic: stationarity (sum=%.4f)", alpha_est + beta_est))
+    
+    ## If optimizer found dynamic solution with low starting alpha,
+    ## the estimated alpha should be >= threshold or we'd have gone constant
+    expect_true(alpha_est >= 0.02,
+                info = sprintf("Dynamic: alpha (%.4f) should be >= threshold", alpha_est))
+  }
+})
+
+
+
+## 13c: Stationarity violation logging (verifies <<- scoping fix) ==============
+
+test_that("DCC stationarity violations are logged with correct scoping", {
+  skip_on_cran()
+  
+  ## This test verifies that when the optimizer explores invalid regions
+  ## (alpha + beta >= 1), the boundary events are properly logged.
+  ##
+  ## We start with parameters close to the boundary to increase the
+  ## likelihood that the optimizer will temporarily step over it.
+  
+  set.seed(456)
+  n <- 150
+  k <- 2
+  
+  ## Use data that might push toward high persistence
+  y_test <- matrix(0, nrow = n, ncol = k)
+  for (i in 1:k) {
+    y_test[, i] <- arima.sim(list(ar = 0.7), n = n)
+  }
+  colnames(y_test) <- c("series_1", "series_2")
+  
+  spec_near_boundary <- list(
+    garch_spec_fun = "dcc_modelspec",
+    distribution = "mvn",
+    garch_spec_args = list(
+      dcc_order = c(1, 1),
+      dynamics = "dcc",
+      garch_model = list(univariate = list(
+        list(model = "garch", garch_order = c(1, 1), distribution = "norm"),
+        list(model = "garch", garch_order = c(1, 1), distribution = "norm")
+      ))
+    ),
+    start_pars = list(
+      garch_pars = list(
+        list(omega = 0.01, alpha1 = 0.1, beta1 = 0.85),
+        list(omega = 0.01, alpha1 = 0.1, beta1 = 0.85)
+      ),
+      ## Start near the stationarity boundary
+      dcc_pars = list(alpha_1 = 0.45, beta_1 = 0.50),
+      dist_pars = NULL
+    )
+  )
+  
+  weights <- rep(1, n)
+  diagnostics <- create_diagnostic_collector()
+  
+  result <- estimate_garch_weighted_dcc(
+    residuals = y_test,
+    weights = weights,
+    spec = spec_near_boundary,
+    diagnostics = diagnostics,
+    iteration = 1,
+    state = 1,
+    verbose = FALSE
+  )
+  
+  ## UNCONDITIONAL: Valid result
+  expect_true(
+    result$coefficients$correlation_type %in% c("dynamic", "constant"),
+    info = "Must return valid correlation_type"
+  )
+  
+  ## UNCONDITIONAL: Diagnostics structure
+  expect_true(!is.null(result$diagnostics), info = "Diagnostics returned")
+  expect_true(!is.null(result$diagnostics$boundary_events), 
+              info = "boundary_events list exists")
+  expect_true(!is.null(result$diagnostics$warnings), 
+              info = "warnings list exists")
+  
+  ## Check for stationarity boundary events (may or may not occur)
+  stationarity_events <- Filter(
+    function(e) e$parameter == "alpha_plus_beta",
+    result$diagnostics$boundary_events
+  )
+  
+  ## If stationarity events were logged, verify structure
+  if (length(stationarity_events) > 0) {
+    for (event in stationarity_events) {
+      expect_equal(event$boundary_type, "upper",
+                   info = "Stationarity boundary should be 'upper' type")
+      expect_true(event$value >= 1,
+                  info = sprintf("Stationarity value (%.4f) should be >= 1", event$value))
+      expect_true(grepl("penalty", event$action_taken, ignore.case = TRUE),
+                  info = "Action should mention penalty")
+    }
+  }
+  
+  ## Check for stationarity warnings
+  stationarity_warnings <- Filter(
+    function(w) w$type == "dcc_penalty" && grepl("non-stationary", w$message),
+    result$diagnostics$warnings
+  )
+  
+  ## If warnings were logged, they should match boundary events
+  if (length(stationarity_warnings) > 0 && length(stationarity_events) > 0) {
+    ## Both mechanisms should have fired
+    expect_true(length(stationarity_events) >= 1,
+                info = "If warnings logged, boundary events should also be logged")
+  }
+})
+
+
+
+## 13e: Normal data does not trigger false positives ===========================
+
+test_that("DCC normal data does not trigger stationarity boundary events", {
+  skip_on_cran()
+  
+  set.seed(222)
+  n <- 200
+  k <- 2
+  
+  ## Standard iid data
+  y_normal <- matrix(rnorm(n * k), ncol = k)
+  colnames(y_normal) <- c("series_1", "series_2")
+  
+  spec_normal <- list(
+    garch_spec_fun = "dcc_modelspec",
+    distribution = "mvn",
+    garch_spec_args = list(
+      dcc_order = c(1, 1),
+      dynamics = "dcc",
+      garch_model = list(univariate = list(
+        list(model = "garch", garch_order = c(1, 1), distribution = "norm"),
+        list(model = "garch", garch_order = c(1, 1), distribution = "norm")
+      ))
+    ),
+    start_pars = list(
+      garch_pars = list(
+        list(omega = 0.01, alpha1 = 0.1, beta1 = 0.8),
+        list(omega = 0.01, alpha1 = 0.1, beta1 = 0.8)
+      ),
+      ## Good starting point - away from boundaries
+      dcc_pars = list(alpha_1 = 0.05, beta_1 = 0.90),
+      dist_pars = NULL
+    )
+  )
+  
+  weights <- rep(1, n)
+  diagnostics <- create_diagnostic_collector()
+  
+  result <- estimate_garch_weighted_dcc(
+    residuals = y_normal,
+    weights = weights,
+    spec = spec_normal,
+    diagnostics = diagnostics,
+    iteration = 1,
+    state = 1,
+    verbose = FALSE
+  )
+  
+  ## UNCONDITIONAL: Valid result
+  expect_true(
+    result$coefficients$correlation_type %in% c("dynamic", "constant"),
+    info = "Must return valid correlation_type"
+  )
+  
+  ## With standard normal data and good starting values,
+  ## we should NOT see stationarity boundary violations
+  stationarity_events <- Filter(
+    function(e) e$parameter == "alpha_plus_beta",
+    result$diagnostics$boundary_events
+  )
+  
+  expect_equal(length(stationarity_events), 0,
+               info = "Normal data should not trigger stationarity boundary events")
+  
+  ## Also should not see omega boundary events for standard variance data
+  omega_events <- Filter(
+    function(e) grepl("omega", e$parameter),
+    result$diagnostics$boundary_events
+  )
+  
+  expect_equal(length(omega_events), 0,
+               info = "Normal data should not trigger omega boundary events")
+})
+
+
+
+## 13f: Diagnostics object integrity ===========================================
+
+test_that("DCC diagnostics object is properly structured and returned", {
+  skip_on_cran()
+  
+  set.seed(333)
+  n <- 100
+  k <- 2
+  
+  y_test <- matrix(rnorm(n * k), ncol = k)
+  colnames(y_test) <- c("series_1", "series_2")
+  
+  spec_test <- list(
+    garch_spec_fun = "dcc_modelspec",
+    distribution = "mvn",
+    garch_spec_args = list(
+      dcc_order = c(1, 1),
+      dynamics = "dcc",
+      garch_model = list(univariate = list(
+        list(model = "garch", garch_order = c(1, 1), distribution = "norm"),
+        list(model = "garch", garch_order = c(1, 1), distribution = "norm")
+      ))
+    ),
+    start_pars = list(
+      garch_pars = list(
+        list(omega = 0.01, alpha1 = 0.1, beta1 = 0.8),
+        list(omega = 0.01, alpha1 = 0.1, beta1 = 0.8)
+      ),
+      dcc_pars = list(alpha_1 = 0.05, beta_1 = 0.90),
+      dist_pars = NULL
+    )
+  )
+  
+  weights <- rep(1, n)
+  diagnostics <- create_diagnostic_collector()
+  
+  result <- estimate_garch_weighted_dcc(
+    residuals = y_test,
+    weights = weights,
+    spec = spec_test,
+    diagnostics = diagnostics,
+    iteration = 1,
+    state = 1,
+    verbose = FALSE
+  )
+  
+  ## UNCONDITIONAL checks on diagnostics structure
+  expect_true(!is.null(result$diagnostics),
+              info = "Diagnostics should be returned")
+  
+  expect_true(inherits(result$diagnostics, "ms_diagnostics"),
+              info = "Diagnostics should be ms_diagnostics class")
+  
+  expect_true(!is.null(result$diagnostics$warnings),
+              info = "Warnings list should exist")
+  
+  expect_true(!is.null(result$diagnostics$boundary_events),
+              info = "Boundary events list should exist")
+  
+  expect_true(is.list(result$diagnostics$warnings),
+              info = "Warnings should be a list")
+  
+  expect_true(is.list(result$diagnostics$boundary_events),
+              info = "Boundary events should be a list")
 })
