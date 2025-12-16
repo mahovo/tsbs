@@ -24,7 +24,9 @@ knitr::opts_chunk$set(
 )
 ```
 
-# Overview
+# PART 1
+
+## Overview
 
 The `tsbs` package implements a comprehensive diagnostic system for monitoring the convergence and numerical stability of Markov-Switching VARMA-GARCH models. This system is particularly critical for multivariate DCC specifications, where the interplay between univariate volatility dynamics and correlation dynamics can exhibit complex convergence behavior.
 
@@ -36,9 +38,9 @@ The diagnostic system operates throughout the Expectation-Maximization (EM) algo
 - Boundary conditions and degeneracy detection
 - Numerical warnings and optimization failures
 
-# Mathematical Background
+## Mathematical Background
 
-## The EM Algorithm
+### The EM Algorithm
 
 The MS-VARMA-GARCH model maximizes the marginal likelihood:
 
@@ -58,7 +60,7 @@ $$Q(\theta^{(k+1)} \mid \theta^{(k)}) \geq Q(\theta^{(k)} \mid \theta^{(k)})$$
 
 Violations indicate numerical instability in the M-step optimization.
 
-## DCC Dynamics and Degeneracy
+### DCC Dynamics and Degeneracy
 
 For multivariate models with DCC dynamics, the conditional correlation matrix evolves as:
 
@@ -70,9 +72,9 @@ where $z_t$ are standardized residuals. Stationarity requires $\alpha + \beta < 
 
 **Degeneracy** occurs when $\alpha \to 0$, indicating the correlation dynamics collapse to the constant correlation model $R_t = \bar{R}$. The diagnostic system detects this automatically and switches to the computationally simpler constant correlation specification.
 
-# Activating Diagnostics
+## Activating Diagnostics
 
-## Basic Usage
+### Basic Usage
 
 Diagnostics are activated via the `collect_diagnostics` argument in `tsbs()`:
 
@@ -93,7 +95,7 @@ diag <- result$diagnostics
 summary(diag)
 ```
 
-## Verbose Output Options
+### Verbose Output Options
 
 For detailed monitoring during estimation:
 
@@ -123,14 +125,14 @@ result <- tsbs(
 The `verbose_file` option redirects all diagnostic output to a specified file, which is essential for batch processing or when running on remote servers.
 
 
-# Examples
+## Examples
 
-## Example 1: Basic Diagnostic Collection with Realistic DCC Data
+### Example 1: Basic Diagnostic Collection with Realistic DCC Data
 
 This example demonstrates the complete workflow: data simulation, specification 
 construction, model fitting, and diagnostic collection.
 
-### Understanding DCC Data Simulation
+#### Understanding DCC Data Simulation
 
 First, let's understand how DCC-GARCH data is generated. The process combines:
 1. **Univariate GARCH dynamics** for each series
@@ -221,7 +223,7 @@ y_sim_utility <- simulate_dcc_garch(
 all.equal(y_sim, y_sim_utility, check.attributes = FALSE)
 ```
 
-### Understanding DCC Specification Construction
+#### Understanding DCC Specification Construction
 
 The specification must define the model for each state. Key components:
 
@@ -304,7 +306,7 @@ cat("State 1 omega:", spec_utility[[1]]$start_pars$garch_pars[[1]]$omega, "\n")
 cat("State 2 omega:", spec_utility[[2]]$start_pars$garch_pars[[1]]$omega, "\n")
 ```
 
-### Fitting with Diagnostics
+#### Fitting with Diagnostics
 
 Now fit the model with diagnostic collection enabled:
 
@@ -325,7 +327,7 @@ diag <- fit_with_diag$diagnostics
 class(diag)
 ```
 
-### Inspecting Basic Diagnostic Components
+#### Inspecting Basic Diagnostic Components
 
 The diagnostic object has six components. Let's examine them:
 
@@ -380,14 +382,14 @@ if (length(diag$boundary_events) > 0) {
 }
 ```
 
-### Using the Built-in Summary Method
+#### Using the Built-in Summary Method
 
 ```{r example1_summary}
 # The summary method provides a comprehensive overview
 summary(fit_with_diag$diagnostics)
 ```
 
-## Example 2: Verbose Output to File
+### Example 2: Verbose Output to File
 
 For long-running estimations, redirect verbose output to a file:
 
@@ -407,7 +409,7 @@ fit <- fit_ms_varma_garch(
 readLines("estimation_log.txt") |> head(50)
 ```
 
-## Example 3: Analyzing Parameter Trajectories
+### Example 3: Analyzing Parameter Trajectories
 
 Extract and visualize how parameters evolve across iterations using both manual
 and utility approaches.
@@ -459,7 +461,7 @@ if (!is.null(alpha_traj) && any(!is.na(alpha_traj$value))) {
 }
 ```
 
-## Example 4: Log-Likelihood Convergence Analysis
+### Example 4: Log-Likelihood Convergence Analysis
 
 ```{r example4}
 # Extract LL evolution
@@ -507,7 +509,7 @@ cat("Number of LL decreases:", sum(ll_changes < -1e-6), "\n")
 cat("Mean LL change:", round(mean(ll_changes), 6), "\n")
 ```
 
-## Example 5: Detecting Boundary Events (DCC Degeneracy)
+### Example 5: Detecting Boundary Events (DCC Degeneracy)
 
 This example demonstrates how diagnostics reveal when DCC parameters hit boundary constraints:
 
@@ -591,7 +593,7 @@ cat("State 2:",
     fit_boundary$model_fits[[2]]$correlation_type %||% "dynamic", "\n")
 ```
 
-## Example 6: Using Built-in Plotting Functions
+### Example 6: Using Built-in Plotting Functions
 
 ```{r example6, fig.height=8}
 # Use built-in diagnostic plots
@@ -601,7 +603,7 @@ if (requireNamespace("ggplot2", quietly = TRUE)) {
 }
 ```
 
-## Example 7: Investigating Specific Problematic Iterations
+### Example 7: Investigating Specific Problematic Iterations
 
 ```{r example7}
 analyze_iteration <- function(diagnostics, iter) {
@@ -653,7 +655,7 @@ for (i in 1:min(3, length(fit_with_diag$diagnostics$em_iterations))) {
 }
 ```
 
-## Example 8: Exporting Diagnostics for External Analysis
+### Example 8: Exporting Diagnostics for External Analysis
 
 ```{r example8, eval=FALSE}
 # Save diagnostics for archival
@@ -717,11 +719,11 @@ diag_reloaded <- load_diagnostics("my_run_diagnostics.rds")
 summary(diag_reloaded)
 ```
 
-# Diagnostic Data Structure
+## Diagnostic Data Structure
 
 The diagnostic collector returns an S3 object of class `ms_diagnostics` with six components:
 
-## EM Iteration Diagnostics
+### EM Iteration Diagnostics
 
 For each EM iteration $k$, the following information is recorded:
 
@@ -739,7 +741,7 @@ For each EM iteration $k$, the following information is recorded:
 - Boundary constraints being violated
 - Numerical precision issues in matrix decompositions
 
-## Parameter Evolution
+### Parameter Evolution
 
 Nested list structure: `parameter_evolution$state_j[[k]]` contains all parameters for state $j$ at iteration $k$.
 
@@ -764,7 +766,7 @@ params <- diag$parameter_evolution$state_1[[5]]
 
 The `correlation_type` field is diagnostic: if `"constant"`, the DCC parameters were at the boundary and the model automatically switched to constant correlation for that state.
 
-## Volatility Evolution
+### Volatility Evolution
 
 Tracks the conditional standard deviation process $\sigma_{i,t}$ for each series $i$ in each state $j$.
 
@@ -780,7 +782,7 @@ Structure: `sigma_evolution$state_j_series_i[[k]]` contains:
 - Parameter values outside the valid domain
 - Numerical overflow/underflow in GARCH recursions
 
-## Boundary Events
+### Boundary Events
 
 Records when parameters approach their constraint boundaries during optimization. Each event contains:
 
@@ -804,7 +806,7 @@ boundary_event <- list(
 
 This indicates state 2 has minimal correlation dynamics and is better modeled with constant correlation.
 
-## Warnings
+### Warnings
 
 All warnings encountered during estimation, categorized by type:
 
@@ -819,7 +821,7 @@ Each warning includes:
 - `message`: Human-readable description
 - `details`: List with diagnostic information (e.g., number of bad observations)
 
-## Convergence Information
+### Convergence Information
 
 Summary of convergence behavior (populated by `summary.ms_diagnostics()`):
 
@@ -829,9 +831,9 @@ Summary of convergence behavior (populated by `summary.ms_diagnostics()`):
 - Number of iterations with decreased likelihood
 - Total computation time
 
-# Interpreting Diagnostic Output
+## Interpreting Diagnostic Output
 
-## Healthy Convergence Pattern
+### Healthy Convergence Pattern
 
 ```{r eval=FALSE}
 summary(diag)
@@ -866,7 +868,7 @@ WARNINGS:
 - Convergence achieved (minimum change $< 10^{-5}$)
 - No numerical issues
 
-## DCC Degeneracy (Expected Behavior)
+### DCC Degeneracy (Expected Behavior)
 
 ```
 BOUNDARY EVENTS:
@@ -881,7 +883,7 @@ $$f(y_t \mid S_t=2) = f_{\text{MVN}}(z_t; \bar{R})$$
 
 where $\bar{R}$ is the unconditional correlation matrix.
 
-## Problematic Convergence
+### Problematic Convergence
 
 ```
 EM ITERATIONS:
@@ -909,9 +911,9 @@ WARNINGS:
 - Use better starting values (from a simpler model)
 - Check for data issues (extreme outliers, near-perfect collinearity)
 
-# Visualization
+## Visualization
 
-## Log-Likelihood Trajectory
+### Log-Likelihood Trajectory
 
 ```{r eval=FALSE}
 plot(diag, type = "ll_evolution")
@@ -923,7 +925,7 @@ Produces two plots:
 
 2. **Log-likelihood change vs. iteration:** Should decay to zero. Negative spikes indicate M-step failures.
 
-## Parameter Trajectories
+### Parameter Trajectories
 
 ```{r eval=FALSE}
 plot(diag, type = "parameters")
@@ -951,9 +953,9 @@ Shows mean volatility $\pm$ one standard deviation across iterations for each se
 - Increasing spread (non-convergence)
 - Constant trajectories (parameters not updating)
 
-# Advanced Diagnostic Techniques
+## Advanced Diagnostic Techniques
 
-## Extracting Specific Iteration Data
+### Extracting Specific Iteration Data
 
 ```{r eval=FALSE}
 # Get parameters for state 1 at iteration 10
@@ -966,7 +968,7 @@ alpha_trajectory <- sapply(
 )
 ```
 
-## Identifying Problematic States
+### Identifying Problematic States
 
 ```{r eval=FALSE}
 # Find states that switched to constant correlation
@@ -983,7 +985,7 @@ constant_states <- sapply(names(diag$parameter_evolution), function(state_key) {
 which(constant_states)  # Returns state indices
 ```
 
-## Analyzing Likelihood Decomposition
+### Analyzing Likelihood Decomposition
 
 The M-step change in log-likelihood can be decomposed:
 
@@ -991,7 +993,7 @@ $$\Delta \ell^{(k)} = \sum_{j=1}^M \Delta \ell_j^{(k)}$$
 
 where $\Delta \ell_j^{(k)}$ is the contribution from state $j$. While not directly stored, this can be reconstructed from the state-specific likelihoods in future package versions.
 
-## Persistence and Post-Analysis
+### Persistence and Post-Analysis
 
 ```{r eval=FALSE}
 # Save diagnostics for later analysis
@@ -1008,7 +1010,7 @@ This enables:
 - Archiving results for reproducibility
 - Offline analysis of long-running jobs
 
-# Computational Overhead
+## Computational Overhead
 
 Diagnostic collection imposes minimal overhead:
 
@@ -1023,7 +1025,7 @@ For very large $T$ (e.g., $T > 10^5$), consider:
 - Storing summary statistics only (mean, variance)
 - Disabling sigma tracking for univariate models
 
-# Troubleshooting Guide
+## Troubleshooting Guide
 
 | Symptom | Likely Cause | Solution |
 |---------|-------------|----------|
@@ -1035,7 +1037,7 @@ For very large $T$ (e.g., $T > 10^5$), consider:
 | Very slow convergence ($>100$ iterations) | Flat likelihood region | Check identification, consider penalties |
 | `dcc_bad_correlation` > 10% of observations | Numerical instability | Increase DCC lower bounds, check for outliers |
 
-# Best Practices
+## Best Practices
 
 1. **Always enable diagnostics during development:** Set `collect_diagnostics = TRUE` until you are confident the model specification is appropriate.
 
@@ -1049,7 +1051,7 @@ For very large $T$ (e.g., $T > 10^5$), consider:
 
 6. **Compare diagnostics across model specifications:** Use diagnostic plots to select $M$, GARCH orders, and distributional assumptions.
 
-# References
+## References
 
 Dempster, A. P., Laird, N. M., & Rubin, D. B. (1977). Maximum likelihood from incomplete data via the EM algorithm. *Journal of the Royal Statistical Society: Series B*, 39(1), 1-22.
 
@@ -1058,3 +1060,643 @@ Engle, R. (2002). Dynamic conditional correlation: A simple class of multivariat
 Hamilton, J. D. (1989). A new approach to the economic analysis of nonstationary time series and the business cycle. *Econometrica*, 57(2), 357-384.
 
 Kim, C. J. (1994). Dynamic linear models with Markov-switching. *Journal of Econometrics*, 60(1-2), 1-22.
+
+
+
+# PART 2
+## Test: "Full estimation converges (multivariate 1-state)"
+
+```{r}
+set.seed(123)
+
+## Generate bivariate data with GARCH(1,1) effects (same as test)
+n <- 200
+k <- 2
+
+## True GARCH parameters
+omega_true <- c(0.1, 0.15)
+alpha_true <- c(0.1, 0.12)
+beta_true <- c(0.8, 0.75)
+
+## Simulate GARCH series (independently - no correlation structure)
+y_sim_mv_short <- matrix(0, n, k)
+h <- matrix(0, n, k)
+
+for (i in 1:k) {
+  h[1, i] <- omega_true[i] / (1 - alpha_true[i] - beta_true[i])
+  y_sim_mv_short[1, i] <- rnorm(1) * sqrt(h[1, i])
+  
+  for (t in 2:n) {
+    h[t, i] <- omega_true[i] + alpha_true[i] * y_sim_mv_short[t-1, i]^2 + 
+      beta_true[i] * h[t-1, i]
+    y_sim_mv_short[t, i] <- rnorm(1) * sqrt(h[t, i])
+  }
+}
+
+colnames(y_sim_mv_short) <- c("s1", "s2")
+
+cat("=== Simulated Data Diagnostics ===\n")
+cat("Sample correlation:", cor(y_sim_mv_short)[1,2], "\n")
+cat("Series 1 - mean:", mean(y_sim_mv_short[,1]), "sd:", sd(y_sim_mv_short[,1]), "\n")
+cat("Series 2 - mean:", mean(y_sim_mv_short[,2]), "sd:", sd(y_sim_mv_short[,2]), "\n")
+cat("\n")
+
+## Check squared returns (ARCH effects)
+cat("=== ARCH Effect Check ===\n")
+sq1 <- y_sim_mv_short[,1]^2
+sq2 <- y_sim_mv_short[,2]^2
+cat("Series 1 squared autocorr lag 1:", acf(sq1, lag.max=1, plot=FALSE)$acf[2], "\n")
+cat("Series 2 squared autocorr lag 1:", acf(sq2, lag.max=1, plot=FALSE)$acf[2], "\n")
+cat("\n")
+
+## Define spec (same as test)
+spec_uni_garch_dcc <- list(
+  model = "garch", 
+  garch_order = c(1, 1), 
+  distribution = "norm"
+)
+
+dcc_spec_args <- list(
+  dcc_order = c(1, 1), 
+  dynamics = "dcc",
+  distribution = "mvn", 
+  garch_model = list(univariate = list(spec_uni_garch_dcc, spec_uni_garch_dcc))
+)
+
+spec_mv_dcc <- list(
+  list(
+    var_order = 1, 
+    garch_spec_fun = "dcc_modelspec",
+    distribution = "mvn",
+    garch_spec_args = dcc_spec_args, 
+    start_pars = list(
+      var_pars = rep(0.1, 6), 
+      garch_pars = list(
+        list(omega = 0.1, alpha1 = 0.1, beta1 = 0.8),
+        list(omega = 0.1, alpha1 = 0.1, beta1 = 0.8)
+      ),
+      dcc_pars = list(alpha_1 = 0.05, beta_1 = 0.90),
+      dist_pars = NULL
+    )
+  ),
+  list(
+    var_order = 1, 
+    garch_spec_fun = "dcc_modelspec",
+    distribution = "mvn",
+    garch_spec_args = dcc_spec_args, 
+    start_pars = list(
+      var_pars = rep(0.1, 6), 
+      garch_pars = list(
+        list(omega = 0.2, alpha1 = 0.2, beta1 = 0.7),
+        list(omega = 0.2, alpha1 = 0.2, beta1 = 0.7)
+      ),
+      dcc_pars = list(alpha_1 = 0.1, beta_1 = 0.85),
+      dist_pars = NULL
+    )
+  )
+)
+
+cat("=== Fitting Model ===\n")
+fit <- fit_ms_varma_garch(
+  y = y_sim_mv_short, 
+  M = 2, 
+  spec = spec_mv_dcc, 
+  model_type = "multivariate",
+  control = list(max_iter = 50, tol = 0.05),
+  collect_diagnostics = TRUE
+)
+
+cat("\n=== Fit Results ===\n")
+cat("Log-likelihood:", fit$log_likelihood, "\n")
+cat("Converged:", fit$converged, "\n\n")
+
+cat("=== State 1 Parameters ===\n")
+cat("GARCH pars structure:\n")
+str(fit$model_fits[[1]]$garch_pars, max.level = 2)
+
+cat("\nSeries 1 GARCH:\n")
+cat("  omega:", fit$model_fits[[1]]$garch_pars[[1]]$omega, "\n")
+cat("  alpha1:", fit$model_fits[[1]]$garch_pars[[1]]$alpha1, "\n")
+cat("  beta1:", fit$model_fits[[1]]$garch_pars[[1]]$beta1, "\n")
+
+cat("\nSeries 2 GARCH:\n")
+cat("  omega:", fit$model_fits[[2]]$garch_pars[[2]]$omega, "\n")
+cat("  alpha1:", fit$model_fits[[2]]$garch_pars[[2]]$alpha1, "\n")
+cat("  beta1:", fit$model_fits[[2]]$garch_pars[[2]]$beta1, "\n")
+
+cat("\n=== State 2 Parameters ===\n")
+cat("GARCH pars structure:\n")
+str(fit$model_fits[[2]]$garch_pars, max.level = 2)
+
+cat("\nSeries 1 GARCH:\n")
+cat("  omega:", fit$model_fits[[2]]$garch_pars[[1]]$omega, "\n")
+cat("  alpha1:", fit$model_fits[[2]]$garch_pars[[1]]$alpha1, "\n")
+cat("  beta1:", fit$model_fits[[2]]$garch_pars[[1]]$beta1, "\n")
+
+cat("\n=== Correlation Types ===\n")
+cat("State 1:", fit$model_fits[[1]]$correlation_type, "\n")
+cat("State 2:", fit$model_fits[[2]]$correlation_type, "\n")
+
+if (fit$model_fits[[1]]$correlation_type == "dynamic") {
+  cat("\nState 1 DCC pars:\n")
+  cat("  alpha_1:", fit$model_fits[[1]]$alpha_1, "\n")
+  cat("  beta_1:", fit$model_fits[[1]]$beta_1, "\n")
+}
+
+cat("\n=== State Probabilities ===\n")
+cat("Mean state 1 probability:", mean(fit$state_probs[,1]), "\n")
+cat("Mean state 2 probability:", mean(fit$state_probs[,2]), "\n")
+
+## Check if the issue is in tsmarch estimation
+cat("\n=== Direct tsgarch Test ===\n")
+cat("Testing univariate GARCH estimation on series 1...\n")
+
+if (requireNamespace("tsgarch", quietly = TRUE) && requireNamespace("xts", quietly = TRUE)) {
+  library(tsgarch)
+  library(xts)
+  
+  ## Convert to xts
+  dates <- seq(as.Date("2020-01-01"), by = "day", length.out = n)
+  y_xts <- xts(y_sim_mv_short[,1], order.by = dates)
+  
+  uni_spec <- garch_modelspec(
+    y_xts,
+    model = "garch",
+    order = c(1, 1),
+    distribution = "norm"
+  )
+  
+  uni_fit <- estimate(uni_spec)
+  cat("Direct tsgarch estimate for Series 1:\n")
+  cat("  omega:", coef(uni_fit)["omega"], "\n")
+  cat("  alpha1:", coef(uni_fit)["alpha1"], "\n")
+  cat("  beta1:", coef(uni_fit)["beta1"], "\n")
+  
+  ## Also test series 2
+  y_xts2 <- xts(y_sim_mv_short[,2], order.by = dates)
+  uni_spec2 <- garch_modelspec(
+    y_xts2,
+    model = "garch",
+    order = c(1, 1),
+    distribution = "norm"
+  )
+  
+  uni_fit2 <- estimate(uni_spec2)
+  cat("\nDirect tsgarch estimate for Series 2:\n")
+  cat("  omega:", coef(uni_fit2)["omega"], "\n")
+  cat("  alpha1:", coef(uni_fit2)["alpha1"], "\n")
+  cat("  beta1:", coef(uni_fit2)["beta1"], "\n")
+} else {
+  cat("tsgarch or xts not available\n")
+}
+```
+
+
+
+
+# PART 3: Investigate tsmarch
+```{r}
+## =============================================================================
+## tsmarch Investigation Script (v3 - Correct calling convention)
+## =============================================================================
+##
+## Key insight: dcc_modelspec is called with a multi_estimate object,
+## not directly with xts data. This is how tsbs does it.
+##
+## =============================================================================
+
+# library(tsmarch)
+# library(tsgarch)
+# library(xts)
+
+## =============================================================================
+## SECTION 1: Create Test Data
+## =============================================================================
+
+cat("
+================================================================================
+SECTION 1: Create Test Data
+================================================================================
+")
+
+set.seed(123)
+n <- 500
+dates <- seq(as.Date("2020-01-01"), by = "day", length.out = n)
+
+## Simulate correlated GARCH series
+e1 <- rnorm(n)
+e2 <- 0.5 * e1 + sqrt(1 - 0.5^2) * rnorm(n)
+
+h1 <- h2 <- numeric(n)
+y1 <- y2 <- numeric(n)
+
+omega1 <- 0.05; alpha1_true <- 0.10; beta1_true <- 0.85
+omega2 <- 0.08; alpha2_true <- 0.12; beta2_true <- 0.80
+
+h1[1] <- omega1 / (1 - alpha1_true - beta1_true)
+h2[1] <- omega2 / (1 - alpha2_true - beta2_true)
+y1[1] <- e1[1] * sqrt(h1[1])
+y2[1] <- e2[1] * sqrt(h2[1])
+
+for (t in 2:n) {
+  h1[t] <- omega1 + alpha1_true * y1[t-1]^2 + beta1_true * h1[t-1]
+  h2[t] <- omega2 + alpha2_true * y2[t-1]^2 + beta2_true * h2[t-1]
+  y1[t] <- e1[t] * sqrt(h1[t])
+  y2[t] <- e2[t] * sqrt(h2[t])
+}
+
+y_xts <- xts(cbind(s1 = y1, s2 = y2), order.by = dates)
+
+cat("Test data summary:\n")
+cat("  Correlation:", cor(y1, y2), "\n")
+cat("  Series 1 sd:", sd(y1), "\n")
+cat("  Series 2 sd:", sd(y2), "\n")
+
+
+## =============================================================================
+## SECTION 2: Univariate GARCH - Structure and Bounds
+## =============================================================================
+
+cat("
+================================================================================
+SECTION 2: Univariate GARCH (tsgarch)
+================================================================================
+")
+
+## Create and fit univariate specs
+uni_spec1 <- garch_modelspec(y_xts[,1], model = "garch", order = c(1,1), 
+                              distribution = "norm")
+uni_fit1 <- estimate(uni_spec1, keep_tmb = TRUE)
+
+uni_spec2 <- garch_modelspec(y_xts[,2], model = "garch", order = c(1,1), 
+                              distribution = "norm")
+uni_fit2 <- estimate(uni_spec2, keep_tmb = TRUE)
+
+cat("\n=== Univariate fit 1 - Class and structure ===\n")
+cat("Class:", class(uni_fit1), "\n")
+cat("Names/slots:", names(uni_fit1), "\n")
+
+cat("\n=== Parameter matrix (parmatrix) ===\n")
+print(uni_fit1$parmatrix)
+
+cat("\n=== Bounds from parmatrix ===\n")
+cat("Lower bounds:\n")
+print(uni_fit1$parmatrix[, c("parameter", "lower")])
+cat("\nUpper bounds:\n")
+print(uni_fit1$parmatrix[, c("parameter", "upper")])
+
+cat("\n=== Estimated coefficients ===\n")
+print(coef(uni_fit1))
+
+
+## =============================================================================
+## SECTION 3: Create DCC Spec (correct way - via multi_estimate)
+## =============================================================================
+
+cat("
+================================================================================
+SECTION 3: DCC Spec Creation (via multi_estimate)
+================================================================================
+")
+
+## Combine into multi_estimate object
+multi_est <- to_multi_estimate(list(uni_fit1, uni_fit2))
+names(multi_est) <- c("series_1", "series_2")
+
+cat("multi_estimate class:", class(multi_est), "\n")
+cat("multi_estimate names:", names(multi_est), "\n")
+
+cat("\n=== Creating DCC spec from multi_estimate ===\n")
+dcc_spec <- dcc_modelspec(
+  object = multi_est,
+  dynamics = "dcc",
+  dcc_order = c(1, 1),
+  distribution = "mvn"
+)
+
+cat("DCC spec class:", class(dcc_spec), "\n")
+cat("DCC spec names:", names(dcc_spec), "\n")
+
+cat("\n=== DCC spec parmatrix ===\n")
+print(dcc_spec$parmatrix)
+
+cat("\n=== DCC parameter bounds ===\n")
+dcc_params <- dcc_spec$parmatrix[grepl("^(alpha|beta)_", dcc_spec$parmatrix$parameter), ]
+print(dcc_params[, c("parameter", "lower", "upper", "value")])
+
+
+## =============================================================================
+## SECTION 4: Estimate DCC Model
+## =============================================================================
+
+cat("
+================================================================================
+SECTION 4: DCC Estimation
+================================================================================
+")
+
+dcc_fit <- estimate(dcc_spec)
+
+cat("DCC fit class:", class(dcc_fit), "\n")
+cat("DCC fit names:", names(dcc_fit), "\n")
+
+cat("\n=== DCC coefficients ===\n")
+print(coef(dcc_fit))
+
+cat("\n=== DCC fit parmatrix (after estimation) ===\n")
+print(dcc_fit$parmatrix)
+
+cat("\n=== Log-likelihood ===\n")
+ll <- logLik(dcc_fit)
+cat("LogLik:", as.numeric(ll), "\n")
+cat("Attributes:", names(attributes(ll)), "\n")
+if (!is.null(attr(ll, "df"))) cat("df:", attr(ll, "df"), "\n")
+if (!is.null(attr(ll, "nobs"))) cat("nobs:", attr(ll, "nobs"), "\n")
+
+
+## =============================================================================
+## SECTION 5: Explore All Bounds
+## =============================================================================
+
+cat("
+================================================================================
+SECTION 5: Complete Bounds Summary
+================================================================================
+")
+
+cat("\n=== All parameters with bounds ===\n")
+pm <- dcc_fit$parmatrix
+print(pm[, c("parameter", "lower", "upper", "value", "estimate")])
+
+cat("\n=== Specifically DCC bounds ===\n")
+dcc_rows <- grepl("^(alpha|beta|gamma)_", pm$parameter)
+if (any(dcc_rows)) {
+  print(pm[dcc_rows, c("parameter", "lower", "upper", "value")])
+}
+
+cat("\n=== GARCH omega bounds (from univariate) ===\n")
+omega_rows <- grepl("omega", pm$parameter)
+if (any(omega_rows)) {
+  print(pm[omega_rows, c("parameter", "lower", "upper", "value")])
+}
+
+cat("\n=== GARCH alpha bounds ===\n")
+garch_alpha_rows <- grepl("^alpha[0-9]", pm$parameter)  ## GARCH alpha (no underscore)
+if (any(garch_alpha_rows)) {
+  print(pm[garch_alpha_rows, c("parameter", "lower", "upper", "value")])
+}
+
+
+## =============================================================================
+## SECTION 6: Boundary Behavior Tests
+## =============================================================================
+
+cat("
+================================================================================
+SECTION 6: Boundary Behavior Tests
+================================================================================
+")
+
+## -----------------------------------------------------------------------------
+## 6a: Uncorrelated data (should push DCC alpha toward 0)
+## -----------------------------------------------------------------------------
+
+cat("\n=== 6a: Uncorrelated data ===\n")
+
+set.seed(456)
+y_uncorr <- xts(cbind(
+  s1 = rnorm(n),
+  s2 = rnorm(n)
+), order.by = dates)
+
+cat("Correlation:", cor(y_uncorr[,1], y_uncorr[,2]), "\n")
+
+uni_uncorr1 <- estimate(garch_modelspec(y_uncorr[,1], model = "garch", 
+                                         order = c(1,1), distribution = "norm"),
+                        keep_tmb = TRUE)
+uni_uncorr2 <- estimate(garch_modelspec(y_uncorr[,2], model = "garch", 
+                                         order = c(1,1), distribution = "norm"),
+                        keep_tmb = TRUE)
+
+multi_uncorr <- to_multi_estimate(list(uni_uncorr1, uni_uncorr2))
+dcc_uncorr_spec <- dcc_modelspec(multi_uncorr, dynamics = "dcc", 
+                                  dcc_order = c(1,1), distribution = "mvn")
+dcc_uncorr_fit <- estimate(dcc_uncorr_spec)
+
+cat("\nUncorrelated data - DCC coefficients:\n")
+cf_uncorr <- coef(dcc_uncorr_fit)
+print(cf_uncorr)
+
+cat("\nDCC alpha and beta values:\n")
+cat("  alpha_1:", cf_uncorr[grep("alpha_1", names(cf_uncorr))], "\n")
+cat("  beta_1:", cf_uncorr[grep("beta_1", names(cf_uncorr))], "\n")
+
+
+## -----------------------------------------------------------------------------
+## 6b: IID data (no GARCH effects)
+## -----------------------------------------------------------------------------
+
+cat("\n=== 6b: IID data (no GARCH effects) ===\n")
+
+set.seed(789)
+y_iid <- xts(cbind(
+  s1 = rnorm(n),
+  s2 = 0.5 * rnorm(n) + sqrt(0.75) * rnorm(n)  ## Correlated
+), order.by = dates)
+
+cat("Correlation:", cor(y_iid[,1], y_iid[,2]), "\n")
+cat("Squared autocorr series 1:", acf(as.numeric(y_iid[,1])^2, lag.max=1, plot=FALSE)$acf[2], "\n")
+
+uni_iid1 <- estimate(garch_modelspec(y_iid[,1], model = "garch", 
+                                      order = c(1,1), distribution = "norm"),
+                     keep_tmb = TRUE)
+uni_iid2 <- estimate(garch_modelspec(y_iid[,2], model = "garch", 
+                                      order = c(1,1), distribution = "norm"),
+                     keep_tmb = TRUE)
+
+cat("\nGARCH estimates on IID data:\n")
+cat("Series 1:", coef(uni_iid1), "\n")
+cat("Series 2:", coef(uni_iid2), "\n")
+
+multi_iid <- to_multi_estimate(list(uni_iid1, uni_iid2))
+dcc_iid_spec <- dcc_modelspec(multi_iid, dynamics = "dcc", 
+                               dcc_order = c(1,1), distribution = "mvn")
+dcc_iid_fit <- estimate(dcc_iid_spec)
+
+cat("\nIID data - DCC coefficients:\n")
+print(coef(dcc_iid_fit))
+
+
+## =============================================================================
+## SECTION 7: Higher-Order DCC
+## =============================================================================
+
+cat("
+================================================================================
+SECTION 7: Higher-Order DCC
+================================================================================
+")
+
+## Use the original correlated GARCH data
+multi_est_base <- to_multi_estimate(list(uni_fit1, uni_fit2))
+
+cat("\n=== DCC(2,1) ===\n")
+tryCatch({
+  dcc21_spec <- dcc_modelspec(multi_est_base, dynamics = "dcc", 
+                               dcc_order = c(2,1), distribution = "mvn")
+  cat("DCC(2,1) spec parmatrix (DCC params only):\n")
+  pm21 <- dcc21_spec$parmatrix
+  print(pm21[grepl("^(alpha|beta)_", pm21$parameter), 
+             c("parameter", "lower", "upper", "value")])
+  
+  dcc21_fit <- estimate(dcc21_spec)
+  cat("\nDCC(2,1) coefficients:\n")
+  print(coef(dcc21_fit))
+}, error = function(e) cat("ERROR:", e$message, "\n"))
+
+cat("\n=== DCC(1,2) ===\n")
+tryCatch({
+  dcc12_spec <- dcc_modelspec(multi_est_base, dynamics = "dcc", 
+                               dcc_order = c(1,2), distribution = "mvn")
+  cat("DCC(1,2) spec parmatrix (DCC params only):\n")
+  pm12 <- dcc12_spec$parmatrix
+  print(pm12[grepl("^(alpha|beta)_", pm12$parameter), 
+             c("parameter", "lower", "upper", "value")])
+  
+  dcc12_fit <- estimate(dcc12_spec)
+  cat("\nDCC(1,2) coefficients:\n")
+  print(coef(dcc12_fit))
+}, error = function(e) cat("ERROR:", e$message, "\n"))
+
+cat("\n=== DCC(2,2) ===\n")
+tryCatch({
+  dcc22_spec <- dcc_modelspec(multi_est_base, dynamics = "dcc", 
+                               dcc_order = c(2,2), distribution = "mvn")
+  cat("DCC(2,2) spec parmatrix (DCC params only):\n")
+  pm22 <- dcc22_spec$parmatrix
+  print(pm22[grepl("^(alpha|beta)_", pm22$parameter), 
+             c("parameter", "lower", "upper", "value")])
+  
+  dcc22_fit <- estimate(dcc22_spec)
+  cat("\nDCC(2,2) coefficients:\n")
+  print(coef(dcc22_fit))
+}, error = function(e) cat("ERROR:", e$message, "\n"))
+
+
+## =============================================================================
+## SECTION 8: MVT Distribution
+## =============================================================================
+
+cat("
+================================================================================
+SECTION 8: MVT Distribution
+================================================================================
+")
+
+## Need to re-estimate univariate with std distribution
+uni_std1 <- estimate(garch_modelspec(y_xts[,1], model = "garch", 
+                                      order = c(1,1), distribution = "std"),
+                     keep_tmb = TRUE)
+uni_std2 <- estimate(garch_modelspec(y_xts[,2], model = "garch", 
+                                      order = c(1,1), distribution = "std"),
+                     keep_tmb = TRUE)
+
+cat("Univariate std fit - coefficients:\n")
+print(coef(uni_std1))
+
+multi_std <- to_multi_estimate(list(uni_std1, uni_std2))
+
+cat("\n=== DCC-MVT ===\n")
+tryCatch({
+  dcc_mvt_spec <- dcc_modelspec(multi_std, dynamics = "dcc", 
+                                 dcc_order = c(1,1), distribution = "mvt")
+  cat("DCC-MVT spec parmatrix:\n")
+  print(dcc_mvt_spec$parmatrix[, c("parameter", "lower", "upper", "value")])
+  
+  dcc_mvt_fit <- estimate(dcc_mvt_spec)
+  cat("\nDCC-MVT coefficients:\n")
+  print(coef(dcc_mvt_fit))
+}, error = function(e) cat("ERROR:", e$message, "\n"))
+
+
+## =============================================================================
+## SECTION 9: Accessing Conditional Quantities
+## =============================================================================
+
+cat("
+================================================================================
+SECTION 9: Conditional Quantities
+================================================================================
+")
+
+cat("\n=== sigma (conditional volatility) ===\n")
+tryCatch({
+  sig <- sigma(dcc_fit)
+  cat("Class:", class(sig), "\n")
+  cat("Dim:", dim(sig), "\n")
+  cat("First 3 rows:\n")
+  print(head(sig, 3))
+}, error = function(e) cat("ERROR:", e$message, "\n"))
+
+cat("\n=== fitted (fitted values) ===\n")
+tryCatch({
+  fv <- fitted(dcc_fit)
+  cat("Class:", class(fv), "\n")
+  cat("Dim:", dim(fv), "\n")
+}, error = function(e) cat("ERROR:", e$message, "\n"))
+
+cat("\n=== residuals ===\n")
+tryCatch({
+  res <- residuals(dcc_fit)
+  cat("Class:", class(res), "\n")
+  cat("Dim:", dim(res), "\n")
+}, error = function(e) cat("ERROR:", e$message, "\n"))
+
+cat("\n=== Correlation matrices (if available) ===\n")
+tryCatch({
+  ## Check what methods are available
+  dcc_methods <- methods(class = class(dcc_fit)[1])
+  cat("Available methods:", paste(dcc_methods, collapse = ", "), "\n")
+}, error = function(e) NULL)
+
+
+## =============================================================================
+## SECTION 10: Summary
+## =============================================================================
+
+cat("
+================================================================================
+SECTION 10: SUMMARY - Key Findings for tsbs Integration
+================================================================================
+
+1. PARAMETER BOUNDS (from parmatrix):
+   - Check the bounds printed above for exact values
+   - Key: omega lower, alpha/beta lower/upper
+
+2. COEFFICIENT NAMING:
+   - GARCH: omega, alpha1, beta1 (no underscore)
+   - DCC: alpha_1, beta_1 (with underscore)
+   - Higher order: alpha_1, alpha_2, beta_1, beta_2
+
+3. CALLING CONVENTION:
+   - First: fit univariate GARCH with garch_modelspec() + estimate()
+   - Then: combine with to_multi_estimate()
+   - Then: create DCC spec with dcc_modelspec(multi_estimate, ...)
+   - Finally: estimate(dcc_spec)
+
+4. OBJECT ACCESS:
+   - fit$parmatrix contains all bounds and current values
+   - coef(fit) returns named coefficient vector
+   - sigma(fit) returns conditional volatility
+   - logLik(fit) returns log-likelihood
+
+5. BOUNDARY BEHAVIOR:
+   - See Section 6 output for what happens at boundaries
+
+================================================================================
+")
+```
+
+
+
+

@@ -1,0 +1,4344 @@
+=== MS-VARMA-GARCH Verbose Output ===
+Started: 2025-12-15 09:59:51 
+Data dimensions: 300 x 2 
+Number of states: 2 
+Model type: multivariate 
+
+
+=== MS-VARMA-GARCH Model Fitting ===
+Model type: multivariate 
+Number of states: 2 
+Sample size: 300 
+Control parameters:
+  max_iter: 100 
+  tol: 1e-04 
+  dcc_boundary_threshold: 0.02 
+  dcc_boundary_criterion: bic 
+  dcc_allow_refitting: TRUE 
+
+Fitting the MS-ARMA-GARCH model via C++ EM algorithm...
+
+
+==========================================================
+EM Iteration 1... 
+DCC order: p=1, q=1 (is_dcc11: TRUE)
+
+=== DCC(1,1) REPARAMETERIZED OPTIMIZATION ===
+Starting: alpha=0.0300, beta=0.9400
+Reparameterized: persistence=0.9700, ratio=0.0309
+
+Optimized: persistence=0.9649, ratio=0.0182
+Final: alpha=0.0175, beta=0.9474 (sum=0.9649)
+Convergence: 0, NLL: 414.6798
+
+=== Model Selection (State 1, Iter 1) ===
+Criterion: BIC (n_eff=289.1)
+Dynamic:  LL=-414.6798, k=2, BIC=840.6931
+Constant: LL=-415.3629, k=0, BIC=830.7258
+Decision: CONSTANT
+
+
+DCC order: p=1, q=1 (is_dcc11: TRUE)
+
+=== DCC(1,1) REPARAMETERIZED OPTIMIZATION ===
+Starting: alpha=0.1000, beta=0.8500
+Reparameterized: persistence=0.9500, ratio=0.1053
+
+Optimized: persistence=0.0000, ratio=0.0000
+Final: alpha=0.0000, beta=0.0000 (sum=0.0000)
+Convergence: 0, NLL: 408.1132
+
+=== Model Selection (State 2, Iter 1) ===
+Criterion: BIC (n_eff=288.8)
+Dynamic:  LL=-408.1132, k=2, BIC=827.5580
+Constant: LL=-408.1096, k=0, BIC=816.2192
+Decision: CONSTANT
+
+
+=== EM ITERATION 1 ===
+
+=== EM ITERATION 1 ===
+  LL before M-step: -841.256
+  LL after M-step:  -826.896
+  Change: 14.3597
+Log-Likelihood: -826.896 (Duration: 00:00:12)
+
+
+==========================================================
+EM Iteration 2... 
+DCC order: p=1, q=1 (is_dcc11: TRUE)
+
+=== DCC(1,1) REPARAMETERIZED OPTIMIZATION ===
+Starting: alpha=0.0300, beta=0.9400
+Reparameterized: persistence=0.9700, ratio=0.0309
+
+Optimized: persistence=0.9663, ratio=0.0170
+Final: alpha=0.0164, beta=0.9499 (sum=0.9663)
+Convergence: 0, NLL: 413.9645
+
+=== Model Selection (State 1, Iter 2) ===
+Criterion: BIC (n_eff=289.5)
+Dynamic:  LL=-413.9645, k=2, BIC=839.2651
+Constant: LL=-414.6137, k=0, BIC=829.2273
+Decision: CONSTANT
+
+
+DCC order: p=1, q=1 (is_dcc11: TRUE)
+
+=== DCC(1,1) REPARAMETERIZED OPTIMIZATION ===
+Starting: alpha=0.1000, beta=0.8500
+Reparameterized: persistence=0.9500, ratio=0.1053
+
+Optimized: persistence=0.0000, ratio=0.0000
+Final: alpha=0.0000, beta=0.0000 (sum=0.0000)
+Convergence: 0, NLL: 409.0612
+
+=== Model Selection (State 2, Iter 2) ===
+Criterion: BIC (n_eff=289.3)
+Dynamic:  LL=-409.0612, k=2, BIC=829.4572
+Constant: LL=-409.0558, k=0, BIC=818.1116
+Decision: CONSTANT
+
+
+=== EM ITERATION 2 ===
+
+=== EM ITERATION 2 ===
+  LL before M-step: -826.896
+  LL after M-step:  -826.453
+  Change: 0.44316
+Log-Likelihood: -826.453 (Duration: 00:00:12)
+
+
+==========================================================
+EM Iteration 3... 
+DCC order: p=1, q=1 (is_dcc11: TRUE)
+
+=== DCC(1,1) REPARAMETERIZED OPTIMIZATION ===
+Starting: alpha=0.0300, beta=0.9400
+Reparameterized: persistence=0.9700, ratio=0.0309
+
+Optimized: persistence=0.9683, ratio=0.0162
+Final: alpha=0.0157, beta=0.9526 (sum=0.9683)
+Convergence: 0, NLL: 414.3599
+
+=== Model Selection (State 1, Iter 3) ===
+Criterion: BIC (n_eff=288.1)
+Dynamic:  LL=-414.3599, k=2, BIC=840.0464
+Constant: LL=-415.0110, k=0, BIC=830.0221
+Decision: CONSTANT
+
+
+DCC order: p=1, q=1 (is_dcc11: TRUE)
+
+=== DCC(1,1) REPARAMETERIZED OPTIMIZATION ===
+Starting: alpha=0.1000, beta=0.8500
+Reparameterized: persistence=0.9500, ratio=0.1053
+
+Optimized: persistence=0.9767, ratio=0.0360
+Final: alpha=0.0352, beta=0.9415 (sum=0.9767)
+Convergence: 0, NLL: 407.4801
+
+=== EM ITERATION 3 ===
+
+=== EM ITERATION 3 ===
+  LL before M-step: -826.453
+  LL after M-step:  -823.881
+  Change: 2.5718
+Log-Likelihood: -823.881 (Duration: 00:00:16)
+
+
+==========================================================
+EM Iteration 4... 
+DCC order: p=1, q=1 (is_dcc11: TRUE)
+
+=== DCC(1,1) REPARAMETERIZED OPTIMIZATION ===
+Starting: alpha=0.0300, beta=0.9400
+Reparameterized: persistence=0.9700, ratio=0.0309
+
+Optimized: persistence=0.0000, ratio=0.0000
+Final: alpha=0.0000, beta=0.0000 (sum=0.0000)
+Convergence: 0, NLL: 416.4276
+
+=== Model Selection (State 1, Iter 4) ===
+Criterion: BIC (n_eff=283.1)
+Dynamic:  LL=-416.4276, k=2, BIC=844.1467
+Constant: LL=-416.4111, k=0, BIC=832.8221
+Decision: CONSTANT
+
+
+DCC order: p=1, q=1 (is_dcc11: TRUE)
+
+=== DCC(1,1) REPARAMETERIZED OPTIMIZATION ===
+Starting: alpha=0.1000, beta=0.8500
+Reparameterized: persistence=0.9500, ratio=0.1053
+
+Optimized: persistence=0.9879, ratio=0.0440
+Final: alpha=0.0435, beta=0.9444 (sum=0.9879)
+Convergence: 0, NLL: 405.6036
+
+=== EM ITERATION 4 ===
+
+=== EM ITERATION 4 ===
+  LL before M-step: -823.881
+  LL after M-step:  -822.474
+  Change: 1.40748
+Log-Likelihood: -822.474 (Duration: 00:00:19)
+
+
+==========================================================
+EM Iteration 5... 
+DCC order: p=1, q=1 (is_dcc11: TRUE)
+
+=== DCC(1,1) REPARAMETERIZED OPTIMIZATION ===
+Starting: alpha=0.0300, beta=0.9400
+Reparameterized: persistence=0.9700, ratio=0.0309
+
+Optimized: persistence=0.0000, ratio=0.0000
+Final: alpha=0.0000, beta=0.0000 (sum=0.0000)
+Convergence: 0, NLL: 419.8206
+
+=== Model Selection (State 1, Iter 5) ===
+Criterion: BIC (n_eff=276.0)
+Dynamic:  LL=-419.8206, k=2, BIC=850.8823
+Constant: LL=-419.7927, k=0, BIC=839.5855
+Decision: CONSTANT
+
+
+DCC order: p=1, q=1 (is_dcc11: TRUE)
+
+=== DCC(1,1) REPARAMETERIZED OPTIMIZATION ===
+Starting: alpha=0.1000, beta=0.8500
+Reparameterized: persistence=0.9500, ratio=0.1053
+
+Optimized: persistence=0.9933, ratio=0.0471
+Final: alpha=0.0468, beta=0.9465 (sum=0.9933)
+Convergence: 0, NLL: 402.2362
+
+=== EM ITERATION 5 ===
+
+=== EM ITERATION 5 ===
+  LL before M-step: -822.474
+  LL after M-step:  -820.542
+  Change: 1.93151
+Log-Likelihood: -820.542 (Duration: 00:00:18)
+
+
+==========================================================
+EM Iteration 6... 
+DCC order: p=1, q=1 (is_dcc11: TRUE)
+
+=== DCC(1,1) REPARAMETERIZED OPTIMIZATION ===
+Starting: alpha=0.0300, beta=0.9400
+Reparameterized: persistence=0.9700, ratio=0.0309
+
+Optimized: persistence=0.0000, ratio=0.0000
+Final: alpha=0.0000, beta=0.0000 (sum=0.0000)
+Convergence: 0, NLL: 423.4202
+
+=== Model Selection (State 1, Iter 6) ===
+Criterion: BIC (n_eff=267.8)
+Dynamic:  LL=-423.4202, k=2, BIC=858.0209
+Constant: LL=-423.3892, k=0, BIC=846.7783
+Decision: CONSTANT
+
+
+DCC order: p=1, q=1 (is_dcc11: TRUE)
+
+=== DCC(1,1) REPARAMETERIZED OPTIMIZATION ===
+Starting: alpha=0.1000, beta=0.8500
+Reparameterized: persistence=0.9500, ratio=0.1053
+
+Optimized: persistence=0.9969, ratio=0.0482
+Final: alpha=0.0481, beta=0.9489 (sum=0.9969)
+Convergence: 0, NLL: 398.2575
+
+=== EM ITERATION 6 ===
+
+=== EM ITERATION 6 ===
+  LL before M-step: -820.542
+  LL after M-step:  -818.5
+  Change: 2.042
+Log-Likelihood: -818.5 (Duration: 00:00:20)
+
+
+==========================================================
+EM Iteration 7... 
+DCC order: p=1, q=1 (is_dcc11: TRUE)
+
+=== DCC(1,1) REPARAMETERIZED OPTIMIZATION ===
+Starting: alpha=0.0300, beta=0.9400
+Reparameterized: persistence=0.9700, ratio=0.0309
+
+Optimized: persistence=0.0000, ratio=0.0000
+Final: alpha=0.0000, beta=0.0000 (sum=0.0000)
+Convergence: 0, NLL: 425.5633
+
+=== Model Selection (State 1, Iter 7) ===
+Criterion: BIC (n_eff=260.1)
+Dynamic:  LL=-425.5633, k=2, BIC=862.2486
+Constant: LL=-425.5299, k=0, BIC=851.0597
+Decision: CONSTANT
+
+
+DCC order: p=1, q=1 (is_dcc11: TRUE)
+
+=== DCC(1,1) REPARAMETERIZED OPTIMIZATION ===
+Starting: alpha=0.1000, beta=0.8500
+Reparameterized: persistence=0.9500, ratio=0.1053
+
+Optimized: persistence=0.9972, ratio=0.0460
+Final: alpha=0.0458, beta=0.9513 (sum=0.9972)
+Convergence: 0, NLL: 396.4436
+
+=== EM ITERATION 7 ===
+
+=== EM ITERATION 7 ===
+  LL before M-step: -818.5
+  LL after M-step:  -817.647
+  Change: 0.853126
+Log-Likelihood: -817.647 (Duration: 00:00:19)
+
+
+==========================================================
+EM Iteration 8... 
+DCC order: p=1, q=1 (is_dcc11: TRUE)
+
+=== DCC(1,1) REPARAMETERIZED OPTIMIZATION ===
+Starting: alpha=0.0300, beta=0.9400
+Reparameterized: persistence=0.9700, ratio=0.0309
+
+Optimized: persistence=0.0000, ratio=0.0000
+Final: alpha=0.0000, beta=0.0000 (sum=0.0000)
+Convergence: 0, NLL: 424.6285
+
+=== Model Selection (State 1, Iter 8) ===
+Criterion: BIC (n_eff=253.9)
+Dynamic:  LL=-424.6285, k=2, BIC=860.3308
+Constant: LL=-424.5947, k=0, BIC=849.1893
+Decision: CONSTANT
+
+
+DCC order: p=1, q=1 (is_dcc11: TRUE)
+
+=== DCC(1,1) REPARAMETERIZED OPTIMIZATION ===
+Starting: alpha=0.1000, beta=0.8500
+Reparameterized: persistence=0.9500, ratio=0.1053
+
+Optimized: persistence=0.9969, ratio=0.0434
+Final: alpha=0.0433, beta=0.9536 (sum=0.9969)
+Convergence: 0, NLL: 397.6179
+
+=== EM ITERATION 8 ===
+
+=== EM ITERATION 8 ===
+  LL before M-step: -817.647
+  LL after M-step:  -817.432
+  Change: 0.214519
+Log-Likelihood: -817.432 (Duration: 00:00:24)
+
+
+==========================================================
+EM Iteration 9... 
+DCC order: p=1, q=1 (is_dcc11: TRUE)
+
+=== DCC(1,1) REPARAMETERIZED OPTIMIZATION ===
+Starting: alpha=0.0300, beta=0.9400
+Reparameterized: persistence=0.9700, ratio=0.0309
+
+Optimized: persistence=0.0000, ratio=0.0000
+Final: alpha=0.0000, beta=0.0000 (sum=0.0000)
+Convergence: 0, NLL: 420.7884
+
+=== Model Selection (State 1, Iter 9) ===
+Criterion: BIC (n_eff=248.9)
+Dynamic:  LL=-420.7884, k=2, BIC=852.6108
+Constant: LL=-420.7574, k=0, BIC=841.5149
+Decision: CONSTANT
+
+
+DCC order: p=1, q=1 (is_dcc11: TRUE)
+
+=== DCC(1,1) REPARAMETERIZED OPTIMIZATION ===
+Starting: alpha=0.1000, beta=0.8500
+Reparameterized: persistence=0.9500, ratio=0.1053
+
+Optimized: persistence=0.9962, ratio=0.0412
+Final: alpha=0.0411, beta=0.9551 (sum=0.9962)
+Convergence: 0, NLL: 401.7932
+
+=== EM ITERATION 9 ===
+
+=== EM ITERATION 9 ===
+  LL before M-step: -817.432
+  LL after M-step:  -817.419
+  Change: 0.013691
+Log-Likelihood: -817.419 (Duration: 00:00:20)
+
+
+==========================================================
+EM Iteration 10... 
+DCC order: p=1, q=1 (is_dcc11: TRUE)
+
+=== DCC(1,1) REPARAMETERIZED OPTIMIZATION ===
+Starting: alpha=0.0300, beta=0.9400
+Reparameterized: persistence=0.9700, ratio=0.0309
+
+Optimized: persistence=0.0000, ratio=0.0000
+Final: alpha=0.0000, beta=0.0000 (sum=0.0000)
+Convergence: 0, NLL: 414.3473
+
+=== Model Selection (State 1, Iter 10) ===
+Criterion: BIC (n_eff=244.7)
+Dynamic:  LL=-414.3473, k=2, BIC=839.6945
+Constant: LL=-414.3377, k=0, BIC=828.6754
+Decision: CONSTANT
+
+
+DCC order: p=1, q=1 (is_dcc11: TRUE)
+
+=== DCC(1,1) REPARAMETERIZED OPTIMIZATION ===
+Starting: alpha=0.1000, beta=0.8500
+Reparameterized: persistence=0.9500, ratio=0.1053
+
+Optimized: persistence=0.9956, ratio=0.0396
+Final: alpha=0.0394, beta=0.9561 (sum=0.9956)
+Convergence: 0, NLL: 407.9200
+
+=== EM ITERATION 10 ===
+
+=== EM ITERATION 10 ===
+  LL before M-step: -817.419
+  LL after M-step:  -817.729
+  Change: -0.310195
+  *** WARNING: M-step DECREASED LL! ***
+Log-Likelihood: -817.729 (Duration: 00:00:21)
+
+
+==========================================================
+EM Iteration 11... 
+DCC order: p=1, q=1 (is_dcc11: TRUE)
+
+=== DCC(1,1) REPARAMETERIZED OPTIMIZATION ===
+Starting: alpha=0.0300, beta=0.9400
+Reparameterized: persistence=0.9700, ratio=0.0309
+
+Optimized: persistence=0.0000, ratio=0.0000
+Final: alpha=0.0000, beta=0.0000 (sum=0.0000)
+Convergence: 0, NLL: 406.2314
+
+=== Model Selection (State 1, Iter 11) ===
+Criterion: BIC (n_eff=240.2)
+Dynamic:  LL=-406.2314, k=2, BIC=823.4256
+Constant: LL=-406.2134, k=0, BIC=812.4268
+Decision: CONSTANT
+
+
+DCC order: p=1, q=1 (is_dcc11: TRUE)
+
+=== DCC(1,1) REPARAMETERIZED OPTIMIZATION ===
+Starting: alpha=0.1000, beta=0.8500
+Reparameterized: persistence=0.9500, ratio=0.1053
+
+Optimized: persistence=0.9951, ratio=0.0381
+Final: alpha=0.0379, beta=0.9572 (sum=0.9951)
+Convergence: 0, NLL: 416.5911
+
+=== EM ITERATION 11 ===
+
+=== EM ITERATION 11 ===
+  LL before M-step: -817.729
+  LL after M-step:  -817.493
+  Change: 0.236351
+Log-Likelihood: -817.493 (Duration: 00:00:22)
+
+
+==========================================================
+EM Iteration 12... 
+DCC order: p=1, q=1 (is_dcc11: TRUE)
+
+=== DCC(1,1) REPARAMETERIZED OPTIMIZATION ===
+Starting: alpha=0.0300, beta=0.9400
+Reparameterized: persistence=0.9700, ratio=0.0309
+
+Optimized: persistence=0.0000, ratio=0.0000
+Final: alpha=0.0000, beta=0.0000 (sum=0.0000)
+Convergence: 0, NLL: 397.8588
+
+=== Model Selection (State 1, Iter 12) ===
+Criterion: BIC (n_eff=236.0)
+Dynamic:  LL=-397.8588, k=2, BIC=806.6453
+Constant: LL=-397.8288, k=0, BIC=795.6576
+Decision: CONSTANT
+
+
+DCC order: p=1, q=1 (is_dcc11: TRUE)
+
+=== DCC(1,1) REPARAMETERIZED OPTIMIZATION ===
+Starting: alpha=0.1000, beta=0.8500
+Reparameterized: persistence=0.9500, ratio=0.1053
+
+Optimized: persistence=0.9944, ratio=0.0371
+Final: alpha=0.0369, beta=0.9576 (sum=0.9944)
+Convergence: 0, NLL: 426.0898
+
+=== EM ITERATION 12 ===
+
+=== EM ITERATION 12 ===
+  LL before M-step: -817.493
+  LL after M-step:  -817.291
+  Change: 0.201549
+Log-Likelihood: -817.291 (Duration: 00:00:27)
+
+
+==========================================================
+EM Iteration 13... 
+DCC order: p=1, q=1 (is_dcc11: TRUE)
+
+=== DCC(1,1) REPARAMETERIZED OPTIMIZATION ===
+Starting: alpha=0.0300, beta=0.9400
+Reparameterized: persistence=0.9700, ratio=0.0309
+
+Optimized: persistence=0.0000, ratio=0.0000
+Final: alpha=0.0000, beta=0.0000 (sum=0.0000)
+Convergence: 0, NLL: 387.3327
+
+=== Model Selection (State 1, Iter 13) ===
+Criterion: BIC (n_eff=231.7)
+Dynamic:  LL=-387.3327, k=2, BIC=785.5560
+Constant: LL=-387.3090, k=0, BIC=774.6180
+Decision: CONSTANT
+
+
+DCC order: p=1, q=1 (is_dcc11: TRUE)
+
+=== DCC(1,1) REPARAMETERIZED OPTIMIZATION ===
+Starting: alpha=0.1000, beta=0.8500
+Reparameterized: persistence=0.9500, ratio=0.1053
+
+Optimized: persistence=0.9933, ratio=0.0361
+Final: alpha=0.0358, beta=0.9575 (sum=0.9933)
+Convergence: 0, NLL: 436.1994
+
+=== EM ITERATION 13 ===
+
+=== EM ITERATION 13 ===
+  LL before M-step: -817.291
+  LL after M-step:  -817.16
+  Change: 0.131189
+Log-Likelihood: -817.16 (Duration: 00:00:22)
+
+
+==========================================================
+EM Iteration 14... 
+DCC order: p=1, q=1 (is_dcc11: TRUE)
+
+=== DCC(1,1) REPARAMETERIZED OPTIMIZATION ===
+Starting: alpha=0.0300, beta=0.9400
+Reparameterized: persistence=0.9700, ratio=0.0309
+
+Optimized: persistence=0.0000, ratio=0.0000
+Final: alpha=0.0000, beta=0.0000 (sum=0.0000)
+Convergence: 0, NLL: 377.4720
+
+=== Model Selection (State 1, Iter 14) ===
+Criterion: BIC (n_eff=227.8)
+Dynamic:  LL=-377.4720, k=2, BIC=765.8012
+Constant: LL=-377.4440, k=0, BIC=754.8880
+Decision: CONSTANT
+
+
+DCC order: p=1, q=1 (is_dcc11: TRUE)
+
+=== DCC(1,1) REPARAMETERIZED OPTIMIZATION ===
+Starting: alpha=0.1000, beta=0.8500
+Reparameterized: persistence=0.9500, ratio=0.1053
+
+Optimized: persistence=0.9927, ratio=0.0353
+Final: alpha=0.0351, beta=0.9576 (sum=0.9927)
+Convergence: 0, NLL: 446.1686
+
+=== EM ITERATION 14 ===
+
+=== EM ITERATION 14 ===
+  LL before M-step: -817.16
+  LL after M-step:  -817.065
+  Change: 0.0948479
+Log-Likelihood: -817.065 (Duration: 00:00:19)
+
+
+==========================================================
+EM Iteration 15... 
+DCC order: p=1, q=1 (is_dcc11: TRUE)
+
+=== DCC(1,1) REPARAMETERIZED OPTIMIZATION ===
+Starting: alpha=0.0300, beta=0.9400
+Reparameterized: persistence=0.9700, ratio=0.0309
+
+Optimized: persistence=0.0000, ratio=0.0000
+Final: alpha=0.0000, beta=0.0000 (sum=0.0000)
+Convergence: 0, NLL: 367.5154
+
+=== Model Selection (State 1, Iter 15) ===
+Criterion: BIC (n_eff=224.3)
+Dynamic:  LL=-367.5154, k=2, BIC=745.8564
+Constant: LL=-367.4905, k=0, BIC=734.9810
+Decision: CONSTANT
+
+
+DCC order: p=1, q=1 (is_dcc11: TRUE)
+
+=== DCC(1,1) REPARAMETERIZED OPTIMIZATION ===
+Starting: alpha=0.1000, beta=0.8500
+Reparameterized: persistence=0.9500, ratio=0.1053
+
+Optimized: persistence=0.9922, ratio=0.0348
+Final: alpha=0.0345, beta=0.9577 (sum=0.9922)
+Convergence: 0, NLL: 455.8685
+
+=== EM ITERATION 15 ===
+
+=== EM ITERATION 15 ===
+  LL before M-step: -817.065
+  LL after M-step:  -817.017
+  Change: 0.0474765
+Log-Likelihood: -817.017 (Duration: 00:00:22)
+
+
+==========================================================
+EM Iteration 16... 
+DCC order: p=1, q=1 (is_dcc11: TRUE)
+
+=== DCC(1,1) REPARAMETERIZED OPTIMIZATION ===
+Starting: alpha=0.0300, beta=0.9400
+Reparameterized: persistence=0.9700, ratio=0.0309
+
+Optimized: persistence=0.0000, ratio=0.0000
+Final: alpha=0.0000, beta=0.0000 (sum=0.0000)
+Convergence: 0, NLL: 358.7479
+
+=== Model Selection (State 1, Iter 16) ===
+Criterion: BIC (n_eff=221.0)
+Dynamic:  LL=-358.7479, k=2, BIC=728.2924
+Constant: LL=-358.7055, k=0, BIC=717.4110
+Decision: CONSTANT
+
+
+DCC order: p=1, q=1 (is_dcc11: TRUE)
+
+=== DCC(1,1) REPARAMETERIZED OPTIMIZATION ===
+Starting: alpha=0.1000, beta=0.8500
+Reparameterized: persistence=0.9500, ratio=0.1053
+
+Optimized: persistence=0.9918, ratio=0.0343
+Final: alpha=0.0340, beta=0.9577 (sum=0.9918)
+Convergence: 0, NLL: 465.1868
+
+=== EM ITERATION 16 ===
+
+=== EM ITERATION 16 ===
+  LL before M-step: -817.017
+  LL after M-step:  -816.937
+  Change: 0.0801398
+Log-Likelihood: -816.937 (Duration: 00:00:24)
+
+
+==========================================================
+EM Iteration 17... 
+DCC order: p=1, q=1 (is_dcc11: TRUE)
+
+=== DCC(1,1) REPARAMETERIZED OPTIMIZATION ===
+Starting: alpha=0.0300, beta=0.9400
+Reparameterized: persistence=0.9700, ratio=0.0309
+
+Optimized: persistence=0.0607, ratio=0.0000
+Final: alpha=0.0000, beta=0.0607 (sum=0.0607)
+Convergence: 0, NLL: 348.8502
+
+=== Model Selection (State 1, Iter 17) ===
+Criterion: BIC (n_eff=217.7)
+Dynamic:  LL=-348.8502, k=2, BIC=708.4667
+Constant: LL=-348.8299, k=0, BIC=697.6598
+Decision: CONSTANT
+
+
+DCC order: p=1, q=1 (is_dcc11: TRUE)
+
+=== DCC(1,1) REPARAMETERIZED OPTIMIZATION ===
+Starting: alpha=0.1000, beta=0.8500
+Reparameterized: persistence=0.9500, ratio=0.1053
+
+Optimized: persistence=0.9912, ratio=0.0339
+Final: alpha=0.0336, beta=0.9576 (sum=0.9912)
+Convergence: 0, NLL: 474.2948
+
+=== EM ITERATION 17 ===
+
+=== EM ITERATION 17 ===
+  LL before M-step: -816.937
+  LL after M-step:  -816.892
+  Change: 0.0458159
+Log-Likelihood: -816.892 (Duration: 00:00:19)
+
+
+==========================================================
+EM Iteration 18... 
+DCC order: p=1, q=1 (is_dcc11: TRUE)
+
+=== DCC(1,1) REPARAMETERIZED OPTIMIZATION ===
+Starting: alpha=0.0300, beta=0.9400
+Reparameterized: persistence=0.9700, ratio=0.0309
+
+Optimized: persistence=0.0809, ratio=0.0000
+Final: alpha=0.0000, beta=0.0809 (sum=0.0809)
+Convergence: 0, NLL: 339.9387
+
+=== Model Selection (State 1, Iter 18) ===
+Criterion: BIC (n_eff=215.2)
+Dynamic:  LL=-339.9387, k=2, BIC=690.6201
+Constant: LL=-339.9228, k=0, BIC=679.8457
+Decision: CONSTANT
+
+
+DCC order: p=1, q=1 (is_dcc11: TRUE)
+
+=== DCC(1,1) REPARAMETERIZED OPTIMIZATION ===
+Starting: alpha=0.1000, beta=0.8500
+Reparameterized: persistence=0.9500, ratio=0.1053
+
+Optimized: persistence=0.9908, ratio=0.0336
+Final: alpha=0.0333, beta=0.9575 (sum=0.9908)
+Convergence: 0, NLL: 482.6392
+
+=== EM ITERATION 18 ===
+
+=== EM ITERATION 18 ===
+  LL before M-step: -816.892
+  LL after M-step:  -816.838
+  Change: 0.0536661
+Log-Likelihood: -816.838 (Duration: 00:00:22)
+
+
+==========================================================
+EM Iteration 19... 
+DCC order: p=1, q=1 (is_dcc11: TRUE)
+
+=== DCC(1,1) REPARAMETERIZED OPTIMIZATION ===
+Starting: alpha=0.0300, beta=0.9400
+Reparameterized: persistence=0.9700, ratio=0.0309
+
+Optimized: persistence=0.1003, ratio=0.0000
+Final: alpha=0.0000, beta=0.1003 (sum=0.1003)
+Convergence: 0, NLL: 332.6243
+
+=== Model Selection (State 1, Iter 19) ===
+Criterion: BIC (n_eff=212.9)
+Dynamic:  LL=-332.6243, k=2, BIC=675.9701
+Constant: LL=-332.6026, k=0, BIC=665.2052
+Decision: CONSTANT
+
+
+DCC order: p=1, q=1 (is_dcc11: TRUE)
+
+=== DCC(1,1) REPARAMETERIZED OPTIMIZATION ===
+Starting: alpha=0.1000, beta=0.8500
+Reparameterized: persistence=0.9500, ratio=0.1053
+
+Optimized: persistence=0.9905, ratio=0.0334
+Final: alpha=0.0331, beta=0.9574 (sum=0.9905)
+Convergence: 0, NLL: 490.3350
+
+=== EM ITERATION 19 ===
+
+=== EM ITERATION 19 ===
+  LL before M-step: -816.838
+  LL after M-step:  -816.786
+  Change: 0.0514836
+Log-Likelihood: -816.786 (Duration: 00:00:25)
+
+
+==========================================================
+EM Iteration 20... 
+DCC order: p=1, q=1 (is_dcc11: TRUE)
+
+=== DCC(1,1) REPARAMETERIZED OPTIMIZATION ===
+Starting: alpha=0.0300, beta=0.9400
+Reparameterized: persistence=0.9700, ratio=0.0309
+
+Optimized: persistence=0.1175, ratio=0.0000
+Final: alpha=0.0000, beta=0.1175 (sum=0.1175)
+Convergence: 0, NLL: 325.5770
+
+=== Model Selection (State 1, Iter 20) ===
+Criterion: BIC (n_eff=210.5)
+Dynamic:  LL=-325.5770, k=2, BIC=661.8532
+Constant: LL=-325.5535, k=0, BIC=651.1069
+Decision: CONSTANT
+
+
+DCC order: p=1, q=1 (is_dcc11: TRUE)
+
+=== DCC(1,1) REPARAMETERIZED OPTIMIZATION ===
+Starting: alpha=0.1000, beta=0.8500
+Reparameterized: persistence=0.9500, ratio=0.1053
+
+Optimized: persistence=0.9902, ratio=0.0332
+Final: alpha=0.0329, beta=0.9573 (sum=0.9902)
+Convergence: 0, NLL: 497.5886
+
+=== EM ITERATION 20 ===
+
+=== EM ITERATION 20 ===
+  LL before M-step: -816.786
+  LL after M-step:  -816.747
+  Change: 0.0391107
+Log-Likelihood: -816.747 (Duration: 00:00:24)
+
+
+==========================================================
+EM Iteration 21... 
+DCC order: p=1, q=1 (is_dcc11: TRUE)
+
+=== DCC(1,1) REPARAMETERIZED OPTIMIZATION ===
+Starting: alpha=0.0300, beta=0.9400
+Reparameterized: persistence=0.9700, ratio=0.0309
+
+Optimized: persistence=0.1393, ratio=0.0000
+Final: alpha=0.0000, beta=0.1393 (sum=0.1393)
+Convergence: 0, NLL: 318.6825
+
+=== Model Selection (State 1, Iter 21) ===
+Criterion: BIC (n_eff=208.3)
+Dynamic:  LL=-318.6825, k=2, BIC=648.0431
+Constant: LL=-318.6613, k=0, BIC=637.3225
+Decision: CONSTANT
+
+
+DCC order: p=1, q=1 (is_dcc11: TRUE)
+
+=== DCC(1,1) REPARAMETERIZED OPTIMIZATION ===
+Starting: alpha=0.1000, beta=0.8500
+Reparameterized: persistence=0.9500, ratio=0.1053
+
+Optimized: persistence=0.0000, ratio=0.0000
+Final: alpha=0.0000, beta=0.0000 (sum=0.0000)
+Convergence: 0, NLL: 506.5323
+
+=== Model Selection (State 2, Iter 21) ===
+Criterion: BIC (n_eff=255.5)
+Dynamic:  LL=-506.5323, k=2, BIC=1024.1511
+Constant: LL=-506.5322, k=0, BIC=1013.0644
+Decision: CONSTANT
+
+
+=== EM ITERATION 21 ===
+
+=== EM ITERATION 21 ===
+  LL before M-step: -816.747
+  LL after M-step:  -818.427
+  Change: -1.67955
+  *** WARNING: M-step DECREASED LL! ***
+Log-Likelihood: -818.427 (Duration: 00:00:27)
+
+
+==========================================================
+EM Iteration 22... 
+DCC order: p=1, q=1 (is_dcc11: TRUE)
+
+=== DCC(1,1) REPARAMETERIZED OPTIMIZATION ===
+Starting: alpha=0.0300, beta=0.9400
+Reparameterized: persistence=0.9700, ratio=0.0309
+
+Optimized: persistence=0.9439, ratio=0.0070
+Final: alpha=0.0066, beta=0.9373 (sum=0.9439)
+Convergence: 0, NLL: 310.4491
+
+=== Model Selection (State 1, Iter 22) ===
+Criterion: BIC (n_eff=206.3)
+Dynamic:  LL=-310.4491, k=2, BIC=631.5570
+Constant: LL=-310.6773, k=0, BIC=621.3545
+Decision: CONSTANT
+
+
+DCC order: p=1, q=1 (is_dcc11: TRUE)
+
+=== DCC(1,1) REPARAMETERIZED OPTIMIZATION ===
+Starting: alpha=0.1000, beta=0.8500
+Reparameterized: persistence=0.9500, ratio=0.1053
+
+Optimized: persistence=0.0000, ratio=0.0000
+Final: alpha=0.0000, beta=0.0000 (sum=0.0000)
+Convergence: 0, NLL: 514.3580
+
+=== Model Selection (State 2, Iter 22) ===
+Criterion: BIC (n_eff=257.2)
+Dynamic:  LL=-514.3580, k=2, BIC=1039.8156
+Constant: LL=-514.3579, k=0, BIC=1028.7158
+Decision: CONSTANT
+
+
+=== EM ITERATION 22 ===
+
+=== EM ITERATION 22 ===
+  LL before M-step: -818.427
+  LL after M-step:  -818.314
+  Change: 0.112909
+Log-Likelihood: -818.314 (Duration: 00:00:27)
+
+
+==========================================================
+EM Iteration 23... 
+DCC order: p=1, q=1 (is_dcc11: TRUE)
+
+=== DCC(1,1) REPARAMETERIZED OPTIMIZATION ===
+Starting: alpha=0.0300, beta=0.9400
+Reparameterized: persistence=0.9700, ratio=0.0309
+
+Optimized: persistence=0.9440, ratio=0.0068
+Final: alpha=0.0064, beta=0.9376 (sum=0.9440)
+Convergence: 0, NLL: 304.0630
+
+=== Model Selection (State 1, Iter 23) ===
+Criterion: BIC (n_eff=204.4)
+Dynamic:  LL=-304.0630, k=2, BIC=618.7662
+Constant: LL=-304.2715, k=0, BIC=608.5429
+Decision: CONSTANT
+
+
+DCC order: p=1, q=1 (is_dcc11: TRUE)
+
+=== DCC(1,1) REPARAMETERIZED OPTIMIZATION ===
+Starting: alpha=0.1000, beta=0.8500
+Reparameterized: persistence=0.9500, ratio=0.1053
+
+Optimized: persistence=0.0000, ratio=0.0000
+Final: alpha=0.0000, beta=0.0000 (sum=0.0000)
+Convergence: 0, NLL: 521.3310
+
+=== Model Selection (State 2, Iter 23) ===
+Criterion: BIC (n_eff=258.6)
+Dynamic:  LL=-521.3310, k=2, BIC=1053.7728
+Constant: LL=-521.3309, k=0, BIC=1042.6617
+Decision: CONSTANT
+
+
+=== EM ITERATION 23 ===
+
+=== EM ITERATION 23 ===
+  LL before M-step: -818.314
+  LL after M-step:  -818.281
+  Change: 0.0325679
+Log-Likelihood: -818.281 (Duration: 00:00:23)
+
+
+==========================================================
+EM Iteration 24... 
+DCC order: p=1, q=1 (is_dcc11: TRUE)
+
+=== DCC(1,1) REPARAMETERIZED OPTIMIZATION ===
+Starting: alpha=0.0300, beta=0.9400
+Reparameterized: persistence=0.9700, ratio=0.0309
+
+Optimized: persistence=0.9439, ratio=0.0067
+Final: alpha=0.0063, beta=0.9375 (sum=0.9439)
+Convergence: 0, NLL: 297.2303
+
+=== Model Selection (State 1, Iter 24) ===
+Criterion: BIC (n_eff=202.2)
+Dynamic:  LL=-297.2303, k=2, BIC=605.0789
+Constant: LL=-297.4381, k=0, BIC=594.8762
+Decision: CONSTANT
+
+
+DCC order: p=1, q=1 (is_dcc11: TRUE)
+
+=== DCC(1,1) REPARAMETERIZED OPTIMIZATION ===
+Starting: alpha=0.1000, beta=0.8500
+Reparameterized: persistence=0.9500, ratio=0.1053
+
+Optimized: persistence=0.0000, ratio=0.0000
+Final: alpha=0.0000, beta=0.0000 (sum=0.0000)
+Convergence: 0, NLL: 528.1724
+
+=== Model Selection (State 2, Iter 24) ===
+Criterion: BIC (n_eff=259.8)
+Dynamic:  LL=-528.1724, k=2, BIC=1067.4651
+Constant: LL=-528.1723, k=0, BIC=1056.3445
+Decision: CONSTANT
+
+
+=== EM ITERATION 24 ===
+
+=== EM ITERATION 24 ===
+  LL before M-step: -818.281
+  LL after M-step:  -818.276
+  Change: 0.00558408
+Log-Likelihood: -818.276 (Duration: 00:00:33)
+
+
+==========================================================
+EM Iteration 25... 
+DCC order: p=1, q=1 (is_dcc11: TRUE)
+
+=== DCC(1,1) REPARAMETERIZED OPTIMIZATION ===
+Starting: alpha=0.0300, beta=0.9400
+Reparameterized: persistence=0.9700, ratio=0.0309
+
+Optimized: persistence=0.0586, ratio=0.0000
+Final: alpha=0.0000, beta=0.0586 (sum=0.0586)
+Convergence: 0, NLL: 290.7452
+
+=== Model Selection (State 1, Iter 25) ===
+Criterion: BIC (n_eff=200.1)
+Dynamic:  LL=-290.7452, k=2, BIC=592.0884
+Constant: LL=-290.7291, k=0, BIC=581.4581
+Decision: CONSTANT
+
+
+DCC order: p=1, q=1 (is_dcc11: TRUE)
+
+=== DCC(1,1) REPARAMETERIZED OPTIMIZATION ===
+Starting: alpha=0.1000, beta=0.8500
+Reparameterized: persistence=0.9500, ratio=0.1053
+
+Optimized: persistence=0.0000, ratio=0.0000
+Final: alpha=0.0000, beta=0.0000 (sum=0.0000)
+Convergence: 0, NLL: 534.6417
+
+=== Model Selection (State 2, Iter 25) ===
+Criterion: BIC (n_eff=261.0)
+Dynamic:  LL=-534.6417, k=2, BIC=1080.4128
+Constant: LL=-534.6416, k=0, BIC=1069.2831
+Decision: CONSTANT
+
+
+=== EM ITERATION 25 ===
+
+=== EM ITERATION 25 ===
+  LL before M-step: -818.276
+  LL after M-step:  -818.281
+  Change: -0.00515402
+  *** WARNING: M-step DECREASED LL! ***
+Log-Likelihood: -818.281 (Duration: 00:00:22)
+
+
+==========================================================
+EM Iteration 26... 
+DCC order: p=1, q=1 (is_dcc11: TRUE)
+
+=== DCC(1,1) REPARAMETERIZED OPTIMIZATION ===
+Starting: alpha=0.0300, beta=0.9400
+Reparameterized: persistence=0.9700, ratio=0.0309
+
+Optimized: persistence=0.0626, ratio=0.0000
+Final: alpha=0.0000, beta=0.0626 (sum=0.0626)
+Convergence: 0, NLL: 284.7804
+
+=== Model Selection (State 1, Iter 26) ===
+Criterion: BIC (n_eff=198.4)
+Dynamic:  LL=-284.7804, k=2, BIC=580.1418
+Constant: LL=-284.7663, k=0, BIC=569.5325
+Decision: CONSTANT
+
+
+DCC order: p=1, q=1 (is_dcc11: TRUE)
+
+=== DCC(1,1) REPARAMETERIZED OPTIMIZATION ===
+Starting: alpha=0.1000, beta=0.8500
+Reparameterized: persistence=0.9500, ratio=0.1053
+
+Optimized: persistence=0.0000, ratio=0.0000
+Final: alpha=0.0000, beta=0.0000 (sum=0.0000)
+Convergence: 0, NLL: 540.6133
+
+=== Model Selection (State 2, Iter 26) ===
+Criterion: BIC (n_eff=262.2)
+Dynamic:  LL=-540.6133, k=2, BIC=1092.3650
+Constant: LL=-540.6131, k=0, BIC=1081.2263
+Decision: CONSTANT
+
+
+=== EM ITERATION 26 ===
+
+=== EM ITERATION 26 ===
+  LL before M-step: -818.281
+  LL after M-step:  -818.291
+  Change: -0.0101563
+  *** WARNING: M-step DECREASED LL! ***
+Log-Likelihood: -818.291 (Duration: 00:00:21)
+
+
+==========================================================
+EM Iteration 27... 
+DCC order: p=1, q=1 (is_dcc11: TRUE)
+
+=== DCC(1,1) REPARAMETERIZED OPTIMIZATION ===
+Starting: alpha=0.0300, beta=0.9400
+Reparameterized: persistence=0.9700, ratio=0.0309
+
+Optimized: persistence=0.0670, ratio=0.0000
+Final: alpha=0.0000, beta=0.0670 (sum=0.0670)
+Convergence: 0, NLL: 279.3260
+
+=== Model Selection (State 1, Iter 27) ===
+Criterion: BIC (n_eff=196.8)
+Dynamic:  LL=-279.3260, k=2, BIC=569.2166
+Constant: LL=-279.3121, k=0, BIC=558.6242
+Decision: CONSTANT
+
+
+DCC order: p=1, q=1 (is_dcc11: TRUE)
+
+=== DCC(1,1) REPARAMETERIZED OPTIMIZATION ===
+Starting: alpha=0.1000, beta=0.8500
+Reparameterized: persistence=0.9500, ratio=0.1053
+
+Optimized: persistence=0.0000, ratio=0.0000
+Final: alpha=0.0000, beta=0.0000 (sum=0.0000)
+Convergence: 0, NLL: 546.1691
+
+=== Model Selection (State 2, Iter 27) ===
+Criterion: BIC (n_eff=263.3)
+Dynamic:  LL=-546.1691, k=2, BIC=1103.4848
+Constant: LL=-546.1689, k=0, BIC=1092.3379
+Decision: CONSTANT
+
+
+=== EM ITERATION 27 ===
+
+=== EM ITERATION 27 ===
+  LL before M-step: -818.291
+  LL after M-step:  -818.301
+  Change: -0.00959534
+  *** WARNING: M-step DECREASED LL! ***
+Log-Likelihood: -818.301 (Duration: 00:00:23)
+
+
+==========================================================
+EM Iteration 28... 
+DCC order: p=1, q=1 (is_dcc11: TRUE)
+
+=== DCC(1,1) REPARAMETERIZED OPTIMIZATION ===
+Starting: alpha=0.0300, beta=0.9400
+Reparameterized: persistence=0.9700, ratio=0.0309
+
+Optimized: persistence=0.0728, ratio=0.0000
+Final: alpha=0.0000, beta=0.0728 (sum=0.0728)
+Convergence: 0, NLL: 273.9904
+
+=== Model Selection (State 1, Iter 28) ===
+Criterion: BIC (n_eff=195.2)
+Dynamic:  LL=-273.9904, k=2, BIC=558.5285
+Constant: LL=-273.9792, k=0, BIC=547.9584
+Decision: CONSTANT
+
+
+DCC order: p=1, q=1 (is_dcc11: TRUE)
+
+=== DCC(1,1) REPARAMETERIZED OPTIMIZATION ===
+Starting: alpha=0.1000, beta=0.8500
+Reparameterized: persistence=0.9500, ratio=0.1053
+
+Optimized: persistence=0.0000, ratio=0.0000
+Final: alpha=0.0000, beta=0.0000 (sum=0.0000)
+Convergence: 0, NLL: 551.5196
+
+=== Model Selection (State 2, Iter 28) ===
+Criterion: BIC (n_eff=264.3)
+Dynamic:  LL=-551.5196, k=2, BIC=1114.1933
+Constant: LL=-551.5194, k=0, BIC=1103.0389
+Decision: CONSTANT
+
+
+=== EM ITERATION 28 ===
+
+=== EM ITERATION 28 ===
+  LL before M-step: -818.301
+  LL after M-step:  -818.312
+  Change: -0.0113222
+  *** WARNING: M-step DECREASED LL! ***
+Log-Likelihood: -818.312 (Duration: 00:00:23)
+
+
+==========================================================
+EM Iteration 29... 
+DCC order: p=1, q=1 (is_dcc11: TRUE)
+
+=== DCC(1,1) REPARAMETERIZED OPTIMIZATION ===
+Starting: alpha=0.0300, beta=0.9400
+Reparameterized: persistence=0.9700, ratio=0.0309
+
+Optimized: persistence=0.0789, ratio=0.0000
+Final: alpha=0.0000, beta=0.0789 (sum=0.0789)
+Convergence: 0, NLL: 268.4956
+
+=== Model Selection (State 1, Iter 29) ===
+Criterion: BIC (n_eff=193.6)
+Dynamic:  LL=-268.4956, k=2, BIC=547.5225
+Constant: LL=-268.4917, k=0, BIC=536.9835
+Decision: CONSTANT
+
+
+DCC order: p=1, q=1 (is_dcc11: TRUE)
+
+=== DCC(1,1) REPARAMETERIZED OPTIMIZATION ===
+Starting: alpha=0.1000, beta=0.8500
+Reparameterized: persistence=0.9500, ratio=0.1053
+
+Optimized: persistence=0.0000, ratio=0.0000
+Final: alpha=0.0000, beta=0.0000 (sum=0.0000)
+Convergence: 0, NLL: 556.6300
+
+=== Model Selection (State 2, Iter 29) ===
+Criterion: BIC (n_eff=265.2)
+Dynamic:  LL=-556.6300, k=2, BIC=1124.4209
+Constant: LL=-556.6298, k=0, BIC=1113.2595
+Decision: CONSTANT
+
+
+=== EM ITERATION 29 ===
+
+=== EM ITERATION 29 ===
+  LL before M-step: -818.312
+  LL after M-step:  -818.313
+  Change: -0.00134239
+  *** WARNING: M-step DECREASED LL! ***
+Log-Likelihood: -818.313 (Duration: 00:00:23)
+
+
+==========================================================
+EM Iteration 30... 
+DCC order: p=1, q=1 (is_dcc11: TRUE)
+
+=== DCC(1,1) REPARAMETERIZED OPTIMIZATION ===
+Starting: alpha=0.0300, beta=0.9400
+Reparameterized: persistence=0.9700, ratio=0.0309
+
+Optimized: persistence=0.0808, ratio=0.0000
+Final: alpha=0.0000, beta=0.0808 (sum=0.0808)
+Convergence: 0, NLL: 264.7389
+
+=== Model Selection (State 1, Iter 30) ===
+Criterion: BIC (n_eff=192.3)
+Dynamic:  LL=-264.7389, k=2, BIC=539.9961
+Constant: LL=-264.7205, k=0, BIC=529.4409
+Decision: CONSTANT
+
+
+DCC order: p=1, q=1 (is_dcc11: TRUE)
+
+=== DCC(1,1) REPARAMETERIZED OPTIMIZATION ===
+Starting: alpha=0.1000, beta=0.8500
+Reparameterized: persistence=0.9500, ratio=0.1053
+
+Optimized: persistence=0.0000, ratio=0.0000
+Final: alpha=0.0000, beta=0.0000 (sum=0.0000)
+Convergence: 0, NLL: 561.1559
+
+=== Model Selection (State 2, Iter 30) ===
+Criterion: BIC (n_eff=266.1)
+Dynamic:  LL=-561.1559, k=2, BIC=1133.4796
+Constant: LL=-561.1557, k=0, BIC=1122.3113
+Decision: CONSTANT
+
+
+=== EM ITERATION 30 ===
+
+=== EM ITERATION 30 ===
+  LL before M-step: -818.313
+  LL after M-step:  -818.331
+  Change: -0.0177545
+  *** WARNING: M-step DECREASED LL! ***
+Log-Likelihood: -818.331 (Duration: 00:00:18)
+
+
+==========================================================
+EM Iteration 31... 
+DCC order: p=1, q=1 (is_dcc11: TRUE)
+
+=== DCC(1,1) REPARAMETERIZED OPTIMIZATION ===
+Starting: alpha=0.0300, beta=0.9400
+Reparameterized: persistence=0.9700, ratio=0.0309
+
+Optimized: persistence=0.9519, ratio=0.0064
+Final: alpha=0.0061, beta=0.9459 (sum=0.9519)
+Convergence: 0, NLL: 259.5217
+
+=== Model Selection (State 1, Iter 31) ===
+Criterion: BIC (n_eff=190.4)
+Dynamic:  LL=-259.5217, k=2, BIC=529.5414
+Constant: LL=-259.7590, k=0, BIC=519.5179
+Decision: CONSTANT
+
+
+DCC order: p=1, q=1 (is_dcc11: TRUE)
+
+=== DCC(1,1) REPARAMETERIZED OPTIMIZATION ===
+Starting: alpha=0.1000, beta=0.8500
+Reparameterized: persistence=0.9500, ratio=0.1053
+
+Optimized: persistence=0.0000, ratio=0.0000
+Final: alpha=0.0000, beta=0.0000 (sum=0.0000)
+Convergence: 0, NLL: 565.8569
+
+=== Model Selection (State 2, Iter 31) ===
+Criterion: BIC (n_eff=266.8)
+Dynamic:  LL=-565.8569, k=2, BIC=1142.8867
+Constant: LL=-565.8567, k=0, BIC=1131.7133
+Decision: CONSTANT
+
+
+=== EM ITERATION 31 ===
+
+=== EM ITERATION 31 ===
+  LL before M-step: -818.331
+  LL after M-step:  -818.351
+  Change: -0.0202454
+  *** WARNING: M-step DECREASED LL! ***
+Log-Likelihood: -818.351 (Duration: 00:00:22)
+
+
+==========================================================
+EM Iteration 32... 
+DCC order: p=1, q=1 (is_dcc11: TRUE)
+
+=== DCC(1,1) REPARAMETERIZED OPTIMIZATION ===
+Starting: alpha=0.0300, beta=0.9400
+Reparameterized: persistence=0.9700, ratio=0.0309
+
+Optimized: persistence=0.9537, ratio=0.0062
+Final: alpha=0.0059, beta=0.9478 (sum=0.9537)
+Convergence: 0, NLL: 255.5501
+
+=== Model Selection (State 1, Iter 32) ===
+Criterion: BIC (n_eff=188.8)
+Dynamic:  LL=-255.5501, k=2, BIC=521.5816
+Constant: LL=-255.7797, k=0, BIC=511.5595
+Decision: CONSTANT
+
+
+DCC order: p=1, q=1 (is_dcc11: TRUE)
+
+=== DCC(1,1) REPARAMETERIZED OPTIMIZATION ===
+Starting: alpha=0.1000, beta=0.8500
+Reparameterized: persistence=0.9500, ratio=0.1053
+
+Optimized: persistence=0.0000, ratio=0.0000
+Final: alpha=0.0000, beta=0.0000 (sum=0.0000)
+Convergence: 0, NLL: 570.3213
+
+=== Model Selection (State 2, Iter 32) ===
+Criterion: BIC (n_eff=267.5)
+Dynamic:  LL=-570.3213, k=2, BIC=1151.8211
+Constant: LL=-570.3211, k=0, BIC=1140.6422
+Decision: CONSTANT
+
+
+=== EM ITERATION 32 ===
+
+=== EM ITERATION 32 ===
+  LL before M-step: -818.351
+  LL after M-step:  -818.375
+  Change: -0.0239522
+  *** WARNING: M-step DECREASED LL! ***
+Log-Likelihood: -818.375 (Duration: 00:00:28)
+
+
+==========================================================
+EM Iteration 33... 
+DCC order: p=1, q=1 (is_dcc11: TRUE)
+
+=== DCC(1,1) REPARAMETERIZED OPTIMIZATION ===
+Starting: alpha=0.0300, beta=0.9400
+Reparameterized: persistence=0.9700, ratio=0.0309
+
+Optimized: persistence=0.9551, ratio=0.0063
+Final: alpha=0.0060, beta=0.9491 (sum=0.9551)
+Convergence: 0, NLL: 250.4064
+
+=== Model Selection (State 1, Iter 33) ===
+Criterion: BIC (n_eff=186.8)
+Dynamic:  LL=-250.4064, k=2, BIC=511.2723
+Constant: LL=-250.6536, k=0, BIC=501.3072
+Decision: CONSTANT
+
+
+DCC order: p=1, q=1 (is_dcc11: TRUE)
+
+=== DCC(1,1) REPARAMETERIZED OPTIMIZATION ===
+Starting: alpha=0.1000, beta=0.8500
+Reparameterized: persistence=0.9500, ratio=0.1053
+
+Optimized: persistence=0.0000, ratio=0.0000
+Final: alpha=0.0000, beta=0.0000 (sum=0.0000)
+Convergence: 0, NLL: 575.0416
+
+=== Model Selection (State 2, Iter 33) ===
+Criterion: BIC (n_eff=268.2)
+Dynamic:  LL=-575.0416, k=2, BIC=1161.2663
+Constant: LL=-575.0414, k=0, BIC=1150.0827
+Decision: CONSTANT
+
+
+=== EM ITERATION 33 ===
+
+=== EM ITERATION 33 ===
+  LL before M-step: -818.375
+  LL after M-step:  -818.406
+  Change: -0.0307111
+  *** WARNING: M-step DECREASED LL! ***
+Log-Likelihood: -818.406 (Duration: 00:00:29)
+
+
+==========================================================
+EM Iteration 34... 
+DCC order: p=1, q=1 (is_dcc11: TRUE)
+
+=== DCC(1,1) REPARAMETERIZED OPTIMIZATION ===
+Starting: alpha=0.0300, beta=0.9400
+Reparameterized: persistence=0.9700, ratio=0.0309
+
+Optimized: persistence=0.9567, ratio=0.0061
+Final: alpha=0.0059, beta=0.9508 (sum=0.9567)
+Convergence: 0, NLL: 246.5067
+
+=== Model Selection (State 1, Iter 34) ===
+Criterion: BIC (n_eff=185.3)
+Dynamic:  LL=-246.5067, k=2, BIC=503.4574
+Constant: LL=-246.7505, k=0, BIC=493.5011
+Decision: CONSTANT
+
+
+DCC order: p=1, q=1 (is_dcc11: TRUE)
+
+=== DCC(1,1) REPARAMETERIZED OPTIMIZATION ===
+Starting: alpha=0.1000, beta=0.8500
+Reparameterized: persistence=0.9500, ratio=0.1053
+
+Optimized: persistence=0.0000, ratio=0.0000
+Final: alpha=0.0000, beta=0.0000 (sum=0.0000)
+Convergence: 0, NLL: 579.2618
+
+=== Model Selection (State 2, Iter 34) ===
+Criterion: BIC (n_eff=268.9)
+Dynamic:  LL=-579.2618, k=2, BIC=1169.7123
+Constant: LL=-579.2616, k=0, BIC=1158.5232
+Decision: CONSTANT
+
+
+=== EM ITERATION 34 ===
+
+=== EM ITERATION 34 ===
+  LL before M-step: -818.406
+  LL after M-step:  -818.437
+  Change: -0.0306742
+  *** WARNING: M-step DECREASED LL! ***
+Log-Likelihood: -818.437 (Duration: 00:00:20)
+
+
+==========================================================
+EM Iteration 35... 
+DCC order: p=1, q=1 (is_dcc11: TRUE)
+
+=== DCC(1,1) REPARAMETERIZED OPTIMIZATION ===
+Starting: alpha=0.0300, beta=0.9400
+Reparameterized: persistence=0.9700, ratio=0.0309
+
+Optimized: persistence=0.9588, ratio=0.0060
+Final: alpha=0.0058, beta=0.9530 (sum=0.9588)
+Convergence: 0, NLL: 242.4235
+
+=== Model Selection (State 1, Iter 35) ===
+Criterion: BIC (n_eff=183.6)
+Dynamic:  LL=-242.4235, k=2, BIC=495.2727
+Constant: LL=-242.6709, k=0, BIC=485.3417
+Decision: CONSTANT
+
+
+DCC order: p=1, q=1 (is_dcc11: TRUE)
+
+=== DCC(1,1) REPARAMETERIZED OPTIMIZATION ===
+Starting: alpha=0.1000, beta=0.8500
+Reparameterized: persistence=0.9500, ratio=0.1053
+
+Optimized: persistence=0.0000, ratio=0.0000
+Final: alpha=0.0000, beta=0.0000 (sum=0.0000)
+Convergence: 0, NLL: 583.4028
+
+=== Model Selection (State 2, Iter 35) ===
+Criterion: BIC (n_eff=269.5)
+Dynamic:  LL=-583.4028, k=2, BIC=1177.9988
+Constant: LL=-583.4025, k=0, BIC=1166.8051
+Decision: CONSTANT
+
+
+=== EM ITERATION 35 ===
+
+=== EM ITERATION 35 ===
+  LL before M-step: -818.437
+  LL after M-step:  -818.47
+  Change: -0.0333916
+  *** WARNING: M-step DECREASED LL! ***
+Log-Likelihood: -818.47 (Duration: 00:00:27)
+
+
+==========================================================
+EM Iteration 36... 
+DCC order: p=1, q=1 (is_dcc11: TRUE)
+
+=== DCC(1,1) REPARAMETERIZED OPTIMIZATION ===
+Starting: alpha=0.0300, beta=0.9400
+Reparameterized: persistence=0.9700, ratio=0.0309
+
+Optimized: persistence=0.9593, ratio=0.0061
+Final: alpha=0.0058, beta=0.9535 (sum=0.9593)
+Convergence: 0, NLL: 237.9712
+
+=== Model Selection (State 1, Iter 36) ===
+Criterion: BIC (n_eff=181.9)
+Dynamic:  LL=-237.9712, k=2, BIC=486.3490
+Constant: LL=-238.2257, k=0, BIC=476.4513
+Decision: CONSTANT
+
+
+DCC order: p=1, q=1 (is_dcc11: TRUE)
+
+=== DCC(1,1) REPARAMETERIZED OPTIMIZATION ===
+Starting: alpha=0.1000, beta=0.8500
+Reparameterized: persistence=0.9500, ratio=0.1053
+
+Optimized: persistence=0.0000, ratio=0.0000
+Final: alpha=0.0000, beta=0.0000 (sum=0.0000)
+Convergence: 0, NLL: 587.5310
+
+=== Model Selection (State 2, Iter 36) ===
+Criterion: BIC (n_eff=270.1)
+Dynamic:  LL=-587.5310, k=2, BIC=1186.2598
+Constant: LL=-587.5307, k=0, BIC=1175.0614
+Decision: CONSTANT
+
+
+=== EM ITERATION 36 ===
+
+=== EM ITERATION 36 ===
+  LL before M-step: -818.47
+  LL after M-step:  -818.508
+  Change: -0.0377686
+  *** WARNING: M-step DECREASED LL! ***
+Log-Likelihood: -818.508 (Duration: 00:00:21)
+
+
+==========================================================
+EM Iteration 37... 
+DCC order: p=1, q=1 (is_dcc11: TRUE)
+
+=== DCC(1,1) REPARAMETERIZED OPTIMIZATION ===
+Starting: alpha=0.0300, beta=0.9400
+Reparameterized: persistence=0.9700, ratio=0.0309
+
+Optimized: persistence=0.9609, ratio=0.0060
+Final: alpha=0.0057, beta=0.9551 (sum=0.9609)
+Convergence: 0, NLL: 234.2589
+
+=== Model Selection (State 1, Iter 37) ===
+Criterion: BIC (n_eff=180.6)
+Dynamic:  LL=-234.2589, k=2, BIC=478.9108
+Constant: LL=-234.5144, k=0, BIC=469.0288
+Decision: CONSTANT
+
+
+DCC order: p=1, q=1 (is_dcc11: TRUE)
+
+=== DCC(1,1) REPARAMETERIZED OPTIMIZATION ===
+Starting: alpha=0.1000, beta=0.8500
+Reparameterized: persistence=0.9500, ratio=0.1053
+
+Optimized: persistence=0.0000, ratio=0.0000
+Final: alpha=0.0000, beta=0.0000 (sum=0.0000)
+Convergence: 0, NLL: 591.4179
+
+=== Model Selection (State 2, Iter 37) ===
+Criterion: BIC (n_eff=270.8)
+Dynamic:  LL=-591.4179, k=2, BIC=1194.0387
+Constant: LL=-591.4177, k=0, BIC=1182.8353
+Decision: CONSTANT
+
+
+=== EM ITERATION 37 ===
+
+=== EM ITERATION 37 ===
+  LL before M-step: -818.508
+  LL after M-step:  -818.555
+  Change: -0.0474917
+  *** WARNING: M-step DECREASED LL! ***
+Log-Likelihood: -818.555 (Duration: 00:00:21)
+
+
+==========================================================
+EM Iteration 38... 
+DCC order: p=1, q=1 (is_dcc11: TRUE)
+
+=== DCC(1,1) REPARAMETERIZED OPTIMIZATION ===
+Starting: alpha=0.0300, beta=0.9400
+Reparameterized: persistence=0.9700, ratio=0.0309
+
+Optimized: persistence=0.9623, ratio=0.0059
+Final: alpha=0.0057, beta=0.9566 (sum=0.9623)
+Convergence: 0, NLL: 231.0259
+
+=== Model Selection (State 1, Iter 38) ===
+Criterion: BIC (n_eff=179.5)
+Dynamic:  LL=-231.0259, k=2, BIC=472.4317
+Constant: LL=-231.2756, k=0, BIC=462.5511
+Decision: CONSTANT
+
+
+DCC order: p=1, q=1 (is_dcc11: TRUE)
+
+=== DCC(1,1) REPARAMETERIZED OPTIMIZATION ===
+Starting: alpha=0.1000, beta=0.8500
+Reparameterized: persistence=0.9500, ratio=0.1053
+
+Optimized: persistence=0.0000, ratio=0.0000
+Final: alpha=0.0000, beta=0.0000 (sum=0.0000)
+Convergence: 0, NLL: 594.7187
+
+=== Model Selection (State 2, Iter 38) ===
+Criterion: BIC (n_eff=271.4)
+Dynamic:  LL=-594.7187, k=2, BIC=1200.6448
+Constant: LL=-594.7185, k=0, BIC=1189.4369
+Decision: CONSTANT
+
+
+=== EM ITERATION 38 ===
+
+=== EM ITERATION 38 ===
+  LL before M-step: -818.555
+  LL after M-step:  -818.593
+  Change: -0.0378562
+  *** WARNING: M-step DECREASED LL! ***
+Log-Likelihood: -818.593 (Duration: 00:00:19)
+
+
+==========================================================
+EM Iteration 39... 
+DCC order: p=1, q=1 (is_dcc11: TRUE)
+
+=== DCC(1,1) REPARAMETERIZED OPTIMIZATION ===
+Starting: alpha=0.0300, beta=0.9400
+Reparameterized: persistence=0.9700, ratio=0.0309
+
+Optimized: persistence=0.9638, ratio=0.0057
+Final: alpha=0.0055, beta=0.9583 (sum=0.9638)
+Convergence: 0, NLL: 227.7422
+
+=== Model Selection (State 1, Iter 39) ===
+Criterion: BIC (n_eff=178.1)
+Dynamic:  LL=-227.7422, k=2, BIC=465.8492
+Constant: LL=-227.9938, k=0, BIC=455.9877
+Decision: CONSTANT
+
+
+DCC order: p=1, q=1 (is_dcc11: TRUE)
+
+=== DCC(1,1) REPARAMETERIZED OPTIMIZATION ===
+Starting: alpha=0.1000, beta=0.8500
+Reparameterized: persistence=0.9500, ratio=0.1053
+
+Optimized: persistence=0.0000, ratio=0.0000
+Final: alpha=0.0000, beta=0.0000 (sum=0.0000)
+Convergence: 0, NLL: 598.0990
+
+=== Model Selection (State 2, Iter 39) ===
+Criterion: BIC (n_eff=271.9)
+Dynamic:  LL=-598.0990, k=2, BIC=1207.4091
+Constant: LL=-598.0988, k=0, BIC=1196.1975
+Decision: CONSTANT
+
+
+=== EM ITERATION 39 ===
+
+=== EM ITERATION 39 ===
+  LL before M-step: -818.593
+  LL after M-step:  -818.633
+  Change: -0.0397878
+  *** WARNING: M-step DECREASED LL! ***
+Log-Likelihood: -818.633 (Duration: 00:00:20)
+
+
+==========================================================
+EM Iteration 40... 
+DCC order: p=1, q=1 (is_dcc11: TRUE)
+
+=== DCC(1,1) REPARAMETERIZED OPTIMIZATION ===
+Starting: alpha=0.0300, beta=0.9400
+Reparameterized: persistence=0.9700, ratio=0.0309
+
+Optimized: persistence=0.9641, ratio=0.0057
+Final: alpha=0.0055, beta=0.9586 (sum=0.9641)
+Convergence: 0, NLL: 224.1961
+
+=== Model Selection (State 1, Iter 40) ===
+Criterion: BIC (n_eff=176.7)
+Dynamic:  LL=-224.1961, k=2, BIC=458.7417
+Constant: LL=-224.4513, k=0, BIC=448.9026
+Decision: CONSTANT
+
+
+DCC order: p=1, q=1 (is_dcc11: TRUE)
+
+=== DCC(1,1) REPARAMETERIZED OPTIMIZATION ===
+Starting: alpha=0.1000, beta=0.8500
+Reparameterized: persistence=0.9500, ratio=0.1053
+
+Optimized: persistence=0.0000, ratio=0.0000
+Final: alpha=0.0000, beta=0.0000 (sum=0.0000)
+Convergence: 0, NLL: 601.3328
+
+=== Model Selection (State 2, Iter 40) ===
+Criterion: BIC (n_eff=272.4)
+Dynamic:  LL=-601.3328, k=2, BIC=1213.8803
+Constant: LL=-601.3325, k=0, BIC=1202.6649
+Decision: CONSTANT
+
+
+=== EM ITERATION 40 ===
+
+=== EM ITERATION 40 ===
+  LL before M-step: -818.633
+  LL after M-step:  -818.676
+  Change: -0.0430762
+  *** WARNING: M-step DECREASED LL! ***
+Log-Likelihood: -818.676 (Duration: 00:00:24)
+
+
+==========================================================
+EM Iteration 41... 
+DCC order: p=1, q=1 (is_dcc11: TRUE)
+
+=== DCC(1,1) REPARAMETERIZED OPTIMIZATION ===
+Starting: alpha=0.0300, beta=0.9400
+Reparameterized: persistence=0.9700, ratio=0.0309
+
+Optimized: persistence=0.9652, ratio=0.0056
+Final: alpha=0.0054, beta=0.9598 (sum=0.9652)
+Convergence: 0, NLL: 221.6442
+
+=== Model Selection (State 1, Iter 41) ===
+Criterion: BIC (n_eff=175.9)
+Dynamic:  LL=-221.6442, k=2, BIC=453.6281
+Constant: LL=-221.8899, k=0, BIC=443.7797
+Decision: CONSTANT
+
+
+DCC order: p=1, q=1 (is_dcc11: TRUE)
+
+=== DCC(1,1) REPARAMETERIZED OPTIMIZATION ===
+Starting: alpha=0.1000, beta=0.8500
+Reparameterized: persistence=0.9500, ratio=0.1053
+
+Optimized: persistence=0.0000, ratio=0.0000
+Final: alpha=0.0000, beta=0.0000 (sum=0.0000)
+Convergence: 0, NLL: 604.2690
+
+=== Model Selection (State 2, Iter 41) ===
+Criterion: BIC (n_eff=273.0)
+Dynamic:  LL=-604.2690, k=2, BIC=1219.7568
+Constant: LL=-604.2687, k=0, BIC=1208.5374
+Decision: CONSTANT
+
+
+=== EM ITERATION 41 ===
+
+=== EM ITERATION 41 ===
+  LL before M-step: -818.676
+  LL after M-step:  -818.72
+  Change: -0.0435642
+  *** WARNING: M-step DECREASED LL! ***
+Log-Likelihood: -818.72 (Duration: 00:00:31)
+
+
+==========================================================
+EM Iteration 42... 
+DCC order: p=1, q=1 (is_dcc11: TRUE)
+
+=== DCC(1,1) REPARAMETERIZED OPTIMIZATION ===
+Starting: alpha=0.0300, beta=0.9400
+Reparameterized: persistence=0.9700, ratio=0.0309
+
+Optimized: persistence=0.9659, ratio=0.0056
+Final: alpha=0.0054, beta=0.9605 (sum=0.9659)
+Convergence: 0, NLL: 218.3485
+
+=== Model Selection (State 1, Iter 42) ===
+Criterion: BIC (n_eff=174.6)
+Dynamic:  LL=-218.3485, k=2, BIC=447.0224
+Constant: LL=-218.6019, k=0, BIC=437.2038
+Decision: CONSTANT
+
+
+DCC order: p=1, q=1 (is_dcc11: TRUE)
+
+=== DCC(1,1) REPARAMETERIZED OPTIMIZATION ===
+Starting: alpha=0.1000, beta=0.8500
+Reparameterized: persistence=0.9500, ratio=0.1053
+
+Optimized: persistence=0.0000, ratio=0.0000
+Final: alpha=0.0000, beta=0.0000 (sum=0.0000)
+Convergence: 0, NLL: 607.2041
+
+=== Model Selection (State 2, Iter 42) ===
+Criterion: BIC (n_eff=273.4)
+Dynamic:  LL=-607.2041, k=2, BIC=1225.6302
+Constant: LL=-607.2039, k=0, BIC=1214.4078
+Decision: CONSTANT
+
+
+=== EM ITERATION 42 ===
+
+=== EM ITERATION 42 ===
+  LL before M-step: -818.72
+  LL after M-step:  -818.761
+  Change: -0.0411913
+  *** WARNING: M-step DECREASED LL! ***
+Log-Likelihood: -818.761 (Duration: 00:00:23)
+
+
+==========================================================
+EM Iteration 43... 
+DCC order: p=1, q=1 (is_dcc11: TRUE)
+
+=== DCC(1,1) REPARAMETERIZED OPTIMIZATION ===
+Starting: alpha=0.0300, beta=0.9400
+Reparameterized: persistence=0.9700, ratio=0.0309
+
+Optimized: persistence=0.9673, ratio=0.0055
+Final: alpha=0.0053, beta=0.9620 (sum=0.9673)
+Convergence: 0, NLL: 216.0981
+
+=== Model Selection (State 1, Iter 43) ===
+Criterion: BIC (n_eff=174.0)
+Dynamic:  LL=-216.0981, k=2, BIC=442.5142
+Constant: LL=-216.3451, k=0, BIC=432.6903
+Decision: CONSTANT
+
+
+DCC order: p=1, q=1 (is_dcc11: TRUE)
+
+=== DCC(1,1) REPARAMETERIZED OPTIMIZATION ===
+Starting: alpha=0.1000, beta=0.8500
+Reparameterized: persistence=0.9500, ratio=0.1053
+
+Optimized: persistence=0.0000, ratio=0.0000
+Final: alpha=0.0000, beta=0.0000 (sum=0.0000)
+Convergence: 0, NLL: 609.7597
+
+=== Model Selection (State 2, Iter 43) ===
+Criterion: BIC (n_eff=273.9)
+Dynamic:  LL=-609.7597, k=2, BIC=1230.7450
+Constant: LL=-609.7594, k=0, BIC=1219.5188
+Decision: CONSTANT
+
+
+=== EM ITERATION 43 ===
+
+=== EM ITERATION 43 ===
+  LL before M-step: -818.761
+  LL after M-step:  -818.795
+  Change: -0.0339251
+  *** WARNING: M-step DECREASED LL! ***
+Log-Likelihood: -818.795 (Duration: 00:00:26)
+
+
+==========================================================
+EM Iteration 44... 
+DCC order: p=1, q=1 (is_dcc11: TRUE)
+
+=== DCC(1,1) REPARAMETERIZED OPTIMIZATION ===
+Starting: alpha=0.0300, beta=0.9400
+Reparameterized: persistence=0.9700, ratio=0.0309
+
+Optimized: persistence=0.9671, ratio=0.0054
+Final: alpha=0.0052, beta=0.9619 (sum=0.9671)
+Convergence: 0, NLL: 213.5905
+
+=== Model Selection (State 1, Iter 44) ===
+Criterion: BIC (n_eff=173.0)
+Dynamic:  LL=-213.5905, k=2, BIC=437.4871
+Constant: LL=-213.8299, k=0, BIC=427.6597
+Decision: CONSTANT
+
+
+DCC order: p=1, q=1 (is_dcc11: TRUE)
+
+=== DCC(1,1) REPARAMETERIZED OPTIMIZATION ===
+Starting: alpha=0.1000, beta=0.8500
+Reparameterized: persistence=0.9500, ratio=0.1053
+
+Optimized: persistence=0.0000, ratio=0.0000
+Final: alpha=0.0000, beta=0.0000 (sum=0.0000)
+Convergence: 0, NLL: 612.1630
+
+=== Model Selection (State 2, Iter 44) ===
+Criterion: BIC (n_eff=274.3)
+Dynamic:  LL=-612.1630, k=2, BIC=1235.5545
+Constant: LL=-612.1626, k=0, BIC=1224.3253
+Decision: CONSTANT
+
+
+=== EM ITERATION 44 ===
+
+=== EM ITERATION 44 ===
+  LL before M-step: -818.795
+  LL after M-step:  -818.826
+  Change: -0.0315669
+  *** WARNING: M-step DECREASED LL! ***
+Log-Likelihood: -818.826 (Duration: 00:00:23)
+
+
+==========================================================
+EM Iteration 45... 
+DCC order: p=1, q=1 (is_dcc11: TRUE)
+
+=== DCC(1,1) REPARAMETERIZED OPTIMIZATION ===
+Starting: alpha=0.0300, beta=0.9400
+Reparameterized: persistence=0.9700, ratio=0.0309
+
+Optimized: persistence=0.9676, ratio=0.0053
+Final: alpha=0.0051, beta=0.9625 (sum=0.9676)
+Convergence: 0, NLL: 211.4343
+
+=== Model Selection (State 1, Iter 45) ===
+Criterion: BIC (n_eff=172.1)
+Dynamic:  LL=-211.4343, k=2, BIC=433.1649
+Constant: LL=-211.6625, k=0, BIC=423.3249
+Decision: CONSTANT
+
+
+DCC order: p=1, q=1 (is_dcc11: TRUE)
+
+=== DCC(1,1) REPARAMETERIZED OPTIMIZATION ===
+Starting: alpha=0.1000, beta=0.8500
+Reparameterized: persistence=0.9500, ratio=0.1053
+
+Optimized: persistence=0.0000, ratio=0.0000
+Final: alpha=0.0000, beta=0.0000 (sum=0.0000)
+Convergence: 0, NLL: 614.5128
+
+=== Model Selection (State 2, Iter 45) ===
+Criterion: BIC (n_eff=274.7)
+Dynamic:  LL=-614.5128, k=2, BIC=1240.2571
+Constant: LL=-614.5124, k=0, BIC=1229.0249
+Decision: CONSTANT
+
+
+=== EM ITERATION 45 ===
+
+=== EM ITERATION 45 ===
+  LL before M-step: -818.826
+  LL after M-step:  -818.869
+  Change: -0.0427591
+  *** WARNING: M-step DECREASED LL! ***
+Log-Likelihood: -818.869 (Duration: 00:00:24)
+
+
+==========================================================
+EM Iteration 46... 
+DCC order: p=1, q=1 (is_dcc11: TRUE)
+
+=== DCC(1,1) REPARAMETERIZED OPTIMIZATION ===
+Starting: alpha=0.0300, beta=0.9400
+Reparameterized: persistence=0.9700, ratio=0.0309
+
+Optimized: persistence=0.9674, ratio=0.0053
+Final: alpha=0.0052, beta=0.9622 (sum=0.9674)
+Convergence: 0, NLL: 208.5266
+
+=== Model Selection (State 1, Iter 46) ===
+Criterion: BIC (n_eff=171.1)
+Dynamic:  LL=-208.5266, k=2, BIC=427.3380
+Constant: LL=-208.7617, k=0, BIC=417.5234
+Decision: CONSTANT
+
+
+DCC order: p=1, q=1 (is_dcc11: TRUE)
+
+=== DCC(1,1) REPARAMETERIZED OPTIMIZATION ===
+Starting: alpha=0.1000, beta=0.8500
+Reparameterized: persistence=0.9500, ratio=0.1053
+
+Optimized: persistence=0.0000, ratio=0.0000
+Final: alpha=0.0000, beta=0.0000 (sum=0.0000)
+Convergence: 0, NLL: 616.9852
+
+=== Model Selection (State 2, Iter 46) ===
+Criterion: BIC (n_eff=275.1)
+Dynamic:  LL=-616.9852, k=2, BIC=1245.2045
+Constant: LL=-616.9850, k=0, BIC=1233.9699
+Decision: CONSTANT
+
+
+=== EM ITERATION 46 ===
+
+=== EM ITERATION 46 ===
+  LL before M-step: -818.869
+  LL after M-step:  -818.898
+  Change: -0.0289187
+  *** WARNING: M-step DECREASED LL! ***
+Log-Likelihood: -818.898 (Duration: 00:00:28)
+
+
+==========================================================
+EM Iteration 47... 
+DCC order: p=1, q=1 (is_dcc11: TRUE)
+
+=== DCC(1,1) REPARAMETERIZED OPTIMIZATION ===
+Starting: alpha=0.0300, beta=0.9400
+Reparameterized: persistence=0.9700, ratio=0.0309
+
+Optimized: persistence=0.9680, ratio=0.0052
+Final: alpha=0.0050, beta=0.9630 (sum=0.9680)
+Convergence: 0, NLL: 207.2611
+
+=== Model Selection (State 1, Iter 47) ===
+Criterion: BIC (n_eff=170.9)
+Dynamic:  LL=-207.2611, k=2, BIC=424.8047
+Constant: LL=-207.4778, k=0, BIC=414.9556
+Decision: CONSTANT
+
+
+DCC order: p=1, q=1 (is_dcc11: TRUE)
+
+=== DCC(1,1) REPARAMETERIZED OPTIMIZATION ===
+Starting: alpha=0.1000, beta=0.8500
+Reparameterized: persistence=0.9500, ratio=0.1053
+
+Optimized: persistence=0.0000, ratio=0.0000
+Final: alpha=0.0000, beta=0.0000 (sum=0.0000)
+Convergence: 0, NLL: 618.7757
+
+=== Model Selection (State 2, Iter 47) ===
+Criterion: BIC (n_eff=275.5)
+Dynamic:  LL=-618.7757, k=2, BIC=1248.7886
+Constant: LL=-618.7754, k=0, BIC=1237.5508
+Decision: CONSTANT
+
+
+=== EM ITERATION 47 ===
+
+=== EM ITERATION 47 ===
+  LL before M-step: -818.898
+  LL after M-step:  -818.936
+  Change: -0.0382638
+  *** WARNING: M-step DECREASED LL! ***
+Log-Likelihood: -818.936 (Duration: 00:00:34)
+
+
+==========================================================
+EM Iteration 48... 
+DCC order: p=1, q=1 (is_dcc11: TRUE)
+
+=== DCC(1,1) REPARAMETERIZED OPTIMIZATION ===
+Starting: alpha=0.0300, beta=0.9400
+Reparameterized: persistence=0.9700, ratio=0.0309
+
+Optimized: persistence=0.9679, ratio=0.0053
+Final: alpha=0.0051, beta=0.9628 (sum=0.9679)
+Convergence: 0, NLL: 204.8430
+
+=== Model Selection (State 1, Iter 48) ===
+Criterion: BIC (n_eff=170.1)
+Dynamic:  LL=-204.8430, k=2, BIC=419.9590
+Constant: LL=-205.0710, k=0, BIC=410.1420
+Decision: CONSTANT
+
+
+DCC order: p=1, q=1 (is_dcc11: TRUE)
+
+=== DCC(1,1) REPARAMETERIZED OPTIMIZATION ===
+Starting: alpha=0.1000, beta=0.8500
+Reparameterized: persistence=0.9500, ratio=0.1053
+
+Optimized: persistence=0.0000, ratio=0.0000
+Final: alpha=0.0000, beta=0.0000 (sum=0.0000)
+Convergence: 0, NLL: 620.5309
+
+=== Model Selection (State 2, Iter 48) ===
+Criterion: BIC (n_eff=275.8)
+Dynamic:  LL=-620.5309, k=2, BIC=1252.3011
+Constant: LL=-620.5305, k=0, BIC=1241.0611
+Decision: CONSTANT
+
+
+=== EM ITERATION 48 ===
+
+=== EM ITERATION 48 ===
+  LL before M-step: -818.936
+  LL after M-step:  -818.954
+  Change: -0.0177388
+  *** WARNING: M-step DECREASED LL! ***
+Log-Likelihood: -818.954 (Duration: 00:00:30)
+
+
+==========================================================
+EM Iteration 49... 
+DCC order: p=1, q=1 (is_dcc11: TRUE)
+
+=== DCC(1,1) REPARAMETERIZED OPTIMIZATION ===
+Starting: alpha=0.0300, beta=0.9400
+Reparameterized: persistence=0.9700, ratio=0.0309
+
+Optimized: persistence=0.9683, ratio=0.0051
+Final: alpha=0.0049, beta=0.9634 (sum=0.9683)
+Convergence: 0, NLL: 204.0641
+
+=== Model Selection (State 1, Iter 49) ===
+Criterion: BIC (n_eff=170.0)
+Dynamic:  LL=-204.0641, k=2, BIC=418.4001
+Constant: LL=-204.2662, k=0, BIC=408.5323
+Decision: CONSTANT
+
+
+DCC order: p=1, q=1 (is_dcc11: TRUE)
+
+=== DCC(1,1) REPARAMETERIZED OPTIMIZATION ===
+Starting: alpha=0.1000, beta=0.8500
+Reparameterized: persistence=0.9500, ratio=0.1053
+
+Optimized: persistence=0.0000, ratio=0.0000
+Final: alpha=0.0000, beta=0.0000 (sum=0.0000)
+Convergence: 0, NLL: 622.1348
+
+=== Model Selection (State 2, Iter 49) ===
+Criterion: BIC (n_eff=276.2)
+Dynamic:  LL=-622.1348, k=2, BIC=1255.5116
+Constant: LL=-622.1345, k=0, BIC=1244.2690
+Decision: CONSTANT
+
+
+=== EM ITERATION 49 ===
+
+=== EM ITERATION 49 ===
+  LL before M-step: -818.954
+  LL after M-step:  -818.997
+  Change: -0.0434916
+  *** WARNING: M-step DECREASED LL! ***
+Log-Likelihood: -818.997 (Duration: 00:00:26)
+
+
+==========================================================
+EM Iteration 50... 
+DCC order: p=1, q=1 (is_dcc11: TRUE)
+
+=== DCC(1,1) REPARAMETERIZED OPTIMIZATION ===
+Starting: alpha=0.0300, beta=0.9400
+Reparameterized: persistence=0.9700, ratio=0.0309
+
+Optimized: persistence=0.9693, ratio=0.0051
+Final: alpha=0.0049, beta=0.9644 (sum=0.9693)
+Convergence: 0, NLL: 201.5677
+
+=== Model Selection (State 1, Iter 50) ===
+Criterion: BIC (n_eff=169.0)
+Dynamic:  LL=-201.5677, k=2, BIC=413.3954
+Constant: LL=-201.7872, k=0, BIC=403.5743
+Decision: CONSTANT
+
+
+DCC order: p=1, q=1 (is_dcc11: TRUE)
+
+=== DCC(1,1) REPARAMETERIZED OPTIMIZATION ===
+Starting: alpha=0.1000, beta=0.8500
+Reparameterized: persistence=0.9500, ratio=0.1053
+
+Optimized: persistence=0.0000, ratio=0.0000
+Final: alpha=0.0000, beta=0.0000 (sum=0.0000)
+Convergence: 0, NLL: 623.7998
+
+=== Model Selection (State 2, Iter 50) ===
+Criterion: BIC (n_eff=276.3)
+Dynamic:  LL=-623.7998, k=2, BIC=1258.8429
+Constant: LL=-623.7995, k=0, BIC=1247.5991
+Decision: CONSTANT
+
+
+=== EM ITERATION 50 ===
+
+=== EM ITERATION 50 ===
+  LL before M-step: -818.997
+  LL after M-step:  -818.887
+  Change: 0.110909
+Log-Likelihood: -818.887 (Duration: 00:00:24)
+
+
+==========================================================
+EM Iteration 51... 
+DCC order: p=1, q=1 (is_dcc11: TRUE)
+
+=== DCC(1,1) REPARAMETERIZED OPTIMIZATION ===
+Starting: alpha=0.0300, beta=0.9400
+Reparameterized: persistence=0.9700, ratio=0.0309
+
+Optimized: persistence=0.9678, ratio=0.0049
+Final: alpha=0.0047, beta=0.9631 (sum=0.9678)
+Convergence: 0, NLL: 199.8863
+
+=== Model Selection (State 1, Iter 51) ===
+Criterion: BIC (n_eff=169.0)
+Dynamic:  LL=-199.8863, k=2, BIC=410.0324
+Constant: LL=-200.0778, k=0, BIC=400.1556
+Decision: CONSTANT
+
+
+DCC order: p=1, q=1 (is_dcc11: TRUE)
+
+=== DCC(1,1) REPARAMETERIZED OPTIMIZATION ===
+Starting: alpha=0.1000, beta=0.8500
+Reparameterized: persistence=0.9500, ratio=0.1053
+
+Optimized: persistence=0.0000, ratio=0.0000
+Final: alpha=0.0000, beta=0.0000 (sum=0.0000)
+Convergence: 0, NLL: 625.5149
+
+=== Model Selection (State 2, Iter 51) ===
+Criterion: BIC (n_eff=276.8)
+Dynamic:  LL=-625.5149, k=2, BIC=1262.2764
+Constant: LL=-625.5146, k=0, BIC=1251.0292
+Decision: CONSTANT
+
+
+=== EM ITERATION 51 ===
+
+=== EM ITERATION 51 ===
+  LL before M-step: -818.887
+  LL after M-step:  -818.75
+  Change: 0.136995
+Log-Likelihood: -818.75 (Duration: 00:00:27)
+
+
+==========================================================
+EM Iteration 52... 
+DCC order: p=1, q=1 (is_dcc11: TRUE)
+
+=== DCC(1,1) REPARAMETERIZED OPTIMIZATION ===
+Starting: alpha=0.0300, beta=0.9400
+Reparameterized: persistence=0.9700, ratio=0.0309
+
+Optimized: persistence=0.9661, ratio=0.0046
+Final: alpha=0.0045, beta=0.9616 (sum=0.9661)
+Convergence: 0, NLL: 198.3003
+
+=== Model Selection (State 1, Iter 52) ===
+Criterion: BIC (n_eff=168.7)
+Dynamic:  LL=-198.3003, k=2, BIC=406.8563
+Constant: LL=-198.4555, k=0, BIC=396.9110
+Decision: CONSTANT
+
+
+DCC order: p=1, q=1 (is_dcc11: TRUE)
+
+=== DCC(1,1) REPARAMETERIZED OPTIMIZATION ===
+Starting: alpha=0.1000, beta=0.8500
+Reparameterized: persistence=0.9500, ratio=0.1053
+
+Optimized: persistence=0.0000, ratio=0.0000
+Final: alpha=0.0000, beta=0.0000 (sum=0.0000)
+Convergence: 0, NLL: 627.4773
+
+=== Model Selection (State 2, Iter 52) ===
+Criterion: BIC (n_eff=277.2)
+Dynamic:  LL=-627.4773, k=2, BIC=1266.2043
+Constant: LL=-627.4770, k=0, BIC=1254.9539
+Decision: CONSTANT
+
+
+=== EM ITERATION 52 ===
+
+=== EM ITERATION 52 ===
+  LL before M-step: -818.75
+  LL after M-step:  -818.599
+  Change: 0.150585
+Log-Likelihood: -818.599 (Duration: 00:00:25)
+
+
+==========================================================
+EM Iteration 53... 
+DCC order: p=1, q=1 (is_dcc11: TRUE)
+
+=== DCC(1,1) REPARAMETERIZED OPTIMIZATION ===
+Starting: alpha=0.0300, beta=0.9400
+Reparameterized: persistence=0.9700, ratio=0.0309
+
+Optimized: persistence=0.0856, ratio=0.0000
+Final: alpha=0.0000, beta=0.0856 (sum=0.0856)
+Convergence: 0, NLL: 195.9539
+
+=== Model Selection (State 1, Iter 53) ===
+Criterion: BIC (n_eff=167.7)
+Dynamic:  LL=-195.9539, k=2, BIC=402.1518
+Constant: LL=-195.9367, k=0, BIC=391.8733
+Decision: CONSTANT
+
+
+DCC order: p=1, q=1 (is_dcc11: TRUE)
+
+=== DCC(1,1) REPARAMETERIZED OPTIMIZATION ===
+Starting: alpha=0.1000, beta=0.8500
+Reparameterized: persistence=0.9500, ratio=0.1053
+
+Optimized: persistence=0.0000, ratio=0.0000
+Final: alpha=0.0000, beta=0.0000 (sum=0.0000)
+Convergence: 0, NLL: 629.7095
+
+=== Model Selection (State 2, Iter 53) ===
+Criterion: BIC (n_eff=277.6)
+Dynamic:  LL=-629.7095, k=2, BIC=1270.6713
+Constant: LL=-629.7092, k=0, BIC=1259.4184
+Decision: CONSTANT
+
+
+=== EM ITERATION 53 ===
+
+=== EM ITERATION 53 ===
+  LL before M-step: -818.599
+  LL after M-step:  -818.47
+  Change: 0.12858
+Log-Likelihood: -818.47 (Duration: 00:00:19)
+
+
+==========================================================
+EM Iteration 54... 
+DCC order: p=1, q=1 (is_dcc11: TRUE)
+
+=== DCC(1,1) REPARAMETERIZED OPTIMIZATION ===
+Starting: alpha=0.0300, beta=0.9400
+Reparameterized: persistence=0.9700, ratio=0.0309
+
+Optimized: persistence=0.0693, ratio=0.0000
+Final: alpha=0.0000, beta=0.0693 (sum=0.0693)
+Convergence: 0, NLL: 192.8461
+
+=== Model Selection (State 1, Iter 54) ===
+Criterion: BIC (n_eff=166.8)
+Dynamic:  LL=-192.8461, k=2, BIC=395.9257
+Constant: LL=-192.8386, k=0, BIC=385.6773
+Decision: CONSTANT
+
+
+DCC order: p=1, q=1 (is_dcc11: TRUE)
+
+=== DCC(1,1) REPARAMETERIZED OPTIMIZATION ===
+Starting: alpha=0.1000, beta=0.8500
+Reparameterized: persistence=0.9500, ratio=0.1053
+
+Optimized: persistence=0.0000, ratio=0.0000
+Final: alpha=0.0000, beta=0.0000 (sum=0.0000)
+Convergence: 0, NLL: 632.1694
+
+=== Model Selection (State 2, Iter 54) ===
+Criterion: BIC (n_eff=278.0)
+Dynamic:  LL=-632.1694, k=2, BIC=1275.5940
+Constant: LL=-632.1691, k=0, BIC=1264.3381
+Decision: CONSTANT
+
+
+=== EM ITERATION 54 ===
+
+=== EM ITERATION 54 ===
+  LL before M-step: -818.47
+  LL after M-step:  -818.369
+  Change: 0.10169
+Log-Likelihood: -818.369 (Duration: 00:00:18)
+
+
+==========================================================
+EM Iteration 55... 
+DCC order: p=1, q=1 (is_dcc11: TRUE)
+
+=== DCC(1,1) REPARAMETERIZED OPTIMIZATION ===
+Starting: alpha=0.0300, beta=0.9400
+Reparameterized: persistence=0.9700, ratio=0.0309
+
+Optimized: persistence=0.9603, ratio=0.0040
+Final: alpha=0.0038, beta=0.9565 (sum=0.9603)
+Convergence: 52, NLL: 190.6706
+
+=== Model Selection (State 1, Iter 55) ===
+Criterion: BIC (n_eff=166.3)
+Dynamic:  LL=-190.6706, k=2, BIC=391.5691
+Constant: LL=-190.7698, k=0, BIC=381.5396
+Decision: CONSTANT
+
+
+DCC order: p=1, q=1 (is_dcc11: TRUE)
+
+=== DCC(1,1) REPARAMETERIZED OPTIMIZATION ===
+Starting: alpha=0.1000, beta=0.8500
+Reparameterized: persistence=0.9500, ratio=0.1053
+
+Optimized: persistence=0.0000, ratio=0.0000
+Final: alpha=0.0000, beta=0.0000 (sum=0.0000)
+Convergence: 0, NLL: 634.4042
+
+=== Model Selection (State 2, Iter 55) ===
+Criterion: BIC (n_eff=278.4)
+Dynamic:  LL=-634.4042, k=2, BIC=1280.0668
+Constant: LL=-634.4038, k=0, BIC=1268.8077
+Decision: CONSTANT
+
+
+=== EM ITERATION 55 ===
+
+=== EM ITERATION 55 ===
+  LL before M-step: -818.369
+  LL after M-step:  -818.293
+  Change: 0.0761723
+Log-Likelihood: -818.293 (Duration: 00:00:26)
+
+
+==========================================================
+EM Iteration 56... 
+DCC order: p=1, q=1 (is_dcc11: TRUE)
+
+=== DCC(1,1) REPARAMETERIZED OPTIMIZATION ===
+Starting: alpha=0.0300, beta=0.9400
+Reparameterized: persistence=0.9700, ratio=0.0309
+
+Optimized: persistence=0.1924, ratio=0.0000
+Final: alpha=0.0000, beta=0.1924 (sum=0.1924)
+Convergence: 0, NLL: 188.2906
+
+=== Model Selection (State 1, Iter 56) ===
+Criterion: BIC (n_eff=165.4)
+Dynamic:  LL=-188.2906, k=2, BIC=386.7976
+Constant: LL=-188.2817, k=0, BIC=376.5635
+Decision: CONSTANT
+
+
+DCC order: p=1, q=1 (is_dcc11: TRUE)
+
+=== DCC(1,1) REPARAMETERIZED OPTIMIZATION ===
+Starting: alpha=0.1000, beta=0.8500
+Reparameterized: persistence=0.9500, ratio=0.1053
+
+Optimized: persistence=0.0000, ratio=0.0000
+Final: alpha=0.0000, beta=0.0000 (sum=0.0000)
+Convergence: 0, NLL: 636.5974
+
+=== Model Selection (State 2, Iter 56) ===
+Criterion: BIC (n_eff=278.8)
+Dynamic:  LL=-636.5974, k=2, BIC=1284.4556
+Constant: LL=-636.5971, k=0, BIC=1273.1942
+Decision: CONSTANT
+
+
+=== EM ITERATION 56 ===
+
+=== EM ITERATION 56 ===
+  LL before M-step: -818.293
+  LL after M-step:  -818.23
+  Change: 0.0622316
+Log-Likelihood: -818.23 (Duration: 00:00:28)
+
+
+==========================================================
+EM Iteration 57... 
+DCC order: p=1, q=1 (is_dcc11: TRUE)
+
+=== DCC(1,1) REPARAMETERIZED OPTIMIZATION ===
+Starting: alpha=0.0300, beta=0.9400
+Reparameterized: persistence=0.9700, ratio=0.0309
+
+Optimized: persistence=0.9590, ratio=0.0035
+Final: alpha=0.0034, beta=0.9556 (sum=0.9590)
+Convergence: 0, NLL: 186.7237
+
+=== Model Selection (State 1, Iter 57) ===
+Criterion: BIC (n_eff=164.6)
+Dynamic:  LL=-186.7237, k=2, BIC=383.6550
+Constant: LL=-186.7824, k=0, BIC=373.5649
+Decision: CONSTANT
+
+
+DCC order: p=1, q=1 (is_dcc11: TRUE)
+
+=== DCC(1,1) REPARAMETERIZED OPTIMIZATION ===
+Starting: alpha=0.1000, beta=0.8500
+Reparameterized: persistence=0.9500, ratio=0.1053
+
+Optimized: persistence=0.0000, ratio=0.0000
+Final: alpha=0.0000, beta=0.0000 (sum=0.0000)
+Convergence: 0, NLL: 638.6003
+
+=== Model Selection (State 2, Iter 57) ===
+Criterion: BIC (n_eff=279.1)
+Dynamic:  LL=-638.6003, k=2, BIC=1288.4636
+Constant: LL=-638.5999, k=0, BIC=1277.1998
+Decision: CONSTANT
+
+
+=== EM ITERATION 57 ===
+
+=== EM ITERATION 57 ===
+  LL before M-step: -818.23
+  LL after M-step:  -818.19
+  Change: 0.0399289
+Log-Likelihood: -818.19 (Duration: 00:00:18)
+
+
+==========================================================
+EM Iteration 58... 
+DCC order: p=1, q=1 (is_dcc11: TRUE)
+
+=== DCC(1,1) REPARAMETERIZED OPTIMIZATION ===
+Starting: alpha=0.0300, beta=0.9400
+Reparameterized: persistence=0.9700, ratio=0.0309
+
+Optimized: persistence=0.9589, ratio=0.0033
+Final: alpha=0.0031, beta=0.9557 (sum=0.9589)
+Convergence: 0, NLL: 184.1611
+
+=== Model Selection (State 1, Iter 58) ===
+Criterion: BIC (n_eff=163.2)
+Dynamic:  LL=-184.1611, k=2, BIC=378.5122
+Constant: LL=-184.2219, k=0, BIC=368.4438
+Decision: CONSTANT
+
+
+DCC order: p=1, q=1 (is_dcc11: TRUE)
+
+=== DCC(1,1) REPARAMETERIZED OPTIMIZATION ===
+Starting: alpha=0.1000, beta=0.8500
+Reparameterized: persistence=0.9500, ratio=0.1053
+
+Optimized: persistence=0.0000, ratio=0.0000
+Final: alpha=0.0000, beta=0.0000 (sum=0.0000)
+Convergence: 0, NLL: 640.6929
+
+=== Model Selection (State 2, Iter 58) ===
+Criterion: BIC (n_eff=279.3)
+Dynamic:  LL=-640.6929, k=2, BIC=1292.6501
+Constant: LL=-640.6925, k=0, BIC=1281.3850
+Decision: CONSTANT
+
+
+=== EM ITERATION 58 ===
+
+=== EM ITERATION 58 ===
+  LL before M-step: -818.19
+  LL after M-step:  -818.159
+  Change: 0.0316653
+Log-Likelihood: -818.159 (Duration: 00:00:29)
+
+
+==========================================================
+EM Iteration 59... 
+DCC order: p=1, q=1 (is_dcc11: TRUE)
+
+=== DCC(1,1) REPARAMETERIZED OPTIMIZATION ===
+Starting: alpha=0.0300, beta=0.9400
+Reparameterized: persistence=0.9700, ratio=0.0309
+
+Optimized: persistence=0.0000, ratio=0.0000
+Final: alpha=0.0000, beta=0.0000 (sum=0.0000)
+Convergence: 0, NLL: 182.1275
+
+=== Model Selection (State 1, Iter 59) ===
+Criterion: BIC (n_eff=162.4)
+Dynamic:  LL=-182.1275, k=2, BIC=374.4345
+Constant: LL=-182.1176, k=0, BIC=364.2352
+Decision: CONSTANT
+
+
+DCC order: p=1, q=1 (is_dcc11: TRUE)
+
+=== DCC(1,1) REPARAMETERIZED OPTIMIZATION ===
+Starting: alpha=0.1000, beta=0.8500
+Reparameterized: persistence=0.9500, ratio=0.1053
+
+Optimized: persistence=0.0000, ratio=0.0000
+Final: alpha=0.0000, beta=0.0000 (sum=0.0000)
+Convergence: 0, NLL: 642.6133
+
+=== Model Selection (State 2, Iter 59) ===
+Criterion: BIC (n_eff=279.6)
+Dynamic:  LL=-642.6133, k=2, BIC=1296.4929
+Constant: LL=-642.6129, k=0, BIC=1285.2258
+Decision: CONSTANT
+
+
+=== EM ITERATION 59 ===
+
+=== EM ITERATION 59 ===
+  LL before M-step: -818.159
+  LL after M-step:  -818.131
+  Change: 0.02786
+Log-Likelihood: -818.131 (Duration: 00:00:19)
+
+
+==========================================================
+EM Iteration 60... 
+DCC order: p=1, q=1 (is_dcc11: TRUE)
+
+=== DCC(1,1) REPARAMETERIZED OPTIMIZATION ===
+Starting: alpha=0.0300, beta=0.9400
+Reparameterized: persistence=0.9700, ratio=0.0309
+
+Optimized: persistence=0.0000, ratio=0.0000
+Final: alpha=0.0000, beta=0.0000 (sum=0.0000)
+Convergence: 0, NLL: 180.2383
+
+=== Model Selection (State 1, Iter 60) ===
+Criterion: BIC (n_eff=161.8)
+Dynamic:  LL=-180.2383, k=2, BIC=370.6487
+Constant: LL=-180.2299, k=0, BIC=360.4598
+Decision: CONSTANT
+
+
+DCC order: p=1, q=1 (is_dcc11: TRUE)
+
+=== DCC(1,1) REPARAMETERIZED OPTIMIZATION ===
+Starting: alpha=0.1000, beta=0.8500
+Reparameterized: persistence=0.9500, ratio=0.1053
+
+Optimized: persistence=0.0000, ratio=0.0000
+Final: alpha=0.0000, beta=0.0000 (sum=0.0000)
+Convergence: 0, NLL: 644.2960
+
+=== Model Selection (State 2, Iter 60) ===
+Criterion: BIC (n_eff=279.8)
+Dynamic:  LL=-644.2960, k=2, BIC=1299.8604
+Constant: LL=-644.2956, k=0, BIC=1288.5912
+Decision: CONSTANT
+
+
+=== EM ITERATION 60 ===
+
+=== EM ITERATION 60 ===
+  LL before M-step: -818.131
+  LL after M-step:  -818.109
+  Change: 0.0220637
+Log-Likelihood: -818.109 (Duration: 00:00:19)
+
+
+==========================================================
+EM Iteration 61... 
+DCC order: p=1, q=1 (is_dcc11: TRUE)
+
+=== DCC(1,1) REPARAMETERIZED OPTIMIZATION ===
+Starting: alpha=0.0300, beta=0.9400
+Reparameterized: persistence=0.9700, ratio=0.0309
+
+Optimized: persistence=0.0000, ratio=0.0000
+Final: alpha=0.0000, beta=0.0000 (sum=0.0000)
+Convergence: 0, NLL: 178.6854
+
+=== Model Selection (State 1, Iter 61) ===
+Criterion: BIC (n_eff=161.3)
+Dynamic:  LL=-178.6854, k=2, BIC=367.5372
+Constant: LL=-178.6758, k=0, BIC=357.3517
+Decision: CONSTANT
+
+
+DCC order: p=1, q=1 (is_dcc11: TRUE)
+
+=== DCC(1,1) REPARAMETERIZED OPTIMIZATION ===
+Starting: alpha=0.1000, beta=0.8500
+Reparameterized: persistence=0.9500, ratio=0.1053
+
+Optimized: persistence=0.0000, ratio=0.0000
+Final: alpha=0.0000, beta=0.0000 (sum=0.0000)
+Convergence: 0, NLL: 645.7355
+
+=== Model Selection (State 2, Iter 61) ===
+Criterion: BIC (n_eff=280.1)
+Dynamic:  LL=-645.7355, k=2, BIC=1302.7412
+Constant: LL=-645.7351, k=0, BIC=1291.4702
+Decision: CONSTANT
+
+
+=== EM ITERATION 61 ===
+
+=== EM ITERATION 61 ===
+  LL before M-step: -818.109
+  LL after M-step:  -818.099
+  Change: 0.0100593
+Log-Likelihood: -818.099 (Duration: 00:00:18)
+
+
+==========================================================
+EM Iteration 62... 
+DCC order: p=1, q=1 (is_dcc11: TRUE)
+
+=== DCC(1,1) REPARAMETERIZED OPTIMIZATION ===
+Starting: alpha=0.0300, beta=0.9400
+Reparameterized: persistence=0.9700, ratio=0.0309
+
+Optimized: persistence=0.0000, ratio=0.0000
+Final: alpha=0.0000, beta=0.0000 (sum=0.0000)
+Convergence: 0, NLL: 177.2244
+
+=== Model Selection (State 1, Iter 62) ===
+Criterion: BIC (n_eff=160.8)
+Dynamic:  LL=-177.2244, k=2, BIC=364.6091
+Constant: LL=-177.2183, k=0, BIC=354.4367
+Decision: CONSTANT
+
+
+DCC order: p=1, q=1 (is_dcc11: TRUE)
+
+=== DCC(1,1) REPARAMETERIZED OPTIMIZATION ===
+Starting: alpha=0.1000, beta=0.8500
+Reparameterized: persistence=0.9500, ratio=0.1053
+
+Optimized: persistence=0.0000, ratio=0.0000
+Final: alpha=0.0000, beta=0.0000 (sum=0.0000)
+Convergence: 0, NLL: 647.0503
+
+=== Model Selection (State 2, Iter 62) ===
+Criterion: BIC (n_eff=280.3)
+Dynamic:  LL=-647.0503, k=2, BIC=1305.3723
+Constant: LL=-647.0499, k=0, BIC=1294.0998
+Decision: CONSTANT
+
+
+=== EM ITERATION 62 ===
+
+=== EM ITERATION 62 ===
+  LL before M-step: -818.099
+  LL after M-step:  -818.077
+  Change: 0.0220467
+Log-Likelihood: -818.077 (Duration: 00:00:20)
+
+
+==========================================================
+EM Iteration 63... 
+DCC order: p=1, q=1 (is_dcc11: TRUE)
+
+=== DCC(1,1) REPARAMETERIZED OPTIMIZATION ===
+Starting: alpha=0.0300, beta=0.9400
+Reparameterized: persistence=0.9700, ratio=0.0309
+
+Optimized: persistence=0.0000, ratio=0.0000
+Final: alpha=0.0000, beta=0.0000 (sum=0.0000)
+Convergence: 0, NLL: 176.4254
+
+=== Model Selection (State 1, Iter 63) ===
+Criterion: BIC (n_eff=160.4)
+Dynamic:  LL=-176.4254, k=2, BIC=363.0061
+Constant: LL=-176.4069, k=0, BIC=352.8137
+Decision: CONSTANT
+
+
+DCC order: p=1, q=1 (is_dcc11: TRUE)
+
+=== DCC(1,1) REPARAMETERIZED OPTIMIZATION ===
+Starting: alpha=0.1000, beta=0.8500
+Reparameterized: persistence=0.9500, ratio=0.1053
+
+Optimized: persistence=0.0000, ratio=0.0000
+Final: alpha=0.0000, beta=0.0000 (sum=0.0000)
+Convergence: 0, NLL: 648.2422
+
+=== Model Selection (State 2, Iter 63) ===
+Criterion: BIC (n_eff=280.5)
+Dynamic:  LL=-648.2422, k=2, BIC=1307.7575
+Constant: LL=-648.2418, k=0, BIC=1296.4836
+Decision: CONSTANT
+
+
+=== EM ITERATION 63 ===
+
+=== EM ITERATION 63 ===
+  LL before M-step: -818.077
+  LL after M-step:  -818.085
+  Change: -0.00817753
+  *** WARNING: M-step DECREASED LL! ***
+Log-Likelihood: -818.085 (Duration: 00:00:28)
+
+
+==========================================================
+EM Iteration 64... 
+DCC order: p=1, q=1 (is_dcc11: TRUE)
+
+=== DCC(1,1) REPARAMETERIZED OPTIMIZATION ===
+Starting: alpha=0.0300, beta=0.9400
+Reparameterized: persistence=0.9700, ratio=0.0309
+
+Optimized: persistence=0.0000, ratio=0.0000
+Final: alpha=0.0000, beta=0.0000 (sum=0.0000)
+Convergence: 0, NLL: 174.7091
+
+=== Model Selection (State 1, Iter 64) ===
+Criterion: BIC (n_eff=159.5)
+Dynamic:  LL=-174.7091, k=2, BIC=359.5625
+Constant: LL=-174.7029, k=0, BIC=349.4059
+Decision: CONSTANT
+
+
+DCC order: p=1, q=1 (is_dcc11: TRUE)
+
+=== DCC(1,1) REPARAMETERIZED OPTIMIZATION ===
+Starting: alpha=0.1000, beta=0.8500
+Reparameterized: persistence=0.9500, ratio=0.1053
+
+Optimized: persistence=0.0000, ratio=0.0000
+Final: alpha=0.0000, beta=0.0000 (sum=0.0000)
+Convergence: 0, NLL: 649.4080
+
+=== Model Selection (State 2, Iter 64) ===
+Criterion: BIC (n_eff=280.6)
+Dynamic:  LL=-649.4080, k=2, BIC=1310.0899
+Constant: LL=-649.4076, k=0, BIC=1298.8152
+Decision: CONSTANT
+
+
+=== EM ITERATION 64 ===
+
+=== EM ITERATION 64 ===
+  LL before M-step: -818.085
+  LL after M-step:  -818.095
+  Change: -0.00981936
+  *** WARNING: M-step DECREASED LL! ***
+Log-Likelihood: -818.095 (Duration: 00:00:19)
+
+
+==========================================================
+EM Iteration 65... 
+DCC order: p=1, q=1 (is_dcc11: TRUE)
+
+=== DCC(1,1) REPARAMETERIZED OPTIMIZATION ===
+Starting: alpha=0.0300, beta=0.9400
+Reparameterized: persistence=0.9700, ratio=0.0309
+
+Optimized: persistence=0.0000, ratio=0.0000
+Final: alpha=0.0000, beta=0.0000 (sum=0.0000)
+Convergence: 52, NLL: 173.6816
+
+=== Model Selection (State 1, Iter 65) ===
+Criterion: BIC (n_eff=159.3)
+Dynamic:  LL=-173.6816, k=2, BIC=357.5045
+Constant: LL=-173.6741, k=0, BIC=347.3483
+Decision: CONSTANT
+
+
+DCC order: p=1, q=1 (is_dcc11: TRUE)
+
+=== DCC(1,1) REPARAMETERIZED OPTIMIZATION ===
+Starting: alpha=0.1000, beta=0.8500
+Reparameterized: persistence=0.9500, ratio=0.1053
+
+Optimized: persistence=0.0000, ratio=0.0000
+Final: alpha=0.0000, beta=0.0000 (sum=0.0000)
+Convergence: 0, NLL: 650.3764
+
+=== Model Selection (State 2, Iter 65) ===
+Criterion: BIC (n_eff=280.8)
+Dynamic:  LL=-650.3764, k=2, BIC=1312.0282
+Constant: LL=-650.3760, k=0, BIC=1300.7521
+Decision: CONSTANT
+
+
+=== EM ITERATION 65 ===
+
+=== EM ITERATION 65 ===
+  LL before M-step: -818.095
+  LL after M-step:  -818.098
+  Change: -0.00288791
+  *** WARNING: M-step DECREASED LL! ***
+Log-Likelihood: -818.098 (Duration: 00:00:23)
+
+
+==========================================================
+EM Iteration 66... 
+DCC order: p=1, q=1 (is_dcc11: TRUE)
+
+=== DCC(1,1) REPARAMETERIZED OPTIMIZATION ===
+Starting: alpha=0.0300, beta=0.9400
+Reparameterized: persistence=0.9700, ratio=0.0309
+
+Optimized: persistence=0.9725, ratio=0.0021
+Final: alpha=0.0021, beta=0.9705 (sum=0.9725)
+Convergence: 52, NLL: 172.5913
+
+=== Model Selection (State 1, Iter 66) ===
+Criterion: BIC (n_eff=158.9)
+Dynamic:  LL=-172.5913, k=2, BIC=355.3194
+Constant: LL=-172.6234, k=0, BIC=345.2468
+Decision: CONSTANT
+
+
+DCC order: p=1, q=1 (is_dcc11: TRUE)
+
+=== DCC(1,1) REPARAMETERIZED OPTIMIZATION ===
+Starting: alpha=0.1000, beta=0.8500
+Reparameterized: persistence=0.9500, ratio=0.1053
+
+Optimized: persistence=0.0000, ratio=0.0000
+Final: alpha=0.0000, beta=0.0000 (sum=0.0000)
+Convergence: 0, NLL: 651.3292
+
+=== Model Selection (State 2, Iter 66) ===
+Criterion: BIC (n_eff=281.0)
+Dynamic:  LL=-651.3292, k=2, BIC=1313.9347
+Constant: LL=-651.3288, k=0, BIC=1302.6575
+Decision: CONSTANT
+
+
+=== EM ITERATION 66 ===
+
+=== EM ITERATION 66 ===
+  LL before M-step: -818.098
+  LL after M-step:  -818.105
+  Change: -0.00733397
+  *** WARNING: M-step DECREASED LL! ***
+Log-Likelihood: -818.105 (Duration: 00:00:33)
+
+
+==========================================================
+EM Iteration 67... 
+DCC order: p=1, q=1 (is_dcc11: TRUE)
+
+=== DCC(1,1) REPARAMETERIZED OPTIMIZATION ===
+Starting: alpha=0.0300, beta=0.9400
+Reparameterized: persistence=0.9700, ratio=0.0309
+
+Optimized: persistence=0.9767, ratio=0.0021
+Final: alpha=0.0021, beta=0.9746 (sum=0.9767)
+Convergence: 0, NLL: 171.7720
+
+=== Model Selection (State 1, Iter 67) ===
+Criterion: BIC (n_eff=158.5)
+Dynamic:  LL=-171.7720, k=2, BIC=353.6757
+Constant: LL=-171.8047, k=0, BIC=343.6094
+Decision: CONSTANT
+
+
+DCC order: p=1, q=1 (is_dcc11: TRUE)
+
+=== DCC(1,1) REPARAMETERIZED OPTIMIZATION ===
+Starting: alpha=0.1000, beta=0.8500
+Reparameterized: persistence=0.9500, ratio=0.1053
+
+Optimized: persistence=0.0000, ratio=0.0000
+Final: alpha=0.0000, beta=0.0000 (sum=0.0000)
+Convergence: 0, NLL: 652.1801
+
+=== Model Selection (State 2, Iter 67) ===
+Criterion: BIC (n_eff=281.1)
+Dynamic:  LL=-652.1801, k=2, BIC=1315.6376
+Constant: LL=-652.1797, k=0, BIC=1304.3594
+Decision: CONSTANT
+
+
+=== EM ITERATION 67 ===
+
+=== EM ITERATION 67 ===
+  LL before M-step: -818.105
+  LL after M-step:  -818.113
+  Change: -0.00778599
+  *** WARNING: M-step DECREASED LL! ***
+Log-Likelihood: -818.113 (Duration: 00:00:33)
+
+
+==========================================================
+EM Iteration 68... 
+DCC order: p=1, q=1 (is_dcc11: TRUE)
+
+=== DCC(1,1) REPARAMETERIZED OPTIMIZATION ===
+Starting: alpha=0.0300, beta=0.9400
+Reparameterized: persistence=0.9700, ratio=0.0309
+
+Optimized: persistence=0.9801, ratio=0.0021
+Final: alpha=0.0021, beta=0.9780 (sum=0.9801)
+Convergence: 0, NLL: 170.8690
+
+=== Model Selection (State 1, Iter 68) ===
+Criterion: BIC (n_eff=158.0)
+Dynamic:  LL=-170.8690, k=2, BIC=351.8626
+Constant: LL=-170.9024, k=0, BIC=341.8047
+Decision: CONSTANT
+
+
+DCC order: p=1, q=1 (is_dcc11: TRUE)
+
+=== DCC(1,1) REPARAMETERIZED OPTIMIZATION ===
+Starting: alpha=0.1000, beta=0.8500
+Reparameterized: persistence=0.9500, ratio=0.1053
+
+Optimized: persistence=0.0000, ratio=0.0000
+Final: alpha=0.0000, beta=0.0000 (sum=0.0000)
+Convergence: 0, NLL: 653.0231
+
+=== Model Selection (State 2, Iter 68) ===
+Criterion: BIC (n_eff=281.2)
+Dynamic:  LL=-653.0231, k=2, BIC=1317.3242
+Constant: LL=-653.0227, k=0, BIC=1306.0454
+Decision: CONSTANT
+
+
+=== EM ITERATION 68 ===
+
+=== EM ITERATION 68 ===
+  LL before M-step: -818.113
+  LL after M-step:  -818.133
+  Change: -0.0203186
+  *** WARNING: M-step DECREASED LL! ***
+Log-Likelihood: -818.133 (Duration: 00:00:26)
+
+
+==========================================================
+EM Iteration 69... 
+DCC order: p=1, q=1 (is_dcc11: TRUE)
+
+=== DCC(1,1) REPARAMETERIZED OPTIMIZATION ===
+Starting: alpha=0.0300, beta=0.9400
+Reparameterized: persistence=0.9700, ratio=0.0309
+
+Optimized: persistence=0.9844, ratio=0.0022
+Final: alpha=0.0022, beta=0.9822 (sum=0.9844)
+Convergence: 52, NLL: 170.0428
+
+=== Model Selection (State 1, Iter 69) ===
+Criterion: BIC (n_eff=157.3)
+Dynamic:  LL=-170.0428, k=2, BIC=350.2022
+Constant: LL=-170.0784, k=0, BIC=340.1568
+Decision: CONSTANT
+
+
+DCC order: p=1, q=1 (is_dcc11: TRUE)
+
+=== DCC(1,1) REPARAMETERIZED OPTIMIZATION ===
+Starting: alpha=0.1000, beta=0.8500
+Reparameterized: persistence=0.9500, ratio=0.1053
+
+Optimized: persistence=0.0000, ratio=0.0000
+Final: alpha=0.0000, beta=0.0000 (sum=0.0000)
+Convergence: 0, NLL: 653.8591
+
+=== Model Selection (State 2, Iter 69) ===
+Criterion: BIC (n_eff=281.3)
+Dynamic:  LL=-653.8591, k=2, BIC=1318.9969
+Constant: LL=-653.8587, k=0, BIC=1307.7175
+Decision: CONSTANT
+
+
+=== EM ITERATION 69 ===
+
+=== EM ITERATION 69 ===
+  LL before M-step: -818.133
+  LL after M-step:  -818.158
+  Change: -0.0251798
+  *** WARNING: M-step DECREASED LL! ***
+Log-Likelihood: -818.158 (Duration: 00:00:26)
+
+
+==========================================================
+EM Iteration 70... 
+DCC order: p=1, q=1 (is_dcc11: TRUE)
+
+=== DCC(1,1) REPARAMETERIZED OPTIMIZATION ===
+Starting: alpha=0.0300, beta=0.9400
+Reparameterized: persistence=0.9700, ratio=0.0309
+
+Optimized: persistence=0.9872, ratio=0.0023
+Final: alpha=0.0022, beta=0.9849 (sum=0.9872)
+Convergence: 52, NLL: 169.1340
+
+=== Model Selection (State 1, Iter 70) ===
+Criterion: BIC (n_eff=156.5)
+Dynamic:  LL=-169.1340, k=2, BIC=348.3740
+Constant: LL=-169.1691, k=0, BIC=338.3382
+Decision: CONSTANT
+
+
+DCC order: p=1, q=1 (is_dcc11: TRUE)
+
+=== DCC(1,1) REPARAMETERIZED OPTIMIZATION ===
+Starting: alpha=0.1000, beta=0.8500
+Reparameterized: persistence=0.9500, ratio=0.1053
+
+Optimized: persistence=0.0000, ratio=0.0000
+Final: alpha=0.0000, beta=0.0000 (sum=0.0000)
+Convergence: 0, NLL: 654.7522
+
+=== Model Selection (State 2, Iter 70) ===
+Criterion: BIC (n_eff=281.3)
+Dynamic:  LL=-654.7522, k=2, BIC=1320.7835
+Constant: LL=-654.7519, k=0, BIC=1309.5037
+Decision: CONSTANT
+
+
+=== EM ITERATION 70 ===
+
+=== EM ITERATION 70 ===
+  LL before M-step: -818.158
+  LL after M-step:  -818.2
+  Change: -0.042222
+  *** WARNING: M-step DECREASED LL! ***
+Log-Likelihood: -818.2 (Duration: 00:00:25)
+
+
+==========================================================
+EM Iteration 71... 
+DCC order: p=1, q=1 (is_dcc11: TRUE)
+
+=== DCC(1,1) REPARAMETERIZED OPTIMIZATION ===
+Starting: alpha=0.0300, beta=0.9400
+Reparameterized: persistence=0.9700, ratio=0.0309
+
+Optimized: persistence=0.9913, ratio=0.0024
+Final: alpha=0.0023, beta=0.9890 (sum=0.9913)
+Convergence: 0, NLL: 168.0559
+
+=== Model Selection (State 1, Iter 71) ===
+Criterion: BIC (n_eff=155.6)
+Dynamic:  LL=-168.0559, k=2, BIC=346.2057
+Constant: LL=-168.0998, k=0, BIC=336.1997
+Decision: CONSTANT
+
+
+DCC order: p=1, q=1 (is_dcc11: TRUE)
+
+=== DCC(1,1) REPARAMETERIZED OPTIMIZATION ===
+Starting: alpha=0.1000, beta=0.8500
+Reparameterized: persistence=0.9500, ratio=0.1053
+
+Optimized: persistence=0.0000, ratio=0.0000
+Final: alpha=0.0000, beta=0.0000 (sum=0.0000)
+Convergence: 0, NLL: 655.6857
+
+=== Model Selection (State 2, Iter 71) ===
+Criterion: BIC (n_eff=281.4)
+Dynamic:  LL=-655.6857, k=2, BIC=1322.6507
+Constant: LL=-655.6853, k=0, BIC=1311.3706
+Decision: CONSTANT
+
+
+=== EM ITERATION 71 ===
+
+=== EM ITERATION 71 ===
+  LL before M-step: -818.2
+  LL after M-step:  -818.24
+  Change: -0.0399421
+  *** WARNING: M-step DECREASED LL! ***
+Log-Likelihood: -818.24 (Duration: 00:00:26)
+
+
+==========================================================
+EM Iteration 72... 
+DCC order: p=1, q=1 (is_dcc11: TRUE)
+
+=== DCC(1,1) REPARAMETERIZED OPTIMIZATION ===
+Starting: alpha=0.0300, beta=0.9400
+Reparameterized: persistence=0.9700, ratio=0.0309
+
+Optimized: persistence=0.9939, ratio=0.0024
+Final: alpha=0.0024, beta=0.9915 (sum=0.9939)
+Convergence: 52, NLL: 166.5121
+
+=== Model Selection (State 1, Iter 72) ===
+Criterion: BIC (n_eff=154.5)
+Dynamic:  LL=-166.5121, k=2, BIC=343.1051
+Constant: LL=-166.5683, k=0, BIC=333.1366
+Decision: CONSTANT
+
+
+DCC order: p=1, q=1 (is_dcc11: TRUE)
+
+=== DCC(1,1) REPARAMETERIZED OPTIMIZATION ===
+Starting: alpha=0.1000, beta=0.8500
+Reparameterized: persistence=0.9500, ratio=0.1053
+
+Optimized: persistence=0.0000, ratio=0.0000
+Final: alpha=0.0000, beta=0.0000 (sum=0.0000)
+Convergence: 0, NLL: 656.6816
+
+=== Model Selection (State 2, Iter 72) ===
+Criterion: BIC (n_eff=281.4)
+Dynamic:  LL=-656.6816, k=2, BIC=1324.6430
+Constant: LL=-656.6813, k=0, BIC=1313.3625
+Decision: CONSTANT
+
+
+=== EM ITERATION 72 ===
+
+=== EM ITERATION 72 ===
+  LL before M-step: -818.24
+  LL after M-step:  -818.279
+  Change: -0.0387771
+  *** WARNING: M-step DECREASED LL! ***
+Log-Likelihood: -818.279 (Duration: 00:00:23)
+
+
+==========================================================
+EM Iteration 73... 
+DCC order: p=1, q=1 (is_dcc11: TRUE)
+
+=== DCC(1,1) REPARAMETERIZED OPTIMIZATION ===
+Starting: alpha=0.0300, beta=0.9400
+Reparameterized: persistence=0.9700, ratio=0.0309
+
+Optimized: persistence=0.9963, ratio=0.0027
+Final: alpha=0.0027, beta=0.9936 (sum=0.9963)
+Convergence: 0, NLL: 165.6086
+
+=== Model Selection (State 1, Iter 73) ===
+Criterion: BIC (n_eff=153.9)
+Dynamic:  LL=-165.6086, k=2, BIC=341.2897
+Constant: LL=-165.6699, k=0, BIC=331.3397
+Decision: CONSTANT
+
+
+DCC order: p=1, q=1 (is_dcc11: TRUE)
+
+=== DCC(1,1) REPARAMETERIZED OPTIMIZATION ===
+Starting: alpha=0.1000, beta=0.8500
+Reparameterized: persistence=0.9500, ratio=0.1053
+
+Optimized: persistence=0.0000, ratio=0.0000
+Final: alpha=0.0000, beta=0.0000 (sum=0.0000)
+Convergence: 0, NLL: 657.5615
+
+=== Model Selection (State 2, Iter 73) ===
+Criterion: BIC (n_eff=281.5)
+Dynamic:  LL=-657.5615, k=2, BIC=1326.4034
+Constant: LL=-657.5611, k=0, BIC=1315.1222
+Decision: CONSTANT
+
+
+=== EM ITERATION 73 ===
+
+=== EM ITERATION 73 ===
+  LL before M-step: -818.279
+  LL after M-step:  -818.322
+  Change: -0.0425947
+  *** WARNING: M-step DECREASED LL! ***
+Log-Likelihood: -818.322 (Duration: 00:00:23)
+
+
+==========================================================
+EM Iteration 74... 
+DCC order: p=1, q=1 (is_dcc11: TRUE)
+
+=== DCC(1,1) REPARAMETERIZED OPTIMIZATION ===
+Starting: alpha=0.0300, beta=0.9400
+Reparameterized: persistence=0.9700, ratio=0.0309
+
+Optimized: persistence=0.9983, ratio=0.0028
+Final: alpha=0.0028, beta=0.9955 (sum=0.9983)
+Convergence: 0, NLL: 164.3592
+
+=== Model Selection (State 1, Iter 74) ===
+Criterion: BIC (n_eff=153.0)
+Dynamic:  LL=-164.3592, k=2, BIC=338.7789
+Constant: LL=-164.4271, k=0, BIC=328.8541
+Decision: CONSTANT
+
+
+DCC order: p=1, q=1 (is_dcc11: TRUE)
+
+=== DCC(1,1) REPARAMETERIZED OPTIMIZATION ===
+Starting: alpha=0.1000, beta=0.8500
+Reparameterized: persistence=0.9500, ratio=0.1053
+
+Optimized: persistence=0.0000, ratio=0.0000
+Final: alpha=0.0000, beta=0.0000 (sum=0.0000)
+Convergence: 0, NLL: 658.5447
+
+=== Model Selection (State 2, Iter 74) ===
+Criterion: BIC (n_eff=281.6)
+Dynamic:  LL=-658.5447, k=2, BIC=1328.3703
+Constant: LL=-658.5444, k=0, BIC=1317.0888
+Decision: CONSTANT
+
+
+=== EM ITERATION 74 ===
+
+=== EM ITERATION 74 ===
+  LL before M-step: -818.322
+  LL after M-step:  -818.367
+  Change: -0.0455281
+  *** WARNING: M-step DECREASED LL! ***
+Log-Likelihood: -818.367 (Duration: 00:00:18)
+
+
+==========================================================
+EM Iteration 75... 
+DCC order: p=1, q=1 (is_dcc11: TRUE)
+
+=== DCC(1,1) REPARAMETERIZED OPTIMIZATION ===
+Starting: alpha=0.0300, beta=0.9400
+Reparameterized: persistence=0.9700, ratio=0.0309
+
+Optimized: persistence=1.0000, ratio=0.0031
+Final: alpha=0.0031, beta=0.9969 (sum=1.0000)
+Convergence: 52, NLL: 163.5213
+
+=== Model Selection (State 1, Iter 75) ===
+Criterion: BIC (n_eff=152.1)
+Dynamic:  LL=-163.5213, k=2, BIC=337.0920
+Constant: LL=-163.6051, k=0, BIC=327.2103
+Decision: CONSTANT
+
+
+DCC order: p=1, q=1 (is_dcc11: TRUE)
+
+=== DCC(1,1) REPARAMETERIZED OPTIMIZATION ===
+Starting: alpha=0.1000, beta=0.8500
+Reparameterized: persistence=0.9500, ratio=0.1053
+
+Optimized: persistence=0.0000, ratio=0.0000
+Final: alpha=0.0000, beta=0.0000 (sum=0.0000)
+Convergence: 0, NLL: 659.4471
+
+=== Model Selection (State 2, Iter 75) ===
+Criterion: BIC (n_eff=281.7)
+Dynamic:  LL=-659.4471, k=2, BIC=1330.1757
+Constant: LL=-659.4468, k=0, BIC=1318.8936
+Decision: CONSTANT
+
+
+=== EM ITERATION 75 ===
+
+=== EM ITERATION 75 ===
+  LL before M-step: -818.367
+  LL after M-step:  -818.408
+  Change: -0.0410861
+  *** WARNING: M-step DECREASED LL! ***
+Log-Likelihood: -818.408 (Duration: 00:00:24)
+
+
+==========================================================
+EM Iteration 76... 
+DCC order: p=1, q=1 (is_dcc11: TRUE)
+
+=== DCC(1,1) REPARAMETERIZED OPTIMIZATION ===
+Starting: alpha=0.0300, beta=0.9400
+Reparameterized: persistence=0.9700, ratio=0.0309
+
+Optimized: persistence=1.0000, ratio=0.0031
+Final: alpha=0.0031, beta=0.9969 (sum=1.0000)
+Convergence: 0, NLL: 162.1247
+
+=== Model Selection (State 1, Iter 76) ===
+Criterion: BIC (n_eff=150.8)
+Dynamic:  LL=-162.1247, k=2, BIC=334.2813
+Constant: LL=-162.2121, k=0, BIC=324.4241
+Decision: CONSTANT
+
+
+DCC order: p=1, q=1 (is_dcc11: TRUE)
+
+=== DCC(1,1) REPARAMETERIZED OPTIMIZATION ===
+Starting: alpha=0.1000, beta=0.8500
+Reparameterized: persistence=0.9500, ratio=0.1053
+
+Optimized: persistence=0.0000, ratio=0.0000
+Final: alpha=0.0000, beta=0.0000 (sum=0.0000)
+Convergence: 0, NLL: 660.5649
+
+=== Model Selection (State 2, Iter 76) ===
+Criterion: BIC (n_eff=281.7)
+Dynamic:  LL=-660.5649, k=2, BIC=1332.4114
+Constant: LL=-660.5646, k=0, BIC=1321.1292
+Decision: CONSTANT
+
+
+=== EM ITERATION 76 ===
+
+=== EM ITERATION 76 ===
+  LL before M-step: -818.408
+  LL after M-step:  -818.466
+  Change: -0.0580278
+  *** WARNING: M-step DECREASED LL! ***
+Log-Likelihood: -818.466 (Duration: 00:00:22)
+
+
+==========================================================
+EM Iteration 77... 
+DCC order: p=1, q=1 (is_dcc11: TRUE)
+
+=== DCC(1,1) REPARAMETERIZED OPTIMIZATION ===
+Starting: alpha=0.0300, beta=0.9400
+Reparameterized: persistence=0.9700, ratio=0.0309
+
+Optimized: persistence=1.0000, ratio=0.0031
+Final: alpha=0.0031, beta=0.9969 (sum=1.0000)
+Convergence: 0, NLL: 160.8015
+
+=== Model Selection (State 1, Iter 77) ===
+Criterion: BIC (n_eff=149.7)
+Dynamic:  LL=-160.8015, k=2, BIC=331.6205
+Constant: LL=-160.8987, k=0, BIC=321.7973
+Decision: CONSTANT
+
+
+DCC order: p=1, q=1 (is_dcc11: TRUE)
+
+=== DCC(1,1) REPARAMETERIZED OPTIMIZATION ===
+Starting: alpha=0.1000, beta=0.8500
+Reparameterized: persistence=0.9500, ratio=0.1053
+
+Optimized: persistence=0.0000, ratio=0.0000
+Final: alpha=0.0000, beta=0.0000 (sum=0.0000)
+Convergence: 0, NLL: 661.7340
+
+=== Model Selection (State 2, Iter 77) ===
+Criterion: BIC (n_eff=281.8)
+Dynamic:  LL=-661.7340, k=2, BIC=1334.7504
+Constant: LL=-661.7338, k=0, BIC=1323.4675
+Decision: CONSTANT
+
+
+=== EM ITERATION 77 ===
+
+=== EM ITERATION 77 ===
+  LL before M-step: -818.466
+  LL after M-step:  -818.506
+  Change: -0.0399949
+  *** WARNING: M-step DECREASED LL! ***
+Log-Likelihood: -818.506 (Duration: 00:00:26)
+
+
+==========================================================
+EM Iteration 78... 
+DCC order: p=1, q=1 (is_dcc11: TRUE)
+
+=== DCC(1,1) REPARAMETERIZED OPTIMIZATION ===
+Starting: alpha=0.0300, beta=0.9400
+Reparameterized: persistence=0.9700, ratio=0.0309
+
+Optimized: persistence=1.0000, ratio=0.0032
+Final: alpha=0.0032, beta=0.9968 (sum=1.0000)
+Convergence: 0, NLL: 159.3693
+
+=== Model Selection (State 1, Iter 78) ===
+Criterion: BIC (n_eff=148.5)
+Dynamic:  LL=-159.3693, k=2, BIC=328.7399
+Constant: LL=-159.4749, k=0, BIC=318.9497
+Decision: CONSTANT
+
+
+DCC order: p=1, q=1 (is_dcc11: TRUE)
+
+=== DCC(1,1) REPARAMETERIZED OPTIMIZATION ===
+Starting: alpha=0.1000, beta=0.8500
+Reparameterized: persistence=0.9500, ratio=0.1053
+
+Optimized: persistence=0.0000, ratio=0.0000
+Final: alpha=0.0000, beta=0.0000 (sum=0.0000)
+Convergence: 0, NLL: 663.0073
+
+=== Model Selection (State 2, Iter 78) ===
+Criterion: BIC (n_eff=281.9)
+Dynamic:  LL=-663.0073, k=2, BIC=1337.2975
+Constant: LL=-663.0070, k=0, BIC=1326.0139
+Decision: CONSTANT
+
+
+=== EM ITERATION 78 ===
+
+=== EM ITERATION 78 ===
+  LL before M-step: -818.506
+  LL after M-step:  -818.549
+  Change: -0.0423947
+  *** WARNING: M-step DECREASED LL! ***
+Log-Likelihood: -818.549 (Duration: 00:00:23)
+
+
+==========================================================
+EM Iteration 79... 
+DCC order: p=1, q=1 (is_dcc11: TRUE)
+
+=== DCC(1,1) REPARAMETERIZED OPTIMIZATION ===
+Starting: alpha=0.0300, beta=0.9400
+Reparameterized: persistence=0.9700, ratio=0.0309
+
+Optimized: persistence=1.0000, ratio=0.0031
+Final: alpha=0.0031, beta=0.9969 (sum=1.0000)
+Convergence: 0, NLL: 157.5002
+
+=== Model Selection (State 1, Iter 79) ===
+Criterion: BIC (n_eff=147.3)
+Dynamic:  LL=-157.5002, k=2, BIC=324.9855
+Constant: LL=-157.6148, k=0, BIC=315.2297
+Decision: CONSTANT
+
+
+DCC order: p=1, q=1 (is_dcc11: TRUE)
+
+=== DCC(1,1) REPARAMETERIZED OPTIMIZATION ===
+Starting: alpha=0.1000, beta=0.8500
+Reparameterized: persistence=0.9500, ratio=0.1053
+
+Optimized: persistence=0.9734, ratio=0.0315
+Final: alpha=0.0306, beta=0.9428 (sum=0.9734)
+Convergence: 0, NLL: 661.8053
+
+=== EM ITERATION 79 ===
+
+=== EM ITERATION 79 ===
+  LL before M-step: -818.549
+  LL after M-step:  -815.881
+  Change: 2.66823
+Log-Likelihood: -815.881 (Duration: 00:00:20)
+
+
+==========================================================
+EM Iteration 80... 
+DCC order: p=1, q=1 (is_dcc11: TRUE)
+
+=== DCC(1,1) REPARAMETERIZED OPTIMIZATION ===
+Starting: alpha=0.0300, beta=0.9400
+Reparameterized: persistence=0.9700, ratio=0.0309
+
+Optimized: persistence=1.0000, ratio=0.0016
+Final: alpha=0.0016, beta=0.9984 (sum=1.0000)
+Convergence: 52, NLL: 155.9772
+
+=== Model Selection (State 1, Iter 80) ===
+Criterion: BIC (n_eff=145.7)
+Dynamic:  LL=-155.9772, k=2, BIC=321.9171
+Constant: LL=-156.0374, k=0, BIC=312.0747
+Decision: CONSTANT
+
+
+DCC order: p=1, q=1 (is_dcc11: TRUE)
+
+=== DCC(1,1) REPARAMETERIZED OPTIMIZATION ===
+Starting: alpha=0.1000, beta=0.8500
+Reparameterized: persistence=0.9500, ratio=0.1053
+
+Optimized: persistence=0.9749, ratio=0.0338
+Final: alpha=0.0329, beta=0.9420 (sum=0.9749)
+Convergence: 52, NLL: 663.6315
+
+=== EM ITERATION 80 ===
+
+=== EM ITERATION 80 ===
+  LL before M-step: -815.881
+  LL after M-step:  -815.894
+  Change: -0.0132707
+  *** WARNING: M-step DECREASED LL! ***
+Log-Likelihood: -815.894 (Duration: 00:00:20)
+
+
+==========================================================
+EM Iteration 81... 
+DCC order: p=1, q=1 (is_dcc11: TRUE)
+
+=== DCC(1,1) REPARAMETERIZED OPTIMIZATION ===
+Starting: alpha=0.0300, beta=0.9400
+Reparameterized: persistence=0.9700, ratio=0.0309
+
+Optimized: persistence=1.0000, ratio=0.0015
+Final: alpha=0.0015, beta=0.9985 (sum=1.0000)
+Convergence: 0, NLL: 153.0983
+
+=== Model Selection (State 1, Iter 81) ===
+Criterion: BIC (n_eff=143.1)
+Dynamic:  LL=-153.0983, k=2, BIC=316.1239
+Constant: LL=-153.1627, k=0, BIC=306.3255
+Decision: CONSTANT
+
+
+DCC order: p=1, q=1 (is_dcc11: TRUE)
+
+=== DCC(1,1) REPARAMETERIZED OPTIMIZATION ===
+Starting: alpha=0.1000, beta=0.8500
+Reparameterized: persistence=0.9500, ratio=0.1053
+
+Optimized: persistence=0.9751, ratio=0.0342
+Final: alpha=0.0333, beta=0.9418 (sum=0.9751)
+Convergence: 0, NLL: 665.9745
+
+=== EM ITERATION 81 ===
+
+=== EM ITERATION 81 ===
+  LL before M-step: -815.894
+  LL after M-step:  -815.928
+  Change: -0.0339579
+  *** WARNING: M-step DECREASED LL! ***
+Log-Likelihood: -815.928 (Duration: 00:00:23)
+
+
+==========================================================
+EM Iteration 82... 
+DCC order: p=1, q=1 (is_dcc11: TRUE)
+
+=== DCC(1,1) REPARAMETERIZED OPTIMIZATION ===
+Starting: alpha=0.0300, beta=0.9400
+Reparameterized: persistence=0.9700, ratio=0.0309
+
+Optimized: persistence=1.0000, ratio=0.0016
+Final: alpha=0.0016, beta=0.9984 (sum=1.0000)
+Convergence: 0, NLL: 150.3785
+
+=== Model Selection (State 1, Iter 82) ===
+Criterion: BIC (n_eff=140.9)
+Dynamic:  LL=-150.3785, k=2, BIC=310.6527
+Constant: LL=-150.4501, k=0, BIC=300.9001
+Decision: CONSTANT
+
+
+DCC order: p=1, q=1 (is_dcc11: TRUE)
+
+=== DCC(1,1) REPARAMETERIZED OPTIMIZATION ===
+Starting: alpha=0.1000, beta=0.8500
+Reparameterized: persistence=0.9500, ratio=0.1053
+
+Optimized: persistence=0.9751, ratio=0.0344
+Final: alpha=0.0335, beta=0.9416 (sum=0.9751)
+Convergence: 0, NLL: 668.5054
+
+=== EM ITERATION 82 ===
+
+=== EM ITERATION 82 ===
+  LL before M-step: -815.928
+  LL after M-step:  -815.945
+  Change: -0.0169407
+  *** WARNING: M-step DECREASED LL! ***
+Log-Likelihood: -815.945 (Duration: 00:00:20)
+
+
+==========================================================
+EM Iteration 83... 
+DCC order: p=1, q=1 (is_dcc11: TRUE)
+
+=== DCC(1,1) REPARAMETERIZED OPTIMIZATION ===
+Starting: alpha=0.0300, beta=0.9400
+Reparameterized: persistence=0.9700, ratio=0.0309
+
+Optimized: persistence=1.0000, ratio=0.0017
+Final: alpha=0.0017, beta=0.9983 (sum=1.0000)
+Convergence: 52, NLL: 147.6815
+
+=== Model Selection (State 1, Iter 83) ===
+Criterion: BIC (n_eff=138.6)
+Dynamic:  LL=-147.6815, k=2, BIC=305.2261
+Constant: LL=-147.7613, k=0, BIC=295.5227
+Decision: CONSTANT
+
+
+DCC order: p=1, q=1 (is_dcc11: TRUE)
+
+=== DCC(1,1) REPARAMETERIZED OPTIMIZATION ===
+Starting: alpha=0.1000, beta=0.8500
+Reparameterized: persistence=0.9500, ratio=0.1053
+
+Optimized: persistence=0.0000, ratio=0.0000
+Final: alpha=0.0000, beta=0.0000 (sum=0.0000)
+Convergence: 0, NLL: 674.1607
+
+=== Model Selection (State 2, Iter 83) ===
+Criterion: BIC (n_eff=282.8)
+Dynamic:  LL=-674.1607, k=2, BIC=1359.6109
+Constant: LL=-674.1605, k=0, BIC=1348.3209
+Decision: CONSTANT
+
+
+=== EM ITERATION 83 ===
+
+=== EM ITERATION 83 ===
+  LL before M-step: -815.945
+  LL after M-step:  -818.708
+  Change: -2.76361
+  *** WARNING: M-step DECREASED LL! ***
+Log-Likelihood: -818.708 (Duration: 00:00:22)
+
+
+==========================================================
+EM Iteration 84... 
+DCC order: p=1, q=1 (is_dcc11: TRUE)
+
+=== DCC(1,1) REPARAMETERIZED OPTIMIZATION ===
+Starting: alpha=0.0300, beta=0.9400
+Reparameterized: persistence=0.9700, ratio=0.0309
+
+Optimized: persistence=1.0000, ratio=0.0036
+Final: alpha=0.0036, beta=0.9964 (sum=1.0000)
+Convergence: 0, NLL: 146.0282
+
+=== Model Selection (State 1, Iter 84) ===
+Criterion: BIC (n_eff=137.7)
+Dynamic:  LL=-146.0282, k=2, BIC=301.9062
+Constant: LL=-146.1825, k=0, BIC=292.3651
+Decision: CONSTANT
+
+
+DCC order: p=1, q=1 (is_dcc11: TRUE)
+
+=== DCC(1,1) REPARAMETERIZED OPTIMIZATION ===
+Starting: alpha=0.1000, beta=0.8500
+Reparameterized: persistence=0.9500, ratio=0.1053
+
+Optimized: persistence=0.0000, ratio=0.0000
+Final: alpha=0.0000, beta=0.0000 (sum=0.0000)
+Convergence: 0, NLL: 675.3548
+
+=== Model Selection (State 2, Iter 84) ===
+Criterion: BIC (n_eff=283.0)
+Dynamic:  LL=-675.3548, k=2, BIC=1362.0004
+Constant: LL=-675.3545, k=0, BIC=1350.7090
+Decision: CONSTANT
+
+
+=== EM ITERATION 84 ===
+
+=== EM ITERATION 84 ===
+  LL before M-step: -818.708
+  LL after M-step:  -818.611
+  Change: 0.0975946
+Log-Likelihood: -818.611 (Duration: 00:00:22)
+
+
+==========================================================
+EM Iteration 85... 
+DCC order: p=1, q=1 (is_dcc11: TRUE)
+
+=== DCC(1,1) REPARAMETERIZED OPTIMIZATION ===
+Starting: alpha=0.0300, beta=0.9400
+Reparameterized: persistence=0.9700, ratio=0.0309
+
+Optimized: persistence=1.0000, ratio=0.0029
+Final: alpha=0.0029, beta=0.9971 (sum=1.0000)
+Convergence: 0, NLL: 145.0695
+
+=== Model Selection (State 1, Iter 85) ===
+Criterion: BIC (n_eff=136.6)
+Dynamic:  LL=-145.0695, k=2, BIC=299.9727
+Constant: LL=-145.2076, k=0, BIC=290.4151
+Decision: CONSTANT
+
+
+DCC order: p=1, q=1 (is_dcc11: TRUE)
+
+=== DCC(1,1) REPARAMETERIZED OPTIMIZATION ===
+Starting: alpha=0.1000, beta=0.8500
+Reparameterized: persistence=0.9500, ratio=0.1053
+
+Optimized: persistence=0.0000, ratio=0.0000
+Final: alpha=0.0000, beta=0.0000 (sum=0.0000)
+Convergence: 0, NLL: 676.3113
+
+=== Model Selection (State 2, Iter 85) ===
+Criterion: BIC (n_eff=283.1)
+Dynamic:  LL=-676.3113, k=2, BIC=1363.9139
+Constant: LL=-676.3110, k=0, BIC=1352.6220
+Decision: CONSTANT
+
+
+=== EM ITERATION 85 ===
+
+=== EM ITERATION 85 ===
+  LL before M-step: -818.611
+  LL after M-step:  -818.098
+  Change: 0.512804
+Log-Likelihood: -818.098 (Duration: 00:00:18)
+
+
+==========================================================
+EM Iteration 86... 
+DCC order: p=1, q=1 (is_dcc11: TRUE)
+
+=== DCC(1,1) REPARAMETERIZED OPTIMIZATION ===
+Starting: alpha=0.0300, beta=0.9400
+Reparameterized: persistence=0.9700, ratio=0.0309
+
+Optimized: persistence=1.0000, ratio=0.0026
+Final: alpha=0.0026, beta=0.9974 (sum=1.0000)
+Convergence: 0, NLL: 144.7403
+
+=== Model Selection (State 1, Iter 86) ===
+Criterion: BIC (n_eff=135.4)
+Dynamic:  LL=-144.7403, k=2, BIC=299.2968
+Constant: LL=-144.8765, k=0, BIC=289.7530
+Decision: CONSTANT
+
+
+DCC order: p=1, q=1 (is_dcc11: TRUE)
+
+=== DCC(1,1) REPARAMETERIZED OPTIMIZATION ===
+Starting: alpha=0.1000, beta=0.8500
+Reparameterized: persistence=0.9500, ratio=0.1053
+
+Optimized: persistence=0.0000, ratio=0.0000
+Final: alpha=0.0000, beta=0.0000 (sum=0.0000)
+Convergence: 0, NLL: 676.1040
+
+=== Model Selection (State 2, Iter 86) ===
+Criterion: BIC (n_eff=282.9)
+Dynamic:  LL=-676.1040, k=2, BIC=1363.4982
+Constant: LL=-676.1037, k=0, BIC=1352.2074
+Decision: CONSTANT
+
+
+=== EM ITERATION 86 ===
+
+=== EM ITERATION 86 ===
+  LL before M-step: -818.098
+  LL after M-step:  -817.559
+  Change: 0.538816
+Log-Likelihood: -817.559 (Duration: 00:00:16)
+
+
+==========================================================
+EM Iteration 87... 
+DCC order: p=1, q=1 (is_dcc11: TRUE)
+
+=== DCC(1,1) REPARAMETERIZED OPTIMIZATION ===
+Starting: alpha=0.0300, beta=0.9400
+Reparameterized: persistence=0.9700, ratio=0.0309
+
+Optimized: persistence=1.0000, ratio=0.0021
+Final: alpha=0.0021, beta=0.9979 (sum=1.0000)
+Convergence: 0, NLL: 145.0404
+
+=== Model Selection (State 1, Iter 87) ===
+Criterion: BIC (n_eff=133.9)
+Dynamic:  LL=-145.0404, k=2, BIC=299.8751
+Constant: LL=-145.1755, k=0, BIC=290.3510
+Decision: CONSTANT
+
+
+DCC order: p=1, q=1 (is_dcc11: TRUE)
+
+=== DCC(1,1) REPARAMETERIZED OPTIMIZATION ===
+Starting: alpha=0.1000, beta=0.8500
+Reparameterized: persistence=0.9500, ratio=0.1053
+
+Optimized: persistence=0.0000, ratio=0.0000
+Final: alpha=0.0000, beta=0.0000 (sum=0.0000)
+Convergence: 0, NLL: 675.1840
+
+=== Model Selection (State 2, Iter 87) ===
+Criterion: BIC (n_eff=282.5)
+Dynamic:  LL=-675.1840, k=2, BIC=1361.6554
+Constant: LL=-675.1837, k=0, BIC=1350.3674
+Decision: CONSTANT
+
+
+=== EM ITERATION 87 ===
+
+=== EM ITERATION 87 ===
+  LL before M-step: -817.559
+  LL after M-step:  -817.102
+  Change: 0.457371
+Log-Likelihood: -817.102 (Duration: 00:00:22)
+
+
+==========================================================
+EM Iteration 88... 
+DCC order: p=1, q=1 (is_dcc11: TRUE)
+
+=== DCC(1,1) REPARAMETERIZED OPTIMIZATION ===
+Starting: alpha=0.0300, beta=0.9400
+Reparameterized: persistence=0.9700, ratio=0.0309
+
+Optimized: persistence=1.0000, ratio=0.0019
+Final: alpha=0.0019, beta=0.9981 (sum=1.0000)
+Convergence: 0, NLL: 145.2422
+
+=== Model Selection (State 1, Iter 88) ===
+Criterion: BIC (n_eff=132.6)
+Dynamic:  LL=-145.2422, k=2, BIC=300.2585
+Constant: LL=-145.3728, k=0, BIC=290.7456
+Decision: CONSTANT
+
+
+DCC order: p=1, q=1 (is_dcc11: TRUE)
+
+=== DCC(1,1) REPARAMETERIZED OPTIMIZATION ===
+Starting: alpha=0.1000, beta=0.8500
+Reparameterized: persistence=0.9500, ratio=0.1053
+
+Optimized: persistence=0.9683, ratio=0.0309
+Final: alpha=0.0299, beta=0.9384 (sum=0.9683)
+Convergence: 0, NLL: 672.1362
+
+=== EM ITERATION 88 ===
+
+=== EM ITERATION 88 ===
+  LL before M-step: -817.102
+  LL after M-step:  -814.428
+  Change: 2.67323
+Log-Likelihood: -814.428 (Duration: 00:00:20)
+
+
+==========================================================
+EM Iteration 89... 
+DCC order: p=1, q=1 (is_dcc11: TRUE)
+
+=== DCC(1,1) REPARAMETERIZED OPTIMIZATION ===
+Starting: alpha=0.0300, beta=0.9400
+Reparameterized: persistence=0.9700, ratio=0.0309
+
+Optimized: persistence=0.9986, ratio=0.0014
+Final: alpha=0.0014, beta=0.9972 (sum=0.9986)
+Convergence: 0, NLL: 143.8252
+
+=== Model Selection (State 1, Iter 89) ===
+Criterion: BIC (n_eff=131.6)
+Dynamic:  LL=-143.8252, k=2, BIC=297.4094
+Constant: LL=-143.9091, k=0, BIC=287.8182
+Decision: CONSTANT
+
+
+DCC order: p=1, q=1 (is_dcc11: TRUE)
+
+=== DCC(1,1) REPARAMETERIZED OPTIMIZATION ===
+Starting: alpha=0.1000, beta=0.8500
+Reparameterized: persistence=0.9500, ratio=0.1053
+
+Optimized: persistence=0.0000, ratio=0.0000
+Final: alpha=0.0000, beta=0.0000 (sum=0.0000)
+Convergence: 0, NLL: 675.7706
+
+=== Model Selection (State 2, Iter 89) ===
+Criterion: BIC (n_eff=282.3)
+Dynamic:  LL=-675.7706, k=2, BIC=1362.8273
+Constant: LL=-675.7703, k=0, BIC=1351.5407
+Decision: CONSTANT
+
+
+=== EM ITERATION 89 ===
+
+=== EM ITERATION 89 ===
+  LL before M-step: -814.428
+  LL after M-step:  -816.582
+  Change: -2.15394
+  *** WARNING: M-step DECREASED LL! ***
+Log-Likelihood: -816.582 (Duration: 00:00:20)
+
+
+==========================================================
+EM Iteration 90... 
+DCC order: p=1, q=1 (is_dcc11: TRUE)
+
+=== DCC(1,1) REPARAMETERIZED OPTIMIZATION ===
+Starting: alpha=0.0300, beta=0.9400
+Reparameterized: persistence=0.9700, ratio=0.0309
+
+Optimized: persistence=1.0000, ratio=0.0018
+Final: alpha=0.0018, beta=0.9982 (sum=1.0000)
+Convergence: 0, NLL: 144.2338
+
+=== Model Selection (State 1, Iter 90) ===
+Criterion: BIC (n_eff=130.4)
+Dynamic:  LL=-144.2338, k=2, BIC=298.2084
+Constant: LL=-144.3743, k=0, BIC=288.7486
+Decision: CONSTANT
+
+
+DCC order: p=1, q=1 (is_dcc11: TRUE)
+
+=== DCC(1,1) REPARAMETERIZED OPTIMIZATION ===
+Starting: alpha=0.1000, beta=0.8500
+Reparameterized: persistence=0.9500, ratio=0.1053
+
+Optimized: persistence=0.9674, ratio=0.0310
+Final: alpha=0.0300, beta=0.9374 (sum=0.9674)
+Convergence: 0, NLL: 672.7667
+
+=== EM ITERATION 90 ===
+
+=== EM ITERATION 90 ===
+  LL before M-step: -816.582
+  LL after M-step:  -814.077
+  Change: 2.50513
+Log-Likelihood: -814.077 (Duration: 00:00:24)
+
+
+==========================================================
+EM Iteration 91... 
+DCC order: p=1, q=1 (is_dcc11: TRUE)
+
+=== DCC(1,1) REPARAMETERIZED OPTIMIZATION ===
+Starting: alpha=0.0300, beta=0.9400
+Reparameterized: persistence=0.9700, ratio=0.0309
+
+Optimized: persistence=1.0000, ratio=0.0011
+Final: alpha=0.0011, beta=0.9989 (sum=1.0000)
+Convergence: 0, NLL: 142.7204
+
+=== Model Selection (State 1, Iter 91) ===
+Criterion: BIC (n_eff=129.3)
+Dynamic:  LL=-142.7204, k=2, BIC=295.1644
+Constant: LL=-142.8167, k=0, BIC=285.6334
+Decision: CONSTANT
+
+
+DCC order: p=1, q=1 (is_dcc11: TRUE)
+
+=== DCC(1,1) REPARAMETERIZED OPTIMIZATION ===
+Starting: alpha=0.1000, beta=0.8500
+Reparameterized: persistence=0.9500, ratio=0.1053
+
+Optimized: persistence=0.0000, ratio=0.0000
+Final: alpha=0.0000, beta=0.0000 (sum=0.0000)
+Convergence: 0, NLL: 676.7350
+
+=== Model Selection (State 2, Iter 91) ===
+Criterion: BIC (n_eff=282.2)
+Dynamic:  LL=-676.7350, k=2, BIC=1364.7555
+Constant: LL=-676.7348, k=0, BIC=1353.4696
+Decision: CONSTANT
+
+
+=== EM ITERATION 91 ===
+
+=== EM ITERATION 91 ===
+  LL before M-step: -814.077
+  LL after M-step:  -816.244
+  Change: -2.16637
+  *** WARNING: M-step DECREASED LL! ***
+Log-Likelihood: -816.244 (Duration: 00:00:17)
+
+
+==========================================================
+EM Iteration 92... 
+DCC order: p=1, q=1 (is_dcc11: TRUE)
+
+=== DCC(1,1) REPARAMETERIZED OPTIMIZATION ===
+Starting: alpha=0.0300, beta=0.9400
+Reparameterized: persistence=0.9700, ratio=0.0309
+
+Optimized: persistence=1.0000, ratio=0.0017
+Final: alpha=0.0017, beta=0.9983 (sum=1.0000)
+Convergence: 0, NLL: 143.2533
+
+=== Model Selection (State 1, Iter 92) ===
+Criterion: BIC (n_eff=128.5)
+Dynamic:  LL=-143.2533, k=2, BIC=296.2183
+Constant: LL=-143.3997, k=0, BIC=286.7995
+Decision: CONSTANT
+
+
+DCC order: p=1, q=1 (is_dcc11: TRUE)
+
+=== DCC(1,1) REPARAMETERIZED OPTIMIZATION ===
+Starting: alpha=0.1000, beta=0.8500
+Reparameterized: persistence=0.9500, ratio=0.1053
+
+Optimized: persistence=0.0000, ratio=0.0000
+Final: alpha=0.0000, beta=0.0000 (sum=0.0000)
+Convergence: 0, NLL: 675.8096
+
+=== Model Selection (State 2, Iter 92) ===
+Criterion: BIC (n_eff=282.0)
+Dynamic:  LL=-675.8096, k=2, BIC=1362.9030
+Constant: LL=-675.8094, k=0, BIC=1351.6187
+Decision: CONSTANT
+
+
+=== EM ITERATION 92 ===
+
+=== EM ITERATION 92 ===
+  LL before M-step: -816.244
+  LL after M-step:  -816.154
+  Change: 0.0901159
+Log-Likelihood: -816.154 (Duration: 00:00:22)
+
+
+==========================================================
+EM Iteration 93... 
+DCC order: p=1, q=1 (is_dcc11: TRUE)
+
+=== DCC(1,1) REPARAMETERIZED OPTIMIZATION ===
+Starting: alpha=0.0300, beta=0.9400
+Reparameterized: persistence=0.9700, ratio=0.0309
+
+Optimized: persistence=1.0000, ratio=0.0018
+Final: alpha=0.0018, beta=0.9982 (sum=1.0000)
+Convergence: 0, NLL: 143.3322
+
+=== Model Selection (State 1, Iter 93) ===
+Criterion: BIC (n_eff=127.7)
+Dynamic:  LL=-143.3322, k=2, BIC=296.3635
+Constant: LL=-143.4902, k=0, BIC=286.9803
+Decision: CONSTANT
+
+
+DCC order: p=1, q=1 (is_dcc11: TRUE)
+
+=== DCC(1,1) REPARAMETERIZED OPTIMIZATION ===
+Starting: alpha=0.1000, beta=0.8500
+Reparameterized: persistence=0.9500, ratio=0.1053
+
+Optimized: persistence=0.9658, ratio=0.0310
+Final: alpha=0.0300, beta=0.9358 (sum=0.9658)
+Convergence: 0, NLL: 673.4044
+
+=== EM ITERATION 93 ===
+
+=== EM ITERATION 93 ===
+  LL before M-step: -816.154
+  LL after M-step:  -813.723
+  Change: 2.43061
+Log-Likelihood: -813.723 (Duration: 00:00:22)
+
+
+==========================================================
+EM Iteration 94... 
+DCC order: p=1, q=1 (is_dcc11: TRUE)
+
+=== DCC(1,1) REPARAMETERIZED OPTIMIZATION ===
+Starting: alpha=0.0300, beta=0.9400
+Reparameterized: persistence=0.9700, ratio=0.0309
+
+Optimized: persistence=1.0000, ratio=0.0015
+Final: alpha=0.0015, beta=0.9985 (sum=1.0000)
+Convergence: 0, NLL: 141.6970
+
+=== Model Selection (State 1, Iter 94) ===
+Criterion: BIC (n_eff=126.7)
+Dynamic:  LL=-141.6970, k=2, BIC=293.0773
+Constant: LL=-141.8318, k=0, BIC=283.6636
+Decision: CONSTANT
+
+
+DCC order: p=1, q=1 (is_dcc11: TRUE)
+
+=== DCC(1,1) REPARAMETERIZED OPTIMIZATION ===
+Starting: alpha=0.1000, beta=0.8500
+Reparameterized: persistence=0.9500, ratio=0.1053
+
+Optimized: persistence=0.9685, ratio=0.0336
+Final: alpha=0.0326, beta=0.9359 (sum=0.9685)
+Convergence: 0, NLL: 674.9135
+
+=== EM ITERATION 94 ===
+
+=== EM ITERATION 94 ===
+  LL before M-step: -813.723
+  LL after M-step:  -813.637
+  Change: 0.0859407
+Log-Likelihood: -813.637 (Duration: 00:00:20)
+
+
+==========================================================
+EM Iteration 95... 
+DCC order: p=1, q=1 (is_dcc11: TRUE)
+
+=== DCC(1,1) REPARAMETERIZED OPTIMIZATION ===
+Starting: alpha=0.0300, beta=0.9400
+Reparameterized: persistence=0.9700, ratio=0.0309
+
+Optimized: persistence=1.0000, ratio=0.0015
+Final: alpha=0.0015, beta=0.9985 (sum=1.0000)
+Convergence: 52, NLL: 140.2795
+
+=== Model Selection (State 1, Iter 95) ===
+Criterion: BIC (n_eff=125.4)
+Dynamic:  LL=-140.2795, k=2, BIC=290.2217
+Constant: LL=-140.4185, k=0, BIC=280.8370
+Decision: CONSTANT
+
+
+DCC order: p=1, q=1 (is_dcc11: TRUE)
+
+=== DCC(1,1) REPARAMETERIZED OPTIMIZATION ===
+Starting: alpha=0.1000, beta=0.8500
+Reparameterized: persistence=0.9500, ratio=0.1053
+
+Optimized: persistence=0.9687, ratio=0.0339
+Final: alpha=0.0328, beta=0.9358 (sum=0.9687)
+Convergence: 0, NLL: 676.3296
+
+=== EM ITERATION 95 ===
+
+=== EM ITERATION 95 ===
+  LL before M-step: -813.637
+  LL after M-step:  -813.605
+  Change: 0.0318025
+Log-Likelihood: -813.605 (Duration: 00:00:18)
+
+
+==========================================================
+EM Iteration 96... 
+DCC order: p=1, q=1 (is_dcc11: TRUE)
+
+=== DCC(1,1) REPARAMETERIZED OPTIMIZATION ===
+Starting: alpha=0.0300, beta=0.9400
+Reparameterized: persistence=0.9700, ratio=0.0309
+
+Optimized: persistence=1.0000, ratio=0.0015
+Final: alpha=0.0015, beta=0.9985 (sum=1.0000)
+Convergence: 0, NLL: 138.9839
+
+=== Model Selection (State 1, Iter 96) ===
+Criterion: BIC (n_eff=124.1)
+Dynamic:  LL=-138.9839, k=2, BIC=287.6097
+Constant: LL=-139.1287, k=0, BIC=278.2574
+Decision: CONSTANT
+
+
+DCC order: p=1, q=1 (is_dcc11: TRUE)
+
+=== DCC(1,1) REPARAMETERIZED OPTIMIZATION ===
+Starting: alpha=0.1000, beta=0.8500
+Reparameterized: persistence=0.9500, ratio=0.1053
+
+Optimized: persistence=0.9685, ratio=0.0339
+Final: alpha=0.0329, beta=0.9356 (sum=0.9685)
+Convergence: 0, NLL: 677.6152
+
+=== EM ITERATION 96 ===
+
+=== EM ITERATION 96 ===
+  LL before M-step: -813.605
+  LL after M-step:  -813.581
+  Change: 0.0238962
+Log-Likelihood: -813.581 (Duration: 00:00:18)
+
+
+==========================================================
+EM Iteration 97... 
+DCC order: p=1, q=1 (is_dcc11: TRUE)
+
+=== DCC(1,1) REPARAMETERIZED OPTIMIZATION ===
+Starting: alpha=0.0300, beta=0.9400
+Reparameterized: persistence=0.9700, ratio=0.0309
+
+Optimized: persistence=1.0000, ratio=0.0016
+Final: alpha=0.0016, beta=0.9984 (sum=1.0000)
+Convergence: 0, NLL: 137.8231
+
+=== Model Selection (State 1, Iter 97) ===
+Criterion: BIC (n_eff=122.9)
+Dynamic:  LL=-137.8231, k=2, BIC=285.2684
+Constant: LL=-137.9740, k=0, BIC=275.9479
+Decision: CONSTANT
+
+
+DCC order: p=1, q=1 (is_dcc11: TRUE)
+
+=== DCC(1,1) REPARAMETERIZED OPTIMIZATION ===
+Starting: alpha=0.1000, beta=0.8500
+Reparameterized: persistence=0.9500, ratio=0.1053
+
+Optimized: persistence=0.9682, ratio=0.0339
+Final: alpha=0.0329, beta=0.9354 (sum=0.9682)
+Convergence: 0, NLL: 678.7714
+
+=== EM ITERATION 97 ===
+
+=== EM ITERATION 97 ===
+  LL before M-step: -813.581
+  LL after M-step:  -813.561
+  Change: 0.0201407
+Log-Likelihood: -813.561 (Duration: 00:00:23)
+
+
+==========================================================
+EM Iteration 98... 
+DCC order: p=1, q=1 (is_dcc11: TRUE)
+
+=== DCC(1,1) REPARAMETERIZED OPTIMIZATION ===
+Starting: alpha=0.0300, beta=0.9400
+Reparameterized: persistence=0.9700, ratio=0.0309
+
+Optimized: persistence=1.0000, ratio=0.0016
+Final: alpha=0.0016, beta=0.9984 (sum=1.0000)
+Convergence: 52, NLL: 136.7625
+
+=== Model Selection (State 1, Iter 98) ===
+Criterion: BIC (n_eff=121.7)
+Dynamic:  LL=-136.7625, k=2, BIC=283.1281
+Constant: LL=-136.9185, k=0, BIC=273.8370
+Decision: CONSTANT
+
+
+DCC order: p=1, q=1 (is_dcc11: TRUE)
+
+=== DCC(1,1) REPARAMETERIZED OPTIMIZATION ===
+Starting: alpha=0.1000, beta=0.8500
+Reparameterized: persistence=0.9500, ratio=0.1053
+
+Optimized: persistence=0.9680, ratio=0.0339
+Final: alpha=0.0328, beta=0.9352 (sum=0.9680)
+Convergence: 0, NLL: 679.8349
+
+=== EM ITERATION 98 ===
+
+=== EM ITERATION 98 ===
+  LL before M-step: -813.561
+  LL after M-step:  -813.54
+  Change: 0.0210098
+Log-Likelihood: -813.54 (Duration: 00:00:25)
+
+
+==========================================================
+EM Iteration 99... 
+DCC order: p=1, q=1 (is_dcc11: TRUE)
+
+=== DCC(1,1) REPARAMETERIZED OPTIMIZATION ===
+Starting: alpha=0.0300, beta=0.9400
+Reparameterized: persistence=0.9700, ratio=0.0309
+
+Optimized: persistence=1.0000, ratio=0.0018
+Final: alpha=0.0018, beta=0.9982 (sum=1.0000)
+Convergence: 0, NLL: 135.8132
+
+=== Model Selection (State 1, Iter 99) ===
+Criterion: BIC (n_eff=120.6)
+Dynamic:  LL=-135.8132, k=2, BIC=281.2117
+Constant: LL=-135.9729, k=0, BIC=271.9458
+Decision: CONSTANT
+
+
+DCC order: p=1, q=1 (is_dcc11: TRUE)
+
+=== DCC(1,1) REPARAMETERIZED OPTIMIZATION ===
+Starting: alpha=0.1000, beta=0.8500
+Reparameterized: persistence=0.9500, ratio=0.1053
+
+Optimized: persistence=0.9677, ratio=0.0339
+Final: alpha=0.0328, beta=0.9349 (sum=0.9677)
+Convergence: 0, NLL: 680.7583
+
+=== EM ITERATION 99 ===
+
+=== EM ITERATION 99 ===
+  LL before M-step: -813.54
+  LL after M-step:  -813.517
+  Change: 0.0233535
+Log-Likelihood: -813.517 (Duration: 00:00:20)
+
+
+==========================================================
+EM Iteration 100... 
+DCC order: p=1, q=1 (is_dcc11: TRUE)
+
+=== DCC(1,1) REPARAMETERIZED OPTIMIZATION ===
+Starting: alpha=0.0300, beta=0.9400
+Reparameterized: persistence=0.9700, ratio=0.0309
+
+Optimized: persistence=1.0000, ratio=0.0018
+Final: alpha=0.0018, beta=0.9982 (sum=1.0000)
+Convergence: 0, NLL: 135.0048
+
+=== Model Selection (State 1, Iter 100) ===
+Criterion: BIC (n_eff=119.6)
+Dynamic:  LL=-135.0048, k=2, BIC=279.5784
+Constant: LL=-135.1697, k=0, BIC=270.3395
+Decision: CONSTANT
+
+
+DCC order: p=1, q=1 (is_dcc11: TRUE)
+
+=== DCC(1,1) REPARAMETERIZED OPTIMIZATION ===
+Starting: alpha=0.1000, beta=0.8500
+Reparameterized: persistence=0.9500, ratio=0.1053
+
+Optimized: persistence=0.9675, ratio=0.0339
+Final: alpha=0.0328, beta=0.9347 (sum=0.9675)
+Convergence: 0, NLL: 681.5603
+
+=== EM ITERATION 100 ===
+
+=== EM ITERATION 100 ===
+  LL before M-step: -813.517
+  LL after M-step:  -813.492
+  Change: 0.024899
+Log-Likelihood: -813.492 (Duration: 00:00:22)

@@ -736,10 +736,11 @@ diagnostic_summary_stats <- function(diagnostics) {
 
 ## === SIMULATION FUNCTIONS FOR TESTING ===
 
-' Simulate DCC-GARCH Data with Higher-Order Support
+#' Simulate DCC-GARCH Data with Higher-Order Support
 #'
-#' Simulate realistic multivariate time series data from a DCC(p,q)-GARCH process.
-#' Extends the original simulate_dcc_garch() to support arbitrary DCC orders.
+#' Simulate realistic multivariate time series data from a DCC(q,p)-GARCH process.
+#' Supports arbitrary DCC orders through vector-valued dcc_alpha and dcc_beta.
+#' This function is primarily intended for testing and examples.
 #'
 #' @param n Integer number of observations to simulate
 #' @param k Integer number of series (default: 2)
@@ -747,11 +748,9 @@ diagnostic_summary_stats <- function(diagnostics) {
 #' @param alpha_garch Numeric vector of length k: ARCH effects (default: c(0.10, 0.12))
 #' @param beta_garch Numeric vector of length k: GARCH effects (default: c(0.85, 0.82))
 #' @param dcc_alpha Numeric scalar or vector: DCC alpha parameters. 
-#'   For DCC(p,1): scalar. For DCC(p,q) with q>1: vector of length q.
-#'   (default: 0.04)
+#'   Length determines q (number of alpha lags). (default: 0.04)
 #' @param dcc_beta Numeric scalar or vector: DCC beta parameters.
-#'   For DCC(1,q): scalar. For DCC(p,q) with p>1: vector of length p.
-#'   (default: 0.93)
+#'   Length determines p (number of beta lags). (default: 0.93)
 #' @param Qbar Matrix (k x k): Unconditional correlation matrix. If NULL, uses
 #'   moderate correlation (0.5 off-diagonal)
 #' @param seed Integer random seed for reproducibility
@@ -759,23 +758,25 @@ diagnostic_summary_stats <- function(diagnostics) {
 #' @return A matrix of dimension (n x k) with simulated returns
 #'
 #' @details
-#' The function simulates data from the DCC(p,q)-GARCH model:
+#' The function simulates data from the DCC(q,p)-GARCH model:
 #' \deqn{y_{i,t} = \sqrt{h_{i,t}} z_{i,t}}
 #' \deqn{h_{i,t} = \omega_i + \alpha_i y_{i,t-1}^2 + \beta_i h_{i,t-1}}
-#' \deqn{Q_t = \bar{Q}(1 - \sum\alpha - \sum\beta) + \sum_{j=1}^{q} \alpha_j z_{t-j}z_{t-j}' + \sum_{j=1}^{p} \beta_j Q_{t-j}}
+#' \deqn{Q_t = \bar{Q}(1-\sum\alpha-\sum\beta) + \sum_{j=1}^{q} \alpha_j z_{t-j}z_{t-j}' + \sum_{j=1}^{p} \beta_j Q_{t-j}}
 #' \deqn{R_t = \text{diag}(Q_t)^{-1/2} Q_t \text{diag}(Q_t)^{-1/2}}
 #'
 #' where \eqn{z_t \sim N(0, R_t)}.
 #'
 #' For backward compatibility, scalar dcc_alpha and dcc_beta produce DCC(1,1).
+#' To simulate DCC(q,p), provide dcc_alpha as vector of length q and dcc_beta 
+#' as vector of length p.
 #'
 #' @examples
-#' \dontrun{
+#' \dontrun
 #' # Simulate 500 observations with default DCC(1,1) parameters
 #' y <- simulate_dcc_garch(n = 500, seed = 42)
 #' 
-#' # DCC(2,1): two beta lags, one alpha lag
-#' y_dcc21 <- simulate_dcc_garch(
+#' # DCC(1,2): one alpha lag, two beta lags
+#' y_dcc12 <- simulate_dcc_garch(
 #'   n = 300,
 #'   dcc_alpha = 0.05,
 #'   dcc_beta = c(0.50, 0.40),
@@ -805,7 +806,7 @@ simulate_dcc_garch <- function(n,
                                Qbar = NULL,
                                seed = NULL) {
   
-  # Input validation
+  ## Input validation
   if (n <= 0 || n != round(n)) {
     stop("n must be a positive integer")
   }
@@ -825,7 +826,7 @@ simulate_dcc_garch <- function(n,
     stop("GARCH process must be stationary: alpha + beta < 1")
   }
   
-  ## Convert scalars to vectors for uniform handling
+  ## Convert scalars to vectors for uniform handling (supports higher-order DCC)
   dcc_alpha <- as.numeric(dcc_alpha)
   dcc_beta <- as.numeric(dcc_beta)
   

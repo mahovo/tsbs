@@ -108,6 +108,7 @@ fit_ms_varma_garch <- function(
 
   
   ## --- 2. Set Control Parameters ---
+  ## 2a.
   ## Default control parameters
   control_defaults <- list(
     max_iter = 50,
@@ -126,6 +127,12 @@ fit_ms_varma_garch <- function(
   
   if (control$dcc_boundary_threshold <= 0 || control$dcc_boundary_threshold >= 1) {
     stop("control$dcc_boundary_threshold must be between 0 and 1")
+  }
+  
+  ## --- 2b. Validate DCC orders against tsmarch version ---
+  ## tsmarch v1.0.0 has a bug with DCC(p,q) where p != q
+  if (model_type == "multivariate") {
+    spec <- validate_spec_dcc_orders(spec, action = "error")
   }
   
   ## --- 3. Pre-processing: Handle Differencing ---
