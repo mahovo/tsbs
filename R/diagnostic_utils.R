@@ -1380,3 +1380,51 @@ generate_single_state_dcc_spec <- function(k = 2,
   
   return(spec_list)
 }
+
+
+#' Check for All-States-Constant Event
+#'
+#' Determines if and when all states switched to constant correlation.
+#'
+#' @param diagnostics An object of class \code{ms_diagnostics}
+#'
+#' @return List with:
+#'   \item{occurred}{Logical indicating if all states became constant}
+#'   \item{iteration}{Iteration number when it occurred (NA if not)}
+#'   \item{message}{Description of the event}
+#'
+#' @export
+check_all_states_constant <- function(diagnostics) {
+  if (!inherits(diagnostics, "ms_diagnostics")) {
+    stop("diagnostics must be an object of class 'ms_diagnostics'")
+  }
+  
+  ## Look for the "all_states_constant" warning in diagnostics
+  warnings <- diagnostics$warnings
+  
+  if (length(warnings) == 0) {
+    return(list(
+      occurred = FALSE,
+      iteration = NA_integer_,
+      message = "All states did not become constant during estimation"
+    ))
+  }
+  
+  ## Find the all_states_constant warning
+  for (w in warnings) {
+    if (!is.null(w$type) && w$type == "all_states_constant") {
+      iter <- w$details$iteration %||% w$iteration %||% NA_integer_
+      return(list(
+        occurred = TRUE,
+        iteration = iter,
+        message = sprintf("All states became constant at iteration %d", iter)
+      ))
+    }
+  }
+  
+  return(list(
+    occurred = FALSE,
+    iteration = NA_integer_,
+    message = "All states did not become constant during estimation"
+  ))
+}

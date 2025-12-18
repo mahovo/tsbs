@@ -84,6 +84,9 @@ Rcpp::List fit_ms_varma_garch_cpp(
     Rcpp::Function add_diagnostic_warning = pkg_env["add_diagnostic_warning"];
   }
   
+  // Track if we've logged the "all states constant" event
+  bool all_constant_logged = false;
+  
   // --- 2. EM ALGORITHM LOOP ---
   for (int iter = 0; iter < max_iter; ++iter) {
     auto start = std::chrono::high_resolution_clock::now();
@@ -189,6 +192,48 @@ Rcpp::List fit_ms_varma_garch_cpp(
       
       // Extract just fits (no diagnostics)
       model_fits = Rcpp::as<Rcpp::List>(m_step_result["fits"]);
+    }
+    
+    // --- CHECK IF ALL STATES HAVE CONSTANT CORRELATION ---
+    // This is a significant event: once all states are constant, 
+    // no DCC parameters remain to optimize
+    bool all_states_constant = true;
+    for (int j = 0; j < M; ++j) {
+      Rcpp::List state_fit = Rcpp::as<Rcpp::List>(model_fits[j]);
+      if (state_fit.containsElementNamed("correlation_type")) {
+        std::string corr_type = Rcpp::as<std::string>(state_fit["correlation_type"]);
+        if (corr_type != "constant") {
+          all_states_constant = false;
+          break;
+        }
+      } else {
+        // If correlation_type not set, assume dynamic
+        all_states_constant = false;
+        break;
+      }
+    }
+    
+    // Log the event when all states become constant (first time only)
+    if (all_states_constant && !all_constant_logged) {
+      if (verbose) {
+        Rcpp::Rcout << "\n*** ALL STATES NOW HAVE CONSTANT CORRELATION (iteration " 
+                    << (iter + 1) << ") ***" << std::endl;
+        Rcpp::Rcout << "    No DCC parameters remain to optimize." << std::endl;
+        Rcpp::Rcout << "    Continuing to converge VAR/GARCH parameters..." << std::endl;
+      }
+      
+      if (collect_diagnostics) {
+        Rcpp::Function add_diagnostic_warning = pkg_env["add_diagnostic_warning"];
+        diag_collector = Rcpp::as<Rcpp::List>(add_diagnostic_warning(
+          diag_collector,
+          iter + 1,
+          "all_states_constant",
+          "All states now have constant correlation - no DCC parameters to optimize",
+          Rcpp::List::create(Rcpp::Named("iteration") = iter + 1)
+        ));
+      }
+      
+      all_constant_logged = true;
     }
     
     // Recompute likelihoods with NEW parameters
