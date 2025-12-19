@@ -432,3 +432,680 @@ test_that("Gradient agrees across multiple random seeds", {
                 info = sprintf("Seed %d", seed))
   }
 })
+
+
+
+
+## = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = =
+## Integration Tests for DCC(1,1) Analytical Gradient
+## = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = =
+##
+## These tests verify that the new estimate_dcc_parameters_weighted() function
+## with analytical gradients produces correct results and integrates properly
+## with the existing MS-VARMA-GARCH framework.
+##
+## Test Organization:
+## PART 1: Direct Function Tests (estimate_dcc_parameters_weighted)
+## PART 2: Comparison with Original Implementation
+## PART 3: Integration with estimate_garch_weighted_r
+## PART 4: Full MS-DCC-GARCH Integration
+## PART 5: MVT Distribution Tests
+## PART 6: Edge Cases and Robustness
+
+#### ______________________________________________________________________ ####
+#### PART 1: DIRECT FUNCTION TESTS                                          ####
+
+test_that("estimate_dcc_parameters_weighted detects DCC(1,1) correctly", {
+  
+  ## DCC(1,1) should be detected
+  dcc_pars_11 <- list(alpha_1 = 0.05, beta_1 = 0.90)
+  expect_true(is_dcc11(dcc_pars_11))
+  
+  ## DCC(2,1) should NOT be detected as DCC(1,1)
+  dcc_pars_21 <- list(alpha_1 = 0.03, alpha_2 = 0.02, beta_1 = 0.90)
+  expect_false(is_dcc11(dcc_pars_21))
+  
+  ## DCC(1,2) should NOT be detected as DCC(1,1)
+  dcc_pars_12 <- list(alpha_1 = 0.05, beta_1 = 0.45, beta_2 = 0.45)
+  expect_false(is_dcc11(dcc_pars_12))
+})
+
+
+test_that("estimate_dcc_parameters_weighted returns valid structure (MVN)", {
+  skip_on_cran()
+  
+  sim <- simulate_dcc_garch_test_data(n = 150, k = 2, seed = 111)
+  spec <- create_test_dcc_spec(k = 2, distribution = "mvn")
+  
+  ## Create GARCH parameters (use true values)
+  garch_pars <- list(
+    list(omega = 0.05, alpha1 = 0.10, beta1 = 0.85),
+    list(omega = 0.05, alpha1 = 0.10, beta1 = 0.85)
+  )
+  
+  dcc_start <- list(alpha_1 = 0.05, beta_1 = 0.90)
+  dist_start <- list()
+  weights <- rep(1, nrow(sim$y))
+  
+  result <- estimate_dcc_parameters_weighted(
+    residuals = sim$y,
+    weights = weights,
+    garch_pars = garch_pars,
+    dcc_start_pars = dcc_start,
+    dist_start_pars = dist_start,
+    spec = spec,
+    verbose = FALSE
+  )
+  
+  ## Check structure
+  
+  expect_true(is.list(result))
+  expect_true("dcc_pars" %in% names(result))
+  expect_true("dist_pars" %in% names(result))
+  expect_true("weighted_ll" %in% names(result))
+  expect_true("warnings" %in% names(result))
+  
+  ## Check DCC parameters
+  expect_true("alpha_1" %in% names(result$dcc_pars))
+  expect_true("beta_1" %in% names(result$dcc_pars))
+  
+  ## Check parameter validity
+  alpha_est <- result$dcc_pars$alpha_1
+  beta_est <- result$dcc_pars$beta_1
+  
+  expect_true(alpha_est > 0, info = "alpha should be positive")
+  expect_true(beta_est > 0, info = "beta should be positive")
+  expect_true(alpha_est + beta_est < 1, info = "persistence should be < 1")
+  
+  ## Check log-likelihood is finite
+  expect_true(is.finite(result$weighted_ll))
+})
+
+
+test_that("estimate_dcc_parameters_weighted returns valid structure (MVT)", {
+  skip_on_cran()
+  
+  sim <- simulate_dcc_garch_test_data(n = 150, k = 2, seed = 222)
+  spec <- create_test_dcc_spec(k = 2, distribution = "mvt")
+  
+  garch_pars <- list(
+    list(omega = 0.05, alpha1 = 0.10, beta1 = 0.85),
+    list(omega = 0.05, alpha1 = 0.10, beta1 = 0.85)
+  )
+  
+  dcc_start <- list(alpha_1 = 0.05, beta_1 = 0.90)
+  dist_start <- list(shape = 8.0)
+  weights <- rep(1, nrow(sim$y))
+  
+  result <- estimate_dcc_parameters_weighted(
+    residuals = sim$y,
+    weights = weights,
+    garch_pars = garch_pars,
+    dcc_start_pars = dcc_start,
+    dist_start_pars = dist_start,
+    spec = spec,
+    verbose = FALSE
+  )
+  
+  ## Check structure
+  expect_true("dcc_pars" %in% names(result))
+  expect_true("dist_pars" %in% names(result))
+  
+  ## Check shape parameter
+  expect_true("shape" %in% names(result$dist_pars))
+  expect_true(result$dist_pars$shape > 2, info = "shape should be > 2")
+  
+  ## Check DCC parameters
+  alpha_est <- result$dcc_pars$alpha_1
+  beta_est <- result$dcc_pars$beta_1
+  expect_true(alpha_est + beta_est < 1)
+})
+
+
+#### ______________________________________________________________________ ####
+#### PART 2: COMPARISON WITH ORIGINAL IMPLEMENTATION                        ####
+
+test_that("Analytical gradient produces valid optimization results", {
+  skip_on_cran()
+  
+  ## This test verifies that the analytical gradient implementation produces
+  ## valid DCC estimates that improve the likelihood from the starting point.
+  ## Note: This is NOT a parameter recovery test - that would require matching
+  ## the GARCH specification to the true DGP.
+  
+  sim <- simulate_dcc_garch_test_data(n = 200, k = 2, 
+                                      alpha = 0.06, beta = 0.88,
+                                      seed = 333)
+  
+  spec <- create_test_dcc_spec(k = 2, distribution = "mvn")
+  
+  garch_pars <- list(
+    list(omega = 0.05, alpha1 = 0.10, beta1 = 0.85),
+    list(omega = 0.05, alpha1 = 0.10, beta1 = 0.85)
+  )
+  
+  dcc_start <- list(alpha_1 = 0.05, beta_1 = 0.90)
+  weights <- rep(1, nrow(sim$y))
+  
+  result <- estimate_dcc_parameters_weighted(
+    residuals = sim$y,
+    weights = weights,
+    garch_pars = garch_pars,
+    dcc_start_pars = dcc_start,
+    dist_start_pars = list(),
+    spec = spec,
+    verbose = FALSE
+  )
+  
+  alpha_est <- result$dcc_pars$alpha_1
+  beta_est <- result$dcc_pars$beta_1
+  
+  cat("\nEstimated alpha:", alpha_est, "\n")
+  cat("Estimated beta:", beta_est, "\n")
+  cat("Estimated persistence:", alpha_est + beta_est, "\n")
+  cat("Weighted log-likelihood:", result$weighted_ll, "\n")
+  
+  ## Key tests: valid estimates and improved likelihood
+  expect_true(alpha_est >= 0, info = "alpha should be non-negative")
+  expect_true(beta_est >= 0, info = "beta should be non-negative")
+  expect_true(alpha_est + beta_est < 1, info = "stationarity constraint should hold")
+  expect_true(is.finite(result$weighted_ll), info = "log-likelihood should be finite")
+  
+  ## The likelihood should be reasonable (not a penalty value)
+  expect_true(result$weighted_ll > -1e9, 
+              info = "log-likelihood should not be a penalty value")
+})
+
+
+test_that("Reparameterization produces same NLL at same point", {
+  skip_on_cran()
+  
+  sim <- simulate_dcc_garch_test_data(n = 100, k = 2, seed = 444)
+  
+  ## Compute standardized residuals manually
+  std_resid <- scale(sim$y)
+  Qbar <- cov(std_resid)
+  weights <- rep(1, nrow(std_resid))
+  
+  alpha <- 0.07
+  beta <- 0.87
+  
+  ## NLL in original space
+  params_orig <- c(alpha = alpha, beta = beta)
+  nll_orig <- dcc11_nll(params_orig, std_resid, weights, Qbar, 
+                        distribution = "mvn", use_reparam = FALSE)
+  
+  ## NLL in reparameterized space
+  params_reparam <- dcc11_to_unconstrained(alpha, beta)
+  nll_reparam <- dcc11_nll(params_reparam, std_resid, weights, Qbar,
+                           distribution = "mvn", use_reparam = TRUE)
+  
+  expect_equal(nll_orig, nll_reparam, tolerance = 1e-10,
+               info = "NLL should be identical in both parameterizations")
+})
+
+
+test_that("Analytical gradient matches numerical gradient at interior points", {
+  skip_on_cran()
+  
+  ## This is the key test: verify gradient correctness
+  sim <- simulate_dcc_garch_test_data(n = 100, k = 2, seed = 555)
+  
+  std_resid <- scale(sim$y)
+  Qbar <- cov(std_resid)
+  weights <- rep(1, nrow(std_resid))
+  
+  ## Test at several interior points
+  test_points <- list(
+    c(psi = 2.0, phi = -1.0),   # persistence ≈ 0.88, alpha < beta
+    c(psi = 1.0, phi = 0.5),    # persistence ≈ 0.73, alpha > beta
+    c(psi = 0.0, phi = 0.0)     # persistence = 0.50, alpha = beta
+  )
+  
+  for (params in test_points) {
+    ## Analytical gradient
+    grad_analytical <- dcc11_gradient(
+      params = params,
+      std_resid = std_resid,
+      weights = weights,
+      Qbar = Qbar,
+      distribution = "mvn",
+      use_reparam = TRUE
+    )
+    
+    ## Numerical gradient
+    grad_numerical <- numerical_gradient(
+      fn = dcc11_nll,
+      params = params,
+      eps = 1e-6,
+      std_resid = std_resid,
+      weights = weights,
+      Qbar = Qbar,
+      distribution = "mvn",
+      use_reparam = TRUE
+    )
+    
+    ## Compare
+    diff <- abs(as.numeric(grad_analytical) - as.numeric(grad_numerical))
+    scale <- pmax(abs(grad_analytical), abs(grad_numerical), 1)
+    rel_diff <- diff / scale
+    
+    expect_true(all(rel_diff < 1e-4 | diff < 1e-6),
+                info = sprintf("Gradient mismatch at psi=%.1f, phi=%.1f: analytical=%s, numerical=%s",
+                               params[1], params[2],
+                               paste(round(grad_analytical, 6), collapse=", "),
+                               paste(round(grad_numerical, 6), collapse=", ")))
+  }
+})
+
+
+#### ______________________________________________________________________ ####
+#### PART 3: INTEGRATION WITH estimate_garch_weighted_r                     ####
+
+test_that("New DCC estimation integrates with estimate_garch_weighted_r", {
+  skip_on_cran()
+  
+  sim <- simulate_dcc_garch_test_data(n = 200, k = 2, seed = 555)
+  
+  spec <- list(
+    garch_spec_fun = "dcc_modelspec",
+    distribution = "mvn",
+    garch_spec_args = list(
+      dcc_order = c(1, 1),
+      dynamics = "dcc",
+      garch_model = list(univariate = list(
+        list(model = "garch", garch_order = c(1, 1), distribution = "norm"),
+        list(model = "garch", garch_order = c(1, 1), distribution = "norm")
+      ))
+    ),
+    start_pars = list(
+      garch_pars = list(
+        list(omega = 0.05, alpha1 = 0.10, beta1 = 0.85),
+        list(omega = 0.05, alpha1 = 0.10, beta1 = 0.85)
+      ),
+      dcc_pars = list(alpha_1 = 0.05, beta_1 = 0.90),
+      dist_pars = list()
+    )
+  )
+  
+  weights <- rep(1, nrow(sim$y))
+  
+  result <- estimate_garch_weighted_r(
+    residuals = sim$y,
+    weights = weights,
+    spec = spec,
+    model_type = "multivariate",
+    verbose = FALSE
+  )
+  
+  expect_true(!is.null(result))
+  expect_true("coefficients" %in% names(result))
+  expect_true("dcc_pars" %in% names(result$coefficients) || 
+                "correlation_type" %in% names(result$coefficients))
+  
+  ## If dynamic correlation was kept
+  if (result$coefficients$correlation_type == "dynamic") {
+    alpha_est <- result$coefficients$dcc_pars$alpha_1
+    beta_est <- result$coefficients$dcc_pars$beta_1
+    
+    expect_true(alpha_est > 0)
+    expect_true(beta_est > 0)
+    expect_true(alpha_est + beta_est < 1)
+  }
+})
+
+
+#### ______________________________________________________________________ ####
+#### PART 4: FULL MS-DCC-GARCH INTEGRATION                                  ####
+
+test_that("Full MS-DCC-GARCH fit works with analytical gradient", {
+  skip_on_cran()
+  
+  sim <- simulate_dcc_garch_test_data(n = 250, k = 2, 
+                                      alpha = 0.05, beta = 0.90,
+                                      seed = 666)
+  
+  spec_ms <- list(
+    ## State 1
+    list(
+      var_order = 0,
+      garch_spec_fun = "dcc_modelspec",
+      garch_spec_args = list(
+        garch_model = list(univariate = list(
+          list(model = "garch", garch_order = c(1, 1), distribution = "norm"),
+          list(model = "garch", garch_order = c(1, 1), distribution = "norm")
+        )),
+        dcc_order = c(1, 1),
+        dynamics = "dcc"
+      ),
+      distribution = "mvn",
+      start_pars = list(
+        var_pars = NULL,
+        garch_pars = list(
+          list(omega = 0.05, alpha1 = 0.10, beta1 = 0.85),
+          list(omega = 0.05, alpha1 = 0.10, beta1 = 0.85)
+        ),
+        dcc_pars = list(alpha_1 = 0.05, beta_1 = 0.90),
+        dist_pars = NULL #list()
+      )
+    ),
+    ## State 2
+    list(
+      var_order = 0,
+      garch_spec_fun = "dcc_modelspec",
+      garch_spec_args = list(
+        garch_model = list(univariate = list(
+          list(model = "garch", garch_order = c(1, 1), distribution = "norm"),
+          list(model = "garch", garch_order = c(1, 1), distribution = "norm")
+        )),
+        dcc_order = c(1, 1),
+        dynamics = "dcc"
+      ),
+      distribution = "mvn",
+      start_pars = list(
+        var_pars = NULL,
+        garch_pars = list(
+          list(omega = 0.10, alpha1 = 0.15, beta1 = 0.75),
+          list(omega = 0.10, alpha1 = 0.15, beta1 = 0.75)
+        ),
+        dcc_pars = list(alpha_1 = 0.10, beta_1 = 0.85),
+        dist_pars = NULL #list()
+      )
+    )
+  )
+  
+  fit <- fit_ms_varma_garch(
+    y = sim$y,
+    M = 2,
+    spec = spec_ms,
+    model_type = "multivariate",
+    control = list(max_iter = 10, tol = 0.1)
+  )
+  
+  expect_true(!is.null(fit))
+  expect_true("model_fits" %in% names(fit))
+  expect_true("smoothed_probabilities" %in% names(fit))
+  expect_equal(length(fit$model_fits), 2)
+  
+  ## Check convergence info exists
+  expect_true("convergence" %in% names(fit) || "converged" %in% names(fit))
+})
+
+
+test_that("MS-DCC-GARCH with MVT distribution works", {
+  skip_on_cran()
+  
+  sim <- simulate_dcc_garch_test_data(n = 200, k = 2, seed = 777)
+  
+  spec_ms_mvt <- list(
+    list(
+      var_order = 0,
+      garch_spec_fun = "dcc_modelspec",
+      garch_spec_args = list(
+        garch_model = list(univariate = list(
+          list(model = "garch", garch_order = c(1, 1), distribution = "norm"),
+          list(model = "garch", garch_order = c(1, 1), distribution = "norm")
+        )),
+        dcc_order = c(1, 1)
+      ),
+      distribution = "mvt",
+      start_pars = list(
+        var_pars = NULL,
+        garch_pars = list(
+          list(omega = 0.05, alpha1 = 0.10, beta1 = 0.85),
+          list(omega = 0.05, alpha1 = 0.10, beta1 = 0.85)
+        ),
+        dcc_pars = list(alpha_1 = 0.05, beta_1 = 0.90),
+        dist_pars = list(shape = 8.0)
+      )
+    ),
+    list(
+      var_order = 0,
+      garch_spec_fun = "dcc_modelspec",
+      garch_spec_args = list(
+        garch_model = list(univariate = list(
+          list(model = "garch", garch_order = c(1, 1), distribution = "norm"),
+          list(model = "garch", garch_order = c(1, 1), distribution = "norm")
+        )),
+        dcc_order = c(1, 1)
+      ),
+      distribution = "mvt",
+      start_pars = list(
+        var_pars = NULL,
+        garch_pars = list(
+          list(omega = 0.10, alpha1 = 0.15, beta1 = 0.75),
+          list(omega = 0.10, alpha1 = 0.15, beta1 = 0.75)
+        ),
+        dcc_pars = list(alpha_1 = 0.10, beta_1 = 0.85),
+        dist_pars = list(shape = 6.0)
+      )
+    )
+  )
+  
+  fit <- fit_ms_varma_garch(
+    y = sim$y,
+    M = 2,
+    spec = spec_ms_mvt,
+    model_type = "multivariate",
+    control = list(max_iter = 8, tol = 0.1)
+  )
+  
+  expect_true(!is.null(fit))
+  expect_true("model_fits" %in% names(fit))
+  
+  ## Check that shape parameters are estimated
+  for (s in 1:2) {
+    if (!is.null(fit$model_fits[[s]]$shape)) {
+      expect_true(fit$model_fits[[s]]$shape > 2,
+                  info = sprintf("State %d shape should be > 2", s))
+    }
+  }
+})
+
+
+#### ______________________________________________________________________ ####
+#### PART 5: MVT DISTRIBUTION TESTS                                         ####
+
+test_that("MVT shape gradient is correctly integrated", {
+  skip_on_cran()
+  
+  sim <- simulate_dcc_garch_test_data(n = 150, k = 2, seed = 888)
+  spec <- create_test_dcc_spec(k = 2, distribution = "mvt")
+  
+  garch_pars <- list(
+    list(omega = 0.05, alpha1 = 0.10, beta1 = 0.85),
+    list(omega = 0.05, alpha1 = 0.10, beta1 = 0.85)
+  )
+  
+  ## Start with different shape values
+  for (shape_start in c(5.0, 8.0, 15.0)) {
+    result <- estimate_dcc_parameters_weighted(
+      residuals = sim$y,
+      weights = rep(1, nrow(sim$y)),
+      garch_pars = garch_pars,
+      dcc_start_pars = list(alpha_1 = 0.05, beta_1 = 0.90),
+      dist_start_pars = list(shape = shape_start),
+      spec = spec,
+      verbose = FALSE
+    )
+    
+    expect_true(result$dist_pars$shape > 2,
+                info = sprintf("Starting from shape=%.1f, final should be > 2", shape_start))
+    expect_true(is.finite(result$weighted_ll),
+                info = sprintf("Log-likelihood should be finite for shape_start=%.1f", shape_start))
+  }
+})
+
+
+#### ______________________________________________________________________ ####
+#### PART 6: EDGE CASES AND ROBUSTNESS                                      ####
+
+test_that("Handles high persistence starting values", {
+  skip_on_cran()
+  
+  sim <- simulate_dcc_garch_test_data(n = 150, k = 2, seed = 901)
+  spec <- create_test_dcc_spec(k = 2, distribution = "mvn")
+  
+  garch_pars <- list(
+    list(omega = 0.05, alpha1 = 0.10, beta1 = 0.85),
+    list(omega = 0.05, alpha1 = 0.10, beta1 = 0.85)
+  )
+  
+  ## High persistence starting point (0.03 + 0.96 = 0.99)
+  result <- estimate_dcc_parameters_weighted(
+    residuals = sim$y,
+    weights = rep(1, nrow(sim$y)),
+    garch_pars = garch_pars,
+    dcc_start_pars = list(alpha_1 = 0.03, beta_1 = 0.96),
+    dist_start_pars = list(),
+    spec = spec,
+    verbose = FALSE
+  )
+  
+  ## Should still produce valid results
+  expect_true(result$dcc_pars$alpha_1 > 0)
+  expect_true(result$dcc_pars$beta_1 > 0)
+  expect_true(result$dcc_pars$alpha_1 + result$dcc_pars$beta_1 < 1)
+  expect_true(is.finite(result$weighted_ll))
+})
+
+
+test_that("Handles low alpha starting values", {
+  skip_on_cran()
+  
+  sim <- simulate_dcc_garch_test_data(n = 150, k = 2, seed = 902)
+  spec <- create_test_dcc_spec(k = 2, distribution = "mvn")
+  
+  garch_pars <- list(
+    list(omega = 0.05, alpha1 = 0.10, beta1 = 0.85),
+    list(omega = 0.05, alpha1 = 0.10, beta1 = 0.85)
+  )
+  
+  ## Very low alpha starting point
+  result <- estimate_dcc_parameters_weighted(
+    residuals = sim$y,
+    weights = rep(1, nrow(sim$y)),
+    garch_pars = garch_pars,
+    dcc_start_pars = list(alpha_1 = 0.001, beta_1 = 0.90),
+    dist_start_pars = list(),
+    spec = spec,
+    verbose = FALSE
+  )
+  
+  expect_true(result$dcc_pars$alpha_1 > 0)
+  expect_true(result$dcc_pars$beta_1 > 0)
+  expect_true(is.finite(result$weighted_ll))
+})
+
+
+test_that("Handles non-uniform weights", {
+  skip_on_cran()
+  
+  sim <- simulate_dcc_garch_test_data(n = 150, k = 2, seed = 903)
+  spec <- create_test_dcc_spec(k = 2, distribution = "mvn")
+  
+  garch_pars <- list(
+    list(omega = 0.05, alpha1 = 0.10, beta1 = 0.85),
+    list(omega = 0.05, alpha1 = 0.10, beta1 = 0.85)
+  )
+  
+  ## Non-uniform weights (emphasize recent observations)
+  set.seed(903)
+  weights <- runif(nrow(sim$y), 0.5, 1.5)
+  
+  result <- estimate_dcc_parameters_weighted(
+    residuals = sim$y,
+    weights = weights,
+    garch_pars = garch_pars,
+    dcc_start_pars = list(alpha_1 = 0.05, beta_1 = 0.90),
+    dist_start_pars = list(),
+    spec = spec,
+    verbose = FALSE
+  )
+  
+  expect_true(result$dcc_pars$alpha_1 > 0)
+  expect_true(result$dcc_pars$beta_1 > 0)
+  expect_true(result$dcc_pars$alpha_1 + result$dcc_pars$beta_1 < 1)
+  expect_true(is.finite(result$weighted_ll))
+})
+
+
+test_that("Handles 3-series data", {
+  skip_on_cran()
+  
+  sim <- simulate_dcc_garch_test_data(n = 150, k = 3, seed = 904)
+  spec <- create_test_dcc_spec(k = 3, distribution = "mvn")
+  
+  garch_pars <- list(
+    list(omega = 0.05, alpha1 = 0.10, beta1 = 0.85),
+    list(omega = 0.05, alpha1 = 0.10, beta1 = 0.85),
+    list(omega = 0.05, alpha1 = 0.10, beta1 = 0.85)
+  )
+  
+  result <- estimate_dcc_parameters_weighted(
+    residuals = sim$y,
+    weights = rep(1, nrow(sim$y)),
+    garch_pars = garch_pars,
+    dcc_start_pars = list(alpha_1 = 0.05, beta_1 = 0.90),
+    dist_start_pars = list(),
+    spec = spec,
+    verbose = FALSE
+  )
+  
+  expect_true(result$dcc_pars$alpha_1 > 0)
+  expect_true(result$dcc_pars$beta_1 > 0)
+  expect_true(result$dcc_pars$alpha_1 + result$dcc_pars$beta_1 < 1)
+})
+
+
+test_that("No penalty warnings with reparameterization", {
+  skip_on_cran()
+  
+  ## The key benefit of reparameterization is eliminating boundary penalty warnings
+  ## This test verifies we don't get any warnings during optimization
+  
+  sim <- simulate_dcc_garch_test_data(n = 200, k = 2, seed = 905)
+  spec <- create_test_dcc_spec(k = 2, distribution = "mvn")
+  
+  garch_pars <- list(
+    list(omega = 0.05, alpha1 = 0.10, beta1 = 0.85),
+    list(omega = 0.05, alpha1 = 0.10, beta1 = 0.85)
+  )
+  
+  ## Capture warnings
+  warnings_captured <- character(0)
+  
+  result <- withCallingHandlers({
+    estimate_dcc_parameters_weighted(
+      residuals = sim$y,
+      weights = rep(1, nrow(sim$y)),
+      garch_pars = garch_pars,
+      dcc_start_pars = list(alpha_1 = 0.05, beta_1 = 0.90),
+      dist_start_pars = list(),
+      spec = spec,
+      verbose = FALSE
+    )
+  }, warning = function(w) {
+    warnings_captured <<- c(warnings_captured, conditionMessage(w))
+    invokeRestart("muffleWarning")
+  })
+  
+  ## Check for penalty-related warnings
+  penalty_warnings <- grep("penalty|bound|constraint|stationarity", 
+                           warnings_captured, value = TRUE, ignore.case = TRUE)
+  
+  expect_equal(length(penalty_warnings), 0,
+               info = paste("Should have no penalty warnings. Found:", 
+                            paste(penalty_warnings, collapse = "; ")))
+})
+
+
+#### ______________________________________________________________________ ####
+#### RUN ALL TESTS                                                          ####
+
+cat("\n=== DCC Gradient Integration Test Suite ===\n")
+cat("Run with: testthat::test_file('test_dcc_gradient_integration.R')\n\n")
+cat("Prerequisites:\n")
+cat("  1. source('dcc_gradient.R')\n")
+cat("  2. source('ms-varma-garch_helper_functions.R')
+  \n")

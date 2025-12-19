@@ -1119,6 +1119,101 @@ simulate_dcc_garch <- function(n,
 #' }
 
 
+#' Simulate DCC-GARCH data for testing
+#' @param n Number of observations
+#' @param k Number of series
+#' @param alpha DCC alpha parameter
+#' @param beta DCC beta parameter
+#' @param seed Random seed
+#' @return List with y (data), true_params, Qbar
+simulate_dcc_garch_test_data <<- function(n = 200, k = 2, 
+                                          alpha = 0.05, beta = 0.90,
+                                          seed = 123) {
+  set.seed(seed)
+  
+  ## GARCH parameters for each series
+  omega <- rep(0.05, k)
+  alpha_garch <- rep(0.10, k)
+  beta_garch <- rep(0.85, k)
+  
+  ## Unconditional correlation
+  Rbar <- diag(k)
+  if (k >= 2) {
+    for (i in 1:(k-1)) {
+      for (j in (i+1):k) {
+        Rbar[i, j] <- Rbar[j, i] <- 0.5
+      }
+    }
+  }
+  
+  ## Initialize
+  y <- matrix(0, n, k)
+  h <- matrix(omega / (1 - alpha_garch - beta_garch), n, k)
+  Q <- array(0, dim = c(k, k, n))
+  R <- array(0, dim = c(k, k, n))
+  z <- matrix(0, n, k)
+  
+  Q[,,1] <- Rbar
+  R[,,1] <- Rbar
+  
+  ## Simulate
+  for (t in 1:n) {
+    ## Univariate GARCH
+    if (t > 1) {
+      for (i in 1:k) {
+        h[t, i] <- omega[i] + alpha_garch[i] * y[t-1, i]^2 + beta_garch[i] * h[t-1, i]
+      }
+    }
+    
+    ## DCC
+    if (t > 1) {
+      z_lag <- z[t-1, , drop = FALSE]
+      Q[,,t] <- (1 - alpha - beta) * Rbar + alpha * (t(z_lag) %*% z_lag) + beta * Q[,,t-1]
+      Q_diag_inv_sqrt <- diag(1/sqrt(diag(Q[,,t])), k)
+      R[,,t] <- Q_diag_inv_sqrt %*% Q[,,t] %*% Q_diag_inv_sqrt
+    }
+    
+    ## Generate correlated innovations
+    L <- tryCatch(chol(R[,,t]), error = function(e) chol(R[,,t] + diag(1e-6, k)))
+    eps <- rnorm(k)
+    z[t, ] <- as.vector(t(L) %*% eps)
+    
+    ## Returns
+    y[t, ] <- sqrt(h[t, ]) * z[t, ]
+  }
+  
+  colnames(y) <- paste0("series_", 1:k)
+  
+  list(
+    y = y,
+    true_params = list(
+      garch = list(omega = omega, alpha = alpha_garch, beta = beta_garch),
+      dcc = list(alpha = alpha, beta = beta)
+    ),
+    Qbar = Rbar,
+    std_resid = z
+  )
+}
+
+
+#' Create a standard DCC spec for testing
+create_test_dcc_spec <<- function(k = 2, distribution = "mvn") {
+  univariate_specs <- lapply(1:k, function(i) {
+    list(model = "garch", garch_order = c(1, 1), distribution = "norm")
+  })
+  
+  list(
+    garch_spec_fun = "dcc_modelspec",
+    distribution = distribution,
+    garch_spec_args = list(
+      dcc_order = c(1, 1),
+      dynamics = "dcc",
+      garch_model = list(univariate = univariate_specs)
+    )
+  )
+}
+
+
 #' Generate Model Specification for DCC-GARCH
 #'
 #' Generate a properly structured specification list for MS-VARMA-GARCH estimation

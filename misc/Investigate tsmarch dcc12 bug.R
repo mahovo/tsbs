@@ -2,6 +2,26 @@
 ## Investigate tsmarch DCC(p,q) bugs
 ## =============================================================================
 ##
+## tsbs primarily uses tsmarch for:
+## 
+## - Univariate GARCH estimation (via tsgarch)
+## - Creating spec objects
+## - Some internal functions
+# 
+## But for the DCC correlation dynamics, tsbs has its own implementation 
+## (dcc_recursion, compute_dcc_persistence). This means the tsmarch bug might 
+## not actually affect tsbs's higher-order DCC estimation in 
+## estimate_garch_weighted_multivariate() because:
+## 
+## - The param names come from user's start_pars
+## - The recursion uses tsbs's own dcc_recursion() function
+## - The optimization is done by tsbs, not tsmarch
+## 
+## However, the bug DOES affect things when:
+## 
+## Using fit_ms_varma_garch() which creates the spec via tsmarch
+## Any code path that relies on tsmarch's parmatrix
+##
 ## Two bugs identified:
 ##
 ## BUG 1: DCC(p,q) with p≠q creates wrong number of parameters

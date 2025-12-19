@@ -52,7 +52,7 @@ Rcpp::List fit_ms_varma_garch_cpp(
   }
   
   P.fill(1.0 / M);
-  for(int j=0; j<M; ++j) { P(j,j) = 0.9; }
+  for(int j = 0; j < M; ++j) { P(j, j) = 0.9; }
   P = P.each_row([](arma::rowvec& r){ r /= arma::sum(r); });
   
   for (int j = 0; j < M; ++j) {

@@ -23,9 +23,7 @@
 ## = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = =
 
 
-## =============================================================================
-## SECTION 1: DCC Order Detection and Persistence Computation
-## =============================================================================
+## SECTION 1: DCC Order Detection and Persistence Computation ==================
 
 #' @title Extract DCC Order from Parameter Names
 #' @description Determines (p, q) order from parameter naming convention.
@@ -179,9 +177,7 @@ check_dcc_stationarity <- function(dcc_params, verbose = FALSE) {
 }
 
 
-## =============================================================================
-## SECTION 2: DCC(1,1) Reparameterization
-## =============================================================================
+## SECTION 2: DCC(1,1) Reparameterization ======================================
 
 #' @title Reparameterize DCC(1,1) to Unconstrained Space
 #' @description Transform constrained (alpha, beta) to unconstrained (psi, phi).
@@ -307,9 +303,7 @@ dcc11_reparam_jacobian <- function(psi, phi) {
 }
 
 
-## =============================================================================
-## SECTION 3: DCC Recursion
-## =============================================================================
+## SECTION 3: DCC Recursion ====================================================
 
 #' @title Make Matrix Positive Definite (Safe Version)
 #' @description Ensures a matrix is positive definite by adjusting eigenvalues.
@@ -539,9 +533,7 @@ dcc_recursion <- function(std_resid, Qbar, alphas, betas) {
 }
 
 
-## =============================================================================
-## SECTION 4: Gradient Computation
-## =============================================================================
+## SECTION 4: Gradient Computation =============================================
 
 #' @title Gradient of NLL w.r.t. R_t (MVN)
 #' @description Compute gradient of negative log-likelihood contribution w.r.t. R_t.
@@ -748,9 +740,7 @@ dcc_gradient_shape <- function(shape, z, weights, R_inv) {
 }
 
 
-## =============================================================================
-## SECTION 5: Main Interface Functions
-## =============================================================================
+## SECTION 5: Main Interface Functions =========================================
 
 #' @title Full DCC(1,1) Gradient Function for Optimizer
 #' @description Compute gradient of weighted NLL w.r.t. all DCC parameters.
