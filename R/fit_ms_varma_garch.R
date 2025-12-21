@@ -6,7 +6,7 @@
 #'
 #' @param y A numeric matrix or data frame where rows are observations and
 #'   columns are the time series variables.
-#' @param M An integer specifying the number of states in the Markov chain.
+#' @param M An integer >1 specifying the number of states in the Markov chain.
 #' @param d An integer specifying the order of differencing to be applied to
 #'   the series before fitting. This order is constant across all states.
 #'   Defaults to 0 (no differencing), which is appropriate for returns data.
@@ -42,6 +42,13 @@
 #' }
 #' 
 #' For mathematical expression of the model see [ms_varma_garch_bs()].
+#' 
+#' Note: For single-regime data, since M > 1, and assuming we set M = 2:
+#' \itemize{
+#'   \item{both states should converge to similar parameters,}
+#'   \item{or one state should have nearly zero probability.}
+#' }
+#' Check: `fit$smoothed_probabilities` - is one state dominant?
 #'
 #' @return A list containing the full results of the estimation, including model
 #'   fits for each state, the transition matrix, smoothed probabilities, and

@@ -739,7 +739,7 @@ diagnostic_summary_stats <- function(diagnostics) {
 #' Simulate DCC-GARCH Data with Higher-Order Support
 #'
 #' Simulate realistic multivariate time series data from a DCC(q,p)-GARCH process.
-#' Supports arbitrary DCC orders through vector-valued dcc_alpha and dcc_beta.
+#' Supports arbitrary DCC orders through vector-valued alpha_dcc and beta_dcc.
 #' This function is primarily intended for testing and examples.
 #'
 #' @param n Integer number of observations to simulate
@@ -747,9 +747,9 @@ diagnostic_summary_stats <- function(diagnostics) {
 #' @param omega Numeric vector of length k: GARCH intercepts (default: c(0.05, 0.08))
 #' @param alpha_garch Numeric vector of length k: ARCH effects (default: c(0.10, 0.12))
 #' @param beta_garch Numeric vector of length k: GARCH effects (default: c(0.85, 0.82))
-#' @param dcc_alpha Numeric scalar or vector: DCC alpha parameters. 
+#' @param alpha_dcc Numeric scalar or vector: DCC alpha parameters. 
 #'   Length determines q (number of alpha lags). (default: 0.04)
-#' @param dcc_beta Numeric scalar or vector: DCC beta parameters.
+#' @param beta_dcc Numeric scalar or vector: DCC beta parameters.
 #'   Length determines p (number of beta lags). (default: 0.93)
 #' @param Qbar Matrix (k x k): Unconditional correlation matrix. If NULL, uses
 #'   moderate correlation (0.5 off-diagonal)
@@ -766,8 +766,8 @@ diagnostic_summary_stats <- function(diagnostics) {
 #'
 #' where \eqn{z_t \sim N(0, R_t)}.
 #'
-#' For backward compatibility, scalar dcc_alpha and dcc_beta produce DCC(1,1).
-#' To simulate DCC(q,p), provide dcc_alpha as vector of length q and dcc_beta 
+#' For backward compatibility, scalar alpha_dcc and beta_dcc produce DCC(1,1).
+#' To simulate DCC(q,p), provide alpha_dcc as vector of length q and beta_dcc 
 #' as vector of length p.
 #'
 #' @examples
@@ -778,21 +778,21 @@ diagnostic_summary_stats <- function(diagnostics) {
 #' # DCC(1,2): one alpha lag, two beta lags
 #' y_dcc12 <- simulate_dcc_garch(
 #'   n = 300,
-#'   dcc_alpha = 0.05,
-#'   dcc_beta = c(0.50, 0.40),
+#'   alpha_dcc = 0.05,
+#'   beta_dcc = c(0.50, 0.40),
 #'   seed = 123
 #' )
 #' 
 #' # DCC(2,2): two lags each
 #' y_dcc22 <- simulate_dcc_garch(
 #'   n = 300,
-#'   dcc_alpha = c(0.03, 0.02),
-#'   dcc_beta = c(0.50, 0.40),
+#'   alpha_dcc = c(0.03, 0.02),
+#'   beta_dcc = c(0.50, 0.40),
 #'   seed = 456
 #' )
 #' 
-#' # Constant correlation (set dcc_alpha = 0)
-#' y_const <- simulate_dcc_garch(n = 200, dcc_alpha = 0, dcc_beta = 0, seed = 789)
+#' # Constant correlation (set alpha_dcc = 0)
+#' y_const <- simulate_dcc_garch(n = 200, alpha_dcc = 0, beta_dcc = 0, seed = 789)
 #' }
 #'
 #' @export
@@ -801,8 +801,8 @@ simulate_dcc_garch <- function(n,
                                omega = c(0.05, 0.08),
                                alpha_garch = c(0.10, 0.12),
                                beta_garch = c(0.85, 0.82),
-                               dcc_alpha = 0.04,
-                               dcc_beta = 0.93,
+                               alpha_dcc = 0.04,
+                               beta_dcc = 0.93,
                                Qbar = NULL,
                                seed = NULL) {
   
@@ -827,18 +827,18 @@ simulate_dcc_garch <- function(n,
   }
   
   ## Convert scalars to vectors for uniform handling (supports higher-order DCC)
-  dcc_alpha <- as.numeric(dcc_alpha)
-  dcc_beta <- as.numeric(dcc_beta)
+  alpha_dcc <- as.numeric(alpha_dcc)
+  beta_dcc <- as.numeric(beta_dcc)
   
-  q_order <- length(dcc_alpha)  ## Number of alpha lags (ARCH-like)
-  p_order <- length(dcc_beta)   ## Number of beta lags (GARCH-like)
+  q_order <- length(alpha_dcc)  ## Number of alpha lags (ARCH-like)
+  p_order <- length(beta_dcc)   ## Number of beta lags (GARCH-like)
   
-  if (any(dcc_alpha < 0) || any(dcc_beta < 0)) {
-    stop("All dcc_alpha and dcc_beta values must be non-negative")
+  if (any(alpha_dcc < 0) || any(beta_dcc < 0)) {
+    stop("All alpha_dcc and beta_dcc values must be non-negative")
   }
   
   ## Check DCC stationarity: sum(alpha) + sum(beta) < 1
-  dcc_persistence <- sum(dcc_alpha) + sum(dcc_beta)
+  dcc_persistence <- sum(alpha_dcc) + sum(beta_dcc)
   has_dcc_dynamics <- dcc_persistence > 0
   
   if (has_dcc_dynamics && dcc_persistence >= 1) {
@@ -938,12 +938,12 @@ simulate_dcc_garch <- function(n,
       ## Add alpha terms (lagged outer products of z)
       for (j in seq_len(q_order)) {
         z_lag <- z_history[[j]]
-        Q_new <- Q_new + dcc_alpha[j] * (z_lag %*% t(z_lag))
+        Q_new <- Q_new + alpha_dcc[j] * (z_lag %*% t(z_lag))
       }
       
       ## Add beta terms (lagged Q matrices)
       for (j in seq_len(p_order)) {
-        Q_new <- Q_new + dcc_beta[j] * Q_history[[j]]
+        Q_new <- Q_new + beta_dcc[j] * Q_history[[j]]
       }
       
       Q <- Q_new
@@ -978,8 +978,8 @@ simulate_dcc_garch <- function(n,
 #' #' @param omega Numeric vector of length k: GARCH intercepts (default: c(0.05, 0.08))
 #' #' @param alpha_garch Numeric vector of length k: ARCH effects (default: c(0.10, 0.12))
 #' #' @param beta_garch Numeric vector of length k: GARCH effects (default: c(0.85, 0.82))
-#' #' @param dcc_alpha Numeric: DCC alpha parameter (default: 0.04)
-#' #' @param dcc_beta Numeric: DCC beta parameter (default: 0.93)
+#' #' @param alpha_dcc Numeric: DCC alpha parameter (default: 0.04)
+#' #' @param beta_dcc Numeric: DCC beta parameter (default: 0.93)
 #' #' @param Qbar Matrix (k x k): Unconditional correlation matrix. If NULL, uses
 #' #'   moderate correlation (0.5 off-diagonal)
 #' #' @param seed Integer random seed for reproducibility
@@ -1009,8 +1009,8 @@ simulate_dcc_garch <- function(n,
 #' #'   seed = 123
 #' #' )
 #' #' 
-#' #' # Constant correlation (set dcc_alpha = 0)
-#' #' y_const <- simulate_dcc_garch(n = 200, dcc_alpha = 0, dcc_beta = 0, seed = 456)
+#' #' # Constant correlation (set alpha_dcc = 0)
+#' #' y_const <- simulate_dcc_garch(n = 200, alpha_dcc = 0, beta_dcc = 0, seed = 456)
 #' #' }
 #' #'
 #' #' @export
@@ -1019,8 +1019,8 @@ simulate_dcc_garch <- function(n,
 #'                                omega = c(0.05, 0.08),
 #'                                alpha_garch = c(0.10, 0.12),
 #'                                beta_garch = c(0.85, 0.82),
-#'                                dcc_alpha = 0.04,
-#'                                dcc_beta = 0.93,
+#'                                alpha_dcc = 0.04,
+#'                                beta_dcc = 0.93,
 #'                                Qbar = NULL,
 #'                                seed = NULL) {
 #'   
@@ -1043,11 +1043,11 @@ simulate_dcc_garch <- function(n,
 #'   if (any((alpha_garch + beta_garch) >= 1)) {
 #'     stop("GARCH process must be stationary: alpha + beta < 1")
 #'   }
-#'   if (dcc_alpha < 0 || dcc_beta < 0) {
-#'     stop("dcc_alpha and dcc_beta must be non-negative")
+#'   if (alpha_dcc < 0 || beta_dcc < 0) {
+#'     stop("alpha_dcc and beta_dcc must be non-negative")
 #'   }
-#'   if ((dcc_alpha + dcc_beta) >= 1 && (dcc_alpha > 0 || dcc_beta > 0)) {
-#'     stop("DCC process must be stationary: dcc_alpha + dcc_beta < 1")
+#'   if ((alpha_dcc + beta_dcc) >= 1 && (alpha_dcc > 0 || beta_dcc > 0)) {
+#'     stop("DCC process must be stationary: alpha_dcc + beta_dcc < 1")
 #'   }
 #'   
 #'   # Set seed if provided
@@ -1101,11 +1101,11 @@ simulate_dcc_garch <- function(n,
 #'     }
 #'     
 #'     # Update DCC dynamics for next period
-#'     if (t < n && (dcc_alpha > 0 || dcc_beta > 0)) {
+#'     if (t < n && (alpha_dcc > 0 || beta_dcc > 0)) {
 #'       z_mat <- matrix(z, ncol = 1)
-#'       Q <- Qbar * (1 - dcc_alpha - dcc_beta) + 
-#'         dcc_alpha * (z_mat %*% t(z_mat)) + 
-#'         dcc_beta * Q
+#'       Q <- Qbar * (1 - alpha_dcc - beta_dcc) + 
+#'         alpha_dcc * (z_mat %*% t(z_mat)) + 
+#'         beta_dcc * Q
 #'       
 #'       # Standardize to correlation
 #'       Q_diag_inv_sqrt <- diag(1/sqrt(diag(Q)))
@@ -1325,8 +1325,8 @@ generate_dcc_spec <- function(M,
       omega_start <- rep(0.1, k)
       alpha_start <- rep(0.1, k)
       beta_start <- rep(0.8, k)
-      dcc_alpha_start <- 0.05
-      dcc_beta_start <- 0.90
+      alpha_dcc_start <- 0.05
+      beta_dcc_start <- 0.90
     } else {
       # Differentiated starting values across states
       # State 1: Low volatility, low correlation dynamics
@@ -1355,12 +1355,12 @@ generate_dcc_spec <- function(M,
       }
       
       # DCC parameters: dynamics increase with state
-      dcc_alpha_start <- 0.03 + state_factor * 0.07
-      dcc_beta_start <- 0.94 - state_factor * 0.09
+      alpha_dcc_start <- 0.03 + state_factor * 0.07
+      beta_dcc_start <- 0.94 - state_factor * 0.09
       
       # Ensure DCC stationarity
-      while (dcc_alpha_start + dcc_beta_start >= 0.98) {
-        dcc_alpha_start <- dcc_alpha_start * 0.95
+      while (alpha_dcc_start + beta_dcc_start >= 0.98) {
+        alpha_dcc_start <- alpha_dcc_start * 0.95
       }
     }
     
@@ -1390,7 +1390,7 @@ generate_dcc_spec <- function(M,
       start_pars = list(
         var_pars = rep(0.1, n_var_pars),
         garch_pars = garch_pars_list,
-        dcc_pars = list(alpha_1 = dcc_alpha_start, beta_1 = dcc_beta_start),
+        dcc_pars = list(alpha_1 = alpha_dcc_start, beta_1 = beta_dcc_start),
         dist_pars = dist_pars
       )
     )
@@ -1411,8 +1411,8 @@ generate_single_state_dcc_spec <- function(k = 2,
                                            omega = NULL,
                                            alpha_garch = NULL,
                                            beta_garch = NULL,
-                                           dcc_alpha = NULL,
-                                           dcc_beta = NULL,
+                                           alpha_dcc = NULL,
+                                           beta_dcc = NULL,
                                            seed = NULL) {
   
   if (!is.null(seed)) set.seed(seed)
@@ -1421,8 +1421,8 @@ generate_single_state_dcc_spec <- function(k = 2,
   omega <- omega %||% rep(0.1, k)
   alpha_garch <- alpha_garch %||% rep(0.1, k)
   beta_garch <- beta_garch %||% rep(0.8, k)
-  dcc_alpha <- dcc_alpha %||% 0.05
-  dcc_beta <- dcc_beta %||% 0.90
+  alpha_dcc <- alpha_dcc %||% 0.05
+  beta_dcc <- beta_dcc %||% 0.90
   
   # Univariate GARCH spec
   spec_uni_garch <- list(
@@ -1467,7 +1467,7 @@ generate_single_state_dcc_spec <- function(k = 2,
       start_pars = list(
         var_pars = rep(0.1, k * (1 + k * var_order)),
         garch_pars = garch_pars_list,
-        dcc_pars = list(alpha_1 = dcc_alpha, beta_1 = dcc_beta),
+        dcc_pars = list(alpha_1 = alpha_dcc, beta_1 = beta_dcc),
         dist_pars = dist_pars
       )
     )

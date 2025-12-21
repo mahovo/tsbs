@@ -1979,11 +1979,11 @@ test_that("DCC sigma computation with fixed parameters", {
   }
   
   ## STEP 4: Verify DCC parameters are set correctly
-  dcc_alpha <- garch_spec_obj$parmatrix[parameter == "alpha_1"]$value
-  dcc_beta <- garch_spec_obj$parmatrix[parameter == "beta_1"]$value
+  alpha_dcc <- garch_spec_obj$parmatrix[parameter == "alpha_1"]$value
+  beta_dcc <- garch_spec_obj$parmatrix[parameter == "beta_1"]$value
   
-  expect_equal(dcc_alpha, params_estimated$alpha_1, tolerance = 1e-6)
-  expect_equal(dcc_beta, params_estimated$beta_1, tolerance = 1e-6)
+  expect_equal(alpha_dcc, params_estimated$alpha_1, tolerance = 1e-6)
+  expect_equal(beta_dcc, params_estimated$beta_1, tolerance = 1e-6)
 })
 
 
@@ -2008,8 +2008,8 @@ test_that("MS-DCC estimation completes and returns valid structure", {
     omega = c(0.05, 0.08),
     alpha_garch = c(0.10, 0.12),
     beta_garch = c(0.85, 0.82),
-    dcc_alpha = 0.04,
-    dcc_beta = 0.93,
+    alpha_dcc = 0.04,
+    beta_dcc = 0.93,
     seed = 999
   )
   
@@ -2384,16 +2384,16 @@ test_that("MS-DCC-GARCH simulated data recovers distinct volatility regimes", {
     omega_1 <- c(0.05, 0.08)
     alpha_garch_1 <- c(0.08, 0.10)
     beta_garch_1 <- c(0.85, 0.80)
-    dcc_alpha_1 <- 0.03
-    dcc_beta_1 <- 0.94
+    alpha_dcc_1 <- 0.03
+    beta_dcc_1 <- 0.94
     Rbar_1 <- matrix(c(1, 0.3, 0.3, 1), 2, 2)  # Lower correlation
     
     ## State 2: High volatility, high correlation dynamics  
     omega_2 <- c(0.15, 0.20)
     alpha_garch_2 <- c(0.15, 0.18)
     beta_garch_2 <- c(0.70, 0.65)
-    dcc_alpha_2 <- 0.12
-    dcc_beta_2 <- 0.83
+    alpha_dcc_2 <- 0.12
+    beta_dcc_2 <- 0.83
     Rbar_2 <- matrix(c(1, 0.7, 0.7, 1), 2, 2)  # Higher correlation
     
     ## Markov chain switching probabilities
@@ -2432,8 +2432,8 @@ test_that("MS-DCC-GARCH simulated data recovers distinct volatility regimes", {
       omega <- if(s == 1) omega_1 else omega_2
       alpha_garch <- if(s == 1) alpha_garch_1 else alpha_garch_2
       beta_garch <- if(s == 1) beta_garch_1 else beta_garch_2
-      dcc_alpha <- if(s == 1) dcc_alpha_1 else dcc_alpha_2
-      dcc_beta <- if(s == 1) dcc_beta_1 else dcc_beta_2
+      alpha_dcc <- if(s == 1) alpha_dcc_1 else alpha_dcc_2
+      beta_dcc <- if(s == 1) beta_dcc_1 else beta_dcc_2
       Rbar <- if(s == 1) Rbar_1 else Rbar_2
       
       ## Get current correlation matrix
@@ -2461,9 +2461,9 @@ test_that("MS-DCC-GARCH simulated data recovers distinct volatility regimes", {
         
         if (states[t+1] == 1) {
           ## Update State 1 DCC
-          Q_1 <- Rbar_1 * (1 - dcc_alpha_1 - dcc_beta_1) + 
-            dcc_alpha_1 * (z_lag %*% t(z_lag)) + 
-            dcc_beta_1 * Q_1
+          Q_1 <- Rbar_1 * (1 - alpha_dcc_1 - beta_dcc_1) + 
+            alpha_dcc_1 * (z_lag %*% t(z_lag)) + 
+            beta_dcc_1 * Q_1
           
           ## Standardize to correlation
           Q_diag_inv_sqrt <- diag(1 / sqrt(diag(Q_1)), k)
@@ -2471,9 +2471,9 @@ test_that("MS-DCC-GARCH simulated data recovers distinct volatility regimes", {
           
         } else {
           ## Update State 2 DCC
-          Q_2 <- Rbar_2 * (1 - dcc_alpha_2 - dcc_beta_2) + 
-            dcc_alpha_2 * (z_lag %*% t(z_lag)) + 
-            dcc_beta_2 * Q_2
+          Q_2 <- Rbar_2 * (1 - alpha_dcc_2 - beta_dcc_2) + 
+            alpha_dcc_2 * (z_lag %*% t(z_lag)) + 
+            beta_dcc_2 * Q_2
           
           Q_diag_inv_sqrt <- diag(1 / sqrt(diag(Q_2)), k)
           R_2 <- Q_diag_inv_sqrt %*% Q_2 %*% Q_diag_inv_sqrt
@@ -2493,16 +2493,16 @@ test_that("MS-DCC-GARCH simulated data recovers distinct volatility regimes", {
           omega = omega_1,
           alpha_garch = alpha_garch_1,
           beta_garch = beta_garch_1,
-          dcc_alpha = dcc_alpha_1,
-          dcc_beta = dcc_beta_1,
+          alpha_dcc = alpha_dcc_1,
+          beta_dcc = beta_dcc_1,
           Rbar = Rbar_1
         ),
         state2 = list(
           omega = omega_2,
           alpha_garch = alpha_garch_2,
           beta_garch = beta_garch_2,
-          dcc_alpha = dcc_alpha_2,
-          dcc_beta = dcc_beta_2,
+          alpha_dcc = alpha_dcc_2,
+          beta_dcc = beta_dcc_2,
           Rbar = Rbar_2
         )
       )
@@ -2644,8 +2644,8 @@ test_that("BIC criterion selection for DCC boundary handling", {
     omega = c(0.05, 0.08),
     alpha_garch = c(0.10, 0.12),
     beta_garch = c(0.85, 0.82),
-    dcc_alpha = 0.04,
-    dcc_beta = 0.93,
+    alpha_dcc = 0.04,
+    beta_dcc = 0.93,
     seed = 999
   )
   
@@ -2788,8 +2788,8 @@ test_that("BIC criterion switches to constant for IID data", {
     omega = c(0.05, 0.08),
     alpha_garch = c(0.10, 0.12),
     beta_garch = c(0.85, 0.82),
-    dcc_alpha = 0.0,  ## TRUE CONSTANT
-    dcc_beta = 0.0,
+    alpha_dcc = 0.0,  ## TRUE CONSTANT
+    beta_dcc = 0.0,
     seed = 42
   )
   
@@ -3073,13 +3073,13 @@ test_that("higher-order DCC(1,2) parameter recovery", {
   
   ## True DCC(1,2) parameters: 1 alpha, 2 betas
   ## Convention: dcc_order = c(q, p) where q=#alphas, p=#betas
-  true_dcc_alpha <- 0.05                 ## 1 alpha
+  true_alpha_dcc <- 0.05                 ## 1 alpha
   
-  true_dcc_beta <- c(0.50, 0.40)         ## 2 betas
-  true_persistence <- true_dcc_alpha + sum(true_dcc_beta)  ## 0.95
+  true_beta_dcc <- c(0.50, 0.40)         ## 2 betas
+  true_persistence <- true_alpha_dcc + sum(true_beta_dcc)  ## 0.95
   
   ## Simulate DCC(1,2) data using extended simulate function
-  ## Note: simulate_dcc_garch uses length(dcc_alpha)=q, length(dcc_beta)=p
+  ## Note: simulate_dcc_garch uses length(alpha_dcc)=q, length(beta_dcc)=p
   set.seed(88888)
   y_sim <- simulate_dcc_garch(
     n = 500,
@@ -3087,8 +3087,8 @@ test_that("higher-order DCC(1,2) parameter recovery", {
     omega = c(0.05, 0.08),
     alpha_garch = c(0.10, 0.12),
     beta_garch = c(0.85, 0.82),
-    dcc_alpha = true_dcc_alpha,
-    dcc_beta = true_dcc_beta,
+    alpha_dcc = true_alpha_dcc,
+    beta_dcc = true_beta_dcc,
     seed = 88888
   )
   
@@ -3140,7 +3140,7 @@ test_that("higher-order DCC(1,2) parameter recovery", {
     
     cat("\n=== DCC(1,2) Parameter Recovery ===\n")
     cat(sprintf("True:      alpha_1=%.4f, beta_1=%.4f, beta_2=%.4f\n",
-                true_dcc_alpha, true_dcc_beta[1], true_dcc_beta[2]))
+                true_alpha_dcc, true_beta_dcc[1], true_beta_dcc[2]))
     cat(sprintf("Estimated: alpha_1=%.4f, beta_1=%.4f, beta_2=%.4f\n",
                 dcc_pars$alpha_1, dcc_pars$beta_1, dcc_pars$beta_2))
     
@@ -3174,9 +3174,9 @@ test_that("higher-order DCC(1,2) parameter recovery", {
     ## Individual parameters should be reasonably close to true values
     ## Using tolerance of 0.15 for each parameter (DCC estimation is noisy)
     
-    alpha_1_error <- abs(dcc_pars$alpha_1 - true_dcc_alpha)
-    beta_1_error <- abs(dcc_pars$beta_1 - true_dcc_beta[1])
-    beta_2_error <- abs(dcc_pars$beta_2 - true_dcc_beta[2])
+    alpha_1_error <- abs(dcc_pars$alpha_1 - true_alpha_dcc)
+    beta_1_error <- abs(dcc_pars$beta_1 - true_beta_dcc[1])
+    beta_2_error <- abs(dcc_pars$beta_2 - true_beta_dcc[2])
     
     cat(sprintf("Errors:    alpha_1=%.4f, beta_1=%.4f, beta_2=%.4f\n",
                 alpha_1_error, beta_1_error, beta_2_error))
@@ -3184,17 +3184,17 @@ test_that("higher-order DCC(1,2) parameter recovery", {
     ## Alpha should be close to true value
     expect_true(alpha_1_error < 0.10,
                 info = sprintf("alpha_1 recovery: true=%.3f, est=%.3f, error=%.3f",
-                               true_dcc_alpha, dcc_pars$alpha_1, alpha_1_error))
+                               true_alpha_dcc, dcc_pars$alpha_1, alpha_1_error))
     
     ## Beta_1 should be close to true value
     expect_true(beta_1_error < 0.20,
                 info = sprintf("beta_1 recovery: true=%.3f, est=%.3f, error=%.3f",
-                               true_dcc_beta[1], dcc_pars$beta_1, beta_1_error))
+                               true_beta_dcc[1], dcc_pars$beta_1, beta_1_error))
     
     ## Beta_2 should be close to true value
     expect_true(beta_2_error < 0.20,
                 info = sprintf("beta_2 recovery: true=%.3f, est=%.3f, error=%.3f",
-                               true_dcc_beta[2], dcc_pars$beta_2, beta_2_error))
+                               true_beta_dcc[2], dcc_pars$beta_2, beta_2_error))
     
     ## All parameters should be positive (proper DCC dynamics)
     expect_gt(dcc_pars$alpha_1, 0, label = "alpha_1 > 0")
@@ -3279,8 +3279,8 @@ test_that("EM algorithm achieves tolerance-based convergence", {
     omega = c(0.08, 0.10),
     alpha_garch = c(0.12, 0.14),
     beta_garch = c(0.82, 0.78),
-    dcc_alpha = 0.05,
-    dcc_beta = 0.90,
+    alpha_dcc = 0.05,
+    beta_dcc = 0.90,
     seed = 42
   )
   colnames(y_converge) <- c("s1", "s2")
@@ -3406,8 +3406,8 @@ test_that("near-zero DCC parameters trigger constant fallback", {
     omega = c(0.08, 0.10),
     alpha_garch = c(0.10, 0.12),
     beta_garch = c(0.85, 0.82),
-    dcc_alpha = 0.005,  ## Very small - effectively constant
-    dcc_beta = 0.005,   ## Very small - effectively constant
+    alpha_dcc = 0.005,  ## Very small - effectively constant
+    beta_dcc = 0.005,   ## Very small - effectively constant
     seed = 42
   )
   
@@ -3485,8 +3485,8 @@ test_that("moderate DCC parameters estimated without boundary warnings", {
     omega = c(0.05, 0.08),
     alpha_garch = c(0.10, 0.12),
     beta_garch = c(0.85, 0.82),
-    dcc_alpha = 0.06,  ## Moderate - clearly dynamic
-    dcc_beta = 0.92,   ## High persistence
+    alpha_dcc = 0.06,  ## Moderate - clearly dynamic
+    beta_dcc = 0.92,   ## High persistence
     seed = 123
   )
   
@@ -3575,8 +3575,8 @@ test_that("DCC alpha estimation below legacy 0.01 bound", {
     omega = c(0.05, 0.08),
     alpha_garch = c(0.10, 0.12),
     beta_garch = c(0.85, 0.82),
-    dcc_alpha = 0.008,  ## Below old bound of 0.01!
-    dcc_beta = 0.90,
+    alpha_dcc = 0.008,  ## Below old bound of 0.01!
+    beta_dcc = 0.90,
     seed = 789
   )
   
@@ -3807,8 +3807,8 @@ test_that("MS-DCC boundary handling across multiple states", {
     omega = c(0.05, 0.08),
     alpha_garch = c(0.10, 0.12),
     beta_garch = c(0.85, 0.82),
-    dcc_alpha = 0.04,
-    dcc_beta = 0.93,
+    alpha_dcc = 0.04,
+    beta_dcc = 0.93,
     seed = 456
   )
   
