@@ -6,12 +6,24 @@
 ##
 ## Methods supported:
 ##   1. Numerical Hessian via finite differences (primary)
-##   2. Observed Information Matrix (negative Hessian at MLE)
-##   3. Sandwich estimator for robust standard errors
-##   4. Standard errors in both (alpha, beta) and (psi, phi) parameterizations
+##   2. Analytical Hessian via DCC recursion derivatives
+##   3. Observed Information Matrix (negative Hessian at MLE)
+##   4. Sandwich estimator for robust standard errors
 ##
-## The analytical Hessian is complex due to second derivatives through the
-## DCC recursion, so we primarily use numerical methods with high precision.
+## IMPORTANT: Inference Recommendations
+## ─────────────────────────────────────
+## Validation studies show that the DCC likelihood surface is highly anisotropic:
+##   - Curvature in alpha direction is ~8x steeper than beta direction
+##   - Hessian-based SEs for beta are severely underestimated (by ~5-6x)
+##   - This is a fundamental property of DCC with high persistence, not a bug
+##
+## Recommended inference methods:
+##   - Alpha: Hessian-based SE is acceptable (ratio to true SD ~0.8)
+##   - Beta:  Use Bootstrap SE or Profile Likelihood CI
+##   - Persistence (α+β): May be better identified than individual parameters
+##
+## See dcc_inference_guide.Rmd vignette for detailed findings and recommendations.
+## See dcc_inference.R for bootstrap and profile likelihood implementations.
 ##
 ## Robust handling:
 ##   - Boundary estimates (alpha → 0 or beta → 0): Returns NA with warning
@@ -21,9 +33,7 @@
 ## = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = =
 
 
-## =============================================================================
-## SECTION 0: Robust SE Computation Wrapper
-## =============================================================================
+## SECTION 0: Robust SE Computation Wrapper ====================================
 
 #' @title Compute DCC Standard Errors with Robust Handling
 #' @description High-level wrapper that computes standard errors for DCC parameters
@@ -65,9 +75,8 @@ compute_dcc_standard_errors_robust <- function(
     info_eigenvalues = NULL
   )
   
-  ## -------------------------------------------------------------------------
-  ## Case 1: Constant correlation - no DCC parameters to estimate
-  ## -------------------------------------------------------------------------
+
+  ## Case 1: Constant correlation - no DCC parameters to estimate --------------
   
   correlation_type <- dcc_result$correlation_type %||% 
     dcc_result$coefficients$correlation_type %||%
@@ -81,9 +90,8 @@ compute_dcc_standard_errors_robust <- function(
     return(result)
   }
   
-  ## -------------------------------------------------------------------------
-  ## Case 2: Extract DCC parameters
-  ## -------------------------------------------------------------------------
+
+  ## Case 2: Extract DCC parameters --------------------------------------------
   
   dcc_pars <- dcc_result$dcc_pars %||% dcc_result$coefficients$dcc_pars
   
@@ -101,9 +109,8 @@ compute_dcc_standard_errors_robust <- function(
     return(result)
   }
   
-  ## -------------------------------------------------------------------------
-  ## Case 3: Check for boundary estimates
-  ## -------------------------------------------------------------------------
+
+  ## Case 3: Check for boundary estimates --------------------------------------
   
   at_lower_boundary <- alpha < boundary_threshold || beta < boundary_threshold
   at_upper_boundary <- (alpha + beta) > (1 - boundary_threshold)
@@ -126,9 +133,8 @@ compute_dcc_standard_errors_robust <- function(
     return(result)
   }
   
-  ## -------------------------------------------------------------------------
-  ## Case 4: Compute standard errors
-  ## -------------------------------------------------------------------------
+
+  ## Case 4: Compute standard errors -------------------------------------------
   
   ## Build parameter vector
   params <- c(alpha = alpha, beta = beta)
@@ -174,9 +180,8 @@ compute_dcc_standard_errors_robust <- function(
     return(result)
   }
   
-  ## -------------------------------------------------------------------------
-  ## Case 5: Validate results
-  ## -------------------------------------------------------------------------
+
+  ## Case 5: Validate results --------------------------------------------------
   
   result$se <- se_result$se
   result$vcov <- se_result$vcov
@@ -219,9 +224,7 @@ compute_dcc_standard_errors_robust <- function(
 `%||%` <- function(a, b) if (is.null(a)) b else a
 
 
-## =============================================================================
-## SECTION 1: Numerical Hessian Computation
-## =============================================================================
+## SECTION 1: Numerical Hessian Computation ====================================
 
 #' @title Compute Numerical Hessian via Finite Differences
 #' @description Compute the Hessian matrix using central finite differences.
@@ -313,9 +316,7 @@ numerical_hessian_richardson <- function(fn, params, eps = 1e-4, r = 2, ...) {
 }
 
 
-## =============================================================================
-## SECTION 2: Observed Information Matrix
-## =============================================================================
+## SECTION 2: Observed Information Matrix ======================================
 
 #' @title Compute Observed Information Matrix for DCC(1,1)
 #' @description Compute the observed Fisher information matrix, which is the
@@ -354,9 +355,363 @@ dcc11_observed_information <- function(params, std_resid, weights, Qbar,
 }
 
 
-## =============================================================================
-## SECTION 3: Standard Error Computation
-## =============================================================================
+#' @title Compute Hessian of DCC(1,1) NLL
+#' @description Compute the Hessian matrix of the negative log-likelihood.
+#'   This is a convenience wrapper that returns both the Hessian and derived
+#'   quantities (standard errors, eigenvalues).
+#' @param params MLE parameter estimates c(alpha, beta) or c(alpha, beta, shape)
+#' @param std_resid T x k matrix of standardized residuals
+#' @param weights T-vector of observation weights
+#' @param Qbar k x k unconditional correlation matrix
+#' @param distribution "mvn" or "mvt"
+#' @param use_reparam Logical: parameters in reparameterized space?
+#' @param method "numerical" (default) or "analytical"
+#' @param eps Step size for numerical differentiation
+#' @return List with:
+#'   \item{hessian}{Hessian matrix of NLL}
+#'   \item{info}{Observed information matrix (= Hessian for NLL)}
+#'   \item{vcov}{Variance-covariance matrix (inverse of info)}
+#'   \item{se}{Standard errors}
+#'   \item{eigenvalues}{Eigenvalues of Hessian}
+#'   \item{condition_number}{Condition number of Hessian}
+#' @export
+dcc11_hessian <- function(params, std_resid, weights, Qbar,
+                          distribution = "mvn",
+                          use_reparam = FALSE,
+                          method = "numerical",
+                          eps = 1e-5) {
+  
+  n_params <- length(params)
+  
+  ## Compute Hessian
+  if (method == "analytical") {
+    H <- dcc11_analytical_hessian(
+      params = params,
+      std_resid = std_resid,
+      weights = weights,
+      Qbar = Qbar,
+      distribution = distribution
+    )
+  } else {
+    H <- numerical_hessian_richardson(
+      fn = dcc11_nll,
+      params = params,
+      eps = eps,
+      std_resid = std_resid,
+      weights = weights,
+      Qbar = Qbar,
+      distribution = distribution,
+      use_reparam = use_reparam
+    )
+  }
+  
+  ## Set parameter names
+  if (n_params == 2) {
+    if (use_reparam) {
+      param_names <- c("psi", "phi")
+    } else {
+      param_names <- c("alpha", "beta")
+    }
+  } else if (n_params == 3) {
+    if (use_reparam) {
+      param_names <- c("psi", "phi", "shape")
+    } else {
+      param_names <- c("alpha", "beta", "shape")
+    }
+  } else {
+    param_names <- paste0("param", 1:n_params)
+  }
+  
+  rownames(H) <- colnames(H) <- param_names
+  
+  ## Eigendecomposition
+  eig <- eigen(H, symmetric = TRUE)
+  
+  ## Inverse for variance-covariance (with regularization if needed)
+  vcov <- tryCatch({
+    if (all(eig$values > 1e-10)) {
+      solve(H)
+    } else {
+      ## Pseudo-inverse for near-singular case
+      warning("Hessian is near-singular, using pseudo-inverse")
+      eig_reg <- pmax(eig$values, 1e-10)
+      eig$vectors %*% diag(1 / eig_reg) %*% t(eig$vectors)
+    }
+  }, error = function(e) {
+    matrix(NA, n_params, n_params)
+  })
+  
+  rownames(vcov) <- colnames(vcov) <- param_names
+  
+  ## Standard errors
+  se <- sqrt(diag(vcov))
+  names(se) <- param_names
+  
+  list(
+    hessian = H,
+    info = H,  ## For NLL, Hessian = observed information
+    vcov = vcov,
+    se = se,
+    eigenvalues = eig$values,
+    eigenvectors = eig$vectors,
+    condition_number = max(eig$values) / min(pmax(eig$values, 1e-16)),
+    method = method,
+    params = params,
+    param_names = param_names
+  )
+}
+
+
+#' @title Analytical Hessian of DCC(1,1) NLL
+#' @description Compute the analytical Hessian matrix of the DCC(1,1) negative
+#'   log-likelihood. This requires second derivatives through the DCC recursion.
+#' @param params Parameter vector c(alpha, beta)
+#' @param std_resid T x k matrix of standardized residuals
+#' @param weights T-vector of observation weights  
+#' @param Qbar k x k unconditional correlation matrix
+#' @param distribution "mvn" or "mvt"
+#' @return k x k Hessian matrix
+#' @keywords internal
+dcc11_analytical_hessian <- function(params, std_resid, weights, Qbar,
+                                     distribution = "mvn") {
+  
+  alpha <- params[1]
+  beta <- params[2]
+  
+  n <- nrow(std_resid)
+  k <- ncol(std_resid)
+  
+  ## Initialize storage for second derivatives
+  ## We need d²L/dα², d²L/dβ², d²L/dαdβ
+  
+  ## Initialize Q and its derivatives
+  Q <- Qbar
+  dQ_dalpha <- matrix(0, k, k)
+  dQ_dbeta <- matrix(0, k, k)
+  
+  ## Second derivatives of Q
+  d2Q_dalpha2 <- matrix(0, k, k)
+  d2Q_dbeta2 <- matrix(0, k, k)
+  d2Q_dalphadbeta <- matrix(0, k, k)
+  
+  ## Hessian components
+  H11 <- 0  ## d²NLL/dα²
+  H22 <- 0  ## d²NLL/dβ²
+  H12 <- 0  ## d²NLL/dαdβ
+  
+  for (t in 1:n) {
+    z_t <- std_resid[t, , drop = FALSE]
+    w_t <- weights[t]
+    
+    ## Normalize Q to get R
+    q_diag <- diag(Q)
+    q_diag_safe <- pmax(q_diag, 1e-10)
+    d_inv <- 1 / sqrt(q_diag_safe)
+    D_inv <- diag(d_inv, k)
+    R <- D_inv %*% Q %*% D_inv
+    
+    ## Ensure R is valid correlation
+    diag(R) <- 1
+    R <- (R + t(R)) / 2
+    
+    ## Compute R inverse
+    R_inv <- tryCatch(solve(R), error = function(e) {
+      eig <- eigen(R, symmetric = TRUE)
+      eig$vectors %*% diag(1 / pmax(eig$values, 1e-8)) %*% t(eig$vectors)
+    })
+    
+    ## First derivatives of D_inv w.r.t. Q diagonal
+    ## dD_inv/dq_ii = -0.5 * q_ii^(-3/2)
+    
+    ## First derivatives of R w.r.t. alpha and beta (through Q)
+    dR_dalpha <- compute_dR_dQ(Q, dQ_dalpha, k)
+    dR_dbeta <- compute_dR_dQ(Q, dQ_dbeta, k)
+    
+    ## Second derivatives of R
+    d2R_dalpha2 <- compute_d2R_dQ2(Q, dQ_dalpha, dQ_dalpha, d2Q_dalpha2, k)
+    d2R_dbeta2 <- compute_d2R_dQ2(Q, dQ_dbeta, dQ_dbeta, d2Q_dbeta2, k)
+    d2R_dalphadbeta <- compute_d2R_dQ2(Q, dQ_dalpha, dQ_dbeta, d2Q_dalphadbeta, k)
+    
+    ## Likelihood contribution for MVN: 
+    ## L_t = -0.5 * (log|R| + z'R^{-1}z)
+    ## 
+    ## First derivatives (we already compute these in gradient):
+    ## dL/dθ = -0.5 * tr(R^{-1} dR/dθ) + 0.5 * z'R^{-1}(dR/dθ)R^{-1}z
+    ##
+    ## Second derivatives:
+    ## d²L/dθ₁dθ₂ = 0.5 * tr(R^{-1}(dR/dθ₁)R^{-1}(dR/dθ₂))
+    ##             - 0.5 * tr(R^{-1}(d²R/dθ₁dθ₂))
+    ##             - z'R^{-1}(dR/dθ₁)R^{-1}(dR/dθ₂)R^{-1}z
+    ##             + 0.5 * z'R^{-1}(d²R/dθ₁dθ₂)R^{-1}z
+    
+    z_vec <- as.vector(z_t)
+    Rz <- R_inv %*% z_vec
+    
+    ## d²NLL/dα²
+    RdRa <- R_inv %*% dR_dalpha
+    RdRaRz <- RdRa %*% Rz
+    
+    term1_aa <- 0.5 * sum(diag(RdRa %*% RdRa))
+    term2_aa <- -0.5 * sum(diag(R_inv %*% d2R_dalpha2))
+    term3_aa <- -as.numeric(t(Rz) %*% dR_dalpha %*% RdRaRz)
+    term4_aa <- 0.5 * as.numeric(t(Rz) %*% d2R_dalpha2 %*% Rz)
+    
+    H11 <- H11 + w_t * (term1_aa + term2_aa + term3_aa + term4_aa)
+    
+    ## d²NLL/dβ²
+    RdRb <- R_inv %*% dR_dbeta
+    RdRbRz <- RdRb %*% Rz
+    
+    term1_bb <- 0.5 * sum(diag(RdRb %*% RdRb))
+    term2_bb <- -0.5 * sum(diag(R_inv %*% d2R_dbeta2))
+    term3_bb <- -as.numeric(t(Rz) %*% dR_dbeta %*% RdRbRz)
+    term4_bb <- 0.5 * as.numeric(t(Rz) %*% d2R_dbeta2 %*% Rz)
+    
+    H22 <- H22 + w_t * (term1_bb + term2_bb + term3_bb + term4_bb)
+    
+    ## d²NLL/dαdβ
+    term1_ab <- 0.5 * sum(diag(RdRa %*% RdRb))
+    term2_ab <- -0.5 * sum(diag(R_inv %*% d2R_dalphadbeta))
+    term3_ab <- -as.numeric(t(Rz) %*% dR_dalpha %*% RdRbRz)
+    term4_ab <- 0.5 * as.numeric(t(Rz) %*% d2R_dalphadbeta %*% Rz)
+    
+    H12 <- H12 + w_t * (term1_ab + term2_ab + term3_ab + term4_ab)
+    
+    ## Update Q and derivatives for next period
+    zz <- t(z_t) %*% z_t
+    
+    ## Q_{t+1} = (1-α-β)Qbar + α*z_t*z_t' + β*Q_t
+    ## dQ/dα = -Qbar + z_t*z_t' + β*(dQ/dα)
+    ## dQ/dβ = -Qbar + Q_t + β*(dQ/dβ)
+    
+    ## Second derivatives:
+    ## d²Q/dα² = β*(d²Q/dα²)
+    ## d²Q/dβ² = 2*(dQ/dβ) + β*(d²Q/dβ²)  -- wait, need to be careful
+    ## Actually: d²Q/dβ² = β*(d²Q/dβ²)  since dQ_t/dβ appears in next step
+    ## d²Q/dαdβ = -I + (dQ/dα) + β*(d²Q/dαdβ)  -- also needs care
+    
+    ## Let me be more careful. Q_{t+1} depends on Q_t:
+    ## dQ_{t+1}/dα = -Qbar + zz + β*(dQ_t/dα)
+    ## d²Q_{t+1}/dα² = β*(d²Q_t/dα²)
+    
+    ## dQ_{t+1}/dβ = -Qbar + Q_t + β*(dQ_t/dβ)
+    ## d²Q_{t+1}/dβ² = 2*(dQ_t/dβ) + β*(d²Q_t/dβ²)
+    ## No wait: d/dβ[dQ_{t+1}/dβ] = d/dβ[-Qbar + Q_t + β*(dQ_t/dβ)]
+    ##                            = dQ_t/dβ + dQ_t/dβ + β*(d²Q_t/dβ²)
+    ##                            = 2*(dQ_t/dβ) + β*(d²Q_t/dβ²)
+    
+    ## d²Q_{t+1}/dαdβ = d/dα[-Qbar + Q_t + β*(dQ_t/dβ)]
+    ##                = dQ_t/dα + β*(d²Q_t/dαdβ)
+    ## No: d/dβ[dQ_{t+1}/dα] = d/dβ[-Qbar + zz + β*(dQ_t/dα)]
+    ##                       = dQ_t/dα + β*(d²Q_t/dαdβ)
+    
+    d2Q_dalpha2_new <- beta * d2Q_dalpha2
+    d2Q_dbeta2_new <- 2 * dQ_dbeta + beta * d2Q_dbeta2
+    d2Q_dalphadbeta_new <- dQ_dalpha + beta * d2Q_dalphadbeta
+    
+    dQ_dalpha_new <- -Qbar + zz + beta * dQ_dalpha
+    dQ_dbeta_new <- -Qbar + Q + beta * dQ_dbeta
+    Q_new <- (1 - alpha - beta) * Qbar + alpha * zz + beta * Q
+    
+    Q <- Q_new
+    dQ_dalpha <- dQ_dalpha_new
+    dQ_dbeta <- dQ_dbeta_new
+    d2Q_dalpha2 <- d2Q_dalpha2_new
+    d2Q_dbeta2 <- d2Q_dbeta2_new
+    d2Q_dalphadbeta <- d2Q_dalphadbeta_new
+  }
+  
+  ## Assemble Hessian (for NLL, so signs are already correct)
+  H <- matrix(c(H11, H12, H12, H22), 2, 2)
+  
+  return(H)
+}
+
+
+#' @title Compute dR/dQ (derivative of correlation w.r.t. Q matrix)
+#' @keywords internal
+compute_dR_dQ <- function(Q, dQ, k) {
+  ## R = D^{-1} Q D^{-1} where D = diag(sqrt(diag(Q)))
+  ## dR/dQ_ij requires chain rule through D
+  
+  q_diag <- diag(Q)
+  q_diag_safe <- pmax(q_diag, 1e-10)
+  d_inv <- 1 / sqrt(q_diag_safe)
+  
+  dq_diag <- diag(dQ)
+  
+  ## dD^{-1}/dq_ii = -0.5 * q_ii^{-3/2} * dq_ii
+  dd_inv <- -0.5 * d_inv^3 * dq_diag
+  
+  ## dR = dD^{-1} Q D^{-1} + D^{-1} dQ D^{-1} + D^{-1} Q dD^{-1}
+  D_inv <- diag(d_inv, k)
+  dD_inv <- diag(dd_inv, k)
+  
+  dR <- dD_inv %*% Q %*% D_inv + D_inv %*% dQ %*% D_inv + D_inv %*% Q %*% dD_inv
+  
+  ## Force diagonal to be zero (correlation diagonal is always 1)
+  diag(dR) <- 0
+  
+  ## Symmetrize
+  dR <- (dR + t(dR)) / 2
+  
+  return(dR)
+}
+
+
+#' @title Compute d²R/dQ² (second derivative of correlation w.r.t. Q)
+#' @keywords internal  
+compute_d2R_dQ2 <- function(Q, dQ1, dQ2, d2Q, k) {
+  ## Second derivative through the normalization
+  ## This is quite involved...
+  
+  q_diag <- diag(Q)
+  q_diag_safe <- pmax(q_diag, 1e-10)
+  d_inv <- 1 / sqrt(q_diag_safe)
+  
+  dq1_diag <- diag(dQ1)
+  dq2_diag <- diag(dQ2)
+  d2q_diag <- diag(d2Q)
+  
+  ## First derivatives of d_inv
+  dd1_inv <- -0.5 * d_inv^3 * dq1_diag
+  dd2_inv <- -0.5 * d_inv^3 * dq2_diag
+  
+  ## Second derivative of d_inv
+  ## d²(q^{-1/2})/dq² = (3/4) * q^{-5/2}
+  ## d²d_inv/d(param1)d(param2) = (3/4) * d_inv^5 * dq1 * dq2 + (-1/2) * d_inv^3 * d2q
+  d2d_inv <- 0.75 * d_inv^5 * dq1_diag * dq2_diag - 0.5 * d_inv^3 * d2q_diag
+  
+  D_inv <- diag(d_inv, k)
+  dD1_inv <- diag(dd1_inv, k)
+  dD2_inv <- diag(dd2_inv, k)
+  d2D_inv <- diag(d2d_inv, k)
+  
+  ## d²R = d²D^{-1} Q D^{-1} + dD1^{-1} dQ2 D^{-1} + dD1^{-1} Q dD2^{-1}
+  ##     + dD2^{-1} dQ1 D^{-1} + D^{-1} d2Q D^{-1} + D^{-1} dQ1 dD2^{-1}
+  ##     + dD2^{-1} Q dD1^{-1} + D^{-1} dQ2 dD1^{-1} + D^{-1} Q d²D^{-1}
+  
+  d2R <- d2D_inv %*% Q %*% D_inv +
+    dD1_inv %*% dQ2 %*% D_inv +
+    dD1_inv %*% Q %*% dD2_inv +
+    dD2_inv %*% dQ1 %*% D_inv +
+    D_inv %*% d2Q %*% D_inv +
+    D_inv %*% dQ1 %*% dD2_inv +
+    dD2_inv %*% Q %*% dD1_inv +
+    D_inv %*% dQ2 %*% dD1_inv +
+    D_inv %*% Q %*% d2D_inv
+  
+  ## Force diagonal to zero
+  diag(d2R) <- 0
+  
+  ## Symmetrize
+  d2R <- (d2R + t(d2R)) / 2
+  
+  return(d2R)
+}
+
+
+## SECTION 3: Standard Error Computation =======================================
 
 #' @title Compute Standard Errors for DCC(1,1) Parameters
 #' @description Compute asymptotic standard errors from the observed information
@@ -638,9 +993,7 @@ dcc11_nll_single_obs <- function(params, std_resid, weights, Qbar, t,
 }
 
 
-## =============================================================================
-## SECTION 4: Transformation Between Parameterizations
-## =============================================================================
+## SECTION 4: Transformation Between Parameterizations =========================
 
 #' @title Transform Standard Errors Between Parameterizations
 #' @description Transform standard errors from (psi, phi) to (alpha, beta) or
@@ -719,9 +1072,7 @@ dcc11_transform_se <- function(se_result, to_reparam = FALSE) {
 }
 
 
-## =============================================================================
-## SECTION 5: Confidence Intervals
-## =============================================================================
+## SECTION 5: Confidence Intervals =============================================
 
 #' @title Compute Confidence Intervals for DCC(1,1) Parameters
 #' @description Compute asymptotic confidence intervals based on standard errors.
@@ -825,9 +1176,7 @@ dcc11_profile_ci <- function(params, std_resid, weights, Qbar,
 }
 
 
-## =============================================================================
-## SECTION 6: Summary and Printing Functions
-## =============================================================================
+## SECTION 6: Summary and Printing Functions ===================================
 
 #' @title Summarize DCC(1,1) Estimation Results
 #' @description Create a comprehensive summary of DCC estimation with

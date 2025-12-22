@@ -1100,12 +1100,3 @@ test_that("No penalty warnings with reparameterization", {
 })
 
 
-#### ______________________________________________________________________ ####
-#### RUN ALL TESTS                                                          ####
-
-cat("\n=== DCC Gradient Integration Test Suite ===\n")
-cat("Run with: testthat::test_file('test_dcc_gradient_integration.R')\n\n")
-cat("Prerequisites:\n")
-cat("  1. source('dcc_gradient.R')\n")
-cat("  2. source('ms-varma-garch_helper_functions.R')
-  \n")

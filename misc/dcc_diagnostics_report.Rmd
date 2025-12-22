@@ -33,6 +33,7 @@ estimation accuracy. We assess:
 4. **Likelihood Surface** - Is the surface well-behaved near the optimum?
 5. **Optimization Path** - How does the optimizer navigate the parameter space?
 6. **Asymptotic Normality** - Are standardized estimates approximately N(0,1)?
+7. **Inference Method Comparison** - Hessian vs Bootstrap vs Profile Likelihood
 
 # Setup
 
@@ -45,10 +46,11 @@ library(kableExtra)
 library(mvtnorm)  ## Required by simulate_dcc_garch
 
 ## Source the DCC estimation and diagnostic code
-source("diagnostic_utils.R")  ## Contains simulate_dcc_garch
-source("dcc_gradient.R")
-source("dcc_hessian.R")
-source("dcc_diagnostics.R")
+# source("diagnostic_utils.R")  ## Contains simulate_dcc_garch
+# source("dcc_gradient.R")
+# source("dcc_hessian.R")
+# source("dcc_diagnostics.R")
+# source("dcc_inference.R")  ## Bootstrap and profile likelihood
 ```
 
 ## Configuration
@@ -69,6 +71,9 @@ OMEGA <- c(0.05, 0.08)
 ALPHA_GARCH <- c(0.10, 0.12)
 BETA_GARCH <- c(0.85, 0.82)
 
+## Bootstrap settings
+N_BOOT <- 200
+
 ## Random seed
 SEED <- 12345
 
@@ -79,6 +84,7 @@ cat(sprintf("  Number of series: %d\n", K))
 cat(sprintf("  True DCC alpha: %.3f\n", TRUE_ALPHA))
 cat(sprintf("  True DCC beta: %.3f\n", TRUE_BETA))
 cat(sprintf("  True persistence: %.3f\n", TRUE_PERSISTENCE))
+cat(sprintf("  Bootstrap replications: %d\n", N_BOOT))
 ```
 
 # Part 1: Monte Carlo Simulation Study
@@ -363,6 +369,246 @@ dist_to_true <- sqrt((mle_params["alpha"] - TRUE_ALPHA)^2 +
 cat(sprintf("  Distance (MLE to True): %.4f\n", dist_to_true))
 ```
 
+## Likelihood Curvature Analysis
+
+This section examines whether the likelihood surface is flat in the beta direction,
+which would explain why beta is hard to estimate precisely.
+
+### Hessian Eigenvalue Analysis
+
+The Hessian matrix captures local curvature. Its eigenvalues indicate curvature in
+the principal directions - small eigenvalues mean flat directions.
+
+```{r hessian-eigenvalues}
+## Compute Hessian at MLE
+Qbar <- cor(std_resid)
+weights <- rep(1, N_OBS)
+
+hessian_result <- dcc11_hessian(
+  params = mle_params,
+  std_resid = std_resid,
+  weights = weights,
+  Qbar = Qbar,
+  distribution = "mvn"
+)
+
+## Eigendecomposition
+eig <- eigen(hessian_result$hessian, symmetric = TRUE)
+
+cat("Hessian Eigenvalue Analysis:\n\n")
+cat(sprintf("  Eigenvalue 1 (larger):  %.4f\n", eig$values[1]))
+cat(sprintf("  Eigenvalue 2 (smaller): %.4f\n", eig$values[2]))
+cat(sprintf("  Ratio (λ1/λ2):          %.2f\n", eig$values[1] / eig$values[2]))
+cat(sprintf("  Condition number:       %.2f\n", max(eig$values) / min(eig$values)))
+
+cat("\n  Eigenvector 1 (steep direction):\n")
+cat(sprintf("    alpha component: %.4f\n", eig$vectors[1, 1]))
+cat(sprintf("    beta component:  %.4f\n", eig$vectors[2, 1]))
+
+cat("\n  Eigenvector 2 (flat direction):\n")
+cat(sprintf("    alpha component: %.4f\n", eig$vectors[1, 2]))
+cat(sprintf("    beta component:  %.4f\n", eig$vectors[2, 2]))
+
+## Interpretation
+if (eig$values[1] / eig$values[2] > 10) {
+  cat("\n  INTERPRETATION: Large eigenvalue ratio indicates highly anisotropic curvature.\n")
+  cat("  The likelihood is much flatter in one direction than the other.\n")
+}
+```
+
+### Profile Likelihood Slices
+
+These 1D slices show the likelihood along each parameter axis, holding the other fixed at MLE.
+
+```{r profile-slices}
+## Create profile slices through MLE
+alpha_grid <- seq(0.001, 0.15, length.out = 100)
+beta_grid <- seq(0.5, 0.995, length.out = 100)
+
+## Profile along alpha (beta fixed at MLE)
+nll_alpha_profile <- sapply(alpha_grid, function(a) {
+  if (a + mle_params["beta"] >= 0.999) return(NA)
+  dcc11_nll(
+    params = c(a, mle_params["beta"]),
+    std_resid = std_resid,
+    weights = weights,
+    Qbar = Qbar,
+    distribution = "mvn",
+    use_reparam = FALSE
+  )
+})
+
+## Profile along beta (alpha fixed at MLE)
+nll_beta_profile <- sapply(beta_grid, function(b) {
+  if (mle_params["alpha"] + b >= 0.999) return(NA)
+  dcc11_nll(
+    params = c(mle_params["alpha"], b),
+    std_resid = std_resid,
+    weights = weights,
+    Qbar = Qbar,
+    distribution = "mvn",
+    use_reparam = FALSE
+  )
+})
+
+## Get MLE NLL for reference
+mle_nll <- mle_result$value
+```
+
+```{r profile-alpha-plot}
+## Plot alpha profile
+valid_alpha <- !is.na(nll_alpha_profile)
+
+plot_ly() %>%
+  add_trace(
+    x = alpha_grid[valid_alpha],
+    y = nll_alpha_profile[valid_alpha],
+    type = "scatter",
+    mode = "lines",
+    line = list(color = "blue", width = 2),
+    name = "Profile NLL"
+  ) %>%
+  add_trace(
+    x = c(mle_params["alpha"], mle_params["alpha"]),
+    y = c(min(nll_alpha_profile, na.rm = TRUE), max(nll_alpha_profile, na.rm = TRUE)),
+    type = "scatter",
+    mode = "lines",
+    line = list(color = "red", width = 2, dash = "dash"),
+    name = sprintf("MLE = %.4f", mle_params["alpha"])
+  ) %>%
+  add_trace(
+    x = c(TRUE_ALPHA, TRUE_ALPHA),
+    y = c(min(nll_alpha_profile, na.rm = TRUE), max(nll_alpha_profile, na.rm = TRUE)),
+    type = "scatter",
+    mode = "lines",
+    line = list(color = "green", width = 2, dash = "dot"),
+    name = sprintf("True = %.4f", TRUE_ALPHA)
+  ) %>%
+  layout(
+    title = "Profile Likelihood: Alpha (beta fixed at MLE)",
+    xaxis = list(title = "Alpha"),
+    yaxis = list(title = "Negative Log-Likelihood")
+  )
+```
+
+```{r profile-beta-plot}
+## Plot beta profile
+valid_beta <- !is.na(nll_beta_profile)
+
+plot_ly() %>%
+  add_trace(
+    x = beta_grid[valid_beta],
+    y = nll_beta_profile[valid_beta],
+    type = "scatter",
+    mode = "lines",
+    line = list(color = "blue", width = 2),
+    name = "Profile NLL"
+  ) %>%
+  add_trace(
+    x = c(mle_params["beta"], mle_params["beta"]),
+    y = c(min(nll_beta_profile, na.rm = TRUE), max(nll_beta_profile, na.rm = TRUE)),
+    type = "scatter",
+    mode = "lines",
+    line = list(color = "red", width = 2, dash = "dash"),
+    name = sprintf("MLE = %.4f", mle_params["beta"])
+  ) %>%
+  add_trace(
+    x = c(TRUE_BETA, TRUE_BETA),
+    y = c(min(nll_beta_profile, na.rm = TRUE), max(nll_beta_profile, na.rm = TRUE)),
+    type = "scatter",
+    mode = "lines",
+    line = list(color = "green", width = 2, dash = "dot"),
+    name = sprintf("True = %.4f", TRUE_BETA)
+  ) %>%
+  layout(
+    title = "Profile Likelihood: Beta (alpha fixed at MLE)",
+    xaxis = list(title = "Beta"),
+    yaxis = list(title = "Negative Log-Likelihood")
+  )
+```
+
+### Curvature Comparison
+
+```{r curvature-comparison}
+## Compute local curvature from the profiles (second derivative)
+## Using finite differences near MLE
+
+## Find indices near MLE
+alpha_mle_idx <- which.min(abs(alpha_grid - mle_params["alpha"]))
+beta_mle_idx <- which.min(abs(beta_grid - mle_params["beta"]))
+
+## Second derivative approximation (curvature)
+h_alpha <- alpha_grid[2] - alpha_grid[1]
+h_beta <- beta_grid[2] - beta_grid[1]
+
+if (alpha_mle_idx > 1 && alpha_mle_idx < length(alpha_grid)) {
+  curv_alpha <- (nll_alpha_profile[alpha_mle_idx + 1] - 
+                 2 * nll_alpha_profile[alpha_mle_idx] + 
+                 nll_alpha_profile[alpha_mle_idx - 1]) / h_alpha^2
+} else {
+  curv_alpha <- NA
+}
+
+if (beta_mle_idx > 1 && beta_mle_idx < length(beta_grid)) {
+  curv_beta <- (nll_beta_profile[beta_mle_idx + 1] - 
+                2 * nll_beta_profile[beta_mle_idx] + 
+                nll_beta_profile[beta_mle_idx - 1]) / h_beta^2
+} else {
+  curv_beta <- NA
+}
+
+cat("Local Curvature at MLE:\n\n")
+cat(sprintf("  d²NLL/dα² (curvature in alpha): %.2f\n", curv_alpha))
+cat(sprintf("  d²NLL/dβ² (curvature in beta):  %.2f\n", curv_beta))
+cat(sprintf("  Ratio (alpha/beta):             %.2f\n", curv_alpha / curv_beta))
+
+cat("\n  Implied standard errors from curvature:\n")
+cat(sprintf("    SE(alpha) ≈ 1/√curvature = %.4f\n", 1 / sqrt(curv_alpha)))
+cat(sprintf("    SE(beta)  ≈ 1/√curvature = %.4f\n", 1 / sqrt(curv_beta)))
+
+## Compare to Hessian-based SE
+cat("\n  Comparison to Hessian-based SE:\n")
+cat(sprintf("    Hessian SE(alpha): %.4f\n", hessian_result$se[1]))
+cat(sprintf("    Hessian SE(beta):  %.4f\n", hessian_result$se[2]))
+```
+
+### NLL Range Comparison
+
+```{r nll-range}
+## Compare the NLL range over a similar parameter range
+alpha_range_width <- 0.10  ## e.g., MLE ± 0.05
+beta_range_width <- 0.10
+
+alpha_in_range <- alpha_grid >= (mle_params["alpha"] - alpha_range_width/2) & 
+                  alpha_grid <= (mle_params["alpha"] + alpha_range_width/2)
+beta_in_range <- beta_grid >= (mle_params["beta"] - beta_range_width/2) & 
+                 beta_grid <= (mle_params["beta"] + beta_range_width/2)
+
+nll_range_alpha <- diff(range(nll_alpha_profile[alpha_in_range & valid_alpha], na.rm = TRUE))
+nll_range_beta <- diff(range(nll_beta_profile[beta_in_range & valid_beta], na.rm = TRUE))
+
+cat("NLL Range over ±0.05 from MLE:\n\n")
+cat(sprintf("  Alpha: NLL varies by %.2f over [%.3f, %.3f]\n", 
+            nll_range_alpha,
+            mle_params["alpha"] - alpha_range_width/2,
+            mle_params["alpha"] + alpha_range_width/2))
+cat(sprintf("  Beta:  NLL varies by %.2f over [%.3f, %.3f]\n", 
+            nll_range_beta,
+            mle_params["beta"] - beta_range_width/2,
+            mle_params["beta"] + beta_range_width/2))
+cat(sprintf("  Ratio (alpha/beta): %.2f\n", nll_range_alpha / nll_range_beta))
+
+if (nll_range_alpha / nll_range_beta > 2) {
+  cat("\n  CONCLUSION: Likelihood is FLATTER in beta direction.\n")
+  cat("  Moving beta by ±0.05 changes NLL less than moving alpha by ±0.05.\n")
+  cat("  This explains why beta is harder to estimate precisely.\n")
+} else if (nll_range_beta / nll_range_alpha > 2) {
+  cat("\n  CONCLUSION: Likelihood is FLATTER in alpha direction.\n")
+} else {
+  cat("\n  CONCLUSION: Curvature is similar in both directions.\n")
+}
+```
+
 # Part 4: Optimization Path Visualization
 
 This section visualizes how the optimizer navigates the parameter space from different 
@@ -599,6 +845,344 @@ kable(normality_table, digits = 3,
   kable_styling(bootstrap_options = c("striped", "hover"), full_width = FALSE)
 ```
 
+
+# Conclusions
+
+## Running with `N_SIM <- 100` and `N_OBS <- 500`
+
+Alpha estimation works well: Bias is small (0.0058), RMSE reasonable (0.0251), coverage excellent (97.9%), SE calibration good (ratio 1.06)
+Coverage is actually fine for both parameters (95-98%), which means CIs are doing their job
+
+The Problem: Beta
+The beta results reveal a classic issue with high-persistence DCC models:
+
+```{r normality-summary}
+beta_results <- data.frame(
+  metric = c("True value", "Bias", "RMSE", "SE/SD ratio"),
+  alpha = c(0.05, 0.006, 0.025, 1.06),
+  beta = c(0.90, -0.083, 0.212, 0.48)
+)
+
+kable(beta_results, digits = 3, 
+      caption = "beta results") %>%
+  kable_styling(bootstrap_options = c("striped", "hover"), full_width = FALSE)
+```
+
+## What's happening
+
+1) Downward bias in beta (-0.083): With true β = 0.90, we're estimating ~0.82 on average. This is a well-known finite-sample bias in GARCH-type models when persistence is high. The MLE is biased toward the interior of the parameter space.
+2) SE/SD ratio of 0.48: The Hessian-based SEs are only half the empirical standard deviation. This means:  
+  - The information matrix suggests beta is estimated more precisely than it actually is  
+  - Likely because the likelihood surface is flatter than quadratic near the boundary  
+  - The asymptotic approximation breaks down when true parameters are near constraints  
+3) Despite poor SE calibration, coverage is fine (95.8%): This seems paradoxical, but it's because the bias and SE miscalibration partially cancel out. The CIs are "wrong for the right reasons."
+
+## Potential Solutions to Explore
+
+1) Bias correction: Bootstrap bias correction or analytical corrections for high-persistence models  
+2) Alternative SE methods:  
+  - Sandwich/robust SEs (already implemented)  
+  - Bootstrap SEs  
+  - Profile likelihood CIs instead of Wald CIs  
+3) Reparameterization: Our persistence/ratio parameterization might help here - the SE calibration could be better in that space
+4) Sample size: Try n=1000 or n=2000 to see if the bias diminishes (it should be O(1/n))
+
+
+## Running with `N_SIM <- 200` and `N_OBS <- 1000`
+with more data (n=1000 vs n=500) and more replications (200 vs 100), the patterns become clearer:
+
+```{r normality-summary}
+beta_results_2 <- data.frame(
+  Metric = c("Bias α", "Bias β", "RMSE α", "RMSE β", "SE/SD α", "SE/SD β", "Coverage α pct", "Coverage β pct"),
+  n_500 = c(0.0058, -0.083, 0.0251, 0.212, 1.06, 0.48, 97.9, 95.8),
+  n_1000 = c(0.0053, -0.058, 0.0215, 0.174, 0.89, 0.36, 94.7, 94.1),
+  Expected = c("↓ (O(1/n))", "↓ (O(1/n))", "↓ (O(1/√n))", "↓ (O(1/√n))", "~1.0", "~1.0", "95", "95")
+)
+
+kable(beta_results_2, digits = 3, 
+      caption = "beta results") %>%
+  kable_styling(bootstrap_options = c("striped", "hover"), full_width = FALSE)
+```
+
+### Observations
+
+1) Bias is shrinking as expected - roughly halved when doubling n, consistent with O(1/n) finite-sample bias  
+2) RMSE shrinking at ~1/√n rate - good, this is standard √n-consistency  
+3) Coverage is remarkably good - both parameters near 95% despite poor SE calibration  
+4) SE/SD ratio for beta is getting worse - 0.48 → 0.36. This is puzzling. The Hessian-based SEs are increasingly underestimating the true variability as n grows.  
+
+
+### The Beta SE Problem
+
+The SE/SD ratio of 0.36 means our computed SEs are only about 1/3 of the empirical standard deviation. Yet coverage is 94.1%. This can only happen if:
+The bias and SE underestimation are correlated in a way that preserves coverage
+Specifically: when β is estimated low (negative bias), the SE is also underestimated, but the CI still covers the true value because we're "aiming low" consistently.
+
+
+### Hypotheses for the SE Miscalibration
+
+1) Near-boundary effects: With true β = 0.90 and true persistence = 0.95, we're operating near the constraint. The observed information matrix may not capture the asymmetric uncertainty well.  
+2) The likelihood surface is flatter than quadratic in the β direction near the boundary, so the curvature (Hessian) overstates precision.  
+3) Correlation between α and β estimates - our SE computation may not account for this properly.  
+
+
+
+# Part 7: Inference Method Comparison
+
+The Monte Carlo results show that Hessian-based standard errors can be poorly calibrated,
+especially for beta when persistence is high. This section compares three inference approaches:
+
+1. **Hessian-based**: Uses observed information matrix (fast but may be unreliable)
+2. **Bootstrap**: Resamples data to estimate sampling distribution (robust but slower)
+3. **Profile Likelihood**: Inverts likelihood ratio test (no quadratic assumption)
+
+## Run Comprehensive Inference
+
+```{r inference-comparison, cache=TRUE}
+## Use the same simulated dataset from Part 3
+Qbar <- cor(std_resid)
+weights <- rep(1, N_OBS)
+
+## Run all three inference methods
+inf_result <- dcc11_comprehensive_inference(
+  std_resid = std_resid,
+  weights = weights,
+  Qbar = Qbar,
+  mle_params = mle_params,
+  distribution = "mvn",
+  n_boot = N_BOOT,
+  boot_method = "residual",
+  n_profile_points = 50,
+  conf_level = 0.95,
+  verbose = TRUE,
+  seed = SEED
+)
+```
+
+## Standard Error Comparison
+
+```{r se-comparison}
+se_comparison <- data.frame(
+  Parameter = c("alpha", "beta"),
+  Hessian_SE = inf_result$hessian$se,
+  Bootstrap_SE = inf_result$bootstrap$se,
+  Ratio = inf_result$hessian$se / inf_result$bootstrap$se
+)
+
+kable(se_comparison, digits = 4, 
+      caption = "Standard Error Comparison: Hessian vs Bootstrap") %>%
+  kable_styling(bootstrap_options = c("striped", "hover"), full_width = FALSE)
+
+cat("\nInterpretation:\n")
+cat("  Ratio < 1: Hessian SE underestimates uncertainty\n")
+cat("  Ratio > 1: Hessian SE overestimates uncertainty\n")
+cat("  Ratio ~ 1: Methods agree (Hessian is reliable)\n")
+```
+
+## Confidence Interval Comparison
+
+```{r ci-comparison}
+ci_comparison <- data.frame(
+  Parameter = rep(c("alpha", "beta"), each = 3),
+  Method = rep(c("Hessian", "Bootstrap", "Profile"), 2),
+  Lower = c(
+    inf_result$hessian$ci[1, "alpha"],
+    inf_result$bootstrap$ci_percentile[1, "alpha"],
+    inf_result$profile$alpha$ci["lower"],
+    inf_result$hessian$ci[1, "beta"],
+    inf_result$bootstrap$ci_percentile[1, "beta"],
+    inf_result$profile$beta$ci["lower"]
+  ),
+  Upper = c(
+    inf_result$hessian$ci[2, "alpha"],
+    inf_result$bootstrap$ci_percentile[2, "alpha"],
+    inf_result$profile$alpha$ci["upper"],
+    inf_result$hessian$ci[2, "beta"],
+    inf_result$bootstrap$ci_percentile[2, "beta"],
+    inf_result$profile$beta$ci["upper"]
+  )
+)
+
+ci_comparison$Width <- ci_comparison$Upper - ci_comparison$Lower
+ci_comparison$MLE <- rep(mle_params, each = 3)
+
+kable(ci_comparison, digits = 4, 
+      caption = "95% Confidence Interval Comparison") %>%
+  kable_styling(bootstrap_options = c("striped", "hover"), full_width = FALSE)
+```
+
+## Visual CI Comparison
+
+```{r ci-visual}
+## Create comparison plot
+plot_ly() %>%
+  ## Alpha CIs
+  add_trace(
+    x = c("Hessian", "Bootstrap", "Profile"),
+    y = rep(mle_params["alpha"], 3),
+    error_y = list(
+      type = "data",
+      symmetric = FALSE,
+      array = c(
+        inf_result$hessian$ci[2, "alpha"] - mle_params["alpha"],
+        inf_result$bootstrap$ci_percentile[2, "alpha"] - mle_params["alpha"],
+        inf_result$profile$alpha$ci["upper"] - mle_params["alpha"]
+      ),
+      arrayminus = c(
+        mle_params["alpha"] - inf_result$hessian$ci[1, "alpha"],
+        mle_params["alpha"] - inf_result$bootstrap$ci_percentile[1, "alpha"],
+        mle_params["alpha"] - inf_result$profile$alpha$ci["lower"]
+      )
+    ),
+    type = "scatter",
+    mode = "markers",
+    marker = list(size = 12, color = "steelblue"),
+    name = "Alpha"
+  ) %>%
+  add_trace(
+    x = c("Hessian", "Bootstrap", "Profile"),
+    y = rep(TRUE_ALPHA, 3),
+    type = "scatter",
+    mode = "lines",
+    line = list(color = "red", dash = "dash"),
+    name = "True Alpha"
+  ) %>%
+  layout(
+    title = "Alpha: 95% CI Comparison",
+    xaxis = list(title = "Method"),
+    yaxis = list(title = "Alpha"),
+    showlegend = TRUE
+  )
+```
+
+```{r ci-visual-beta}
+plot_ly() %>%
+  ## Beta CIs
+  add_trace(
+    x = c("Hessian", "Bootstrap", "Profile"),
+    y = rep(mle_params["beta"], 3),
+    error_y = list(
+      type = "data",
+      symmetric = FALSE,
+      array = c(
+        inf_result$hessian$ci[2, "beta"] - mle_params["beta"],
+        inf_result$bootstrap$ci_percentile[2, "beta"] - mle_params["beta"],
+        inf_result$profile$beta$ci["upper"] - mle_params["beta"]
+      ),
+      arrayminus = c(
+        mle_params["beta"] - inf_result$hessian$ci[1, "beta"],
+        mle_params["beta"] - inf_result$bootstrap$ci_percentile[1, "beta"],
+        mle_params["beta"] - inf_result$profile$beta$ci["lower"]
+      )
+    ),
+    type = "scatter",
+    mode = "markers",
+    marker = list(size = 12, color = "forestgreen"),
+    name = "Beta"
+  ) %>%
+  add_trace(
+    x = c("Hessian", "Bootstrap", "Profile"),
+    y = rep(TRUE_BETA, 3),
+    type = "scatter",
+    mode = "lines",
+    line = list(color = "red", dash = "dash"),
+    name = "True Beta"
+  ) %>%
+  layout(
+    title = "Beta: 95% CI Comparison",
+    xaxis = list(title = "Method"),
+    yaxis = list(title = "Beta"),
+    showlegend = TRUE
+  )
+```
+
+## Profile Likelihood Curves
+
+```{r profile-alpha}
+plot_profile_likelihood(inf_result$profile, "alpha")
+```
+
+```{r profile-beta}
+plot_profile_likelihood(inf_result$profile, "beta")
+```
+
+## Bootstrap Distribution
+
+```{r boot-distribution}
+boot_valid <- inf_result$bootstrap$boot_estimates[complete.cases(inf_result$bootstrap$boot_estimates), ]
+
+plot_ly() %>%
+  add_trace(
+    x = boot_valid[, "alpha"],
+    y = boot_valid[, "beta"],
+    type = "scatter",
+    mode = "markers",
+    marker = list(color = "steelblue", opacity = 0.4, size = 5),
+    name = "Bootstrap estimates"
+  ) %>%
+  add_trace(
+    x = mle_params["alpha"],
+    y = mle_params["beta"],
+    type = "scatter",
+    mode = "markers",
+    marker = list(color = "red", size = 15, symbol = "x"),
+    name = "MLE"
+  ) %>%
+  add_trace(
+    x = TRUE_ALPHA,
+    y = TRUE_BETA,
+    type = "scatter",
+    mode = "markers",
+    marker = list(color = "gold", size = 15, symbol = "star"),
+    name = "True"
+  ) %>%
+  layout(
+    title = "Bootstrap Distribution of Estimates",
+    xaxis = list(title = "Alpha"),
+    yaxis = list(title = "Beta")
+  )
+```
+
+## Inference Method Recommendations
+
+```{r inference-recommendations}
+cat("=== Inference Method Assessment ===\n\n")
+
+## Check Hessian reliability
+hess_boot_ratio_alpha <- inf_result$hessian$se[1] / inf_result$bootstrap$se[1]
+hess_boot_ratio_beta <- inf_result$hessian$se[2] / inf_result$bootstrap$se[2]
+
+cat("Hessian SE / Bootstrap SE:\n")
+cat(sprintf("  Alpha: %.2f\n", hess_boot_ratio_alpha))
+cat(sprintf("  Beta:  %.2f\n", hess_boot_ratio_beta))
+cat("\n")
+
+if (hess_boot_ratio_beta < 0.7) {
+  cat("WARNING: Hessian SEs for beta are substantially underestimated.\n")
+  cat("         This is typical for high-persistence DCC models.\n")
+  cat("         Recommendation: Use bootstrap or profile likelihood CIs.\n")
+} else if (hess_boot_ratio_beta < 0.9) {
+  cat("CAUTION: Hessian SEs for beta may be somewhat underestimated.\n")
+  cat("         Consider bootstrap CIs for more reliable inference.\n")
+} else {
+  cat("Hessian SEs appear reasonably calibrated.\n")
+  cat("All inference methods should give similar results.\n")
+}
+
+cat("\n")
+cat("CI Width Comparison (wider = more conservative):\n")
+for (param in c("alpha", "beta")) {
+  hess_width <- inf_result$hessian$ci[2, param] - inf_result$hessian$ci[1, param]
+  boot_width <- inf_result$bootstrap$ci_percentile[2, param] - 
+                inf_result$bootstrap$ci_percentile[1, param]
+  prof_ci <- if (param == "alpha") inf_result$profile$alpha$ci else inf_result$profile$beta$ci
+  prof_width <- prof_ci[2] - prof_ci[1]
+  
+  cat(sprintf("  %s: Hessian=%.4f, Bootstrap=%.4f, Profile=%.4f\n",
+              param, hess_width, boot_width, prof_width))
+}
+```
+
 # Summary and Conclusions
 
 ```{r conclusions}
@@ -645,6 +1229,15 @@ cat(sprintf("  Coverage: alpha=%.1f%%, beta=%.1f%%\n",
             mc_result$coverage["alpha"] * 100, mc_result$coverage["beta"] * 100))
 cat(sprintf("  SE/SD ratio: alpha=%.2f, beta=%.2f\n", 
             se_ratio_alpha, se_ratio_beta))
+
+cat("\n")
+cat("Inference Recommendation:\n")
+if (se_ratio_beta < 0.7) {
+  cat("  Use Bootstrap or Profile Likelihood CIs for beta.\n")
+  cat("  Hessian-based SEs are unreliable for high-persistence models.\n")
+} else {
+  cat("  All inference methods appear reliable.\n")
+}
 ```
 
 # Session Info
@@ -652,65 +1245,3 @@ cat(sprintf("  SE/SD ratio: alpha=%.2f, beta=%.2f\n",
 ```{r session-info}
 sessionInfo()
 ```
-
-
-
-## Conclusions
-
-### Running with `N_SIM <- 100` and `N_OBS <- 500`
-
-Alpha estimation works well: Bias is small (0.0058), RMSE reasonable (0.0251), coverage excellent (97.9%), SE calibration good (ratio 1.06)
-Coverage is actually fine for both parameters (95-98%), which means CIs are doing their job
-
-The Problem: Beta
-The beta results reveal a classic issue with high-persistence DCC models:
-
-```{r normality-summary}
-beta_results <- data.frame(
-  metric = c("True value", "Bias", "RMSE", "SE/SD ratio"),
-  alpha = c(0.05, 0.006, 0.025, 1.06),
-  beta = c(0.90, -0.083, 0.212, 0.48)
-)
-
-kable(beta_results, digits = 3, 
-      caption = "beta results") %>%
-  kable_styling(bootstrap_options = c("striped", "hover"), full_width = FALSE)
-```
-
-### What's happening
-
-1) Downward bias in beta (-0.083): With true β = 0.90, we're estimating ~0.82 on average. This is a well-known finite-sample bias in GARCH-type models when persistence is high. The MLE is biased toward the interior of the parameter space.
-2) SE/SD ratio of 0.48: The Hessian-based SEs are only half the empirical standard deviation. This means:  
-  - The information matrix suggests beta is estimated more precisely than it actually is  
-  - Likely because the likelihood surface is flatter than quadratic near the boundary  
-  - The asymptotic approximation breaks down when true parameters are near constraints  
-3) Despite poor SE calibration, coverage is fine (95.8%): This seems paradoxical, but it's because the bias and SE miscalibration partially cancel out. The CIs are "wrong for the right reasons."
-
-### Potential Solutions to Explore
-
-1) Bias correction: Bootstrap bias correction or analytical corrections for high-persistence models  
-2) Alternative SE methods:  
-  - Sandwich/robust SEs (already implemented)  
-  - Bootstrap SEs  
-  - Profile likelihood CIs instead of Wald CIs  
-3) Reparameterization: Our persistence/ratio parameterization might help here - the SE calibration could be better in that space
-4) Sample size: Try n=1000 or n=2000 to see if the bias diminishes (it should be O(1/n))
-
-
-### Running with `N_SIM <- 200` and `N_OBS <- 1000`
-with more data (n=1000 vs n=500) and more replications (200 vs 100), the patterns become clearer:
-
-```{r normality-summary}
-beta_results_2 <- data.frame(
-  Metric = c("Bias α", "Bias β", "RMSE α", "RMSE β", "SE/SD α", "SE/SD β", "Coverage α pct", "Coverage β pct"),
-  n_500 = c(0.0058, -0.083, 0.0251, 0.212, 1.06, 0.48, 97.9, 95.8),
-  n_1000 = c(0.0053, -0.058, 0.0215, 0.174, 0.89, 0.36, 94.7, 94.1),
-  Expected = c("↓ (O(1/n))", "↓ (O(1/n))", "↓ (O(1/√n))", "↓ (O(1/√n))", "~1.0", "~1.0", "95%", "95%")
-)
-
-kable(beta_results_2, digits = 3, 
-      caption = "beta results") %>%
-  kable_styling(bootstrap_options = c("striped", "hover"), full_width = FALSE)
-```
-
-
