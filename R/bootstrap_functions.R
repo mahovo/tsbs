@@ -565,7 +565,7 @@ msvar_bootstrap <- function(
 #' }
 #' 
 #' This may result in optimizer instability warnings for models with high
-#' persistence, but maintains correctness for arbitrary DCC orders.
+#' persistence.
 #' 
 #' @return A list of bootstrapped time series matrices.
 #' 

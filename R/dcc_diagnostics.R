@@ -844,8 +844,7 @@ plot_optimization_trace <- function(
       z = t(surface$nll_surface),
       type = "contour",
       contours = list(showlabels = FALSE),
-      colorscale = "Greys",
-      opacity = 0.5,
+      colorscale = "Viridis",
       showscale = FALSE
     )
   } else {
@@ -858,13 +857,13 @@ plot_optimization_trace <- function(
     y = trace_data$beta,
     type = "scatter",
     mode = "lines+markers",
-    line = list(color = "blue", width = 2),
+    line = list(color = "orange", width = 2),
     marker = list(
       color = trace_data$iteration,
       colorscale = "Viridis",
       size = 8,
       showscale = TRUE,
-      colorbar = list(title = "Iteration")
+      colorbar = list(title = "Iteration", len = 0.5)
     ),
     name = "Trace"
   )
@@ -1059,10 +1058,12 @@ visualize_standalone_optimization <- function(
     std_resid = std_resid,
     weights = weights,
     Qbar = Qbar,
-    alpha_range = c(max(0.001, min(true_alpha, start_alpha) - 0.05), 
-                    min(0.30, max(true_alpha, start_alpha) + 0.10)),
-    beta_range = c(max(0.50, min(true_beta, start_beta) - 0.15), 
-                   min(0.99, max(true_beta, start_beta) + 0.05)),
+    # alpha_range = c(max(0.001, min(true_alpha, start_alpha) - 0.05), 
+    #                 min(0.30, max(true_alpha, start_alpha) + 0.10)),
+    # beta_range = c(max(0.50, min(true_beta, start_beta) - 0.15), 
+    #                min(0.99, max(true_beta, start_beta) + 0.05)),
+    alpha_range = c(0, 1),
+    beta_range = c(0, 1),
     n_grid = n_grid
   )
   

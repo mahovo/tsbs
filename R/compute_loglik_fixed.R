@@ -229,11 +229,6 @@ compute_loglik_fixed <- function(
   if (!is.list(params)) {
     stop("params must be a named list")
   }
-  
-  ## Cannot use both return_components and ll_vec
-  # if (return_components && ll_vec) {
-  #   stop("Cannot use both return_components = TRUE and ll_vec = TRUE")
-  # }
 
   ## Dispatch to appropriate method
   if (inherits(object, "dcc.estimate")) {
@@ -282,14 +277,23 @@ compute_loglik_fixed <- function(
     ## NOTE: For DCC models, ll_vec includes BOTH GARCH and DCC components
     total_nll_vec <- tsmarch:::.dcc_dynamic_values(pars, spec, type = "ll_vec")
     
-    ## Strip off the first maxpq observations (initialization period)
+    # ## Strip off the first maxpq observations (initialization period)
+    # dccorder <- spec$dynamics$order
+    # maxpq <- max(dccorder)
+    # if (maxpq > 0) {
+    #   total_nll_vec <- total_nll_vec[-(1:maxpq), , drop = TRUE]
+    # } else {
+    #   total_nll_vec <- as.vector(total_nll_vec)
+    # }
+    
+    ## tsmarch:::.dcc_dynamic_values returns n+1 values:
+    ##   - Row 1: initialization placeholder (always 0)
+    ##   - Rows 2:(n+1): actual log-likelihoods for observations 1:n
+    ## We remove the first row plus any additional DCC burn-in
     dccorder <- spec$dynamics$order
     maxpq <- max(dccorder)
-    if (maxpq > 0) {
-      total_nll_vec <- total_nll_vec[-(1:maxpq), , drop = TRUE]
-    } else {
-      total_nll_vec <- as.vector(total_nll_vec)
-    }
+    n_remove <- 1 + maxpq  ## 1 for placeholder + maxpq for DCC burn-in
+    total_nll_vec <- total_nll_vec[-(1:n_remove), , drop = TRUE]
     
     ## Return positive per-observation log-likelihoods
     return(-total_nll_vec)

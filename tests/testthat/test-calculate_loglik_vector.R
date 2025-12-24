@@ -334,7 +334,7 @@ test_that("calculate_loglik_vector_r is consistent with compute_loglik_fixed()",
   ## Get log-likelihood vector from compute_loglik_fixed
   ll_vec_reference <- compute_loglik_fixed(
     object = dcc_fit,
-    params = list(),  # Use estimated parameters
+    params = list(),  ## Use estimated parameters
     ll_vec = TRUE
   )
   

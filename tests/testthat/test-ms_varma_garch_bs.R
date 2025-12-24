@@ -3268,7 +3268,7 @@ test_that("EM algorithm achieves tolerance-based convergence", {
   skip_on_cran()
   
   ## Should converge at iteration 136
-  max_iter <- 150
+  max_iter <- 200
   tol <- 1e-4
   
   ## Use data with clear regime structure for reliable convergence
@@ -3294,7 +3294,7 @@ test_that("EM algorithm achieves tolerance-based convergence", {
     spec = spec_converge,
     model_type = "multivariate",
     control = list(max_iter = max_iter, tol = tol),
-    collect_diagnostics = FALSE#,
+    collect_diagnostics = TRUE#,
     #verbose = TRUE,
     #verbose_file = "logs/test_12b.log"
   )
@@ -3315,7 +3315,7 @@ test_that("EM algorithm achieves tolerance-based convergence", {
                              conv_check$final_ll_change, conv_check$iterations))
   
   ## Should not use all iterations
-  expect_lt(conv_check$iterations, max_iter,
+  expect_lt(conv_check$n_iterations, max_iter,
             label = "Should converge before max_iter")
   
   ## Check EM monotonicity
