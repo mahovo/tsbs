@@ -361,8 +361,8 @@ test_that("calculate_loglik_vector_r is consistent with compute_loglik_fixed()",
            alpha = coef(fit2)["alpha1"],
            beta = coef(fit2)["beta1"])
     ),
-    dcc_alpha = coef(dcc_fit)["alpha_1"],
-    dcc_beta = coef(dcc_fit)["beta_1"]
+    alpha_1 = coef(dcc_fit)["alpha_1"],
+    beta_1 = coef(dcc_fit)["beta_1"]
   )
   
   ll_vec_calc <- calculate_loglik_vector_r(

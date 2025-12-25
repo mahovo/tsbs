@@ -656,6 +656,14 @@ calculate_loglik_vector_r <- function(
               type = "ll_vec"
             )
           } else {
+            
+            cat("=== DEBUG: Qbar in garch_spec_obj ===\n")
+            print(garch_spec_obj$Qbar)
+            cat("=== DEBUG: class of garch_spec_obj ===\n")
+            print(class(garch_spec_obj))
+            cat("=== DEBUG: names in garch_spec_obj ===\n")
+            print(names(garch_spec_obj))
+            
             total_nll_vec <- tsmarch:::.dcc_constant_values(
               pars, 
               garch_spec_obj, 

@@ -266,7 +266,13 @@ compute_loglik_fixed <- function(
   spec <- object$spec
   
   ## Update parameters in the parmatrix
-  spec$parmatrix <- .update_parmatrix(spec$parmatrix, params)
+  #spec$parmatrix <- .update_parmatrix(spec$parmatrix, params)
+  ## If no params provided, use the fitted values from the object
+  if (length(params) == 0) {
+    spec$parmatrix <- object$parmatrix
+  } else {
+    spec$parmatrix <- .update_parmatrix(object$parmatrix, params)
+  }
   
   ## Get parameter values for the multivariate component
   estimate <- NULL
