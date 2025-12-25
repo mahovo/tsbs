@@ -732,14 +732,22 @@ calculate_loglik_vector_r <- function(
             }
             ## ==================== DIAGNOSTIC end ====================
             
+            # dcc_order <- garch_spec_obj$dynamics$order
+            # maxpq <- max(dcc_order)
+            # if (maxpq > 0) {
+            #   total_nll_vec <- total_nll_vec[-(1:maxpq), , drop = TRUE]
+            # } else {
+            #   total_nll_vec <- as.vector(total_nll_vec)
+            # }
+            # ll_vector <- -total_nll_vec
+            
             dcc_order <- garch_spec_obj$dynamics$order
             maxpq <- max(dcc_order)
-            if (maxpq > 0) {
-              total_nll_vec <- total_nll_vec[-(1:maxpq), , drop = TRUE]
-            } else {
-              total_nll_vec <- as.vector(total_nll_vec)
-            }
+            ## Remove initialization placeholder (1 row) plus DCC burn-in (maxpq rows)
+            n_remove <- 1 + maxpq
+            total_nll_vec <- total_nll_vec[-(1:n_remove), , drop = TRUE]
             ll_vector <- -total_nll_vec
+            
           } else {
             ## Shouldn't reach here, but fallback to constant
             if (spec$distribution == "mvn" && length(pars) == 0) {
