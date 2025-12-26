@@ -12,8 +12,8 @@ generate_single_state_dcc_spec(
   omega = NULL,
   alpha_garch = NULL,
   beta_garch = NULL,
-  dcc_alpha = NULL,
-  dcc_beta = NULL,
+  alpha_dcc = NULL,
+  beta_dcc = NULL,
   seed = NULL
 )
 }

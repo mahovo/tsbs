@@ -11,8 +11,32 @@ estimate_garch_weighted_multivariate(
   diagnostics = NULL,
   iteration = NULL,
   state = NULL,
-  verbose = FALSE
+  verbose = FALSE,
+  dcc_threshold = 0.02,
+  dcc_criterion = "bic",
+  force_constant = FALSE
 )
+}
+\arguments{
+\item{residuals}{residuals}
+
+\item{weights}{weights}
+
+\item{spec}{spec}
+
+\item{diagnostics}{diagnostics}
+
+\item{iteration}{iteration}
+
+\item{state}{state}
+
+\item{verbose}{verbose}
+
+\item{dcc_threshold}{dcc_threshold}
+
+\item{dcc_criterion}{dcc_criterion}
+
+\item{force_constant}{force_constant}
 }
 \description{
 Implements weighted MLE for multivariate GARCH models

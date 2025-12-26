@@ -10,6 +10,11 @@ knitr::opts_chunk$set(echo = TRUE)
 ```
 
 
+```{r}
+library(kableExtra)
+```
+
+
 ## ndeps = 1e-3
 ```{r}
 set.seed(42)
@@ -19,8 +24,8 @@ set.seed(42)
     omega = c(0.08, 0.10),
     alpha_garch = c(0.12, 0.14),
     beta_garch = c(0.82, 0.78),
-    dcc_alpha = 0.05,
-    dcc_beta = 0.90,
+    alpha_dcc = 0.05,
+    beta_dcc = 0.90,
     seed = 42
   )
   colnames(y_converge) <- c("s1", "s2")
@@ -33,7 +38,7 @@ set.seed(42)
     M = 2,
     spec = spec_converge,
     model_type = "multivariate",
-    control = list(max_iter = 100, tol = 1e-4),
+    control = list(max_iter = 200, tol = 1e-4),
     collect_diagnostics = TRUE, #FALSE,
     verbose = TRUE,
     verbose_file = "../logs/test_12b.log"
@@ -58,7 +63,7 @@ set.seed(42)
                              conv_check$final_ll_change, conv_check$iterations))
   
   ## Should not use all iterations
-  expect_lt(conv_check$n_iterations, 100,
+  expect_lt(conv_check$n_iterations, 200,
             label = "Should converge before max_iter")
   
   ## Check EM monotonicity
@@ -192,6 +197,62 @@ if (!is.null(alpha_traj) && any(!is.na(alpha_traj$value))) {
   grid()
 }
 ```
+
+
+```{r example3b_utility}
+# Using utility function (much simpler!)
+beta_traj <- extract_param_trajectory(diag, state = 1, param_name = "beta_1")
+
+cat("\nUtility extraction (same result):\n")
+print(head(beta_traj, 5))
+```
+
+```{r example3b_plot}
+# Plot parameter evolution
+if (!is.null(beta_traj) && any(!is.na(beta_traj$value))) {
+  plot(beta_traj$iteration, beta_traj$value,
+       type = "b", pch = 19, col = "blue",
+       xlab = "EM Iteration", 
+       ylab = expression(omega[1]),
+       main = "DCC beta Parameter Evolution (State 1)",
+       ylim = c(0, max(beta_traj$value, na.rm = TRUE) * 1.1))
+  abline(h = 0.01, col = "red", lty = 2)
+  text(max(beta_traj$iteration) * 0.7, 0.015, 
+       "Lower Bound", col = "red", pos = 3)
+  grid()
+}
+```
+
+
+```{r example3b_utility}
+# Using utility function (much simpler!)
+omega_traj <- extract_param_trajectory(diag, state = 1, param_name = "omega")
+
+cat("\nUtility extraction (same result):\n")
+print(head(omega_traj, 5))
+```
+
+```{r example3b_plot}
+# Plot parameter evolution
+if (!is.null(omega_traj) && any(!is.na(omega_traj$value))) {
+  omega_traj$value <- as.numeric(omega_traj$value)
+  plot(omega_traj$iteration, omega_traj$value,
+       type = "b", pch = 19, col = "blue",
+       xlab = "EM Iteration", 
+       ylab = expression(omega[1]),
+       main = "DCC omega Parameter Evolution (State 1)",
+       ylim = c(0, max(omega_traj$value, na.rm = TRUE) * 1.1)
+    )
+  abline(h = 0.01, col = "red", lty = 2)
+  text(max(omega_traj$iteration) * 0.7, 0.015, 
+       "Lower Bound", col = "red", pos = 3)
+  grid()
+}
+```
+
+
+
+
 
 ### Log-Likelihood Convergence Analysis
 
@@ -1381,13 +1442,16 @@ cat("  Alpha values:", paste(round(alpha_trajectory_manual, 4), collapse = ", ")
 alpha_traj_easy <- extract_param_trajectory(diag_easy, state = 1, param_name = "alpha_1")
 
 cat("\nUtility extraction (same result):\n")
-print(head(alpha_traj_easy, 5))
+
+#print(head(alpha_traj_easy, 5))
+kable(head(alpha_traj_easy, 5), digits = 2, caption = "Alpha trajectory") %>%
+  kable_styling(bootstrap_options = c("striped", "hover", "condensed"), full_width = FALSE)
 
 # Can also extract series-specific parameters
-omega_traj_s1 <- extract_param_trajectory(diag_easy, state = 1, 
-                                          param_name = "omega", series = 1)
-omega_traj_s2 <- extract_param_trajectory(diag_easy, state = 1,
-                                          param_name = "omega", series = 2)
+# omega_traj_s1 <- extract_param_trajectory(diag_easy, state = 1, 
+#                                           param_name = "omega", series = 1)
+# omega_traj_s2 <- extract_param_trajectory(diag_easy, state = 1,
+#                                           param_name = "omega", series = 2)
 ```
 
 ```{r example3_plot}

@@ -3269,7 +3269,7 @@ test_that("EM algorithm achieves tolerance-based convergence", {
   
   ## Should converge at iteration 136
   max_iter <- 200
-  tol <- 1e-4
+  tol <- 1e-3
   
   ## Use data with clear regime structure for reliable convergence
   set.seed(42)

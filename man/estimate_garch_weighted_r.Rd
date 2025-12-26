@@ -12,7 +12,10 @@ estimate_garch_weighted_r(
   diagnostics = NULL,
   iteration = NULL,
   state = NULL,
-  verbose = FALSE
+  verbose = FALSE,
+  dcc_threshold = 0.02,
+  dcc_criterion = "bic",
+  force_constant = FALSE
 )
 }
 \arguments{

@@ -2,7 +2,7 @@
 % Please edit documentation in R/ms-varma-garch_helper_functions.R
 \name{estimate_dcc_parameters_weighted}
 \alias{estimate_dcc_parameters_weighted}
-\title{Estimate DCC Correlation Dynamics (Weighted)}
+\title{Estimate DCC Parameters with Weighted Likelihood}
 \usage{
 estimate_dcc_parameters_weighted(
   residuals,
@@ -17,7 +17,39 @@ estimate_dcc_parameters_weighted(
   verbose = FALSE
 )
 }
+\arguments{
+\item{residuals}{T x k matrix of residuals}
+
+\item{weights}{T-vector of observation weights}
+
+\item{garch_pars}{List of GARCH parameters per series}
+
+\item{dcc_start_pars}{Named list of starting DCC parameters}
+
+\item{dist_start_pars}{Named list of distribution parameters}
+
+\item{spec}{Model specification list}
+
+\item{diagnostics}{Diagnostics object (optional)}
+
+\item{iteration}{Current EM iteration (optional)}
+
+\item{state}{Current regime state (optional)}
+
+\item{verbose}{Logical; print diagnostic information}
+}
+\value{
+List with dcc_pars, dist_pars, weighted_ll, warnings, diagnostics
+}
 \description{
-Estimate DCC Correlation Dynamics (Weighted)
+Estimates DCC parameters using weighted maximum likelihood, with specialized
+handling for DCC(1,1) models (analytical gradients) and higher-order models
+(finite difference with fine step size).
+
+For DCC(1,1), the optimization is performed in reparameterized space:
+psi = logit(alpha + beta)  -- persistence in logit space
+phi = log(alpha / beta)    -- ratio in log space
+
+This ensures stationarity by construction and provides smooth gradients.
 }
 \keyword{internal}

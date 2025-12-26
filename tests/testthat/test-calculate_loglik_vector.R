@@ -611,6 +611,6 @@ test_that("Full MS-VARMA-GARCH estimation converges without TMB warnings", {
   ## Check that there are no TMB-related warnings
   tmb_warnings <- grep("TMB object not found|fallback", warnings_captured, 
                        value = TRUE, ignore.case = TRUE)
-  expect_length(tmb_warnings, 0,
+  expect_equal(length(tmb_warnings), 0,
                 info = "Full estimation should not produce TMB warnings")
 })

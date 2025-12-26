@@ -2,7 +2,7 @@
 % Please edit documentation in R/diagnostic_utils.R
 \name{simulate_dcc_garch}
 \alias{simulate_dcc_garch}
-\title{Simulate DCC-GARCH Data}
+\title{Simulate DCC-GARCH Data with Higher-Order Support}
 \usage{
 simulate_dcc_garch(
   n,
@@ -10,8 +10,8 @@ simulate_dcc_garch(
   omega = c(0.05, 0.08),
   alpha_garch = c(0.1, 0.12),
   beta_garch = c(0.85, 0.82),
-  dcc_alpha = 0.04,
-  dcc_beta = 0.93,
+  alpha_dcc = 0.04,
+  beta_dcc = 0.93,
   Qbar = NULL,
   seed = NULL
 )
@@ -27,9 +27,11 @@ simulate_dcc_garch(
 
 \item{beta_garch}{Numeric vector of length k: GARCH effects (default: c(0.85, 0.82))}
 
-\item{dcc_alpha}{Numeric: DCC alpha parameter (default: 0.04)}
+\item{alpha_dcc}{Numeric scalar or vector: DCC alpha parameters.
+Length determines q (number of alpha lags). (default: 0.04)}
 
-\item{dcc_beta}{Numeric: DCC beta parameter (default: 0.93)}
+\item{beta_dcc}{Numeric scalar or vector: DCC beta parameters.
+Length determines p (number of beta lags). (default: 0.93)}
 
 \item{Qbar}{Matrix (k x k): Unconditional correlation matrix. If NULL, uses
 moderate correlation (0.5 off-diagonal)}
@@ -40,34 +42,20 @@ moderate correlation (0.5 off-diagonal)}
 A matrix of dimension (n x k) with simulated returns
 }
 \description{
-Simulate realistic multivariate time series data from a DCC-GARCH process.
+Simulate realistic multivariate time series data from a DCC(q,p)-GARCH process.
+Supports arbitrary DCC orders through vector-valued alpha_dcc and beta_dcc.
 This function is primarily intended for testing and examples.
 }
 \details{
-The function simulates data from the DCC-GARCH model:
+The function simulates data from the DCC(q,p)-GARCH model:
 \deqn{y_{i,t} = \sqrt{h_{i,t}} z_{i,t}}
 \deqn{h_{i,t} = \omega_i + \alpha_i y_{i,t-1}^2 + \beta_i h_{i,t-1}}
-\deqn{Q_t = \bar{Q}(1-\alpha-\beta) + \alpha z_{t-1}z_{t-1}' + \beta Q_{t-1}}
+\deqn{Q_t = \bar{Q}(1-\sum\alpha-\sum\beta) + \sum_{j=1}^{q} \alpha_j z_{t-j}z_{t-j}' + \sum_{j=1}^{p} \beta_j Q_{t-j}}
 \deqn{R_t = \text{diag}(Q_t)^{-1/2} Q_t \text{diag}(Q_t)^{-1/2}}
 
 where \eqn{z_t \sim N(0, R_t)}.
-}
-\examples{
-\dontrun{
-# Simulate 500 observations with default parameters
-y <- simulate_dcc_garch(n = 500, seed = 42)
 
-# Custom parameters with higher volatility
-y_high_vol <- simulate_dcc_garch(
-  n = 300,
-  omega = c(0.15, 0.20),
-  alpha_garch = c(0.15, 0.18),
-  beta_garch = c(0.70, 0.65),
-  seed = 123
-)
-
-# Constant correlation (set dcc_alpha = 0)
-y_const <- simulate_dcc_garch(n = 200, dcc_alpha = 0, dcc_beta = 0, seed = 456)
-}
-
+For backward compatibility, scalar alpha_dcc and beta_dcc produce DCC(1,1).
+To simulate DCC(q,p), provide alpha_dcc as vector of length q and beta_dcc
+as vector of length p.
 }

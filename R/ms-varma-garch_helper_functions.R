@@ -657,12 +657,12 @@ calculate_loglik_vector_r <- function(
             )
           } else {
             
-            cat("=== DEBUG: Qbar in garch_spec_obj ===\n")
-            print(garch_spec_obj$Qbar)
-            cat("=== DEBUG: class of garch_spec_obj ===\n")
-            print(class(garch_spec_obj))
-            cat("=== DEBUG: names in garch_spec_obj ===\n")
-            print(names(garch_spec_obj))
+            # cat("=== DEBUG: Qbar in garch_spec_obj ===\n")
+            # print(garch_spec_obj$Qbar)
+            # cat("=== DEBUG: class of garch_spec_obj ===\n")
+            # print(class(garch_spec_obj))
+            # cat("=== DEBUG: names in garch_spec_obj ===\n")
+            # print(names(garch_spec_obj))
             
             total_nll_vec <- tsmarch:::.dcc_constant_values(
               pars, 
@@ -749,11 +749,18 @@ calculate_loglik_vector_r <- function(
             # }
             # ll_vector <- -total_nll_vec
             
-            dcc_order <- garch_spec_obj$dynamics$order
-            maxpq <- max(dcc_order)
-            ## Remove initialization placeholder (1 row) plus DCC burn-in (maxpq rows)
-            n_remove <- 1 + maxpq
-            total_nll_vec <- total_nll_vec[-(1:n_remove), , drop = TRUE]
+            # dcc_order <- garch_spec_obj$dynamics$order
+            # maxpq <- max(dcc_order)
+            # ## Remove initialization placeholder (1 row) plus DCC burn-in (maxpq rows)
+            # n_remove <- 1 + maxpq
+            # total_nll_vec <- total_nll_vec[-(1:n_remove), , drop = TRUE]
+            
+            
+            ## *** FIXED ***
+            ## Remove only the initialization placeholder (first row, always 0)
+            ## Note: tsmarch's type="nll" includes all subsequent observations, so we do too
+            total_nll_vec <- total_nll_vec[-1, , drop = TRUE]
+            
             ll_vector <- -total_nll_vec
             
           } else {

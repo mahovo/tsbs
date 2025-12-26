@@ -22,7 +22,7 @@ fit_ms_varma_garch(
 \item{y}{A numeric matrix or data frame where rows are observations and
 columns are the time series variables.}
 
-\item{M}{An integer specifying the number of states in the Markov chain.}
+\item{M}{An integer >1 specifying the number of states in the Markov chain.}
 
 \item{d}{An integer specifying the order of differencing to be applied to
 the series before fitting. This order is constant across all states.
@@ -55,9 +55,9 @@ If NULL (default), verbose output goes to console. If specified, all verbose
 output is written to this file instead. Only used if verbose = TRUE.}
 }
 \value{
-An object of class \code{msm.fit} containing the full results of the
-estimation, including model fits for each state, the transition matrix,
-smoothed probabilities, and information criteria.
+A list containing the full results of the estimation, including model
+fits for each state, the transition matrix, smoothed probabilities, and
+information criteria.
 }
 \description{
 This function provides a user-friendly interface to fit a general Markov-Switching
@@ -77,4 +77,11 @@ and \code{garch_pars}.}
 }
 
 For mathematical expression of the model see \code{\link[=ms_varma_garch_bs]{ms_varma_garch_bs()}}.
+
+Note: For single-regime data, since M > 1, and assuming we set M = 2:
+\itemize{
+\item{both states should converge to similar parameters,}
+\item{or one state should have nearly zero probability.}
+}
+Check: \code{fit$smoothed_probabilities} - is one state dominant?
 }
