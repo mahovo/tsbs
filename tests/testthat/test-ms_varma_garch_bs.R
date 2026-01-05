@@ -3263,7 +3263,8 @@ test_that("sigma responds to GARCH parameter changes", {
 
 
 ## ---- 12b ----
-## EM algorithm achieves tolerance-based convergence
+## Note: The simulated data is single-state. fit_ms_varma_garch() fits minimum
+## two states So ideally one state should have low probability.
 test_that("EM algorithm achieves tolerance-based convergence", {
   skip_on_cran()
   

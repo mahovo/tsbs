@@ -7,13 +7,13 @@
 estimate_arma_weighted_r(y, weights, spec, model_type = "univariate")
 }
 \arguments{
-\item{y}{}
+\item{y}{y}
 
-\item{weights}{}
+\item{weights}{weights}
 
-\item{spec}{}
+\item{spec}{spec}
 
-\item{model_type}{}
+\item{model_type}{model_type}
 }
 \description{
 Estimate Conditional Mean Parameters (R Helper)

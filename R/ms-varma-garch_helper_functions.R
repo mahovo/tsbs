@@ -224,10 +224,10 @@ generate_tsmarch_parnames <- function(pars) {
 #' @param spec A spec list
 #' @param model_type Character string
 #' @param current_pars A list of parameters
-#' @param diagnostics
-#' @param iteration
-#' @param state
-#' @param verbose
+#' @param diagnostics diagnostics
+#' @param iteration iteration
+#' @param state state
+#' @param verbose verbose
 #' @return A GARCH specification object
 create_garch_spec_object_r <- function(
     residuals, 
@@ -501,14 +501,14 @@ create_garch_spec_object_r <- function(
 
 #' @title Calculate the Log-Likelihood Vector (R Helper)
 #'
-#' @param y 
-#' @param current_pars 
-#' @param spec 
-#' @param model_type 
-#' @param diagnostics
-#' @param iteration
-#' @param state
-#' @param verbose
+#' @param y y
+#' @param current_pars current_pars 
+#' @param spec spec
+#' @param model_type model_type
+#' @param diagnostics diagnostics
+#' @param iteration iteration
+#' @param state state
+#' @param verbose verbose
 calculate_loglik_vector_r <- function(
     y, 
     current_pars, 
@@ -831,10 +831,10 @@ calculate_loglik_vector_r <- function(
 
 #' @title Estimate Conditional Mean Parameters (R Helper)
 #' 
-#' @param y 
-#' @param weights 
-#' @param spec 
-#' @param model_type 
+#' @param y y
+#' @param weights weights
+#' @param spec spec
+#' @param model_type model_type
 estimate_arma_weighted_r <- function(y, weights, spec, model_type = "univariate") {
   if (model_type == "univariate") {
     arma_order <- spec$arma_order
@@ -918,13 +918,13 @@ estimate_arma_weighted_r <- function(y, weights, spec, model_type = "univariate"
 #' @param weights Vector of weights from E-step
 #' @param spec Model specification
 #' @param model_type Either "univariate" or "multivariate"
-#' @param diagnostics
-#' @param iteration
-#' @param state
-#' @param verbose
-#' @param dcc_threshold
-#' @param dcc_criterion
-#' @param force_constant
+#' @param diagnostics diagnostics
+#' @param iteration iteration
+#' @param state state
+#' @param verbose verbose
+#' @param dcc_threshold dcc_threshold
+#' @param dcc_criterion dcc_criterion
+#' @param force_constant force_constant
 #' @return List with coefficients and warnings
 estimate_garch_weighted_r <- function(
     residuals, 
@@ -2107,8 +2107,8 @@ perform_m_step_parallel_r <- function(
 #' @param diagnostics Diagnostic collector object (ms_diagnostics class).
 #' @param iteration Current EM iteration number.
 #' @param verbose Logical indicating whether to print progress.
-#' @param dcc_threshold
-#' @param dcc_criterion
+#' @param dcc_threshold dcc_threshold
+#' @param dcc_criterion dcc_criterion
 #' @return A list of length M containing the updated model fits for each state.
 perform_m_step_r <- function(
     y, 
@@ -2450,7 +2450,7 @@ compute_dcc_persistence <- function(dcc_params) {
 }
 
 
-' Check DCC stationarity constraints
+#' Check DCC stationarity constraints
 #' 
 #' Verifies that DCC parameters satisfy:
 #' 1. All alpha_j >= 0

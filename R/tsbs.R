@@ -33,11 +33,31 @@
 #'   each end, using indices \eqn{0 \dots n−1}, where \eqn{n} is the block length.
 #' @param num_blocks Integer number of blocks per bootstrap replicate.
 #' @param num_boots Integer number of bootstrap replicates.
-#' @param func A summary function to apply to each bootstrap replicate or column.
-#' @param apply_func_to Character string: `"cols"` to apply columnwise or `"df"` 
-#'   to apply on the full data frame.
+#' @param func A function to apply to each bootstrap replicate. The function's
+#'   expected input depends on the `apply_func_to` parameter:
+#'   \itemize{
+#'     \item If `apply_func_to = "cols"`: `func` receives a single numeric 
+#'       vector (one column at a time) and should return a scalar or numeric 
+#'       vector. Examples: `mean`, `sd`, `quantile`.
+#'     \item If `apply_func_to = "all"`: `func` receives the entire bootstrap 
+#'       replicate as a numeric matrix (rows = time points, columns = variables)
+#'       and can return:
+#'       \itemize{
+#'         \item A numeric scalar or vector (e.g., portfolio weights)
+#'         \item A named list of numeric values (e.g., multiple summary 
+#'           statistics)
+#'       }
+#'       Examples: portfolio optimization functions, functions returning 
+#'       multiple statistics.
+#'   }
+#'   The function outputs are collected in `func_outs` (one entry per 
+#'   replicate), and `func_out_means` contains the element-wise average across
+#'   replicates. For list-returning functions, each named element is averaged
+#'   separately. Default is `mean`.
+#' @param apply_func_to Character string: `"cols"` to apply columnwise or `"all"` 
+#'   to apply on the full data frame or matrix.
 #' @param p_method Character string to choose method for stationary bootstrap 
-#'   parameter: `"1/n"`, `"plugin"`, or `"cross validation"`.
+#'   parameter: `"1/n"`, `"plugin"`, or `"cv"`.
 #' @param p numeric \eqn{p \in (0, 1)}. Probability parameter for the geometric 
 #'   block length (used in Stationary Bootstrap). 
 #' @param overlap Logical indicating if overlapping blocks are allowed.
@@ -55,16 +75,20 @@
 #'   `"multivariate"`.
 #' @param control A list of control parameters for the MS-VARMA-GARCH EM 
 #'   algorithm.
-#' @param parallel Parallelize computation? `TRUE` or `FALSE`.
-#' @param num_cores Number of cores when `parallel=TRUE`.
 #' @param model_func Model-fitting function for cross-validation. 
 #'   See [k_fold_cv_ts].
 #' @param score_func Scoring function for cross-validation.
 #' @param stationary_max_percentile Stationary max percentile.
 #' @param stationary_max_fraction_of_n Stationary max fraction of n.
+#' @param return_fit If `TRUE`, `tsbs()` will return model fit. Default is
+#'   `return_fit = FALSE`. If `return_fit = TRUE` and 
+#'   `bs_type = "ms_varma_garch"`, diagnostics can be extracted from 
+#'   `result$fit$diagnostics`. See `?fit_ms_varma_garch`.
 #' @param fail_mode Character string. One of `"predictably"` (development/
 #'   debugging - fail fast on any unexpected behavior) or `"gracefully"` 
 #'   (production/robust pipelines - continue despite validation errors). 
+#' @param parallel Parallelize computation? `TRUE` or `FALSE`.
+#' @param num_cores Number of cores when `parallel=TRUE`.
 #' 
 #' @details 
 #' ## Bootstrap types
@@ -152,12 +176,12 @@
 #'     \item \code{garch_spec_fun}: A character string with the name of the
 #'     tsmarch specification function to use (e.g., "dcc_modelspec",
 #'     "gogarch_modelspec").
+#'     \item \code{distribution}: The multivariate distribution. Valid
+#'          choices are "mvn" (for multivariate normal) and "mvt" (for
+#'          multivariate Student's t).
 #'     \item \code{garch_spec_args}: A list of arguments to pass to the function
 #'     specified in garch_spec_fun. Key arguments include:
 #'       \itemize{
-#'          \item \code{distribution}: The multivariate distribution. Valid
-#'          choices are "mvn" (for multivariate normal) and "mvt" (for
-#'          multivariate Student's t).
 #'          \item For models like DCC or CGARCH, this list must also contain a
 #'          \code{garch_model} definition for the underlying univariate GARCH
 #'          fits.
@@ -173,23 +197,31 @@
 #'         \item \code{var_pars}: A numeric vector for the VAR parameters,
 #'         stacked column by column (intercept, lags for eq1, intercept, lags
 #'         for eq2, ...).
-#'         \item \code{garch_pars}: A named list for the multivariate GARCH
-#'         parameters (e.g., list(dcc_alpha = 0.05, dcc_beta = 0.9)).
+#'         \item \code{garch_pars}: A list of named lists for the multivariate 
+#'         GARCH parameters, e.g. 
+#'         \code{replicate(k, list(omega = 0.05, alpha1 = 0.08, beta1 = 0.85), simplify = FALSE)}.
+#'         \item \code{dcc pars}: A named list, e.g. 
+#'         \code{list(alpha_1 = 0.05, beta_1 = 0.90)}.
+#'         \item \code{dist pars}: A named list, e.g.
+#'         \code{list(shape = 8.0)}.
 #'       }
 #'   }
 #' } 
 #' 
-#' ### Additional parameters when \code{bs_type=ms_varma_garch}
-#' Diagnostic System: A comprehensive diagnostic system monitors convergence and
-#' numerical stability during estimation.
+#' ### Diagnostics for MS VARMA GARCH 
+#' Diagnostic System: A comprehensive diagnostic system monitors
+#' convergence and numerical stability during estimation.
+#' Additional parameters when \code{bs_type
+#' = "ms_varma_garch"}
 #' \itemize{
 #'  \item \code{collect_diagnostics} Logical. Enable diagnostics with
-#'    \code{collect_diagnostics = TRUE}.
+#'    \code{collect_diagnostics = TRUE}. Diagnostics can only be extracted if
+#'    \code{return_fit = TRUE}.
 #'  \item \code{verbose} Logical. If TRUE, print detailed diagnostic information
 #'    during estimation. Default is FALSE.
-#'  \item \code{verbose_file} Character string specifying path to file for 
-#'    verbose output. If NULL (default), verbose output goes to console. If 
-#'    specified, all verbose output is written to this file instead. Only used if 
+#'  \item \code{verbose_file} Character string specifying path to file for
+#'    verbose output. If NULL (default), verbose output goes to console. If
+#'    specified, all verbose output is written to this file instead. Only used if
 #'    verbose = TRUE.
 #' }
 #' See details in \code{vignette("Diagnostics", package = "tsbs")}.
@@ -234,12 +266,12 @@
 #'     
 #' (Harris, 1978)
 #'
-#'
 #' @return A list containing:
 #' \describe{
 #'   \item{bootstrap_series}{List of bootstrap replicate matrices.}
 #'   \item{func_outs}{List of computed function outputs for each replicate.}
 #'   \item{func_out_means}{Mean of the computed outputs across replicates.}
+#'   \item{fit}{If `return_fit = TRUE`, a list containing model fit.}
 #' }
 #' 
 #' @references
@@ -276,8 +308,8 @@ tsbs <- function(
     num_blocks = NULL,
     num_boots = 100L,
     func = mean,
-    apply_func_to = c("cols", "df"),
-    p_method = c("1/n", "plugin", "cross validation"),
+    apply_func_to = c("cols", "all"),
+    p_method = c("1/n", "plugin", "cv"),
     p = NULL,
     overlap = TRUE,
     num_states = 2L,
@@ -287,6 +319,11 @@ tsbs <- function(
     control = list(),
     parallel = FALSE,
     num_cores = 1L,
+    model_func = default_model_func,
+    score_func = mse,
+    stationary_max_percentile = 0.99,
+    stationary_max_fraction_of_n = 0.10,
+    return_fit = FALSE,
     fail_mode = c("predictably", "gracefully"),
     ...
     #collect_diagnostics = FALSE,
@@ -385,9 +422,8 @@ tsbs <- function(
       num_blocks, 
       num_boots, 
       p, 
-      #stationary_max_percentile,
-      #stationary_max_fraction_of_n
-      ...
+      stationary_max_percentile,
+      stationary_max_fraction_of_n
     )
   }
   
@@ -397,7 +433,7 @@ tsbs <- function(
       .blockBootstrap()
     },
     stationary = {
-      if(is.null(p)) {p <- .estimate_p(x, p_method, block_length)}
+      if(is.null(p)) {p <- .estimate_p(x, p_method, block_length, model_func, score_func)}
       .blockBootstrap()
     },
     hmm = hmm_bootstrap(
@@ -426,6 +462,7 @@ tsbs <- function(
       d = d,
       spec = spec,
       model_type = model_type,
+      return_fit = return_fit,
       control = control,
       parallel = parallel,
       num_cores = num_cores,
@@ -443,22 +480,46 @@ tsbs <- function(
     stop("Unsupported bootstrap type.")
   )
   
+  ## Unpack if ms_varma_garch with return_fit
+  fit_object <- NULL
+  if (bs_type == "ms_varma_garch" && return_fit) {
+    fit_object <- bootstrap_series$fit
+    bootstrap_series <- bootstrap_series$bootstrap_series
+  }
   
   func_outs <- lapply(bootstrap_series, function(sampled) {
-    if (apply_func_to == "df") {
-      func(as.data.frame(sampled))
+    if (apply_func_to == "all") {
+      #func(as.data.frame(sampled))
+      func(sampled)
     } else {
       apply(sampled, 2, func)
     }
   })
   
-  func_out_means <- Reduce(`+`, func_outs) / length(func_outs)
-  
-  list(
+  #func_out_means <- Reduce(`+`, func_outs) / length(func_outs)
+  if (is.list(func_outs[[1]]) && !is.data.frame(func_outs[[1]])) {
+    ## Average each element of the list across bootstrap replicates
+    func_out_means <- lapply(names(func_outs[[1]]), function(nm) {
+      vals <- lapply(func_outs, `[[`, nm)
+      tryCatch(Reduce(`+`, vals) / length(vals), error = function(e) NULL)
+    })
+    names(func_out_means) <- names(func_outs[[1]])
+  } else {
+    func_out_means <- Reduce(`+`, func_outs) / length(func_outs)
+  }
+
+  ## Build result
+  result <- list(
     bootstrap_series = bootstrap_series,
     func_outs = func_outs,
     func_out_means = func_out_means
   )
+  
+  if (return_fit && !is.null(fit_object)) {
+    result$fit <- fit_object
+  }
+  
+  result
 }
 
 
@@ -868,7 +929,7 @@ tsbs <- function(
     
     ## The larger the average 1st order autocorrelation, the smaller the p
     p <- 1 - abs(mean(ac1, na.rm = TRUE))
-  } else if (p_method == "cross validation") {
+  } else if (p_method == "cv") {
     if (is.null(model_func) || is.null(score_func))
       stop("For p_method = 'cross validation', provide `model_func` and `score_func`.")
     p <- k_fold_cv_ts(x, x[,1], model_func, score_func)

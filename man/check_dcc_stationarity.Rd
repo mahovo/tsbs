@@ -29,5 +29,12 @@ List with components:
 }
 \description{
 Verifies that DCC parameters satisfy stationarity conditions.
+
+Verifies that DCC parameters satisfy:
+\enumerate{
+\item All alpha_j >= 0
+\item All beta_j >= 0
+\item sum(alphas) + sum(betas) < 1
+}
 }
 \keyword{internal}

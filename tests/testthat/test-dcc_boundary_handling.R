@@ -224,8 +224,8 @@ test_that("Near-zero DCC correctly falls back to constant", {
     omega = c(0.05, 0.05),
     alpha_garch = c(0.10, 0.10),
     beta_garch = c(0.85, 0.85),
-    dcc_alpha = 0.005,   # Very small
-    dcc_beta = 0.005,    # Very small
+    alpha_dcc = 0.005,   # Very small
+    beta_dcc = 0.005,    # Very small
     seed = 42
   )
   
@@ -234,8 +234,8 @@ test_that("Near-zero DCC correctly falls back to constant", {
   
   spec <- generate_single_state_dcc_spec(
     k = k,
-    dcc_alpha = 0.05,  # Start with reasonable values
-    dcc_beta = 0.50
+    alpha_dcc = 0.05,  # Start with reasonable values
+    beta_dcc = 0.50
   )
   
   residuals_mat <- as.matrix(y)
@@ -292,8 +292,8 @@ test_that("Moderate DCC parameters are estimated correctly", {
     omega = c(0.05, 0.05),
     alpha_garch = c(0.10, 0.10),
     beta_garch = c(0.85, 0.85),
-    dcc_alpha = 0.06,    # Clearly above threshold (0.02)
-    dcc_beta = 0.92,
+    alpha_dcc = 0.06,    # Clearly above threshold (0.02)
+    beta_dcc = 0.92,
     seed = 100
   )
   
@@ -302,8 +302,8 @@ test_that("Moderate DCC parameters are estimated correctly", {
   
   spec <- generate_single_state_dcc_spec(
     k = k,
-    dcc_alpha = 0.05,
-    dcc_beta = 0.90
+    alpha_dcc = 0.05,
+    beta_dcc = 0.90
   )
   
   residuals_mat <- as.matrix(y)
@@ -375,8 +375,8 @@ test_that("Bounds allow full parameter space exploration", {
     omega = c(0.05, 0.05),
     alpha_garch = c(0.10, 0.10),
     beta_garch = c(0.85, 0.85),
-    dcc_alpha = 0.008,   # Below old alpha lower bound of 0.01
-    dcc_beta = 0.90,     # High beta to avoid constant fallback
+    alpha_dcc = 0.008,   # Below old alpha lower bound of 0.01
+    beta_dcc = 0.90,     # High beta to avoid constant fallback
     seed = 200
   )
   
@@ -386,8 +386,8 @@ test_that("Bounds allow full parameter space exploration", {
   
   spec <- generate_single_state_dcc_spec(
     k = k,
-    dcc_alpha = 0.05,
-    dcc_beta = 0.90
+    alpha_dcc = 0.05,
+    beta_dcc = 0.90
   )
   
   residuals_mat <- as.matrix(y)
@@ -472,8 +472,8 @@ test_that("Full integration: boundary handling in MS-DCC estimation", {
     omega = c(0.02, 0.02),
     alpha_garch = c(0.05, 0.05),
     beta_garch = c(0.90, 0.90),
-    dcc_alpha = 0.05,
-    dcc_beta = 0.93,
+    alpha_dcc = 0.05,
+    beta_dcc = 0.93,
     seed = 999
   )
   
@@ -484,8 +484,8 @@ test_that("Full integration: boundary handling in MS-DCC estimation", {
     omega = c(0.10, 0.10),
     alpha_garch = c(0.15, 0.15),
     beta_garch = c(0.75, 0.75),
-    dcc_alpha = 0.001,  # Nearly zero -> should trigger constant fallback
-    dcc_beta = 0.001,
+    alpha_dcc = 0.001,  # Nearly zero -> should trigger constant fallback
+    beta_dcc = 0.001,
     seed = 1000
   )
   
@@ -575,24 +575,24 @@ test_that("Full integration: boundary handling in MS-DCC estimation", {
     cat("RESULTS\n")
     cat("=", rep("=", 70), "\n", sep = "")
     
-    # Extract final parameters
-    final_params <- fit_result$parameters
+    # Extract final parameters from model_fits
+    model_fits <- fit_result$model_fits
     
     cat("\nFinal estimated parameters:\n")
     for (j in 1:2) {
-      state_params <- final_params[[j]]
+      state_fit <- model_fits[[j]]
       
-      corr_type <- state_params$correlation_type %||% "unknown"
+      corr_type <- state_fit$correlation_type %||% "unknown"
       
       if (corr_type == "dynamic") {
-        alpha <- state_params$alpha_1 %||% NA
-        beta <- state_params$beta_1 %||% NA
+        alpha <- state_fit$alpha_1 %||% NA
+        beta <- state_fit$beta_1 %||% NA
         cat(sprintf("  State %d: DYNAMIC - alpha=%.4f, beta=%.4f, persistence=%.4f\n",
                     j, alpha, beta, alpha + beta))
       } else {
         cat(sprintf("  State %d: CONSTANT - (no DCC parameters)\n", j))
-        if (!is.null(state_params$degeneracy_reason)) {
-          cat(sprintf("           Reason: %s\n", state_params$degeneracy_reason))
+        if (!is.null(state_fit$degeneracy_reason)) {
+          cat(sprintf("           Reason: %s\n", state_fit$degeneracy_reason))
         }
       }
     }
@@ -655,12 +655,12 @@ test_that("Full integration: boundary handling in MS-DCC estimation", {
     cat("=", rep("=", 70), "\n", sep = "")
     
     # Check that at least one state has dynamic correlation
-    has_dynamic <- any(sapply(final_params, function(p) {
+    has_dynamic <- any(sapply(model_fits, function(p) {
       !is.null(p$correlation_type) && p$correlation_type == "dynamic"
     }))
     
     # Check that at least one state has constant correlation
-    has_constant <- any(sapply(final_params, function(p) {
+    has_constant <- any(sapply(model_fits, function(p) {
       !is.null(p$correlation_type) && p$correlation_type == "constant"
     }))
     
@@ -679,17 +679,18 @@ test_that("Full integration: boundary handling in MS-DCC estimation", {
     
     # Test assertions
     expect_true(!is.null(fit_result), "Fit should complete without error")
-    expect_true(length(final_params) == 2, "Should have 2 states")
+    expect_true(length(model_fits) == 2, "Should have 2 states")
     
     # At minimum, correlation_type should be set for all states
     for (j in 1:2) {
-      expect_true(!is.null(final_params[[j]]$correlation_type),
+      expect_true(!is.null(model_fits[[j]]$correlation_type),
                   paste("State", j, "should have correlation_type set"))
     }
     
   } else {
     fail("Fit failed - see error message above")
   }
+  
 })
 
 

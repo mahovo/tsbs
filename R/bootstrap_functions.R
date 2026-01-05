@@ -480,6 +480,11 @@ msvar_bootstrap <- function(
 #' @param spec A list of model specifications, one for each of the M states.
 #' @param model_type A character string, either "univariate" or "multivariate".
 #' @param control A list of control parameters for the EM algorithm.
+#' @param return_fit If `TRUE`, `tsbs()` will return model fit when 
+#' `bs_type = "ms_varma_garch"`. Default is `return_fit = FALSE`. If 
+#'  `bs_type = "ms_varma_garch"`, `return_fit = TRUE` and 
+#'  `collect_diagnostics = TRUE` diagnostics can be extracted from
+#'  `result$fit$diagnostics`. See \code{vignette("Diagnostics", package = "tsbs")}.
 #' @param parallel A logical value indicating whether to use parallel processing.
 #' @param num_cores An integer specifying the number of cores for parallel processing.
 #' @param collect_diagnostics Logical. Collect diagnostics or not.
@@ -587,6 +592,7 @@ ms_varma_garch_bs <- function(
     control = list(),
     parallel = FALSE,
     num_cores = 1L,
+    return_fit = FALSE,
     collect_diagnostics = FALSE,
     verbose = FALSE,
     verbose_file = NULL
@@ -650,7 +656,14 @@ ms_varma_garch_bs <- function(
     num_cores = num_cores
   )
   
-  return(bootstrap_samples)
+  if (return_fit) {
+    list(
+      bootstrap_series = bootstrap_samples,
+      fit = ms_model
+    )
+  } else {
+    bootstrap_samples
+  }
 }
 
 

@@ -91,7 +91,7 @@ result <- tsbs(
 )
 
 # Access diagnostics
-diag <- result$diagnostics
+diag <- result$fit$diagnostics
 summary(diag)
 ```
 

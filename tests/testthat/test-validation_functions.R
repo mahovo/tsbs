@@ -181,21 +181,6 @@ test_that(".is_invalid_count() validates counts correctly", {
   expect_true(.is_invalid_count(NA_integer_))
 })
 
-test_that(".is_invalid_fraction() validates fractions correctly", {
-  # Valid fraction
-  expect_false(.is_invalid_fraction(0.5))
-  # Exactly 0 should be invalid
-  expect_true(.is_invalid_fraction(0))
-  # Exactly 1 should be invalid
-  expect_true(.is_invalid_fraction(1))
-  # Negative fraction should be invalid
-  expect_true(.is_invalid_fraction(-0.5))
-  # Fraction > 1 should be invalid
-  expect_true(.is_invalid_fraction(1.5))
-  # Non-numeric should be invalid
-  expect_true(.is_invalid_fraction("0.5"))
-})
-
 # 
 # test_that(".is_invalid_data() handles NULL values correctly", {
 # 

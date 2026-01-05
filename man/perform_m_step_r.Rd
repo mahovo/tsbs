@@ -30,6 +30,10 @@ perform_m_step_r(
 \item{iteration}{Current EM iteration number.}
 
 \item{verbose}{Logical indicating whether to print progress.}
+
+\item{dcc_threshold}{dcc_threshold}
+
+\item{dcc_criterion}{dcc_criterion}
 }
 \value{
 A list of length M containing the updated model fits for each state.

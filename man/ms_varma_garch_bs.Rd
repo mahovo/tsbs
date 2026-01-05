@@ -16,6 +16,7 @@ ms_varma_garch_bs(
   control = list(),
   parallel = FALSE,
   num_cores = 1L,
+  return_fit = FALSE,
   collect_diagnostics = FALSE,
   verbose = FALSE,
   verbose_file = NULL
@@ -47,6 +48,12 @@ to generate. Defaults to 100.}
 \item{parallel}{A logical value indicating whether to use parallel processing.}
 
 \item{num_cores}{An integer specifying the number of cores for parallel processing.}
+
+\item{return_fit}{If \code{TRUE}, \code{tsbs()} will return model fit when
+\code{bs_type = "ms_varma_garch"}. Default is \code{return_fit = FALSE}. If
+\code{bs_type = "ms_varma_garch"}, \code{return_fit = TRUE} and
+\code{collect_diagnostics = TRUE} diagnostics can be extracted from
+\code{result$fit$diagnostics}. See \code{vignette("Diagnostics", package = "tsbs")}.}
 
 \item{collect_diagnostics}{Logical. Collect diagnostics or not.}
 

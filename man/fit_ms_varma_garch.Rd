@@ -57,7 +57,21 @@ output is written to this file instead. Only used if verbose = TRUE.}
 \value{
 A list containing the full results of the estimation, including model
 fits for each state, the transition matrix, smoothed probabilities, and
-information criteria.
+information criteria:
+\itemize{
+\item{model_fits}
+\item{P}
+\item{log_likelihood}
+\item{smoothed_probabilities}
+\item{aic}
+\item{bic}
+\item{d}
+\item{y}
+\item{call}
+\item{convergence}
+\item{warnings}
+\item{diagnostics}
+}
 }
 \description{
 This function provides a user-friendly interface to fit a general Markov-Switching

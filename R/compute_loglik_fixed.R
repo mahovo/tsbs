@@ -237,6 +237,11 @@ compute_loglik_fixed <- function(
   if (!is.list(params)) {
     stop("params must be a named list")
   }
+  
+  ## Cannot use both return_components and ll_vec
+  if (return_components && ll_vec) {
+    stop("Cannot use both return_components = TRUE and ll_vec = TRUE")
+  }
 
   ## Dispatch to appropriate method
   if (inherits(object, "dcc.estimate")) {

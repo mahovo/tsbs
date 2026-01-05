@@ -15,7 +15,7 @@ library(kableExtra)
 ```
 
 
-## ndeps = 1e-3
+## Unmodified ndeps
 ```{r}
 set.seed(42)
   y_converge <- simulate_dcc_garch(
@@ -173,13 +173,15 @@ cat("  Alpha values:", paste(round(alpha_trajectory_manual, 4), collapse = ", ")
 alpha_traj <- extract_param_trajectory(diag, state = 1, param_name = "alpha_1")
 
 cat("\nUtility extraction (same result):\n")
-print(head(alpha_traj, 5))
+#print(head(alpha_traj, 5))
+kable(head(alpha_traj, 5), digits = 2, caption = "alpha trajectory") %>%
+  kable_styling(bootstrap_options = c("striped", "hover", "condensed"), full_width = FALSE)
 
 # Can also extract series-specific parameters
-omega_traj_s1 <- extract_param_trajectory(diag, state = 1, 
-                                          param_name = "omega", series = 1)
-omega_traj_s2 <- extract_param_trajectory(diag, state = 1,
-                                          param_name = "omega", series = 2)
+# omega_traj_s1 <- extract_param_trajectory(diag, state = 1, 
+#                                           param_name = "omega", series = 1)
+# omega_traj_s2 <- extract_param_trajectory(diag, state = 1,
+#                                           param_name = "omega", series = 2)
 ```
 
 ```{r example3_plot}
@@ -204,7 +206,9 @@ if (!is.null(alpha_traj) && any(!is.na(alpha_traj$value))) {
 beta_traj <- extract_param_trajectory(diag, state = 1, param_name = "beta_1")
 
 cat("\nUtility extraction (same result):\n")
-print(head(beta_traj, 5))
+#print(head(beta_traj, 5))
+kable(head(beta_traj, 5), digits = 2, caption = "beta trajectory") %>%
+  kable_styling(bootstrap_options = c("striped", "hover", "condensed"), full_width = FALSE)
 ```
 
 ```{r example3b_plot}
@@ -229,7 +233,9 @@ if (!is.null(beta_traj) && any(!is.na(beta_traj$value))) {
 omega_traj <- extract_param_trajectory(diag, state = 1, param_name = "omega")
 
 cat("\nUtility extraction (same result):\n")
-print(head(omega_traj, 5))
+#print(head(omega_traj, 5))
+kable(head(omega_traj, 5), digits = 2, caption = "omgega trajectory") %>%
+  kable_styling(bootstrap_options = c("striped", "hover", "condensed"), full_width = FALSE)
 ```
 
 ```{r example3b_plot}

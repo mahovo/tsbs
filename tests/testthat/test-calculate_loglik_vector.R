@@ -330,18 +330,16 @@ test_that("calculate_loglik_vector_r is consistent with compute_loglik_fixed()",
   dcc_fit <- suppressWarnings(estimate(dcc_spec))
   
   ## Reference: compute_loglik_fixed with ll_vec = TRUE
-  ## Returns n - maxpq - 1 observations (burn-in + placeholder removed)
+  ## Returns n observations (placeholder removed from tsmarch's n+1 output)
   ll_vec_reference <- compute_loglik_fixed(
     object = dcc_fit,
     params = list(),
     ll_vec = TRUE
   )
   
-  maxpq <- max(dcc_spec$dynamics$order)
-  
-  ## compute_loglik_fixed returns n - maxpq observations (burn-in removed, no padding)
-  expect_equal(length(ll_vec_reference), n - maxpq,
-               info = "compute_loglik_fixed should return n - maxpq observations")
+  ## compute_loglik_fixed returns n observations
+  expect_equal(length(ll_vec_reference), n,
+               info = "compute_loglik_fixed should return n observations")
   
   ## Test calculate_loglik_vector_r with var_order = 0 (no VAR mean)
   spec_for_calc <- list(
@@ -372,14 +370,13 @@ test_that("calculate_loglik_vector_r is consistent with compute_loglik_fixed()",
     model_type = "multivariate"
   )
   
-  ## calculate_loglik_vector_r returns n observations (padded)
+  ## calculate_loglik_vector_r returns n observations
   expect_equal(length(ll_vec_calc), n,
-               info = "calculate_loglik_vector_r should return n observations (with padding)")
+               info = "calculate_loglik_vector_r should return n observations")
   
-  ## The actual log-likelihood values should match (after accounting for padding)
-  ## ll_vec_calc has maxpq leading zeros, then n - maxpq actual values
-  expect_equal(ll_vec_calc[(maxpq + 1):n], ll_vec_reference, tolerance = 1e-10,
-               info = "Log-likelihood values should match after removing padding")
+  ## The values should match exactly
+  expect_equal(ll_vec_calc, ll_vec_reference, tolerance = 1e-10,
+               info = "Log-likelihood values should match")
 })
 
 

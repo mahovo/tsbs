@@ -15,8 +15,8 @@ tsbs(
   num_blocks = NULL,
   num_boots = 100L,
   func = mean,
-  apply_func_to = c("cols", "df"),
-  p_method = c("1/n", "plugin", "cross validation"),
+  apply_func_to = c("cols", "all"),
+  p_method = c("1/n", "plugin", "cv"),
   p = NULL,
   overlap = TRUE,
   num_states = 2L,
@@ -26,6 +26,11 @@ tsbs(
   control = list(),
   parallel = FALSE,
   num_cores = 1L,
+  model_func = default_model_func,
+  score_func = mse,
+  stationary_max_percentile = 0.99,
+  stationary_max_fraction_of_n = 0.1,
+  return_fit = FALSE,
   fail_mode = c("predictably", "gracefully"),
   ...
 )
@@ -69,13 +74,33 @@ each end, using indices \eqn{0 \dots n−1}, where \eqn{n} is the block length.}
 
 \item{num_boots}{Integer number of bootstrap replicates.}
 
-\item{func}{A summary function to apply to each bootstrap replicate or column.}
+\item{func}{A function to apply to each bootstrap replicate. The function's
+expected input depends on the \code{apply_func_to} parameter:
+\itemize{
+\item If \code{apply_func_to = "cols"}: \code{func} receives a single numeric
+vector (one column at a time) and should return a scalar or numeric
+vector. Examples: \code{mean}, \code{sd}, \code{quantile}.
+\item If \code{apply_func_to = "all"}: \code{func} receives the entire bootstrap
+replicate as a numeric matrix (rows = time points, columns = variables)
+and can return:
+\itemize{
+\item A numeric scalar or vector (e.g., portfolio weights)
+\item A named list of numeric values (e.g., multiple summary
+statistics)
+}
+Examples: portfolio optimization functions, functions returning
+multiple statistics.
+}
+The function outputs are collected in \code{func_outs} (one entry per
+replicate), and \code{func_out_means} contains the element-wise average across
+replicates. For list-returning functions, each named element is averaged
+separately. Default is \code{mean}.}
 
-\item{apply_func_to}{Character string: \code{"cols"} to apply columnwise or \code{"df"}
-to apply on the full data frame.}
+\item{apply_func_to}{Character string: \code{"cols"} to apply columnwise or \code{"all"}
+to apply on the full data frame or matrix.}
 
 \item{p_method}{Character string to choose method for stationary bootstrap
-parameter: \code{"1/n"}, \code{"plugin"}, or \code{"cross validation"}.}
+parameter: \code{"1/n"}, \code{"plugin"}, or \code{"cv"}.}
 
 \item{p}{numeric \eqn{p \in (0, 1)}. Probability parameter for the geometric
 block length (used in Stationary Bootstrap).}
@@ -105,10 +130,6 @@ algorithm.}
 
 \item{num_cores}{Number of cores when \code{parallel=TRUE}.}
 
-\item{fail_mode}{Character string. One of \code{"predictably"} (development/
-debugging - fail fast on any unexpected behavior) or \code{"gracefully"}
-(production/robust pipelines - continue despite validation errors).}
-
 \item{model_func}{Model-fitting function for cross-validation.
 See \link{k_fold_cv_ts}.}
 
@@ -117,6 +138,15 @@ See \link{k_fold_cv_ts}.}
 \item{stationary_max_percentile}{Stationary max percentile.}
 
 \item{stationary_max_fraction_of_n}{Stationary max fraction of n.}
+
+\item{return_fit}{If \code{TRUE}, \code{tsbs()} will return model fit. Default is
+\code{return_fit = FALSE}. If \code{return_fit = TRUE} and
+\code{bs_type = "ms_varma_garch"}, diagnostics can be extracted from
+\code{result$fit$diagnostics}. See \code{?fit_ms_varma_garch}.}
+
+\item{fail_mode}{Character string. One of \code{"predictably"} (development/
+debugging - fail fast on any unexpected behavior) or \code{"gracefully"}
+(production/robust pipelines - continue despite validation errors).}
 }
 \value{
 A list containing:
@@ -124,6 +154,7 @@ A list containing:
 \item{bootstrap_series}{List of bootstrap replicate matrices.}
 \item{func_outs}{List of computed function outputs for each replicate.}
 \item{func_out_means}{Mean of the computed outputs across replicates.}
+\item{fit}{If \code{return_fit = TRUE}, a list containing model fit.}
 }
 }
 \description{
@@ -224,12 +255,12 @@ for the relevant tsmarch specification function. For a DCC model see
 \item \code{garch_spec_fun}: A character string with the name of the
 tsmarch specification function to use (e.g., "dcc_modelspec",
 "gogarch_modelspec").
-\item \code{garch_spec_args}: A list of arguments to pass to the function
-specified in garch_spec_fun. Key arguments include:
-\itemize{
 \item \code{distribution}: The multivariate distribution. Valid
 choices are "mvn" (for multivariate normal) and "mvt" (for
 multivariate Student's t).
+\item \code{garch_spec_args}: A list of arguments to pass to the function
+specified in garch_spec_fun. Key arguments include:
+\itemize{
 \item For models like DCC or CGARCH, this list must also contain a
 \code{garch_model} definition for the underlying univariate GARCH
 fits.
@@ -245,20 +276,28 @@ two named elements:
 \item \code{var_pars}: A numeric vector for the VAR parameters,
 stacked column by column (intercept, lags for eq1, intercept, lags
 for eq2, ...).
-\item \code{garch_pars}: A named list for the multivariate GARCH
-parameters (e.g., list(dcc_alpha = 0.05, dcc_beta = 0.9)).
+\item \code{garch_pars}: A list of named lists for the multivariate
+GARCH parameters, e.g.
+\code{list(list(omega = 0.1, alpha1 = 0.1, beta1 = 0.8), list(...))}.
+\item \code{dcc pars}: A named list, e.g.
+\code{list(alpha_1 = 0.05, beta_1 = 0.90)}.
+\item \code{dist pars}: A named list, e.g.
+\code{list(shape = 8.0)}.
 }
 }
 }
 }
 
-\subsection{Additional parameters when \code{bs_type=ms_varma_garch}}{
+\subsection{Diagnostics for MS VARMA GARCH}{
 
-Diagnostic System: A comprehensive diagnostic system monitors convergence and
-numerical stability during estimation.
+Diagnostic System: A comprehensive diagnostic system monitors
+convergence and numerical stability during estimation.
+Additional parameters when \code{bs_type
+= "ms_varma_garch"}
 \itemize{
 \item \code{collect_diagnostics} Logical. Enable diagnostics with
-\code{collect_diagnostics = TRUE}.
+\code{collect_diagnostics = TRUE}. Diagnostics can only be extracted if
+\code{return_fit = TRUE}.
 \item \code{verbose} Logical. If TRUE, print detailed diagnostic information
 during estimation. Default is FALSE.
 \item \code{verbose_file} Character string specifying path to file for

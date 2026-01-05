@@ -26,6 +26,20 @@ estimate_garch_weighted_r(
 \item{spec}{Model specification}
 
 \item{model_type}{Either "univariate" or "multivariate"}
+
+\item{diagnostics}{diagnostics}
+
+\item{iteration}{iteration}
+
+\item{state}{state}
+
+\item{verbose}{verbose}
+
+\item{dcc_threshold}{dcc_threshold}
+
+\item{dcc_criterion}{dcc_criterion}
+
+\item{force_constant}{force_constant}
 }
 \value{
 List with coefficients and warnings

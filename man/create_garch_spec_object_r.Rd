@@ -23,6 +23,14 @@ create_garch_spec_object_r(
 \item{model_type}{Character string}
 
 \item{current_pars}{A list of parameters}
+
+\item{diagnostics}{diagnostics}
+
+\item{iteration}{iteration}
+
+\item{state}{state}
+
+\item{verbose}{verbose}
 }
 \value{
 A GARCH specification object

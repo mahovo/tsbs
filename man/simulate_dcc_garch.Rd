@@ -59,3 +59,28 @@ For backward compatibility, scalar alpha_dcc and beta_dcc produce DCC(1,1).
 To simulate DCC(q,p), provide alpha_dcc as vector of length q and beta_dcc
 as vector of length p.
 }
+\examples{
+\dontrun
+# Simulate 500 observations with default DCC(1,1) parameters
+y <- simulate_dcc_garch(n = 500, seed = 42)
+
+# DCC(1,2): one alpha lag, two beta lags
+y_dcc12 <- simulate_dcc_garch(
+  n = 300,
+  alpha_dcc = 0.05,
+  beta_dcc = c(0.50, 0.40),
+  seed = 123
+)
+
+# DCC(2,2): two lags each
+y_dcc22 <- simulate_dcc_garch(
+  n = 300,
+  alpha_dcc = c(0.03, 0.02),
+  beta_dcc = c(0.50, 0.40),
+  seed = 456
+)
+
+# Constant correlation (set alpha_dcc = 0)
+y_const <- simulate_dcc_garch(n = 200, alpha_dcc = 0, beta_dcc = 0, seed = 789)
+
+}
