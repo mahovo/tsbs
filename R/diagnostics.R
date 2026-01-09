@@ -188,10 +188,74 @@ summary.ms_diagnostics <- function(object, ...) {
 }
 
 
-#' @title Plot Diagnostics
-#' @description Creates diagnostic plots for EM convergence
+#' @title Plot Diagnostics for MS-VARMA-GARCH Models
+#' @description Creates diagnostic plots for EM algorithm convergence and parameter evolution.
+#'
+#' @param x An object of class \code{ms_diagnostics} returned by the fitting procedure.
+#' @param type Character string specifying which plots to produce. One of:
+#'   \describe{
+#'     \item{\code{"all"}}{Produce all diagnostic plots (default).}
+#'     \item{\code{"ll_evolution"}}{Plot log-likelihood evolution across EM iterations.}
+#'     \item{\code{"parameters"}}{Plot parameter evolution across EM iterations.}
+#'     \item{\code{"sigma"}}{Plot conditional volatility (sigma) evolution.}
+#'   }
+#' @param parameters Optional character vector of parameter names to include in the 
+#'   parameter evolution plot. If \code{NULL} (default), all parameters are plotted.
+#'   Supports regex patterns when a single string containing regex metacharacters
+#'   (\code{^}, \code{$}, \code{.}, \code{*}, \code{[}) is provided.
+#' @param normalize Logical. If \code{TRUE}, normalize parameter values to [0, 1] 
+#'   within each parameter for easier comparison across different scales. 
+#'   Default is \code{FALSE}.
+#' @param quiet Logical. If \code{TRUE}, suppress warnings from numeric coercion
+#'   during parameter extraction. Default is \code{FALSE}.
+#' @param ... Additional arguments (currently unused).
+#'
+#' @details
+#' The function produces up to three types of diagnostic visualizations:
+#' 
+#' \strong{Log-Likelihood Evolution} (\code{type = "ll_evolution"}):
+#' Two plots showing (1) the log-likelihood value after each M-step, and 
+#' (2) the change in log-likelihood per iteration. Useful for assessing 
+#' convergence and detecting any non-monotonic behavior.
+#'
+#' \strong{Parameter Evolution} (\code{type = "parameters"}):
+#' Faceted plot showing how each parameter evolves across EM iterations,
+#' with separate colors for each regime state. The \code{parameters} argument
+#' can filter to specific parameters of interest.
+#'
+#' \strong{Sigma Evolution} (\code{type = "sigma"}):
+#' Faceted plot showing the mean conditional volatility (with ± 1 SD ribbon)
+#' for each series across iterations, colored by state.
+#'
+#' @return Invisibly returns the ggplot object(s). Called primarily for side effects
+#'   (printing plots).
+#'
+#' @examples
+#' \dontrun{
+#' # After fitting a model with diagnostics enabled
+#' fit <- fit_ms_varma_garch(data, n_states = 2, collect_diagnostics = TRUE)
+#' diagnostics <- attr(fit, "diagnostics")
+#'
+#' # Plot all diagnostics
+#' plot(diagnostics)
+#'
+#' # Plot only log-likelihood evolution
+#' plot(diagnostics, type = "ll_evolution")
+#'
+#' # Plot specific parameters
+#' plot(diagnostics, type = "parameters", parameters = c("alpha_1", "beta_1"))
+#'
+#' # Plot parameters matching a regex pattern
+#' plot(diagnostics, type = "parameters", parameters = "^alpha")
+#'
+#' # Normalized parameter plot for cross-parameter comparison
+#' plot(diagnostics, type = "parameters", normalize = TRUE)
+#' }
+#'
+#' @seealso \code{\link{summary.ms_diagnostics}} for text summaries of diagnostics.
 #' @export
-plot.ms_diagnostics <- function(x, type = c("all", "ll_evolution", "parameters", "sigma"), ...) {
+plot.ms_diagnostics <- function(x, type = c("all", "ll_evolution", "parameters", "sigma"), 
+                                parameters = NULL, normalize = FALSE, quiet = FALSE, ...) {
   
   type <- match.arg(type)
   
@@ -204,7 +268,7 @@ plot.ms_diagnostics <- function(x, type = c("all", "ll_evolution", "parameters",
   }
   
   if (type %in% c("all", "parameters")) {
-    plot_parameter_evolution(x)
+    plot_parameter_evolution(x, parameters = parameters, normalize = normalize, quiet = quiet)
   }
   
   if (type %in% c("all", "sigma")) {
@@ -255,7 +319,12 @@ plot_ll_evolution <- function(diagnostics) {
 
 
 #' @keywords internal
-plot_parameter_evolution <- function(diagnostics) {
+plot_parameter_evolution <- function(
+    diagnostics,
+    parameters = NULL,
+    normalize = FALSE,
+    quiet = FALSE
+  ) {
   
   if (length(diagnostics$parameter_evolution) == 0) {
     message("No parameter evolution to plot")
@@ -271,13 +340,20 @@ plot_parameter_evolution <- function(diagnostics) {
       params <- unlist(iter_data$parameters)
       
       for (pname in names(params)) {
-        param_list[[length(param_list) + 1]] <- data.frame(
-          iteration = iter_data$iteration,
-          state = iter_data$state,
-          parameter = pname,
-          value = params[[pname]],
-          stringsAsFactors = FALSE
-        )
+        val <- if (quiet) {
+          suppressWarnings(as.numeric(params[[pname]]))
+        } else {
+          as.numeric(params[[pname]])
+        }
+        if (!is.na(val)) {
+          param_list[[length(param_list) + 1]] <- data.frame(
+            iteration = iter_data$iteration,
+            state = iter_data$state,
+            parameter = pname,
+            value = val,
+            stringsAsFactors = FALSE
+          )
+        }
       }
     }
   }
@@ -289,23 +365,55 @@ plot_parameter_evolution <- function(diagnostics) {
   
   df <- do.call(rbind, param_list)
   
-  # Plot parameters grouped by type
+  # Filter parameters if requested
+  if (!is.null(parameters)) {
+    # Support regex patterns
+    if (length(parameters) == 1 && grepl("^\\^|\\$|\\.|\\*|\\[", parameters)) {
+      df <- df[grepl(parameters, df$parameter), ]
+    } else {
+      df <- df[df$parameter %in% parameters, ]
+    }
+    
+    if (nrow(df) == 0) {
+      message("No parameters matched the filter")
+      return(invisible(NULL))
+    }
+  }
+  
+  # Normalize to [0, 1] within each parameter
+  if (normalize) {
+    df <- do.call(rbind, lapply(split(df, df$parameter), function(x) {
+      rng <- range(x$value, na.rm = TRUE)
+      if (is.finite(rng[1]) && is.finite(rng[2]) && diff(rng) > 0) {
+        x$value <- (x$value - rng[1]) / diff(rng)
+      } else {
+        x$value <- 0.5
+      }
+      x
+    }))
+  }
+  
+  # Build plot
   p <- ggplot2::ggplot(df, ggplot2::aes(x = iteration, y = value, 
-                                        color = as.factor(state), 
-                                        linetype = parameter)) +
-    ggplot2::geom_line(size = 0.8) +
-    ggplot2::geom_point(size = 1.5) +
-    ggplot2::facet_wrap(~ parameter, scales = "free_y") +
+                                        color = as.factor(state))) +
+    ggplot2::geom_line(linewidth = 0.3) +
+    ggplot2::geom_point(size = 0.6) +
+    ggplot2::facet_wrap(~ parameter) +
     ggplot2::labs(title = "Parameter Evolution Across EM Iterations",
                   x = "EM Iteration",
-                  y = "Parameter Value",
-                  color = "State",
-                  linetype = "Parameter") +
+                  y = if (normalize) "Normalized Value" else "Parameter Value",
+                  color = "State") +
     ggplot2::theme_minimal() +
     ggplot2::theme(legend.position = "bottom")
   
-  print(p)
+  if (normalize) {
+    p <- p + 
+      ggplot2::scale_y_continuous(breaks = c(0, 0.5, 1), 
+                                  labels = c("0.0", "0.5", "1.0"),
+                                  limits = c(0, 1))
+  }
   
+  print(p)
   invisible(p)
 }
 
@@ -342,8 +450,8 @@ plot_sigma_evolution <- function(diagnostics) {
   p <- ggplot2::ggplot(df, ggplot2::aes(x = iteration, y = mean_sigma,
                                         color = as.factor(state),
                                         group = interaction(state, series))) +
-    ggplot2::geom_line(size = 1) +
-    ggplot2::geom_point(size = 2) +
+    ggplot2::geom_line(size = 0.5) +
+    ggplot2::geom_point(size = 1) +
     ggplot2::geom_ribbon(ggplot2::aes(ymin = mean_sigma - sd_sigma,
                                       ymax = mean_sigma + sd_sigma,
                                       fill = as.factor(state)),

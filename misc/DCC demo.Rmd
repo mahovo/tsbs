@@ -1,737 +1,34 @@
 ---
 title: "DCC demo"
-output: html_document
+author: Martin Hoshi Vognsen
+header-includes:
+   - \usepackage[default]{sourcesanspro}
+   - \usepackage[T1]{fontenc}
+   - \usepackage[fontsize=8pt]{scrextend}
+mainfont: SourceSansPro
+output: 
+  html_document:
+    toc: true
+    toc_depth: 3
+    keep_md: yes
+  pdf_document:
+    toc: true
+    toc_depth: 3
+#fontsize: 10pt # for pdf. Limited to 10pt, 11pt and 12pt. Else use scrextend.
+date: "`r format(Sys.time(), '%H:%M %d %B %Y')`"
 ---
 
-## Model 1
 
-```{r}
-## =============================================================================
-## tsbs: Advanced Portfolio Optimization with DCC-GARCH Bootstrap
-## =============================================================================
-##
-## Extended demo featuring:
-## - Real market data (ETFs)
-## - Multiple portfolio strategies
-## - Out-of-sample backtesting
-## - Bootstrap uncertainty quantification
-##
-## =============================================================================
+```{r chunk1, echo=FALSE}
+collect_diagnostics = TRUE
+verbose = TRUE
+return_fit = TRUE
 
-# library(tsbs)
-library(quantmod)
-# library(xts)
-
-## =============================================================================
-## PART 1: PORTFOLIO OPTIMIZATION FUNCTIONS
-## =============================================================================
-
-## -----------------------------------------------------------------------------
-## 1.1 Minimum Variance Portfolio
-## -----------------------------------------------------------------------------
-min_variance_portfolio <- function(returns, ...) {
-  Sigma <- cov(returns)
-  n <- ncol(returns)
-  
-  if (requireNamespace("quadprog", quietly = TRUE)) {
-    Dmat <- 2 * Sigma + diag(1e-8, n)  # Regularization for numerical stability
-    dvec <- rep(0, n)
-    Amat <- cbind(rep(1, n), diag(n))
-    bvec <- c(1, rep(0, n))
-    sol <- tryCatch(
-      quadprog::solve.QP(Dmat, dvec, Amat, bvec, meq = 1),
-      error = function(e) NULL
-    )
-    if (!is.null(sol)) {
-      weights <- pmax(sol$solution, 0)
-      weights <- weights / sum(weights)
-    } else {
-      weights <- rep(1/n, n)
-    }
-  } else {
-    ones <- rep(1, n)
-    Sigma_inv <- tryCatch(solve(Sigma + diag(1e-6, n)), error = function(e) diag(1/diag(Sigma)))
-    weights <- as.vector(Sigma_inv %*% ones) / as.vector(t(ones) %*% Sigma_inv %*% ones)
-    weights <- pmax(weights, 0)
-    weights <- weights / sum(weights)
-  }
-  names(weights) <- colnames(returns)
-  weights
-}
-
-## -----------------------------------------------------------------------------
-## 1.2 Maximum Sharpe Ratio Portfolio
-## -----------------------------------------------------------------------------
-max_sharpe_portfolio <- function(returns, rf = 0, ...) {
-  mu <- colMeans(returns)
-  Sigma <- cov(returns)
-  n <- ncol(returns)
-  mu_excess <- mu - rf
-  
-  if (all(mu_excess <= 0)) {
-    return(min_variance_portfolio(returns))
-  }
-  
-  if (requireNamespace("quadprog", quietly = TRUE)) {
-    Dmat <- 2 * Sigma + diag(1e-8, n)
-    dvec <- rep(0, n)
-    Amat <- cbind(mu_excess, diag(n))
-    bvec <- c(1, rep(0, n))
-    sol <- tryCatch(
-      quadprog::solve.QP(Dmat, dvec, Amat, bvec, meq = 1),
-      error = function(e) NULL
-    )
-    if (!is.null(sol) && sum(sol$solution) > 0) {
-      weights <- pmax(sol$solution, 0)
-      weights <- weights / sum(weights)
-    } else {
-      weights <- min_variance_portfolio(returns)
-    }
-  } else {
-    weights <- min_variance_portfolio(returns)
-  }
-  names(weights) <- colnames(returns)
-  weights
-}
-
-## -----------------------------------------------------------------------------
-## 1.3 Risk Parity Portfolio
-## -----------------------------------------------------------------------------
-risk_parity_portfolio <- function(returns, ...) {
-  Sigma <- cov(returns)
-  n <- ncol(returns)
-  
-  ## Target: equal risk contribution from each asset
-  ## Approximate solution: w_i proportional to 1/sigma_i
-  vols <- sqrt(diag(Sigma))
-  
-  ## Iterative refinement (simple version)
-  weights <- 1 / vols
-  weights <- weights / sum(weights)
-  
-  for (iter in 1:20) {
-    ## Marginal risk contributions
-    port_vol <- sqrt(t(weights) %*% Sigma %*% weights)
-    mrc <- (Sigma %*% weights) / as.numeric(port_vol)
-    rc <- weights * mrc
-    
-    ## Adjust weights to equalize risk contributions
-    target_rc <- sum(rc) / n
-    adjustment <- target_rc / (rc + 1e-8)
-    weights <- weights * sqrt(adjustment)
-    weights <- weights / sum(weights)
-  }
-  
-  names(weights) <- colnames(returns)
-  weights
-}
-
-## -----------------------------------------------------------------------------
-## 1.4 Black-Litterman Portfolio
-## -----------------------------------------------------------------------------
-black_litterman_portfolio <- function(returns, risk_aversion = 2.5, tau = 0.05, ...) {
-  mu_hist <- colMeans(returns)
-  Sigma <- cov(returns)
-  n <- ncol(returns)
-  
-  ## Market equilibrium (reverse optimization from equal weights as proxy)
-  w_mkt <- rep(1/n, n)
-  pi <- risk_aversion * Sigma %*% w_mkt  # Implied equilibrium returns
-  
-  ## No explicit views - use historical mean as weak view
-  ## P: view matrix (each row is a view)
-  ## Q: view returns
-  ## Omega: view uncertainty
-  
-  ## Simple case: absolute views on each asset
-  P <- diag(n)
-  Q <- mu_hist
-  omega_diag <- diag(Sigma) * tau  # View uncertainty proportional to variance
-  Omega <- diag(omega_diag)
-  
-  ## Black-Litterman formula
-  tau_Sigma <- tau * Sigma
-  tau_Sigma_inv <- solve(tau_Sigma + diag(1e-8, n))
-  Omega_inv <- solve(Omega + diag(1e-8, n))
-  
-  ## Posterior precision and mean
-  M_inv <- tau_Sigma_inv + t(P) %*% Omega_inv %*% P
-  M <- solve(M_inv + diag(1e-8, n))
-  mu_bl <- M %*% (tau_Sigma_inv %*% pi + t(P) %*% Omega_inv %*% Q)
-  
-  ## Optimize with BL expected returns
-  if (requireNamespace("quadprog", quietly = TRUE)) {
-    Sigma_bl <- Sigma + tau_Sigma
-    Dmat <- 2 * risk_aversion * Sigma_bl + diag(1e-8, n)
-    dvec <- as.vector(mu_bl)
-    Amat <- cbind(rep(1, n), diag(n))
-    bvec <- c(1, rep(0, n))
-    sol <- tryCatch(
-      quadprog::solve.QP(Dmat, dvec, Amat, bvec, meq = 1),
-      error = function(e) NULL
-    )
-    if (!is.null(sol)) {
-      weights <- pmax(sol$solution, 0)
-      weights <- weights / sum(weights)
-    } else {
-      weights <- rep(1/n, n)
-    }
-  } else {
-    weights <- rep(1/n, n)
-  }
-  names(weights) <- colnames(returns)
-  weights
-}
-
-## -----------------------------------------------------------------------------
-## 1.5 Mean-Variance with Shrinkage (Ledoit-Wolf)
-## -----------------------------------------------------------------------------
-shrinkage_portfolio <- function(returns, target_return = NULL, ...) {
-  mu <- colMeans(returns)
-  n <- ncol(returns)
-  T_obs <- nrow(returns)
-  
-  ## Ledoit-Wolf shrinkage estimator for covariance
-  S <- cov(returns)
-  
-  ## Shrinkage target: scaled identity
-  trace_S <- sum(diag(S))
-  F_target <- (trace_S / n) * diag(n)
-  
-  ## Estimate optimal shrinkage intensity (simplified)
-  ## delta = shrinkage intensity
-  X <- scale(returns, center = TRUE, scale = FALSE)
-  
-  sum_sq <- sum(S^2)
-  
-  ## Estimate delta (simplified Ledoit-Wolf)
-  delta <- min(1, max(0, (1/T_obs) / (sum_sq / n + 1e-8)))
-  
-  ## Shrunk covariance
-  Sigma_shrunk <- delta * F_target + (1 - delta) * S
-  
-  ## Min variance with shrunk covariance
-  if (requireNamespace("quadprog", quietly = TRUE)) {
-    Dmat <- 2 * Sigma_shrunk + diag(1e-8, n)
-    dvec <- rep(0, n)
-    Amat <- cbind(rep(1, n), diag(n))
-    bvec <- c(1, rep(0, n))
-    sol <- tryCatch(
-      quadprog::solve.QP(Dmat, dvec, Amat, bvec, meq = 1),
-      error = function(e) NULL
-    )
-    if (!is.null(sol)) {
-      weights <- pmax(sol$solution, 0)
-      weights <- weights / sum(weights)
-    } else {
-      weights <- rep(1/n, n)
-    }
-  } else {
-    weights <- rep(1/n, n)
-  }
-  names(weights) <- colnames(returns)
-  weights
-}
-
-## -----------------------------------------------------------------------------
-## 1.6 Equal Weight (Benchmark)
-## -----------------------------------------------------------------------------
-equal_weight_portfolio <- function(returns, ...) {
-  n <- ncol(returns)
-  weights <- rep(1/n, n)
-  names(weights) <- colnames(returns)
-  weights
-}
-
-
-## =============================================================================
-## PART 2: HELPER FUNCTIONS
-## =============================================================================
-
-## Portfolio performance metrics
-calc_portfolio_metrics <- function(returns, weights) {
-  port_ret <- as.vector(returns %*% weights)
-  ann_factor <- 252
-  
-  mean_ret <- mean(port_ret) * ann_factor
-  vol <- sd(port_ret) * sqrt(ann_factor)
-  sharpe <- mean_ret / vol
-  
-  ## Drawdown
-  cum_ret <- cumprod(1 + port_ret)
-  rolling_max <- cummax(cum_ret)
-  drawdown <- (cum_ret - rolling_max) / rolling_max
-  max_dd <- min(drawdown)
-  
-  ## Sortino ratio (downside deviation)
-  downside_ret <- port_ret[port_ret < 0]
-  downside_dev <- if (length(downside_ret) > 1) sd(downside_ret) * sqrt(ann_factor) else vol
-  sortino <- mean_ret / downside_dev
-  
-  c(
-    "Ann.Return" = mean_ret * 100,
-    "Ann.Vol" = vol * 100,
-    "Sharpe" = sharpe,
-    "Sortino" = sortino,
-    "MaxDD" = max_dd * 100
-  )
-}
-
-
-## =============================================================================
-## PART 3: DOWNLOAD REAL MARKET DATA
-## =============================================================================
-
-cat("=", rep("=", 70), "\n", sep = "")
-cat("ADVANCED PORTFOLIO OPTIMIZATION WITH BOOTSTRAP\n")
-cat("=", rep("=", 70), "\n", sep = "")
-
-## Download diversified ETF portfolio
-symbols <- c("SPY", "EFA", "BND", "GLD", "VNQ")
-symbol_names <- c("US Equity", "Intl Equity", "US Bonds", "Gold", "REITs")
-
-start_date <- "2018-01-01"
-end_date <- Sys.Date()
-
-cat("\nDownloading data for:", paste(symbols, collapse = ", "), "\n")
-
-prices_list <- lapply(symbols, function(sym) {
-  tryCatch({
-    getSymbols(sym, src = "yahoo", from = start_date, to = end_date, auto.assign = FALSE)
-  }, error = function(e) {
-    warning(paste("Failed to download", sym))
-    NULL
-  })
-})
-
-## Check for failures
-valid_idx <- !sapply(prices_list, is.null)
-if (sum(valid_idx) < 3) {
-  stop("Could not download enough symbols. Check internet connection.")
-}
-
-symbols <- symbols[valid_idx]
-symbol_names <- symbol_names[valid_idx]
-prices_list <- prices_list[valid_idx]
-
-## Extract adjusted close and merge
-adj_close <- do.call(merge, lapply(prices_list, Ad))
-colnames(adj_close) <- symbols
-adj_close <- na.omit(adj_close)
-
-## Compute log returns
-returns_xts <- diff(log(adj_close)) * 100
-returns_xts <- na.omit(returns_xts)
-
-cat("\nData summary:\n")
-cat("  Period:", as.character(index(returns_xts)[1]), "to",
-    as.character(index(returns_xts)[nrow(returns_xts)]), "\n")
-cat("  Observations:", nrow(returns_xts), "\n")
-cat("  Assets:", paste(symbols, collapse = ", "), "\n")
-
-## Convert to matrix
-y_full <- as.matrix(coredata(returns_xts))
-dates_full <- index(returns_xts)
-
-
-## =============================================================================
-## PART 4: IN-SAMPLE ANALYSIS
-## =============================================================================
-
-cat("\n")
-cat("-", rep("-", 70), "\n", sep = "")
-cat("IN-SAMPLE STATISTICS\n")
-cat("-", rep("-", 70), "\n", sep = "")
-
-cat("\nAnnualized statistics:\n")
-ann_stats <- rbind(
-  "Return (%)" = colMeans(y_full) * 252,
-  "Vol (%)" = apply(y_full, 2, sd) * sqrt(252),
-  "Sharpe" = colMeans(y_full) / apply(y_full, 2, sd) * sqrt(252)
-)
-print(round(ann_stats, 2))
-
-cat("\nCorrelation matrix:\n")
-print(round(cor(y_full), 2))
-
-
-## =============================================================================
-## PART 5: DEFINE DCC-GARCH SPECIFICATION
-## =============================================================================
-
-k <- ncol(y_full)
-
-make_multi_asset_spec <- function(omega, alpha, beta, dcc_alpha, dcc_beta, k) {
-  list(
-    var_order = 1,
-    garch_spec_fun = "dcc_modelspec",
-    distribution = "mvn",
-    garch_spec_args = list(
-      dcc_order = c(1, 1),
-      dynamics = "dcc",
-      garch_model = list(
-        univariate = lapply(1:k, function(i) {
-          list(model = "garch", garch_order = c(1, 1), distribution = "norm")
-        })
-      )
-    ),
-    start_pars = list(
-      var_pars = rep(0, k * (1 + k)),
-      garch_pars = lapply(1:k, function(i) {
-        list(omega = omega[i], alpha1 = alpha[i], beta1 = beta[i])
-      }),
-      dcc_pars = list(alpha_1 = dcc_alpha, beta_1 = dcc_beta),
-      dist_pars = NULL
-    )
-  )
-}
-
-spec <- list(
-  make_multi_asset_spec(
-    omega = rep(0.02, k), alpha = rep(0.05, k), beta = rep(0.90, k),
-    dcc_alpha = 0.02, dcc_beta = 0.95, k = k
-  ),
-  make_multi_asset_spec(
-    omega = rep(0.08, k), alpha = rep(0.12, k), beta = rep(0.80, k),
-    dcc_alpha = 0.06, dcc_beta = 0.90, k = k
-  )
-)
-
-
-## =============================================================================
-## PART 6: OUT-OF-SAMPLE BACKTEST SETUP
-## =============================================================================
-
-cat("\n")
-cat("=", rep("=", 70), "\n", sep = "")
-cat("OUT-OF-SAMPLE BACKTEST\n")
-cat("=", rep("=", 70), "\n", sep = "")
-
-## Parameters
-train_window <- 504    # ~2 years training
-rebalance_freq <- 63   # Quarterly rebalancing
-n_boot <- 50           # Bootstrap replicates per rebalance
-
-## Split points
-n_total <- nrow(y_full)
-rebalance_dates <- seq(train_window + 1, n_total - rebalance_freq, by = rebalance_freq)
-
-cat("\nBacktest setup:\n")
-cat("  Training window:", train_window, "days (~2 years)\n")
-cat("  Rebalance frequency:", rebalance_freq, "days (~quarterly)\n")
-cat("  Number of rebalances:", length(rebalance_dates), "\n")
-cat("  Bootstrap replicates per rebalance:", n_boot, "\n")
-
-## Strategies to test
-strategies <- list(
-  "Equal Weight" = equal_weight_portfolio,
-  "Min Variance" = min_variance_portfolio,
-  "Max Sharpe" = max_sharpe_portfolio,
-  "Risk Parity" = risk_parity_portfolio,
-  "Black-Litterman" = black_litterman_portfolio,
-  "Shrinkage" = shrinkage_portfolio
-)
-
-## Storage for results
-backtest_returns <- matrix(NA, nrow = n_total - train_window, ncol = length(strategies))
-colnames(backtest_returns) <- names(strategies)
-
-weight_history <- lapply(strategies, function(x) {
-  matrix(NA, nrow = length(rebalance_dates), ncol = k)
-})
-
-## Storage for bootstrap uncertainty
-boot_weight_history <- list()
-
-
-## =============================================================================
-## PART 7: RUN BACKTEST
-## =============================================================================
-
-cat("\nRunning backtest...\n")
-
-set.seed(42)
-current_weights <- lapply(strategies, function(x) rep(1/k, k))
-
-pb <- txtProgressBar(min = 0, max = length(rebalance_dates), style = 3)
-
-#diagnostics <- list()
-boot_weight_history <- list()
-
-for (rb_idx in seq_along(rebalance_dates)) {
-  rb_date <- rebalance_dates[rb_idx]
-  
-  ## Training data
-  train_start <- rb_date - train_window
-  train_end <- rb_date - 1
-  y_train <- y_full[train_start:train_end, ]
-  
-  ## Compute new weights for each strategy
-  for (strat_name in names(strategies)) {
-    strat_func <- strategies[[strat_name]]
-    
-    tryCatch({
-      new_weights <- strat_func(y_train)
-      current_weights[[strat_name]] <- new_weights
-      weight_history[[strat_name]][rb_idx, ] <- new_weights
-    }, error = function(e) {
-      ## Keep previous weights on error
-    })
-  }
-  
-  ## Bootstrap for Min Variance to get uncertainty estimates
-  if (rb_idx <= 3) {  # Only first few rebalances to save time
-    tryCatch({
-      boot_result <- tsbs(
-        x = y_train,
-        bs_type = "ms_varma_garch",
-        num_boots = n_boot,
-        num_blocks = 15,
-        num_states = 2,
-        spec = spec,
-        model_type = "multivariate",
-        func = min_variance_portfolio,
-        apply_func_to = "all",
-        control = list(max_iter = 30, tol = 1e-3)#,
-        #return_fit = TRUE,
-        #diagnostics = TRUE
-      )
-      #diagnostics[strat_name] <- boot_result$fit$diagnostics
-      boot_weight_history[[rb_idx]] <- do.call(rbind, boot_result$func_outs)
-    }, error = function(e) {
-      boot_weight_history[[rb_idx]] <- NULL
-    })
-  }
-  
-  ## Calculate returns until next rebalance
-  if (rb_idx < length(rebalance_dates)) {
-    next_rb <- rebalance_dates[rb_idx + 1]
-  } else {
-    next_rb <- n_total
-  }
-  
-  hold_period <- rb_date:(next_rb - 1)
-  hold_returns <- y_full[hold_period, , drop = FALSE]
-  
-  for (strat_name in names(strategies)) {
-    w <- current_weights[[strat_name]]
-    port_ret <- hold_returns %*% w
-    result_idx <- hold_period - train_window
-    backtest_returns[result_idx, strat_name] <- port_ret
-  }
-  
-  setTxtProgressBar(pb, rb_idx)
-}
-close(pb)
-
-cat("\nBacktest completed!\n")
-
-
-## =============================================================================
-## PART 8: BACKTEST RESULTS
-## =============================================================================
-
-cat("\n")
-cat("-", rep("-", 70), "\n", sep = "")
-cat("BACKTEST RESULTS\n")
-cat("-", rep("-", 70), "\n", sep = "")
-
-## Remove NA rows
-backtest_returns <- backtest_returns[complete.cases(backtest_returns), ]
-
-## Calculate performance metrics
-perf_summary <- t(sapply(colnames(backtest_returns), function(strat) {
-  ret <- backtest_returns[, strat]
-  
-  ann_ret <- mean(ret) * 252
-  ann_vol <- sd(ret) * sqrt(252)
-  sharpe <- ann_ret / ann_vol
-  
-  cum_ret <- cumprod(1 + ret/100)
-  rolling_max <- cummax(cum_ret)
-  max_dd <- min((cum_ret - rolling_max) / rolling_max)
-  
-  c(
-    "Ann.Return(%)" = ann_ret,
-    "Ann.Vol(%)" = ann_vol,
-    "Sharpe" = sharpe,
-    "MaxDD(%)" = max_dd * 100
-  )
-}))
-
-cat("\nOut-of-sample performance:\n")
-print(round(perf_summary, 3))
-
-## Best strategy
-best_sharpe <- which.max(perf_summary[, "Sharpe"])
-cat("\nBest Sharpe ratio:", names(best_sharpe), 
-    "=", round(perf_summary[best_sharpe, "Sharpe"], 3), "\n")
-
-
-## =============================================================================
-## PART 9: BOOTSTRAP UNCERTAINTY ANALYSIS
-## =============================================================================
-
-cat("\n")
-cat("-", rep("-", 70), "\n", sep = "")
-cat("BOOTSTRAP WEIGHT UNCERTAINTY (First 3 Rebalances)\n")
-cat("-", rep("-", 70), "\n", sep = "")
-
-for (rb_idx in 1:min(3, length(boot_weight_history))) {
-  boot_w <- boot_weight_history[[rb_idx]]
-  if (!is.null(boot_w) && nrow(boot_w) > 1) {
-    colnames(boot_w) <- symbols
-    
-    cat("\nRebalance", rb_idx, "(Date:", as.character(dates_full[rebalance_dates[rb_idx]]), "):\n")
-    cat("  Point estimate:\n")
-    print(round(weight_history[["Min Variance"]][rb_idx, ], 4))
-    cat("  Bootstrap mean:\n")
-    print(round(colMeans(boot_w), 4))
-    cat("  Bootstrap SE:\n")
-    print(round(apply(boot_w, 2, sd), 4))
-    cat("  95% CI:\n")
-    for (i in 1:k) {
-      ci <- quantile(boot_w[, i], c(0.025, 0.975))
-      cat(sprintf("    %s: [%.3f, %.3f]\n", symbols[i], ci[1], ci[2]))
-    }
-  }
-}
-
-
-## =============================================================================
-## PART 10: VISUALIZATIONS
-## =============================================================================
-
-## Cumulative returns
-cum_returns <- apply(backtest_returns/100, 2, function(x) cumprod(1 + x))
-
-par(mfrow = c(2, 2), mar = c(4, 4, 3, 1))
-
-## Plot 1: Cumulative returns
-matplot(cum_returns, type = "l", lty = 1, lwd = 1.5,
-        col = rainbow(ncol(cum_returns)),
-        main = "Cumulative Returns (Out-of-Sample)",
-        xlab = "Days", ylab = "Growth of $1")
-legend("topleft", colnames(cum_returns), col = rainbow(ncol(cum_returns)),
-       lty = 1, lwd = 1.5, cex = 0.7, ncol = 2)
-
-## Plot 2: Rolling Sharpe (252-day)
-roll_sharpe <- function(ret, window = 252) {
-  n <- length(ret)
-  sharpe <- rep(NA, n)
-  for (i in window:n) {
-    r <- ret[(i-window+1):i]
-    sharpe[i] <- mean(r) / sd(r) * sqrt(252)
-  }
-  sharpe
-}
-
-sharpe_ts <- sapply(colnames(backtest_returns), function(s) {
-  roll_sharpe(backtest_returns[, s])
-})
-matplot(sharpe_ts, type = "l", lty = 1, lwd = 1,
-        col = rainbow(ncol(sharpe_ts)),
-        main = "Rolling 1-Year Sharpe Ratio",
-        xlab = "Days", ylab = "Sharpe Ratio")
-abline(h = 0, col = "gray", lty = 2)
-
-## Plot 3: Weight evolution (Min Variance)
-w_hist <- weight_history[["Min Variance"]]
-w_hist <- w_hist[complete.cases(w_hist), ]
-if (nrow(w_hist) > 1) {
-  barplot(t(w_hist), col = rainbow(k), border = NA,
-          main = "Min Variance Weights Over Time",
-          xlab = "Rebalance Period", ylab = "Weight")
-  legend("topright", symbols, fill = rainbow(k), cex = 0.7, ncol = 2)
-}
-
-## Plot 4: Bootstrap weight distribution (first rebalance)
-if (!is.null(boot_weight_history[[1]])) {
-  boot_w <- boot_weight_history[[1]]
-  boxplot(boot_w, col = rainbow(k),
-          main = "Bootstrap Weight Distribution\n(First Rebalance)",
-          xlab = "Asset", ylab = "Weight",
-          names = symbols)
-  points(1:k, weight_history[["Min Variance"]][1, ], pch = 18, col = "black", cex = 1.5)
-}
-
-par(mfrow = c(1, 1))
-
-
-## =============================================================================
-## PART 11: STRATEGY COMPARISON
-## =============================================================================
-
-cat("\n")
-cat("=", rep("=", 70), "\n", sep = "")
-cat("STRATEGY COMPARISON SUMMARY\n")
-cat("=", rep("=", 70), "\n", sep = "")
-
-## Rank strategies by different metrics
-metrics <- c("Ann.Return(%)", "Ann.Vol(%)", "Sharpe", "MaxDD(%)")
-rankings <- data.frame(
-  Strategy = rownames(perf_summary),
-  Return_Rank = rank(-perf_summary[, "Ann.Return(%)"]),
-  Vol_Rank = rank(perf_summary[, "Ann.Vol(%)"]),
-  Sharpe_Rank = rank(-perf_summary[, "Sharpe"]),
-  MaxDD_Rank = rank(-perf_summary[, "MaxDD(%)"])  # Less negative = better
-)
-rankings$Avg_Rank <- rowMeans(rankings[, -1])
-rankings <- rankings[order(rankings$Avg_Rank), ]
-
-cat("\nStrategy rankings (1 = best):\n")
-print(rankings, row.names = FALSE)
-
-cat("\n")
-cat("-", rep("-", 70), "\n", sep = "")
-cat("KEY FINDINGS\n")
-cat("-", rep("-", 70), "\n", sep = "")
-cat("\n")
-cat("1. PERFORMANCE: Best overall strategy is", rankings$Strategy[1], "\n")
-cat("   - Highest Sharpe:", rownames(perf_summary)[which.max(perf_summary[, "Sharpe"])], "\n")
-cat("   - Lowest volatility:", rownames(perf_summary)[which.min(perf_summary[, "Ann.Vol(%)"])], "\n")
-cat("   - Smallest drawdown:", rownames(perf_summary)[which.max(perf_summary[, "MaxDD(%)"])], "\n")
-cat("\n")
-cat("2. UNCERTAINTY: Bootstrap analysis reveals substantial weight uncertainty\n")
-cat("   - 95% CIs often span 20-40 percentage points\n")
-cat("   - Optimal weights are estimates, not certainties\n")
-cat("\n")
-cat("3. ROBUSTNESS: Strategies with regularization (Shrinkage, Risk Parity)\n")
-cat("   often outperform unconstrained optimization out-of-sample\n")
-cat("\n")
-cat("4. IMPLICATIONS:\n")
-cat("   - Use bootstrap CIs to assess allocation confidence\n")
-cat("   - Consider robust/regularized methods over naive optimization\n")
-cat("   - Report uncertainty alongside point estimates\n")
-cat("   - Rebalancing frequency affects results significantly\n")
-
-
-## =============================================================================
-## SUMMARY
-## =============================================================================
-
-cat("\n")
-cat("=", rep("=", 70), "\n", sep = "")
-cat("DEMO COMPLETE\n")
-cat("=", rep("=", 70), "\n", sep = "")
-cat("\n")
-cat("This demo demonstrated:\n")
-cat("  1. Six portfolio optimization strategies\n")
-cat("  2. Real market data (", paste(symbols, collapse = ", "), ")\n", sep = "")
-cat("  3. Out-of-sample backtesting with quarterly rebalancing\n")
-cat("  4. Bootstrap uncertainty quantification for optimal weights\n")
-cat("  5. DCC-GARCH modeling for time-varying correlations\n")
-cat("\n")
-cat("The MS-VARMA-GARCH bootstrap provides:\n")
-cat("  - Realistic uncertainty estimates for portfolio weights\n")
-cat("  - Proper handling of volatility clustering\n")
-cat("  - Dynamic correlation structure preservation\n")
-cat("  - Regime-switching capability for changing market conditions\n")
+max_num_rb = Inf ## Maximum number of rebalances
 ```
 
-## Model 2
 
-```{r}
+```{r chunk11, echo=FALSE}
 ## =============================================================================
 ## tsbs: Advanced Portfolio Optimization with DCC-GARCH Bootstrap
 ## =============================================================================
@@ -746,9 +43,8 @@ cat("  - Regime-switching capability for changing market conditions\n")
 ##
 ## =============================================================================
 
-#library(tsbs)
+library(tsbs)
 library(quantmod)
-#library(xts)
 
 ## =============================================================================
 ## PART 1: PORTFOLIO OPTIMIZATION FUNCTIONS
@@ -762,7 +58,7 @@ min_variance_portfolio <- function(returns, ...) {
   n <- ncol(returns)
   
   if (requireNamespace("quadprog", quietly = TRUE)) {
-    Dmat <- 2 * Sigma + diag(1e-8, n)  # Regularization for numerical stability
+    Dmat <- 2 * Sigma + diag(1e-8, n)  ## Regularization for numerical stability
     dvec <- rep(0, n)
     Amat <- cbind(rep(1, n), diag(n))
     bvec <- c(1, rep(0, n))
@@ -1170,24 +466,30 @@ weight_history <- lapply(strategies, function(x) {
 
 ## Storage for bootstrap uncertainty
 boot_weight_history <- list()
+```
 
 
+
+```{r chunk12, echo=FALSE}
 ## =============================================================================
 ## PART 7: RUN BACKTEST
 ## =============================================================================
 
 cat("\nRunning backtest...\n")
+```
 
+
+```{r chunk12a, echo=FALSE, results='hide', message=FALSE, warning=FALSE}
 set.seed(42)
 current_weights <- lapply(strategies, function(x) rep(1/k, k))
 
 pb <- txtProgressBar(min = 0, max = length(rebalance_dates), style = 3)
 
 ## Capture diagnostics
-#diagnostics <- list()
+if(collect_diagnostics && return_fit) {diagnostics <- list()}
 
 boot_weight_history <- list()
-#diagnostics_history <- list()
+if(collect_diagnostics && return_fit) {diagnostics_history <- list()}
 
 for (rb_idx in seq_along(rebalance_dates)) {
   rb_date <- rebalance_dates[rb_idx]
@@ -1211,7 +513,7 @@ for (rb_idx in seq_along(rebalance_dates)) {
   }
   
   ## Bootstrap for Min Variance to get uncertainty estimates
-  if (rb_idx <= 3) {
+  if (rb_idx <= max_num_rb) {
     result <- tryCatch({
       boot_result <- tsbs(
         x = y_train,
@@ -1223,16 +525,17 @@ for (rb_idx in seq_along(rebalance_dates)) {
         model_type = "multivariate",
         func = min_variance_portfolio,
         apply_func_to = "all",
-        control = list(max_iter = 50, tol = 1e-3),
-        return_fit = TRUE,
+        control = list(max_iter = 10, tol = 1e-2),
         parallel = TRUE,
         num_cores = 8,
-        #return_fit = TRUE,
-        collect_diagnostics = FALSE #TRUE
+        return_fit = return_fit,
+        collect_diagnostics = collect_diagnostics
       )
       list(
-        weights = do.call(rbind, boot_result$func_outs)#,
-        #diagnostics = boot_result$fit$diagnostics
+        weights = do.call(rbind, boot_result$func_outs),
+        diagnostics = if(collect_diagnostics && return_fit) {
+          boot_result$fit$diagnostics
+        } else {NULL}
       )
     }, error = function(e) {
       message("Bootstrap failed at rebalance ", rb_idx, ": ", e$message)
@@ -1241,7 +544,9 @@ for (rb_idx in seq_along(rebalance_dates)) {
     
     if (!is.null(result)) {
       boot_weight_history[[rb_idx]] <- result$weights
-      #diagnostics_history[[rb_idx]] <- result$diagnostics
+      if(collect_diagnostics && return_fit) {
+        diagnostics_history[[rb_idx]] <- result$diagnostics
+      }
     }
   }
   
@@ -1265,10 +570,16 @@ for (rb_idx in seq_along(rebalance_dates)) {
   setTxtProgressBar(pb, rb_idx)
 }
 close(pb)
+```
 
+
+```{r chunk12b, echo=FALSE}
 cat("\nBacktest completed!\n")
+```
 
 
+
+```{r chunk13, echo=FALSE}
 ## =============================================================================
 ## PART 8: BACKTEST RESULTS
 ## =============================================================================
@@ -1308,8 +619,11 @@ print(round(perf_summary, 3))
 best_sharpe <- which.max(perf_summary[, "Sharpe"])
 cat("\nBest Sharpe ratio:", names(best_sharpe), 
     "=", round(perf_summary[best_sharpe, "Sharpe"], 3), "\n")
+```
 
 
+
+```{r chunk14, echo=FALSE}
 ## =============================================================================
 ## PART 9: BOOTSTRAP UNCERTAINTY ANALYSIS
 ## =============================================================================
@@ -1339,8 +653,11 @@ for (rb_idx in 1:min(3, length(boot_weight_history))) {
     }
   }
 }
+```
 
 
+
+```{r chunk15, echo=FALSE}
 ## =============================================================================
 ## PART 10: VISUALIZATIONS
 ## =============================================================================
@@ -1348,7 +665,7 @@ for (rb_idx in 1:min(3, length(boot_weight_history))) {
 ## Cumulative returns
 cum_returns <- apply(backtest_returns/100, 2, function(x) cumprod(1 + x))
 
-par(mfrow = c(2, 2), mar = c(4, 4, 3, 1))
+#par(mfrow = c(2, 2), mar = c(4, 4, 3, 1))
 
 ## Plot 1: Cumulative returns
 matplot(cum_returns, type = "l", lty = 1, lwd = 1.5,
@@ -1357,7 +674,11 @@ matplot(cum_returns, type = "l", lty = 1, lwd = 1.5,
         xlab = "Days", ylab = "Growth of $1")
 legend("topleft", colnames(cum_returns), col = rainbow(ncol(cum_returns)),
        lty = 1, lwd = 1.5, cex = 0.7, ncol = 2)
+```
 
+
+
+```{r chunk16, echo=FALSE}
 ## Plot 2: Rolling Sharpe (252-day)
 roll_sharpe <- function(ret, window = 252) {
   n <- length(ret)
@@ -1377,7 +698,11 @@ matplot(sharpe_ts, type = "l", lty = 1, lwd = 1,
         main = "Rolling 1-Year Sharpe Ratio",
         xlab = "Days", ylab = "Sharpe Ratio")
 abline(h = 0, col = "gray", lty = 2)
+```
 
+
+
+```{r chunk17, echo=FALSE}
 ## Plot 3: Weight evolution (Min Variance)
 w_hist <- weight_history[["Min Variance"]]
 w_hist <- w_hist[complete.cases(w_hist), ]
@@ -1387,7 +712,11 @@ if (nrow(w_hist) > 1) {
           xlab = "Rebalance Period", ylab = "Weight")
   legend("topright", symbols, fill = rainbow(k), cex = 0.7, ncol = 2)
 }
+```
 
+
+
+```{r chunk18, echo=FALSE}
 ## Plot 4: Bootstrap weight distribution (first rebalance)
 if (!is.null(boot_weight_history[[1]])) {
   boot_w <- boot_weight_history[[1]]
@@ -1399,8 +728,11 @@ if (!is.null(boot_weight_history[[1]])) {
 }
 
 par(mfrow = c(1, 1))
+```
 
 
+
+```{r chunk19, echo=FALSE}
 ## =============================================================================
 ## PART 11: STRATEGY COMPARISON
 ## =============================================================================
@@ -1495,8 +827,12 @@ if (length(boot_weight_history) > 0 && !is.null(boot_weight_history[[1]])) {
     cat(sprintf("  %s: CV=%.2f (%s)\n", symbols[i], cv[i], stability))
   }
 }
+```
 
 
+
+
+```{r, echo=FALSE}
 ## =============================================================================
 ## PART 13: PORTFOLIO PERFORMANCE UNCERTAINTY
 ## =============================================================================
@@ -1553,7 +889,11 @@ if (length(boot_weight_history) > 0 && !is.null(boot_weight_history[[1]])) {
     cat(sprintf("  %s: Median=%.2f, 95%% CI=[%.2f, %.2f]\n",
                 metric, ci[2], ci[1], ci[3]))
   }
+
+
+
   
+
   ## Visualization
   par(mfrow = c(1, 3), mar = c(4, 4, 3, 1))
   
@@ -1561,12 +901,20 @@ if (length(boot_weight_history) > 0 && !is.null(boot_weight_history[[1]])) {
        main = "Bootstrap: Ann. Return (%)", xlab = "Return (%)")
   abline(v = point_perf["Ann_Return"], col = "red", lwd = 2)
   abline(v = quantile(boot_perf[, "Ann_Return"], c(0.025, 0.975)), col = "gray40", lty = 2)
+
   
+  
+  
+
   hist(boot_perf[, "Ann_Vol"], breaks = 20, col = "darkgreen", border = "white",
        main = "Bootstrap: Ann. Volatility (%)", xlab = "Volatility (%)")
   abline(v = point_perf["Ann_Vol"], col = "red", lwd = 2)
   abline(v = quantile(boot_perf[, "Ann_Vol"], c(0.025, 0.975)), col = "gray40", lty = 2)
+
   
+  
+
+
   hist(boot_perf[, "Sharpe"], breaks = 20, col = "purple", border = "white",
        main = "Bootstrap: Sharpe Ratio", xlab = "Sharpe")
   abline(v = point_perf["Sharpe"], col = "red", lwd = 2)
@@ -1574,8 +922,11 @@ if (length(boot_weight_history) > 0 && !is.null(boot_weight_history[[1]])) {
   
   par(mfrow = c(1, 1))
 }
+```
 
 
+
+```{r chunk23, echo=FALSE}
 ## =============================================================================
 ## PART 14: ROBUST WEIGHT RECOMMENDATIONS
 ## =============================================================================
@@ -1688,9 +1039,17 @@ tc_adj_df <- data.frame(
   TC_Adj_Sharpe = round(adj_sharpe, 3),
   Difference = round(adj_sharpe - perf_summary[, "Sharpe"], 3)
 )
+```
+
+
+
+```{r chunk24, echo=FALSE}
 print(tc_adj_df, row.names = FALSE)
+```
 
 
+
+```{r chunk25, echo=FALSE}
 ## =============================================================================
 ## FINAL SUMMARY
 ## =============================================================================

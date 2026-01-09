@@ -36,7 +36,8 @@ create_garch_spec_object_r(
 A GARCH specification object
 }
 \description{
-This is a convenience function that handles the complex,
-model-specific logic for creating both univariate and multivariate GARCH
-specification objects.
+Convenience function that handles the complex, model-specific
+logic for creating both univariate and multivariate GARCH specification
+objects for the purpose of log-likelihood calculation during the
+EM-algorithm.
 }

@@ -278,7 +278,7 @@ stacked column by column (intercept, lags for eq1, intercept, lags
 for eq2, ...).
 \item \code{garch_pars}: A list of named lists for the multivariate
 GARCH parameters, e.g.
-\code{list(list(omega = 0.1, alpha1 = 0.1, beta1 = 0.8), list(...))}.
+\code{replicate(k, list(omega = 0.05, alpha1 = 0.08, beta1 = 0.85), simplify = FALSE)}.
 \item \code{dcc pars}: A named list, e.g.
 \code{list(alpha_1 = 0.05, beta_1 = 0.90)}.
 \item \code{dist pars}: A named list, e.g.

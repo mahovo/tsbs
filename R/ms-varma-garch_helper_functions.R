@@ -217,9 +217,10 @@ generate_tsmarch_parnames <- function(pars) {
 
 
 #' @title Create a GARCH Specification Object (Convenience Function)
-#' @description This is a convenience function that handles the complex,
-#'   model-specific logic for creating both univariate and multivariate GARCH
-#'   specification objects.
+#' @description Convenience function that handles the complex, model-specific
+#'   logic for creating both univariate and multivariate GARCH specification
+#'   objects for the purpose of log-likelihood calculation during the
+#'   EM-algorithm.
 #' @param residuals Numeric
 #' @param spec A spec list
 #' @param model_type Character string
