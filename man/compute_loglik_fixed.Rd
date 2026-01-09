@@ -41,14 +41,22 @@ instead of the total. Cannot be used with return_components = TRUE. Default is F
 }
 \value{
 If ll_vec = TRUE, returns a numeric vector of per-observation log-likelihoods.
+The vector has length n-1 for DCC models where n is the number of observations,
+because the first observation serves as initialization for the DCC recursion
+(tsmarch returns a zero placeholder for this observation which is removed).
+The sum of the returned vector equals the scalar log-likelihood returned when
+ll_vec = FALSE, and also equals logLik(object) when using estimated parameters.
 
 If ll_vec = FALSE and return_components = FALSE (default), returns a single
 numeric value representing the total log-likelihood.
 
 If ll_vec = FALSE and return_components = TRUE, returns a list with components:
+
+\itemize{
 \item{loglik}{Total log-likelihood}
 \item{garch_loglik}{Univariate GARCH component (DCC/Copula only)}
 \item{multivariate_loglik}{Multivariate component log-likelihood}
+}
 }
 \description{
 Evaluates the log-likelihood for tsmarch models using fixed (non-estimated)

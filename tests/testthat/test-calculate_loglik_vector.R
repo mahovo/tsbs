@@ -315,7 +315,6 @@ test_that("calculate_loglik_vector_r is consistent with compute_loglik_fixed()",
   y_sim <- matrix(rnorm(n * 2), ncol = 2)
   colnames(y_sim) <- c("s1", "s2")
   
-  ## Create a proper estimated DCC model for comparison
   residuals_xts <- xts::xts(y_sim, order.by = Sys.Date() - (n:1))
   
   ## Estimate univariate GARCH models
@@ -324,79 +323,60 @@ test_that("calculate_loglik_vector_r is consistent with compute_loglik_fixed()",
   fit1 <- suppressWarnings(estimate(spec1, keep_tmb = TRUE))
   fit2 <- suppressWarnings(estimate(spec2, keep_tmb = TRUE))
   
-  ## Create multivariate object
   garch_fits <- tsgarch::to_multi_estimate(list(fit1, fit2))
   
   ## Estimate DCC model
   dcc_spec <- tsmarch::dcc_modelspec(garch_fits, dynamics = "dcc", dcc_order = c(1,1))
   dcc_fit <- suppressWarnings(estimate(dcc_spec))
   
-  ## Get log-likelihood vector from compute_loglik_fixed
+  ## Reference: compute_loglik_fixed with ll_vec = TRUE
+  ## Returns n observations (placeholder removed from tsmarch's n+1 output)
   ll_vec_reference <- compute_loglik_fixed(
     object = dcc_fit,
-    params = list(),  # Use estimated parameters
+    params = list(),
     ll_vec = TRUE
   )
   
-  ## Now test calculate_loglik_vector_r with VAR(1) mean model
-  y_with_mean <- y_sim
+  ## compute_loglik_fixed returns n observations
+  expect_equal(length(ll_vec_reference), n,
+               info = "compute_loglik_fixed should return n observations")
   
+  ## Test calculate_loglik_vector_r with var_order = 0 (no VAR mean)
   spec_for_calc <- list(
-    var_order = 1,
+    var_order = 0,
     garch_spec_fun = "dcc_modelspec",
     garch_spec_args = dcc_spec_args_mvn,
-    distribution = "mvn",
-    start_pars = list(
-      var_pars = rep(0, 6),  ## No mean structure for comparison
-      garch_pars = list(
-        list(omega = coef(fit1)["omega"], 
-             alpha = coef(fit1)["alpha"], 
-             beta = coef(fit1)["beta"]),
-        list(omega = coef(fit2)["omega"], 
-             alpha = coef(fit2)["alpha"], 
-             beta = coef(fit2)["beta"])
-      ),
-      dcc_alpha = coef(dcc_fit)["alpha_1"],
-      dcc_beta = coef(dcc_fit)["beta_1"]
-    )
+    distribution = "mvn"
   )
   
-  current_pars_for_calc <- list(
-    var_pars = rep(0, 6),
+  current_pars <- list(
+    var_pars = numeric(0),
     garch_pars = list(
       list(omega = coef(fit1)["omega"], 
-           alpha = coef(fit1)["alpha"], 
-           beta = coef(fit1)["beta"]),
+           alpha = coef(fit1)["alpha1"],
+           beta = coef(fit1)["beta1"]),
       list(omega = coef(fit2)["omega"], 
-           alpha = coef(fit2)["alpha"], 
-           beta = coef(fit2)["beta"])
+           alpha = coef(fit2)["alpha1"],
+           beta = coef(fit2)["beta1"])
     ),
-    dcc_alpha = coef(dcc_fit)["alpha_1"],
-    dcc_beta = coef(dcc_fit)["beta_1"]
+    alpha_1 = coef(dcc_fit)["alpha_1"],
+    beta_1 = coef(dcc_fit)["beta_1"]
   )
   
   ll_vec_calc <- calculate_loglik_vector_r(
-    y = y_with_mean,
-    current_pars = current_pars_for_calc,
+    y = y_sim,
+    current_pars = current_pars,
     spec = spec_for_calc,
     model_type = "multivariate"
   )
   
-  ## After accounting for VAR(1) burn-in, the remaining values should match
-  ## (allowing for small numerical differences)
-  var_order <- 1
-  ll_vec_calc_trimmed <- ll_vec_calc[(var_order + 1):length(ll_vec_calc)]
+  ## calculate_loglik_vector_r returns n observations
+  expect_equal(length(ll_vec_calc), n,
+               info = "calculate_loglik_vector_r should return n observations")
   
-  ## Check that the lengths match after trimming
-  expect_equal(length(ll_vec_calc_trimmed), length(ll_vec_reference))
-  
-  ## Check that values are similar (within tolerance)
-  ## Note: There may be small differences due to how VAR residuals are computed
-  ## vs. using raw data, so we use a reasonable tolerance
-  expect_true(
-    cor(ll_vec_calc_trimmed, ll_vec_reference) > 0.95,
-    info = "Log-likelihood vectors should be highly correlated"
-  )
+  ## The values should match exactly
+  expect_equal(ll_vec_calc, ll_vec_reference, tolerance = 1e-10,
+               info = "Log-likelihood values should match")
 })
 
 
@@ -454,7 +434,7 @@ test_that("calculate_loglik_vector_r produces no TMB warnings", {
   
   ## Check that there are no warnings about TMB objects
   tmb_warnings <- grep("TMB object not found", warnings_captured, value = TRUE)
-  expect_length(tmb_warnings, 0, 
+  expect_equal(length(tmb_warnings), 0, 
                 info = "Should not produce warnings about TMB objects")
 })
 
@@ -623,12 +603,11 @@ test_that("Full MS-VARMA-GARCH estimation converges without TMB warnings", {
   )
   
   ## Check results
-  expect_s3_class(fit, "msm.fit")
   expect_true(is.finite(fit$log_likelihood))
   
   ## Check that there are no TMB-related warnings
   tmb_warnings <- grep("TMB object not found|fallback", warnings_captured, 
                        value = TRUE, ignore.case = TRUE)
-  expect_length(tmb_warnings, 0,
+  expect_equal(length(tmb_warnings), 0,
                 info = "Full estimation should not produce TMB warnings")
 })

@@ -2,23 +2,50 @@
 % Please edit documentation in R/ms-varma-garch_helper_functions.R
 \name{estimate_garch_weighted_r}
 \alias{estimate_garch_weighted_r}
-\title{Estimate GARCH Parameters (R Helper)
-This function is the core of the M-step; it takes the weights (smoothed
-probabilities) from the E-step and finds the GARCH and distribution
-parameters that maximize the weighted log-likelihood.}
+\title{Estimate GARCH Parameters for Multivariate Models (R Helper)}
 \usage{
-estimate_garch_weighted_r(residuals, weights, spec, model_type = "univariate")
+estimate_garch_weighted_r(
+  residuals,
+  weights,
+  spec,
+  model_type = "univariate",
+  diagnostics = NULL,
+  iteration = NULL,
+  state = NULL,
+  verbose = FALSE,
+  dcc_threshold = 0.02,
+  dcc_criterion = "bic",
+  force_constant = FALSE
+)
 }
 \arguments{
-\item{residuals}{}
+\item{residuals}{Matrix of residuals (T x k) for multivariate case}
 
-\item{weights}{}
+\item{weights}{Vector of weights from E-step}
 
-\item{spec}{}
+\item{spec}{Model specification}
 
-\item{model_type}{}
+\item{model_type}{Either "univariate" or "multivariate"}
+
+\item{diagnostics}{diagnostics}
+
+\item{iteration}{iteration}
+
+\item{state}{state}
+
+\item{verbose}{verbose}
+
+\item{dcc_threshold}{dcc_threshold}
+
+\item{dcc_criterion}{dcc_criterion}
+
+\item{force_constant}{force_constant}
+}
+\value{
+List with coefficients and warnings
 }
 \description{
-Estimate both GARCH and distribution parameters (e.g., shape,
-skew) simultaneously for the univariate case.
+Two-stage weighted estimation for multivariate GARCH models:
+Stage 1: Univariate GARCH parameters for each series
+Stage 2: Multivariate dependence parameters (DCC/Copula) or decomposition (GOGARCH)
 }

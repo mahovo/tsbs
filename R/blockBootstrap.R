@@ -50,7 +50,6 @@
 #' boots <- blockBootstrap(x, bs_type = "stationary", num_boots = 5L)
 #' dim(boots[[1]])
 #'
-#' @importFrom Rcpp sourceCpp
 #' @export
 blockBootstrap <- function(
   x,

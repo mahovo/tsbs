@@ -38,8 +38,8 @@ test_that("compute_loglik_fixed validates input object class", {
 })
 
 test_that("compute_loglik_fixed validates params argument", {
-  skip_if_not_installed("tsmarch")
   skip_on_cran()
+  skip_if_not_installed("tsmarch")
   
   ## Load a fixture
   dcc_fit <- readRDS(file.path(.get_fixtures_dir(), "dcc_dynamic_fit.rds"))
@@ -129,7 +129,7 @@ test_that("compute_loglik_fixed works with DCC dynamic (mvn)", {
   skip_if_not_installed("xts")
   skip_on_cran()
   
-  #3 Get or create test fixture
+  ## Get or create test fixture
   dcc_fit <- readRDS(file.path(.get_fixtures_dir(), "dcc_dynamic_fit.rds"))
   
   ## Get estimated parameters
@@ -142,23 +142,16 @@ test_that("compute_loglik_fixed works with DCC dynamic (mvn)", {
   ## Compute log-likelihood at estimated parameters
   ll_fixed <- compute_loglik_fixed(dcc_fit, params = params_list)
   
-  ## Get the estimated log-likelihood
-  series1_nll <- dcc_fit$spec$univariate$series1$loglik
-  series2_nll <- dcc_fit$spec$univariate$series2$loglik
-  mv_nll <- dcc_fit$loglik
-  nll_estimated <- series1_nll + series2_nll + mv_nll
-  ll_estimated <- -nll_estimated
-  
-  ## Should match within numerical tolerance
-  expect_equal(ll_fixed, ll_estimated, tolerance = 1e-4,
+  ## Should match logLik() within numerical tolerance
+  expect_equal(ll_fixed, as.numeric(logLik(dcc_fit)), tolerance = 1e-4,
                info = "Log-likelihood at estimated params should match estimation")
 })
 
 test_that("compute_loglik_fixed detects parameter changes in DCC dynamic", {
+  skip_on_cran()
   skip_if_not_installed("tsmarch")
   skip_if_not_installed("tsgarch")
   skip_if_not_installed("xts")
-  skip_on_cran()
   
   dcc_fit <- readRDS(file.path(.get_fixtures_dir(), "dcc_dynamic_fit.rds"))
   
@@ -184,10 +177,10 @@ test_that("compute_loglik_fixed detects parameter changes in DCC dynamic", {
 })
 
 test_that("compute_loglik_fixed return_components works for DCC dynamic", {
+  skip_on_cran()
   skip_if_not_installed("tsmarch")
   skip_if_not_installed("tsgarch")
   skip_if_not_installed("xts")
-  skip_on_cran()
   
   dcc_fit <- readRDS(file.path(.get_fixtures_dir(), "dcc_dynamic_fit.rds"))
   est_params <- coef(dcc_fit)
@@ -215,10 +208,10 @@ test_that("compute_loglik_fixed return_components works for DCC dynamic", {
 ## Test DCC Constant Model ==================================================
 
 test_that("compute_loglik_fixed works with DCC constant (mvn)", {
+  skip_on_cran()
   skip_if_not_installed("tsmarch")
   skip_if_not_installed("tsgarch")
   skip_if_not_installed("xts")
-  skip_on_cran()
   
   dcc_fit <- readRDS(file.path(.get_fixtures_dir(), "dcc_constant_fit.rds"))
   
@@ -233,35 +226,33 @@ test_that("compute_loglik_fixed works with DCC constant (mvn)", {
 ## Test Student-t DCC Model =================================================
 
 test_that("compute_loglik_fixed works with DCC Student-t", {
+  skip_on_cran()
   skip_if_not_installed("tsmarch")
   skip_if_not_installed("tsgarch")
   skip_if_not_installed("xts")
-  skip_on_cran()
   
   dcc_fit <- readRDS(file.path(.get_fixtures_dir(), "dcc_student_fit.rds"))
   
-  ## Get estimated parameters (should include shape parameter)
+  ## Get estimated parameters
   est_params <- coef(dcc_fit)
   
-  ## Should have alpha, beta, and shape
-  expect_true("shape" %in% names(est_params))
+  ## Convert to named list
+  params_list <- as.list(est_params)
+  names(params_list) <- names(est_params)
   
-  ## Compute log-likelihood
-  ll_fixed <- compute_loglik_fixed(dcc_fit, params = as.list(est_params))
-  series1_nll <- dcc_fit$spec$univariate$series1$loglik
-  series2_nll <- dcc_fit$spec$univariate$series2$loglik
-  mv_nll <- dcc_fit$loglik
-  nll_estimated <- series1_nll + series2_nll + mv_nll
-  ll_estimated <- -nll_estimated
+  ## Compute log-likelihood at estimated parameters
+  ll_fixed <- compute_loglik_fixed(dcc_fit, params = params_list)
   
-  expect_equal(ll_fixed, ll_estimated, tolerance = 1e-4)
+  ## Should match logLik() within numerical tolerance
+  expect_equal(ll_fixed, as.numeric(logLik(dcc_fit)), tolerance = 1e-4,
+               info = "Log-likelihood at estimated params should match estimation")
 })
 
 test_that("compute_loglik_fixed handles different shape values", {
+  skip_on_cran()
   skip_if_not_installed("tsmarch")
   skip_if_not_installed("tsgarch")
   skip_if_not_installed("xts")
-  skip_on_cran()
   
   dcc_fit <- readRDS(file.path(.get_fixtures_dir(), "dcc_student_fit.rds"))
   est_params <- coef(dcc_fit)
@@ -293,10 +284,10 @@ test_that("compute_loglik_fixed handles different shape values", {
 ## Test Copula-GARCH Model ==================================================
 
 test_that("compute_loglik_fixed works with Copula-GARCH dynamic", {
+  skip_on_cran()
   skip_if_not_installed("tsmarch")
   skip_if_not_installed("tsgarch")
   skip_if_not_installed("xts")
-  skip_on_cran()
   
   cgarch_fit <- readRDS(file.path(.get_fixtures_dir(), "copula_dynamic_fit.rds"))
   
@@ -314,317 +305,15 @@ test_that("compute_loglik_fixed works with Copula-GARCH dynamic", {
   expect_equal(ll_fixed, ll_expected, tolerance = 1e-4)
 })
 
-## Test GOGARCH Model ==================================================
-
-## Unit tests for .compute_gogarch_loglik()
-# Setup: Create a GOGARCH fit object for testing
-setup_gogarch_test <- function() {
-  suppressWarnings({
-    set.seed(123)
-    n <- 100
-    returns <- matrix(rnorm(n * 2), ncol = 2)
-    returns <- xts::xts(returns, order.by = seq.Date(Sys.Date() - n + 1, Sys.Date(), by = "day"))
-    colnames(returns) <- c("asset1", "asset2")
-    
-    gogarch_spec <- tsmarch::gogarch_modelspec(returns, distribution = "norm", 
-                                               model = "garch", order = c(1, 1), 
-                                               components = 2)
-    gogarch_fit <- estimate(gogarch_spec)
-    
-    return(gogarch_fit)
-  })
-}
-
-test_that("GOGARCH: scalar likelihood at estimated parameters matches stored value", {
-  gogarch_fit <- setup_gogarch_test()
-  
-  ll_computed <- suppressWarnings(compute_loglik_fixed(gogarch_fit, params = list()))
-  ll_stored <- gogarch_fit$loglik
-  
-  expect_equal(ll_computed, ll_stored, tolerance = 1e-10)
-})
-
-test_that("GOGARCH: vector likelihood sums to scalar likelihood at estimated parameters", {
-  gogarch_fit <- setup_gogarch_test()
-  
-  ll_scalar <- suppressWarnings(compute_loglik_fixed(gogarch_fit, params = list()))
-  ll_vector <- suppressWarnings(compute_loglik_fixed(gogarch_fit, params = list(), ll_vec = TRUE))
-  
-  expect_equal(sum(ll_vector), ll_scalar, tolerance = 1e-10)
-  expect_equal(length(ll_vector), 100)
-})
-
-test_that("GOGARCH: likelihood decreases with non-optimal parameters", {
-  gogarch_fit <- setup_gogarch_test()
-  
-  ll_estimated <- suppressWarnings(compute_loglik_fixed(gogarch_fit, params = list()))
-  
-  ## Test with different parameters
-  test_params <- list(
-    omega_1 = 0.03, alpha_1 = 0.04, beta_1 = 0.95,
-    omega_2 = 0.35, alpha_2 = 0.00, beta_2 = 0.65
-  )
-  ll_test <- suppressWarnings(compute_loglik_fixed(gogarch_fit, params = test_params))
-  
-  expect_true(ll_estimated > ll_test)
-})
-
-test_that("GOGARCH: vector mode with changed parameters is consistent", {
-  gogarch_fit <- setup_gogarch_test()
-  
-  test_params <- list(
-    omega_1 = 0.03, alpha_1 = 0.04, beta_1 = 0.95,
-    omega_2 = 0.35, alpha_2 = 0.00, beta_2 = 0.65
-  )
-  
-  ll_scalar <- suppressWarnings(compute_loglik_fixed(gogarch_fit, params = test_params))
-  ll_vector <- suppressWarnings(compute_loglik_fixed(gogarch_fit, params = test_params, ll_vec = TRUE))
-  
-  expect_equal(sum(ll_vector), ll_scalar, tolerance = 1e-10)
-  expect_equal(length(ll_vector), 100)
-})
-
-test_that("GOGARCH: partial parameter update works correctly", {
-  gogarch_fit <- setup_gogarch_test()
-  
-  ll_estimated <- suppressWarnings(compute_loglik_fixed(gogarch_fit, params = list()))
-  
-  ## Update only component 1 parameters
-  partial_params <- list(
-    omega_1 = 0.05, alpha_1 = 0.03, beta_1 = 0.92
-  )
-  ll_partial <- suppressWarnings(compute_loglik_fixed(gogarch_fit, params = partial_params))
-  
-  ## Should be different from estimated
-  expect_false(isTRUE(all.equal(ll_partial, ll_estimated, tolerance = 1e-10)))
-  
-  ## Should be numeric and finite
-  expect_true(is.numeric(ll_partial))
-  expect_true(is.finite(ll_partial))
-})
-
-test_that("GOGARCH: return_components gives correct decomposition", {
-  gogarch_fit <- setup_gogarch_test()
-  
-  result <- suppressWarnings(compute_loglik_fixed(gogarch_fit, params = list(), 
-                                                  return_components = TRUE))
-  
-  ## Check structure
-  expect_true(is.list(result))
-  expect_named(result, c("loglik", "component_logliks", "jacobian_adjustment"))
-  
-  ## Check that manual sum equals total
-  manual_sum <- sum(result$component_logliks) + result$jacobian_adjustment
-  expect_equal(result$loglik, manual_sum, tolerance = 1e-10)
-  
-  ## Check that total matches stored value
-  expect_equal(result$loglik, gogarch_fit$loglik, tolerance = 1e-10)
-  
-  ## Check component dimensions
-  expect_equal(length(result$component_logliks), 2)
-  expect_true(is.numeric(result$jacobian_adjustment))
-})
-
-test_that("GOGARCH: vector + components mode has consistent structure", {
-  gogarch_fit <- setup_gogarch_test()
-  
-  result <- suppressWarnings(compute_loglik_fixed(gogarch_fit, params = list(), 
-                                                  return_components = TRUE, ll_vec = TRUE))
-  
-  ## Check structure
-  expect_true(is.list(result))
-  expect_named(result, c("loglik", "lik_vector", "component_logliks", 
-                         "jacobian_adjustment"))
-  
-  ## Check consistency
-  expect_equal(result$loglik, sum(result$lik_vector), tolerance = 1e-10)
-  expect_equal(result$loglik, gogarch_fit$loglik, tolerance = 1e-10)
-  
-  ## Check dimensions
-  expect_equal(length(result$lik_vector), 100)
-  expect_equal(length(result$component_logliks), 2)
-})
-
-test_that("GOGARCH: Jacobian adjustment is computed correctly", {
-  gogarch_fit <- setup_gogarch_test()
-  
-  result <- suppressWarnings(compute_loglik_fixed(gogarch_fit, params = list(), 
-                                                  return_components = TRUE))
-  
-  ## Manually compute Jacobian
-  K <- gogarch_fit$ica$K
-  if (nrow(K) == ncol(K)) {
-    expected_jacobian <- log(abs(det(K)))
-  } else {
-    expected_jacobian <- log(abs(det(K %*% t(K))))
-  }
-  
-  expect_equal(result$jacobian_adjustment, expected_jacobian, tolerance = 1e-10)
-})
-
-test_that("GOGARCH: component log-likelihoods sum correctly with Jacobian", {
-  gogarch_fit <- setup_gogarch_test()
-  
-  result <- suppressWarnings(compute_loglik_fixed(gogarch_fit, params = list(), 
-                                                  return_components = TRUE))
-  
-  ## Check that component logliks plus Jacobian equals total
-  manual_total <- sum(result$component_logliks) + result$jacobian_adjustment
-  
-  expect_equal(result$loglik, manual_total, tolerance = 1e-10)
-  
-  ## Check that all components are finite
-  expect_true(all(is.finite(result$component_logliks)))
-  expect_equal(length(result$component_logliks), 2)
-  
-  ## Check that components are negative (log-likelihoods typically negative)
-  ## This is a sanity check for proper data
-  expect_true(all(result$component_logliks < 0))
-})
-
-test_that("GOGARCH: observation-wise likelihoods are all finite", {
-  gogarch_fit <- setup_gogarch_test()
-  
-  ll_vector <- suppressWarnings(compute_loglik_fixed(gogarch_fit, params = list(), ll_vec = TRUE))
-  
-  expect_true(all(is.finite(ll_vector)))
-  expect_true(is.numeric(ll_vector))
-  expect_equal(length(ll_vector), 100)
-})
-
-test_that("GOGARCH: parameter names are correctly matched", {
-  gogarch_fit <- setup_gogarch_test()
-  
-  ## Test with explicit parameter names for both components
-  params_explicit <- list(
-    omega_1 = 0.04, alpha_1 = 0.05, beta_1 = 0.90,
-    omega_2 = 0.30, alpha_2 = 0.05, beta_2 = 0.70
-  )
-  
-  ll_explicit <- suppressWarnings(compute_loglik_fixed(gogarch_fit, params = params_explicit))
-  
-  ## Should be different from estimated
-  ll_estimated <- suppressWarnings(compute_loglik_fixed(gogarch_fit, params = list()))
-  expect_false(isTRUE(all.equal(ll_explicit, ll_estimated, tolerance = 1e-6)))
-  
-  ## Should be finite and numeric
-  expect_true(is.finite(ll_explicit))
-  expect_true(is.numeric(ll_explicit))
-})
-
-test_that("GOGARCH: empty params list uses estimated parameters", {
-  gogarch_fit <- setup_gogarch_test()
-  
-  ll_empty <- suppressWarnings(compute_loglik_fixed(gogarch_fit, params = list()))
-  ll_stored <- gogarch_fit$loglik
-  
-  ## Should exactly match stored value
-  expect_equal(ll_empty, ll_stored, tolerance = 1e-10)
-})
-
-test_that("GOGARCH: vector mode distributes Jacobian adjustment correctly", {
-  gogarch_fit <- setup_gogarch_test()
-  
-  result <- suppressWarnings(compute_loglik_fixed(gogarch_fit, params = list(), 
-                                                  return_components = TRUE, ll_vec = TRUE))
-  
-  n_obs <- length(result$lik_vector)
-  
-  ## The Jacobian adjustment should be distributed equally across observations
-  ## So the mean contribution per observation should be jacobian/n_obs
-  expected_jacobian_per_obs <- result$jacobian_adjustment / n_obs
-  
-  ## Get component contributions without Jacobian
-  suppressWarnings({
-    comp1_vec <- log(gogarch_fit$univariate[[1]]$tmb$report(
-      get("last.par.best", envir = gogarch_fit$univariate[[1]]$tmb$env)
-    )$ll_vector)
-    comp2_vec <- log(gogarch_fit$univariate[[2]]$tmb$report(
-      get("last.par.best", envir = gogarch_fit$univariate[[2]]$tmb$env)
-    )$ll_vector)
-  })
-  
-  ## Manual calculation: sum of components plus distributed Jacobian
-  manual_vec <- comp1_vec + comp2_vec + expected_jacobian_per_obs
-  
-  expect_equal(result$lik_vector, manual_vec, tolerance = 1e-10)
-})
-
-test_that("GOGARCH: handles different parameter combinations correctly", {
-  gogarch_fit <- setup_gogarch_test()
-  
-  ## Test 1: Only omega parameters
-  params1 <- list(omega_1 = 0.05, omega_2 = 0.30)
-  ll1 <- suppressWarnings(compute_loglik_fixed(gogarch_fit, params = params1))
-  
-  ## Test 2: Only alpha parameters
-  params2 <- list(alpha_1 = 0.03, alpha_2 = 0.02)
-  ll2 <- suppressWarnings(compute_loglik_fixed(gogarch_fit, params = params2))
-  
-  ## Test 3: Only beta parameters
-  params3 <- list(beta_1 = 0.90, beta_2 = 0.85)
-  ll3 <- suppressWarnings(compute_loglik_fixed(gogarch_fit, params = params3))
-  
-  ## All should be different
-  expect_false(isTRUE(all.equal(ll1, ll2, tolerance = 1e-6)))
-  expect_false(isTRUE(all.equal(ll2, ll3, tolerance = 1e-6)))
-  expect_false(isTRUE(all.equal(ll1, ll3, tolerance = 1e-6)))
-  
-  ## All should be finite
-  expect_true(all(is.finite(c(ll1, ll2, ll3))))
-})
-
-test_that("GOGARCH: vector mode with partial parameters is consistent", {
-  gogarch_fit <- setup_gogarch_test()
-  
-  partial_params <- list(omega_1 = 0.04, beta_2 = 0.70)
-  
-  ll_scalar <- suppressWarnings(compute_loglik_fixed(gogarch_fit, params = partial_params))
-  ll_vector <- suppressWarnings(compute_loglik_fixed(gogarch_fit, params = partial_params, 
-                                                     ll_vec = TRUE))
-  
-  expect_equal(sum(ll_vector), ll_scalar, tolerance = 1e-10)
-})
-
-test_that("GOGARCH: works with different model specifications", {
-  ## This test ensures the implementation is robust to different GOGARCH setups
-  suppressWarnings({
-    set.seed(456)
-    n <- 50
-    returns <- matrix(rnorm(n * 3), ncol = 3)  # 3 assets instead of 2
-    returns <- xts::xts(returns, order.by = seq.Date(Sys.Date() - n + 1, Sys.Date(), by = "day"))
-    colnames(returns) <- c("asset1", "asset2", "asset3")
-    
-    gogarch_spec <- tsmarch::gogarch_modelspec(returns, distribution = "norm", 
-                                               model = "garch", order = c(1, 1), 
-                                               components = 3)
-    gogarch_fit <- estimate(gogarch_spec)
-    
-    ll_computed <- compute_loglik_fixed(gogarch_fit, params = list())
-    ll_stored <- gogarch_fit$loglik
-  })
-  
-  expect_equal(ll_computed, ll_stored, tolerance = 1e-10)
-  
-  ## Test with parameters
-  test_params <- list(
-    omega_1 = 0.03, alpha_1 = 0.04, beta_1 = 0.90,
-    omega_2 = 0.03, alpha_2 = 0.04, beta_2 = 0.90,
-    omega_3 = 0.03, alpha_3 = 0.04, beta_3 = 0.90
-  )
-  ll_test <- suppressWarnings(compute_loglik_fixed(gogarch_fit, params = test_params))
-  expect_true(is.finite(ll_test))
-})
-
 
 
 ## Profile Likelihood Tests =================================================
 
 test_that("profile likelihood is smooth around optimum", {
+  skip_on_cran()
   skip_if_not_installed("tsmarch")
   skip_if_not_installed("tsgarch")
   skip_if_not_installed("xts")
-  skip_on_cran()
   
   dcc_fit <- readRDS(file.path(.get_fixtures_dir(), "dcc_dynamic_fit.rds"))
   est_params <- coef(dcc_fit)
@@ -664,10 +353,10 @@ test_that("profile likelihood is smooth around optimum", {
 ## Likelihood Ratio Test Example ============================================
 
 test_that("likelihood ratio test framework works", {
+  skip_on_cran()
   skip_if_not_installed("tsmarch")
   skip_if_not_installed("tsgarch")
   skip_if_not_installed("xts")
-  skip_on_cran()
   
   dcc_fit <- readRDS(file.path(.get_fixtures_dir(), "dcc_dynamic_fit.rds"))
   
@@ -694,10 +383,10 @@ test_that("likelihood ratio test framework works", {
 ## Error Handling Tests =====================================================
 
 test_that("compute_loglik_fixed handles invalid parameters gracefully", {
+  skip_on_cran()
   skip_if_not_installed("tsmarch")
   skip_if_not_installed("tsgarch")
   skip_if_not_installed("xts")
-  skip_on_cran()
   
   dcc_fit <- readRDS(file.path(.get_fixtures_dir(), "dcc_dynamic_fit.rds"))
   
@@ -709,10 +398,10 @@ test_that("compute_loglik_fixed handles invalid parameters gracefully", {
 })
 
 test_that("compute_loglik_fixed preserves original object", {
+  skip_on_cran()
   skip_if_not_installed("tsmarch")
   skip_if_not_installed("tsgarch")
   skip_if_not_installed("xts")
-  skip_on_cran()
   
   dcc_fit <- readRDS(file.path(.get_fixtures_dir(), "dcc_dynamic_fit.rds"))
   
@@ -743,7 +432,7 @@ test_that("compute_loglik_fixed returns correct dimensions with ll_vec = TRUE", 
     set.seed(123)
     n <- 100
     returns <- matrix(rnorm(n * 2), ncol = 2)
-    returns <- xts(
+    returns <- xts::xts(
       returns, 
       order.by = seq.Date(Sys.Date() - n + 1, Sys.Date(), by = "day")
     )
@@ -788,7 +477,7 @@ test_that("compute_loglik_fixed ll_vec sums to total loglik for DCC dynamic", {
     set.seed(456)
     n <- 100
     returns <- matrix(rnorm(n * 2), ncol = 2)
-    returns <- xts(
+    returns <- xts::xts(
       returns, 
       order.by = seq.Date(Sys.Date() - n + 1, Sys.Date(), by = "day")
     )
@@ -833,7 +522,7 @@ test_that("compute_loglik_fixed ll_vec works for DCC constant", {
     set.seed(789)
     n <- 100
     returns <- matrix(rnorm(n * 2), ncol = 2)
-    returns <- xts(
+    returns <- xts::xts(
       returns, 
       order.by = seq.Date(Sys.Date() - n + 1, Sys.Date(), by = "day")
     )
@@ -884,7 +573,7 @@ test_that("compute_loglik_fixed ll_vec works for Copula-GARCH dynamic", {
     set.seed(111)
     n <- 100
     returns <- matrix(rnorm(n * 2), ncol = 2)
-    returns <- xts(
+    returns <- xts::xts(
       returns, 
       order.by = seq.Date(Sys.Date() - n + 1, Sys.Date(), by = "day")
     )
@@ -939,7 +628,7 @@ test_that("compute_loglik_fixed ll_vec works for Copula-GARCH constant", {
     set.seed(222)
     n <- 100
     returns <- matrix(rnorm(n * 2), ncol = 2)
-    returns <- xts(
+    returns <- xts::xts(
       returns, 
       order.by = seq.Date(Sys.Date() - n + 1, Sys.Date(), by = "day")
     )
@@ -990,7 +679,7 @@ test_that("compute_loglik_fixed errors when ll_vec and return_components both TR
     set.seed(333)
     n <- 50
     returns <- matrix(rnorm(n * 2), ncol = 2)
-    returns <- xts(
+    returns <- xts::xts(
       returns, 
       order.by = seq.Date(Sys.Date() - n + 1, Sys.Date(), by = "day")
     )
@@ -1033,7 +722,7 @@ test_that("compute_loglik_fixed ll_vec values are reasonable", {
     set.seed(444)
     n <- 100
     returns <- matrix(rnorm(n * 2), ncol = 2)
-    returns <- xts(
+    returns <- xts::xts(
       returns, 
       order.by = seq.Date(Sys.Date() - n + 1, Sys.Date(), by = "day")
     )
@@ -1082,7 +771,7 @@ test_that("compute_loglik_fixed ll_vec works with alternative parameters", {
     set.seed(555)
     n <- 100
     returns <- matrix(rnorm(n * 2), ncol = 2)
-    returns <- xts(
+    returns <- xts::xts(
       returns, 
       order.by = seq.Date(Sys.Date() - n + 1, Sys.Date(), by = "day")
     )

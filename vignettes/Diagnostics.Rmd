@@ -1,0 +1,609 @@
+---
+title: "Diagnostic System for MS-VARMA-GARCH Estimation"
+author: "tsbs Development Team"
+date: "`r Sys.Date()`"
+output: 
+  rmarkdown::html_vignette:
+    toc: true
+    toc_depth: 3
+    number_sections: true
+vignette: >
+  %\VignetteIndexEntry{Diagnostic System for MS-VARMA-GARCH Estimation}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r setup, include = FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>",
+  fig.width = 7,
+
+fig.height = 5,
+  warning = FALSE,
+  message = FALSE
+)
+```
+
+# Overview
+
+The `tsbs` package implements a comprehensive diagnostic system for monitoring the convergence and numerical stability of Markov-Switching VARMA-GARCH models. This system is particularly critical for multivariate DCC specifications, where the interplay between univariate volatility dynamics and correlation dynamics can exhibit complex convergence behavior.
+
+The diagnostic system operates throughout the Expectation-Maximization (EM) algorithm and weighted maximum likelihood estimation procedures, collecting granular information about:
+
+- Log-likelihood evolution across EM iterations
+- Parameter trajectories for all states
+- Conditional volatility ($\sigma_t$) evolution
+- Boundary conditions and degeneracy detection
+- Numerical warnings and optimization failures
+
+This vignette serves as both a complete reference manual and a practical tutorial for using the diagnostic facilities in `tsbs`.
+
+
+# Mathematical Background
+
+## The EM Algorithm
+
+The MS-VARMA-GARCH model maximizes the marginal likelihood:
+
+$$\ell(\theta) = \prod_{t=1}^T \sum_{j=1}^M f(y_t \mid Y_{t-1}, S_t=j; \theta_j) P(S_t=j \mid Y_{t-1})$$
+
+where $S_t \in \{1, \ldots, M\}$ denotes the latent state. The EM algorithm iterates between:
+  
+**E-step:** Compute smoothed probabilities $\xi_{t|T}^{(j)} = P(S_t=j \mid Y_T; \theta^{(k)})$ using the Hamilton filter and Kim smoother.
+
+**M-step:** Update parameters via weighted maximum likelihood:
+
+$$\theta_j^{(k+1)} = \arg\max_{\theta_j} \sum_{t=1}^T \xi_{t|T}^{(j)} \log f(y_t \mid Y_{t-1}, S_t=j; \theta_j)$$
+
+The diagnostic system monitors the critical property that the complete-data log-likelihood must be non-decreasing:
+
+$$Q(\theta^{(k+1)} \mid \theta^{(k)}) \geq Q(\theta^{(k)} \mid \theta^{(k)})$$
+
+Violations indicate numerical instability in the M-step optimization.
+
+## DCC Dynamics and Degeneracy
+
+For multivariate models with DCC dynamics, the conditional correlation matrix evolves as:
+
+$$Q_t = \bar{Q}(1 - \alpha - \beta) + \alpha z_{t-1}z_{t-1}' + \beta Q_{t-1}$$
+
+$$R_t = \text{diag}(Q_t)^{-1/2} Q_t \text{diag}(Q_t)^{-1/2}$$
+
+where $z_t$ are standardized residuals. Stationarity requires $\alpha + \beta < 1$ with $\alpha, \beta \geq 0$.
+
+**Degeneracy** occurs when $\alpha \to 0$, indicating the correlation dynamics collapse to the constant correlation model $R_t = \bar{R}$. The diagnostic system detects this automatically and switches to the computationally simpler constant correlation specification.
+
+
+# Quick Start
+
+## Enabling Diagnostics
+
+Diagnostics are activated via the `collect_diagnostics` argument in `fit_ms_varma_garch()`:
+
+```{r eval=FALSE}
+library(tsbs)
+
+fit <- fit_ms_varma_garch(
+  y = data,
+  M = 2,
+  spec = spec_list,
+  model_type = "multivariate",
+  control = list(max_iter = 50, tol = 1e-4),
+  collect_diagnostics = TRUE,
+  verbose = TRUE
+)
+
+# Access diagnostics
+diag <- fit$diagnostics
+summary(diag)
+```
+
+## Verbose Output Options
+
+For detailed monitoring during estimation:
+
+```{r eval=FALSE}
+# Console output (default)
+fit <- fit_ms_varma_garch(
+  y = data,
+  M = 2,
+  spec = spec_list,
+  collect_diagnostics = TRUE,
+  verbose = TRUE
+)
+
+# File output (recommended for long-running jobs)
+fit <- fit_ms_varma_garch(
+  y = data,
+  M = 2,
+  spec = spec_list,
+  collect_diagnostics = TRUE,
+  verbose = TRUE,
+  verbose_file = "fitting_log.txt"
+)
+```
+
+The `verbose_file` option redirects all diagnostic output to a specified file, which is essential for batch processing or when running on remote servers.
+
+
+# Diagnostic Data Structure
+
+The diagnostic collector returns an S3 object of class `ms_diagnostics` with six components.
+
+## EM Iteration Diagnostics
+
+For each EM iteration $k$, the following information is recorded:
+
+| Field | Description |
+|-------|-------------|
+| `log_lik_before_mstep` | $\ell(\theta^{(k)})$ before parameter updates |
+| `log_lik_after_mstep` | $\ell(\theta^{(k+1)})$ after parameter updates |
+| `ll_change` | $\Delta \ell^{(k)} = \ell(\theta^{(k+1)}) - \ell(\theta^{(k)})$ |
+| `ll_decreased` | Boolean flag for violations ($\Delta \ell^{(k)} < -10^{-6}$) |
+| `duration_seconds` | Wall-clock time for iteration |
+| `converged` | Boolean indicating if tolerance criterion met |
+
+**Critical diagnostic:** If `ll_decreased = TRUE`, the M-step optimizer failed to improve the objective. This indicates numerical issues in the weighted likelihood optimization.
+
+## Parameter Evolution
+
+Nested list structure: `parameter_evolution$state_j[[k]]` contains all parameters for state $j$ at iteration $k$.
+
+For **univariate** models:
+
+```{r eval=FALSE}
+params <- diag$parameter_evolution$state_1[[5]]
+# Contains: arma_pars, garch_pars (omega, alpha, beta), dist_pars (shape, skew)
+```
+
+For **multivariate DCC** models:
+
+```{r eval=FALSE}
+params <- diag$parameter_evolution$state_1[[5]]
+# Contains: 
+#   var_pars (VAR coefficients)
+#   garch_pars (list per series: omega[i], alpha[i], beta[i])
+#   alpha_1, beta_1 (DCC parameters, may be absent if constant correlation)
+#   dist_pars (e.g., shape for MVT)
+#   correlation_type ("dynamic" or "constant")
+```
+
+The `correlation_type` field is diagnostic: if `"constant"`, the DCC parameters were at the boundary and the model automatically switched to constant correlation for that state.
+
+## Volatility Evolution
+
+Tracks the conditional standard deviation process $\sigma_{i,t}$ for each series $i$ in each state $j$.
+
+Structure: `sigma_evolution$state_j_series_i[[k]]` contains:
+
+| Field | Description |
+|-------|-------------|
+| `mean_sigma`, `sd_sigma` | Mean and standard deviation of $\{\sigma_{i,t}\}_{t=1}^T$ |
+| `min_sigma`, `max_sigma` | Range of volatility values |
+| `first_5`, `last_5` | Initial and terminal values for pattern detection |
+| `changed` | Boolean indicating if $\sigma_t$ was successfully recomputed |
+
+**Diagnostic value:** Volatility should evolve smoothly across iterations. Sharp discontinuities indicate numerical issues.
+
+## Boundary Events
+
+Records when parameters approach their constraint boundaries during optimization:
+
+| Field | Description |
+|-------|-------------|
+| `parameter` | Parameter name (e.g., `"alpha_1"`) |
+| `value` | Numeric value at boundary |
+| `boundary_type` | `"lower"` or `"upper"` |
+| `action_taken` | Automatic remediation (e.g., `"constant_correlation_fallback"`) |
+
+## Warnings
+
+All warnings encountered during estimation, categorized by type:
+
+| Type | Description |
+|------|-------------|
+| `ll_decrease` | M-step decreased log-likelihood |
+| `dcc_penalty` | DCC optimization returned penalty value due to invalid parameters |
+| `dcc_bad_correlation` | Non-positive-definite correlation matrices |
+| `tmb_skip` | TMB recomputation was skipped |
+| `all_states_constant` | All states have degenerated to constant correlation |
+
+
+# Visualization
+
+## Using `plot.ms_diagnostics()`
+ 
+The `plot()` method for `ms_diagnostics` objects provides comprehensive visualization:
+
+```{r eval=FALSE}
+# Plot all diagnostics
+plot(diag)
+
+# Plot specific type
+plot(diag, type = "ll_evolution")
+plot(diag, type = "parameters")
+plot(diag, type = "sigma")
+```
+
+### Function Signature
+
+```{r eval=FALSE}
+plot.ms_diagnostics(
+  x,
+  type = c("all", "ll_evolution", "parameters", "sigma"),
+  parameters = NULL,
+  normalize = FALSE,
+  quiet = FALSE,
+  ...
+)
+```
+
+### Arguments
+
+| Argument | Description |
+|----------|-------------|
+| `x` | An object of class `ms_diagnostics` |
+| `type` | Which plots to produce: `"all"`, `"ll_evolution"`, `"parameters"`, or `"sigma"` |
+| `parameters` | Character vector of parameter names to include in parameter plot. Supports regex patterns. |
+| `normalize` | If `TRUE`, normalize parameter values to [0, 1] for cross-parameter comparison |
+| `quiet` | If `TRUE`, suppress warnings from numeric coercion |
+
+### Plot Types
+
+**Log-Likelihood Evolution** (`type = "ll_evolution"`):
+
+Two plots showing (1) the log-likelihood value after each M-step, and (2) the change in log-likelihood per iteration. Useful for assessing convergence and detecting non-monotonic behavior.
+
+**Parameter Evolution** (`type = "parameters"`):
+
+Faceted plot showing how each parameter evolves across EM iterations, with separate colors for each regime state.
+
+**Sigma Evolution** (`type = "sigma"`):
+
+Faceted plot showing the mean conditional volatility (with $\pm$ 1 SD ribbon) for each series across iterations.
+
+### Filtering Parameters
+
+```{r eval=FALSE}
+# Plot specific parameters by name
+plot(diag, type = "parameters", parameters = c("alpha_1", "beta_1"))
+
+# Plot parameters matching a regex pattern
+plot(diag, type = "parameters", parameters = "^alpha")
+
+# Normalized view for comparing parameters on different scales
+plot(diag, type = "parameters", normalize = TRUE)
+```
+
+
+# Utility Functions
+
+The `tsbs` package provides several utility functions for extracting and analyzing diagnostic information programmatically.
+
+## Extraction Functions
+  
+### `extract_param_trajectory()`
+
+Extract the evolution of a specific parameter across EM iterations:
+
+```{r eval=FALSE}
+# Extract DCC alpha for state 1
+alpha_traj <- extract_param_trajectory(diag, state = 1, param_name = "alpha_1")
+plot(alpha_traj$iteration, alpha_traj$value, type = "b",
+     xlab = "Iteration", ylab = expression(alpha[1]))
+
+# Extract omega for state 2, series 1 (multivariate models)
+omega_traj <- extract_param_trajectory(diag, state = 2, 
+                                       param_name = "omega", series = 1)
+```
+
+**Returns:** A `data.frame` with columns `iteration` and `value`.
+
+### `extract_ll_trajectory()`
+
+Extract log-likelihood values across iterations:
+
+```{r eval=FALSE}
+# Log-likelihood after each M-step
+ll_after <- extract_ll_trajectory(diag, type = "after")
+
+# Log-likelihood changes
+ll_changes <- extract_ll_trajectory(diag, type = "change")
+
+# Plot convergence
+plot(ll_after, type = "b", main = "LL Evolution")
+```
+
+**Arguments:**
+
+| Argument | Description |
+|----------|-------------|
+| `type` | One of `"after"` (default), `"before"`, or `"change"` |
+
+### `extract_sigma_stats()`
+
+Extract volatility evolution summary for a specific state and series:
+
+```{r eval=FALSE}
+sigma_stats <- extract_sigma_stats(diag, state = 1, series = 1)
+# Returns: iteration, mean_sigma, sd_sigma, min_sigma, max_sigma
+
+# Visualize
+plot(sigma_stats$iteration, sigma_stats$mean_sigma, type = "b",
+     ylim = range(c(sigma_stats$mean_sigma - sigma_stats$sd_sigma,
+                    sigma_stats$mean_sigma + sigma_stats$sd_sigma)))
+```
+
+## Diagnostic Check Functions
+
+### `check_em_monotonicity()`
+
+Verify that the EM algorithm exhibits (near) monotonic log-likelihood improvement:
+
+```{r eval=FALSE}
+mono_check <- check_em_monotonicity(diag, tolerance = 1e-4)
+
+if (!mono_check$passed) {
+  cat("Monotonicity violations at iterations:", mono_check$violation_iters, "\n")
+  cat("Maximum violation:", mono_check$max_violation, "\n")
+}
+```
+
+**Returns:** List with `passed` (logical), `n_violations`, `violation_iters`, `max_violation`.
+
+### `check_param_stationarity()`
+
+Verify that GARCH and DCC parameters satisfy stationarity constraints:
+
+```{r eval=FALSE}
+stat_check <- check_param_stationarity(diag, state = 1)
+
+if (!stat_check$passed) {
+  print(stat_check$violations)
+}
+```
+
+### `check_all_states_constant()`
+
+Determine if all states switched to constant correlation (model collapse):
+
+```{r eval=FALSE}
+const_check <- check_all_states_constant(diag)
+
+if (const_check$occurred) {
+  cat(const_check$message, "\n")
+  # Consider reducing number of states or using simpler model
+}
+```
+
+## Persistence Functions
+
+### `save_diagnostics()` / `load_diagnostics()`
+
+Save and reload diagnostic objects for archival and post-hoc analysis:
+
+```{r eval=FALSE}
+# Save after estimation
+save_diagnostics(diag, filepath = "run_2024_diagnostics.rds")
+
+# Load in separate session
+diag_reloaded <- load_diagnostics("run_2024_diagnostics.rds")
+summary(diag_reloaded)
+```
+
+## Specification Generation
+
+### `generate_dcc_spec()`
+
+Generate state-differentiated DCC specifications with sensible starting values:
+
+```{r eval=FALSE}
+spec <- generate_dcc_spec(
+  M = 2,                  # Number of states
+  k = 2,                  # Number of series
+  var_order = 1,          # VAR order
+  distribution = "mvn",   # Distribution ("mvn" or "mvt")
+  seed = 42               # For reproducibility
+)
+
+# The utility creates differentiated starting values:
+# State 1: Lower volatility regime
+# State M: Higher volatility regime
+```
+
+### `simulate_dcc_garch()`
+
+Simulate DCC-GARCH data for testing and validation:
+
+```{r eval=FALSE}
+y_sim <- simulate_dcc_garch(
+  n = 500,
+  k = 2,
+  omega = c(0.05, 0.08),
+  alpha_garch = c(0.10, 0.12),
+  beta_garch = c(0.85, 0.82),
+  alpha_dcc = 0.04,
+  beta_dcc = 0.93,
+  seed = 42
+)
+```
+
+
+# Interpreting Diagnostic Output
+
+## Healthy Convergence Pattern
+
+```{r eval=FALSE}
+summary(diag)
+```
+
+Expected output:
+
+```
+=== MS-VARMA-GARCH Diagnostic Summary ===
+
+EM ITERATIONS:
+  Total iterations: 15
+  Initial LL: -2450.32
+  Final LL: -2398.76
+  Total LL improvement: 51.56
+  LL decreased in 0 iterations
+  Mean LL change per iteration: 3.44
+  Min LL change: 0.00001
+  Max LL change: 15.23
+  Total computation time: 245.67 seconds
+
+BOUNDARY EVENTS:
+  Total boundary events: 0
+
+WARNINGS:
+  Total warnings: 0
+```
+
+**Interpretation:**
+
+- Monotonic likelihood increase ($\Delta \ell^{(k)} \geq 0$ for all $k$)
+- Convergence achieved (minimum change approaches zero)
+- No numerical issues
+
+## DCC Degeneracy (Expected Behavior)
+
+```
+BOUNDARY EVENTS:
+  Total boundary events: 1
+    Iteration 6: State 2 - alpha_1 = 0.0118 at lower boundary 
+                 -> constant_correlation_fallback
+```
+
+**Interpretation:** State 2 exhibits constant (not dynamic) correlation. This is a **feature, not a bug**—the model correctly identifies when correlation dynamics are absent and switches to the simpler, more stable constant correlation specification.
+
+## Problematic Convergence
+
+```
+EM ITERATIONS:
+  LL decreased in 3 iterations
+  Min LL change: -2.14
+
+WARNINGS:
+  Total warnings: 8
+    dcc_penalty: 3
+    dcc_bad_correlation: 5
+```
+
+**Interpretation:** The M-step optimizer encountered numerical difficulties. Common causes:
+
+1. **Ill-conditioned weighted covariance:** When $\xi_{t|T}^{(j)}$ concentrates on few observations
+2. **DCC non-stationarity:** Optimizer explored $\alpha + \beta \geq 1$
+3. **Near-singular correlation matrices:** Some $R_t$ had eigenvalues $\approx 0$
+
+
+# Troubleshooting Guide
+
+| Symptom | Likely Cause | Solution |
+|---------|--------------|----------|
+| LL decreases every iteration | Poor starting values | Initialize from simpler model |
+| LL oscillates | Multimodal likelihood | Increase EM tolerance, try multiple starts |
+| Many `dcc_penalty` warnings | Invalid parameter space exploration | Tighten optimizer bounds |
+| `tmb_skip` warnings | Dimension mismatch | Check spec consistency |
+| All states → constant correlation | Over-parameterized model | Reduce $M$ or use simpler GARCH specs |
+| Very slow convergence (>100 iterations) | Flat likelihood region | Check identification, consider penalties |
+| `dcc_bad_correlation` > 10% of observations | Numerical instability | Increase DCC lower bounds, check for outliers |
+
+
+# Best Practices
+
+1. **Always enable diagnostics during development:** Set `collect_diagnostics = TRUE` until you are confident the model specification is appropriate.
+
+2. **Use verbose file output for production runs:** Avoid console clutter and enable post-hoc analysis with `verbose_file`.
+
+3. **Monitor the first 5-10 iterations closely:** Most numerical issues manifest early. If the likelihood decreases in iterations 1-5, stop and investigate.
+
+4. **Expect boundary events in DCC models:** It is common (and correct) for some states to have constant correlation. This is not a failure.
+
+5. **Archive diagnostics with results:** Store diagnostic objects alongside fitted models for reproducibility and debugging.
+
+6. **Compare diagnostics across model specifications:** Use diagnostic plots to select $M$, GARCH orders, and distributional assumptions.
+
+7. **Use utility functions for programmatic analysis:** The extraction and check functions enable automated model validation pipelines.
+
+
+# Complete Example
+
+This example demonstrates the full diagnostic workflow from data simulation through analysis.
+
+```{r complete_example, eval=FALSE}
+library(tsbs)
+library(ggplot2)
+
+# 1. Simulate DCC-GARCH data
+set.seed(42)
+y <- simulate_dcc_garch(
+  n = 500,
+  k = 2,
+  omega = c(0.05, 0.08),
+  alpha_garch = c(0.10, 0.12),
+  beta_garch = c(0.85, 0.82),
+  alpha_dcc = 0.04,
+  beta_dcc = 0.93
+)
+
+# 2. Generate specification
+spec <- generate_dcc_spec(M = 2, k = 2, var_order = 1, seed = 42)
+
+# 3. Fit model with diagnostics
+fit <- fit_ms_varma_garch(
+  y = y,
+  M = 2,
+  spec = spec,
+  model_type = "multivariate",
+  control = list(max_iter = 10, tol = 1e-2),
+  collect_diagnostics = TRUE,
+  verbose = FALSE
+)
+
+# 4. Extract and examine diagnostics
+diag <- fit$diagnostics
+
+# Summary overview
+summary(diag)
+
+# 5. Visualize convergence
+plot(diag, type = "ll_evolution")
+
+# 6. Examine parameter evolution
+plot(diag, type = "parameters", parameters = c("alpha_1", "beta_1"))
+
+# 7. Check convergence quality
+mono_check <- check_em_monotonicity(diag)
+cat("Monotonicity passed:", mono_check$passed, "\n")
+
+stat_check <- check_param_stationarity(diag)
+cat("Stationarity passed:", stat_check$passed, "\n")
+
+# 8. Extract specific trajectories for custom analysis
+alpha_state1 <- extract_param_trajectory(diag, state = 1, param_name = "alpha_1")
+alpha_state2 <- extract_param_trajectory(diag, state = 2, param_name = "alpha_1")
+
+# Compare DCC alpha across states
+plot(alpha_state1$iteration, alpha_state1$value, type = "b", col = "blue",
+     ylim = range(c(alpha_state1$value, alpha_state2$value), na.rm = TRUE),
+     xlab = "Iteration", ylab = expression(alpha[1]),
+     main = "DCC Alpha Evolution by State")
+lines(alpha_state2$iteration, alpha_state2$value, type = "b", col = "red")
+legend("topright", legend = c("State 1", "State 2"), col = c("blue", "red"), lty = 1)
+
+# 9. Save diagnostics for archival
+#save_diagnostics(diag, "my_model_diagnostics.rds")
+```
+
+
+# References
+
+Dempster, A. P., Laird, N. M., & Rubin, D. B. (1977). Maximum likelihood from incomplete data via the EM algorithm. *Journal of the Royal Statistical Society: Series B*, 39(1), 1-22.
+
+Engle, R. (2002). Dynamic conditional correlation: A simple class of multivariate generalized autoregressive conditional heteroskedasticity models. *Journal of Business & Economic Statistics*, 20(3), 339-350.
+
+Hamilton, J. D. (1989). A new approach to the economic analysis of nonstationary time series and the business cycle. *Econometrica*, 57(2), 357-384.
+
+Kim, C. J. (1994). Dynamic linear models with Markov-switching. *Journal of Econometrics*, 60(1-2), 1-22.

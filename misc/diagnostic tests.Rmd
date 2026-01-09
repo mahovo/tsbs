@@ -1,0 +1,2523 @@
+
+# PART 8 tests
+## Test 8a: Test that "DCC estimation completes without errors"
+
+Run tests from test-ms_varma_garch_bs.R, PART 8 with diagnostics.
+
+```{r}
+#test_that("DCC estimation completes without errors", {
+  
+  set.seed(999)
+  n <- 200  # Increased for more stable estimation
+  k <- 2
+  
+  ## Use simulate_dcc_garch() for realistic test data with DCC dynamics
+  y_test <- simulate_dcc_garch(
+    n = n,
+    k = k,
+    omega = c(0.05, 0.08),
+    alpha_garch = c(0.10, 0.12),
+    beta_garch = c(0.85, 0.82),
+    dcc_alpha = 0.04,
+    dcc_beta = 0.93,
+    seed = 999
+  )
+  
+  colnames(y_test) <- c("s1", "s2")
+  
+  spec_test <- list(
+    # State 1: Lower volatility
+    list(
+      var_order = 1,
+      garch_spec_fun = "dcc_modelspec",
+      garch_spec_args = list(
+        garch_model = list(
+          univariate = list(
+            list(model = "garch", garch_order = c(1, 1), distribution = "norm"),
+            list(model = "garch", garch_order = c(1, 1), distribution = "norm")
+          )
+        ),
+        dcc_order = c(1, 1),
+        dynamics = "dcc"  # ← CRITICAL: Specify DCC dynamics!
+      ),
+      distribution = "mvn",
+      start_pars = list(
+        var_pars = rep(0.05, k * (1 + k * 1)),  # Small but non-zero
+        garch_pars = list(
+          list(omega = 0.05, alpha1 = 0.08, beta1 = 0.85),
+          list(omega = 0.05, alpha1 = 0.08, beta1 = 0.85)
+        ),
+        dcc_pars = list(alpha_1 = 0.03, beta_1 = 0.94),
+        dist_pars = NULL  # Use NULL instead of list() for clarity
+      )
+    ),
+    # State 2: Higher volatility (differentiated starting values)
+    list(
+      var_order = 1,
+      garch_spec_fun = "dcc_modelspec",
+      garch_spec_args = list(
+        garch_model = list(
+          univariate = list(
+            list(model = "garch", garch_order = c(1, 1), distribution = "norm"),
+            list(model = "garch", garch_order = c(1, 1), distribution = "norm")
+          )
+        ),
+        dcc_order = c(1, 1),
+        dynamics = "dcc"  # ← CRITICAL: Specify DCC dynamics!
+      ),
+      distribution = "mvn",
+      start_pars = list(
+        var_pars = rep(0.05, k * (1 + k * 1)),
+        garch_pars = list(
+          list(omega = 0.12, alpha1 = 0.15, beta1 = 0.75),  # Different from State 1
+          list(omega = 0.12, alpha1 = 0.15, beta1 = 0.75)
+        ),
+        dcc_pars = list(alpha_1 = 0.08, beta_1 = 0.88),  # Different from State 1
+        dist_pars = NULL
+      )
+    )
+  )
+  
+  cat("\n=== TEST 8a: Basic Functionality ===\n")
+  
+  # Run estimation - testthat automatically catches errors
+  fit <- fit_ms_varma_garch(
+    y = y_test,
+    M = 2,
+    spec = spec_test,
+    model_type = "multivariate",
+    control = list(max_iter = 20, tol = 1e-3),
+    collect_diagnostics = TRUE,
+    verbose = TRUE,
+    verbose_file = "../logs/verbose_test_8a.log"
+  )
+  
+  # Test the results
+  # expect_true(is.list(fit))
+  # expect_named(fit, c("model_fits", "P", "log_likelihood", 
+  #                     "smoothed_probabilities", "convergence", 
+  #                     "warnings", "diagnostics"),
+  #              ignore.order = TRUE, ignore.extra = TRUE)
+  # expect_length(fit$model_fits, 2)
+  # expect_true(is.finite(fit$log_likelihood))
+  # expect_true(!is.null(fit$diagnostics))
+  # Test the results
+  expect_type(fit, "list")
+  
+  # Check essential components exist
+  expect_true("model_fits" %in% names(fit))
+  expect_true("P" %in% names(fit))
+  expect_true("log_likelihood" %in% names(fit))
+  expect_true("diagnostics" %in% names(fit))
+  
+  # Test properties
+  expect_length(fit$model_fits, 2)
+  expect_true(is.finite(fit$log_likelihood))
+  expect_true(!is.null(fit$diagnostics))
+  
+  # Check diagnostics
+  summary(fit$diagnostics)
+  
+  cat("Test completed successfully\n")
+##})
+```
+
+=== TEST 8a: Basic Functionality ===
+Model fitting complete.
+=== MS-VARMA-GARCH Diagnostic Summary ===
+
+EM ITERATIONS:
+  Total iterations: 20 
+  Initial LL: -525.1393 
+  Final LL: -515.6973 
+  Total LL improvement: 9.442025 
+  LL decreased in 8 iterations
+  Mean LL change per iteration: 0.4721012 
+  Min LL change: -0.1499502 
+  Max LL change: 7.491475 
+  Total computation time: 400.28 seconds
+
+BOUNDARY EVENTS:
+  Total boundary events: 8 
+    Iteration 8 : State 1 - alpha_1 = 0.01 at lower boundary -> constant_correlation: BIC selection (IC_const=538.74 < IC_dyn=549.11) 
+    Iteration 9 : State 1 - alpha_1 = 0.01 at lower boundary -> constant_correlation: BIC selection (IC_const=537.83 < IC_dyn=548.30) 
+    Iteration 10 : State 1 - alpha_1 = 0.0133 at lower boundary -> constant_correlation: BIC selection (IC_const=537.93 < IC_dyn=548.40) 
+    Iteration 11 : State 1 - alpha_1 = 0.0133 at lower boundary -> constant_correlation: BIC selection (IC_const=537.79 < IC_dyn=548.25) 
+    Iteration 12 : State 1 - alpha_1 = 0.0139 at lower boundary -> constant_correlation: BIC selection (IC_const=538.31 < IC_dyn=548.76) 
+    Iteration 13 : State 1 - alpha_1 = 0.0171 at lower boundary -> constant_correlation: BIC selection (IC_const=537.19 < IC_dyn=547.59) 
+    Iteration 16 : State 1 - alpha_1 = 0.01 at lower boundary -> constant_correlation: BIC selection (IC_const=531.23 < IC_dyn=541.43) 
+    Iteration 18 : State 1 - alpha_1 = 0.01 at lower boundary -> constant_correlation: BIC selection (IC_const=521.72 < IC_dyn=531.87) 
+
+WARNINGS:
+  Total warnings: 8 
+    ll_decrease : 8 
+
+PARAMETER EVOLUTION:
+  States tracked: 2 
+
+SIGMA EVOLUTION:
+  Series tracked: 4 
+Test completed successfully
+
+
+
+Q1: Did it actually converge? No, it hit `max_iter` before converging.
+```{r}
+conv_check <- check_convergence(fit$diagnostics, tolerance = 1e-3)
+print(conv_check)
+```
+
+$converged
+[1] FALSE
+
+$final_change
+[1] 0.1215413
+
+$n_iterations
+[1] 20
+
+$explicitly_marked
+[1] FALSE
+
+Q2: What's happening in the problematic iterations?
+Let's look at iteration 8 (worst in middle) and iteration 20 (worst overall):
+
+```{r}
+# Iteration 8 - large decrease
+iter8 <- analyze_iteration(fit$diagnostics, 8)
+print(iter8$log_likelihood)
+print(iter8$warnings)
+
+# Iteration 20 - final decrease  
+iter20 <- analyze_iteration(fit$diagnostics, 20)
+print(iter20$log_likelihood)
+print(iter20$warnings)
+```
+
+$before_mstep
+[1] -516.9166
+
+$after_mstep
+[1] -517.0429
+
+$change
+[1] -0.1263462
+
+$decreased
+[1] TRUE
+
+[[1]]
+[[1]]$iteration
+[1] 8
+
+[[1]]$type
+[1] "ll_decrease"
+
+[[1]]$message
+[1] "M-step decreased log-likelihood"
+
+[[1]]$details
+[[1]]$details$decrease
+[1] -0.1263462
+
+
+[[1]]$timestamp
+[1] "2025-12-05 13:13:42 CET"
+
+
+$before_mstep
+[1] -515.8188
+
+$after_mstep
+[1] -515.6973
+
+$change
+[1] 0.1215413
+
+$decreased
+[1] FALSE
+
+list()
+
+
+Q3: Are parameters oscillating?
+```{r}
+# Check DCC alpha for state 1
+alpha_traj <- extract_param_trajectory(fit$diagnostics, state = 1, param_name = "alpha_1")
+print(alpha_traj$value)
+```
+
+ [1] 0.07151472 0.06014094 0.05091419 0.04174527 0.03353170 0.02708689 0.02320489         NA         NA         NA
+[11]         NA         NA         NA 0.02036455 0.02755168         NA 0.02560868         NA 0.02610094 0.03244434
+
+
+```{r}
+plot(alpha_traj$iteration, alpha_traj$value, type = "b", 
+     main = "DCC Alpha Evolution - State 1",
+     xlab = "Iteration", ylab = "alpha_1")
+```
+
+
+
+
+## Test 8b: Test that "Single regime data converges quickly (both states identical or constant)"
+
+
+```{r}
+##test_that("Single regime data converges quickly (both states identical or constant)", {
+  
+  set.seed(123)
+  n <- 200
+  k <- 2
+  
+  ## Helper function to check if parameter is at lower bound (constant correlation)
+  is_constant_correlation <- function(pars) {
+    alpha <- pars$alpha_1
+    if (is.null(alpha)) return(TRUE)
+    if (!is.null(pars$correlation_type) && pars$correlation_type == "constant") return(TRUE)
+    if (alpha < 0.02) return(TRUE)
+    return(FALSE)
+  }
+  
+  ## True GARCH parameters (single regime)
+  omega_true <- c(0.1, 0.15)
+  alpha_true <- c(0.1, 0.12)
+  beta_true <- c(0.8, 0.75)
+  
+  ## Simulate GARCH series (no regime switching)
+  y_sim <- matrix(0, n, k)
+  h <- matrix(0, n, k)
+  
+  for (i in 1:k) {
+    h[1, i] <- omega_true[i] / (1 - alpha_true[i] - beta_true[i])
+    y_sim[1, i] <- rnorm(1) * sqrt(h[1, i])
+    
+    for (t in 2:n) {
+      h[t, i] <- omega_true[i] + alpha_true[i] * y_sim[t-1, i]^2 + 
+        beta_true[i] * h[t-1, i]
+      y_sim[t, i] <- rnorm(1) * sqrt(h[t, i])
+    }
+  }
+  
+  colnames(y_sim) <- c("s1", "s2")
+  
+  ## Create DCC specification
+  spec_dcc <- list(
+    list(
+      var_order = 1,
+      garch_spec_fun = "dcc_modelspec",
+      garch_spec_args = list(
+        garch_model = list(
+          univariate = list(
+            list(model = "garch", garch_order = c(1, 1), distribution = "norm"),
+            list(model = "garch", garch_order = c(1, 1), distribution = "norm")
+          )
+        ),
+        dcc_order = c(1, 1),
+        dynamics = "dcc"
+      ),
+      distribution = "mvn",
+      start_pars = list(
+        var_pars = rep(0, k * (1 + k * 1)),
+        garch_pars = list(
+          list(omega = 0.1, alpha1 = 0.1, beta1 = 0.8),
+          list(omega = 0.1, alpha1 = 0.1, beta1 = 0.8)
+        ),
+        dcc_pars = list(alpha_1 = 0.05, beta_1 = 0.90),
+        dist_pars = list()
+      )
+    ),
+    list(
+      var_order = 1,
+      garch_spec_fun = "dcc_modelspec",
+      garch_spec_args = list(
+        garch_model = list(
+          univariate = list(
+            list(model = "garch", garch_order = c(1, 1), distribution = "norm"),
+            list(model = "garch", garch_order = c(1, 1), distribution = "norm")
+          )
+        ),
+        dcc_order = c(1, 1),
+        dynamics = "dcc"
+      ),
+      distribution = "mvn",
+      start_pars = list(
+        var_pars = rep(0, k * (1 + k * 1)),
+        garch_pars = list(
+          list(omega = 0.1, alpha1 = 0.1, beta1 = 0.8),
+          list(omega = 0.1, alpha1 = 0.1, beta1 = 0.8)
+        ),
+        dcc_pars = list(alpha_1 = 0.10, beta_1 = 0.85),
+        dist_pars = list()
+      )
+    )
+  )
+  
+  ## Fit model
+  cat("\n=== TEST 8b: Single Regime Data ===\n")
+  fit <- fit_ms_varma_garch(
+    y = y_sim,
+    M = 2,
+    spec = spec_dcc,
+    model_type = "multivariate",
+    control = list(max_iter = 20, tol = 0.05),
+    collect_diagnostics = TRUE,
+    verbose = TRUE,
+    verbose_file = "../logs/verbose_test_8b.log"
+  )
+  
+  ## Check that fit returned something
+  expect_true(!is.null(fit))
+  expect_true("model_fits" %in% names(fit))
+  
+  ## Extract parameters from model_fits
+  state1_pars <- fit$model_fits[[1]]
+  state2_pars <- fit$model_fits[[2]]
+  
+  cat("\n=== Estimated Parameters ===\n")
+  cat("\nState 1:\n")
+  print(str(state1_pars, max.level = 3))
+  cat("\nState 2:\n")
+  print(str(state2_pars, max.level = 3))
+  
+  ## Check that states are either:
+  ## 1. Nearly identical, OR
+  ## 2. One/both have constant correlation
+  state1_alpha <- state1_pars$alpha_1
+  state2_alpha <- state2_pars$alpha_1
+  
+  state1_is_constant <- is_constant_correlation(state1_pars)
+  state2_is_constant <- is_constant_correlation(state2_pars)
+  
+  states_similar <- !state1_is_constant && !state2_is_constant && 
+    !is.null(state1_alpha) && !is.null(state2_alpha) &&
+    abs(state1_alpha - state2_alpha) < 0.05
+  
+  cat("\nState 1 constant?", state1_is_constant, "\n")
+  cat("State 2 constant?", state2_is_constant, "\n")
+  cat("States similar?", states_similar, "\n")
+  
+  expect_true(state1_is_constant || state2_is_constant || states_similar,
+              info = "States should be constant or nearly identical for single-regime data")
+  
+  # Check diagnostics
+  summary(fit$diagnostics)
+##})
+```
+
+=== TEST 8b: Single Regime Data ===
+Model fitting complete.
+
+=== Estimated Parameters ===
+
+State 1:
+List of 6
+ $ var_pars        : num [1:6] -0.01539 -0.07127 0.0391 0.0324 0.00107 ...
+ $ garch_pars      :List of 2
+  ..$ :List of 3
+  .. ..$ omega : num 0.272
+  .. ..$ alpha1: num 0.179
+  .. ..$ beta1 : num 0.477
+  ..$ :List of 3
+  .. ..$ omega : num 0.971
+  .. ..$ alpha1: num 0.0509
+  .. ..$ beta1 : num -8.16e-18
+ $ alpha_1         : num 0.0318
+ $ beta_1          : num 0.898
+ $ correlation_type: chr "dynamic"
+ $ dist_pars       : Named list()
+NULL
+
+State 2:
+List of 6
+ $ var_pars        : num [1:6] -0.01539 -0.07127 0.0391 0.0324 0.00107 ...
+ $ garch_pars      :List of 2
+  ..$ :List of 3
+  .. ..$ omega : num 0.272
+  .. ..$ alpha1: num 0.179
+  .. ..$ beta1 : num 0.477
+  ..$ :List of 3
+  .. ..$ omega : num 0.971
+  .. ..$ alpha1: num 0.051
+  .. ..$ beta1 : num 0
+ $ alpha_1         : num 0.0318
+ $ beta_1          : num 0.898
+ $ correlation_type: chr "dynamic"
+ $ dist_pars       : Named list()
+NULL
+
+State 1 constant? FALSE 
+State 2 constant? FALSE 
+States similar? TRUE 
+=== MS-VARMA-GARCH Diagnostic Summary ===
+
+EM ITERATIONS:
+  Total iterations: 2 
+  Initial LL: -543.7541 
+  Final LL: -538.2 
+  Total LL improvement: 5.554071 
+  LL decreased in 0 iterations
+  Mean LL change per iteration: 2.777036 
+  Min LL change: 1.217325e-07 
+  Max LL change: 5.554071 
+  Total computation time: 32.74 seconds
+
+BOUNDARY EVENTS:
+  Total boundary events: 0 
+
+WARNINGS:
+  Total warnings: 0 
+
+PARAMETER EVOLUTION:
+  States tracked: 2 
+
+SIGMA EVOLUTION:
+  Series tracked: 4 
+
+
+## Test 8c: Test that "Mixed regime data: one dynamic, one constant correlation"
+
+```{r}
+##test_that("Mixed regime data: one dynamic, one constant correlation", {
+  
+  set.seed(789)
+  n <- 250
+  k <- 2
+  
+  ## STATE-DEPENDENT PARAMETERS
+  ## State 1: Dynamic correlation
+  omega_1 <- c(0.08, 0.12)
+  alpha_garch_1 <- c(0.10, 0.12)
+  beta_garch_1 <- c(0.85, 0.83)
+  
+  ## State 2: Higher volatility
+  omega_2 <- c(0.12, 0.15)
+  alpha_garch_2 <- c(0.14, 0.16)
+  beta_garch_2 <- c(0.78, 0.76)
+  
+  ## Generate switching states
+  P <- matrix(c(0.93, 0.07,
+                0.15, 0.85), nrow = 2, byrow = TRUE)
+  
+  states <- numeric(n)
+  states[1] <- 1
+  for (t in 2:n) {
+    states[t] <- sample(1:2, 1, prob = P[states[t-1], ])
+  }
+  
+  ## Simulate
+  y_mixed <- matrix(0, n, k)
+  h_mixed <- matrix(0, n, k)
+  
+  for (i in 1:k) {
+    h_mixed[1, i] <- 0.1
+    y_mixed[1, i] <- rnorm(1) * sqrt(h_mixed[1, i])
+    
+    for (t in 2:n) {
+      s <- states[t]
+      omega <- if(s == 1) omega_1[i] else omega_2[i]
+      alpha <- if(s == 1) alpha_garch_1[i] else alpha_garch_2[i]
+      beta <- if(s == 1) beta_garch_1[i] else beta_garch_2[i]
+      
+      h_mixed[t, i] <- omega + alpha * y_mixed[t-1, i]^2 + beta * h_mixed[t-1, i]
+      y_mixed[t, i] <- rnorm(1) * sqrt(h_mixed[t, i])
+    }
+  }
+  
+  colnames(y_mixed) <- c("s1", "s2")
+  
+  cat("\n=== TEST 8c: Mixed Regime Data ===\n")
+  cat("True state distribution:\n")
+  print(table(states))
+  
+  ## Create specification
+  spec_mixed <- list(
+    list(
+      var_order = 1,
+      garch_spec_fun = "dcc_modelspec",
+      garch_spec_args = list(
+        garch_model = list(
+          univariate = list(
+            list(model = "garch", garch_order = c(1, 1), distribution = "norm"),
+            list(model = "garch", garch_order = c(1, 1), distribution = "norm")
+          )
+        ),
+        dcc_order = c(1, 1)
+      ),
+      distribution = "mvn",
+      start_pars = list(
+        var_pars = rep(0, k * (1 + k * 1)),
+        garch_pars = list(
+          list(omega = 0.1, alpha1 = 0.1, beta1 = 0.8),
+          list(omega = 0.1, alpha1 = 0.1, beta1 = 0.8)
+        ),
+        dcc_pars = list(alpha_1 = 0.05, beta_1 = 0.90),
+        dist_pars = list()
+      )
+    ),
+    list(
+      var_order = 1,
+      garch_spec_fun = "dcc_modelspec",
+      garch_spec_args = list(
+        garch_model = list(
+          univariate = list(
+            list(model = "garch", garch_order = c(1, 1), distribution = "norm"),
+            list(model = "garch", garch_order = c(1, 1), distribution = "norm")
+          )
+        ),
+        dcc_order = c(1, 1)
+      ),
+      distribution = "mvn",
+      start_pars = list(
+        var_pars = rep(0, k * (1 + k * 1)),
+        garch_pars = list(
+          list(omega = 0.12, alpha1 = 0.12, beta1 = 0.8),
+          list(omega = 0.12, alpha1 = 0.12, beta1 = 0.8)
+        ),
+        dcc_pars = list(alpha_1 = 0.10, beta_1 = 0.85),
+        dist_pars = list()
+      )
+    )
+  )
+  
+  ## Fit model
+  fit <- fit_ms_varma_garch(
+    y = y_mixed,
+    M = 2,
+    spec = spec_mixed,
+    model_type = "multivariate",
+    control = list(max_iter = 50, tol = 0.05),
+    collect_diagnostics = TRUE,
+    verbose = TRUE,
+    verbose_file = "../logs/verbose_test_8c.log"
+  )
+  
+  expect_true(!is.null(fit))
+  expect_true("model_fits" %in% names(fit))
+  
+  ## Extract parameters
+  state1_pars <- fit$model_fits[[1]]
+  state2_pars <- fit$model_fits[[2]]
+  
+  cat("\n=== ESTIMATED PARAMETERS (MIXED) ===\n")
+  cat("\nState 1:\n")
+  cat("  DCC: alpha=", state1_pars$alpha_1 %||% "constant", 
+      " beta=", state1_pars$beta_1 %||% "N/A", "\n")
+  cat("  Type:", state1_pars$correlation_type %||% "inferred", "\n")
+  
+  cat("\nState 2:\n")
+  cat("  DCC: alpha=", state2_pars$alpha_1 %||% "constant", 
+      " beta=", state2_pars$beta_1 %||% "N/A", "\n")
+  cat("  Type:", state2_pars$correlation_type %||% "inferred", "\n")
+  
+  ## Just verify both states have valid structures
+  expect_true(!is.null(state1_pars$garch_pars))
+  expect_true(!is.null(state2_pars$garch_pars))
+  
+  # Check diagnostics
+  summary(fit$diagnostics)
+##})
+```
+
+=== TEST 8c: Mixed Regime Data ===
+True state distribution:
+states
+  1   2 
+197  53 
+Model fitting complete.
+
+=== ESTIMATED PARAMETERS (MIXED) ===
+
+State 1:
+  DCC: alpha= 0.09090745  beta= 1e-06 
+  Type: dynamic 
+
+State 2:
+  DCC: alpha= constant  beta= N/A 
+  Type: constant 
+=== MS-VARMA-GARCH Diagnostic Summary ===
+
+EM ITERATIONS:
+  Total iterations: 19 
+  Initial LL: -848.6714 
+  Final LL: -835.5614 
+  Total LL improvement: 13.10999 
+  LL decreased in 0 iterations
+  Mean LL change per iteration: 0.6899997 
+  Min LL change: 0.04514285 
+  Max LL change: 9.909629 
+  Total computation time: 314.44 seconds
+
+BOUNDARY EVENTS:
+  Total boundary events: 28 
+    Iteration 1 : State 1 - alpha_1 = 0.01 at lower boundary -> constant_correlation: BIC selection (IC_const=680.07 < IC_dyn=691.15) 
+    Iteration 1 : State 2 - alpha_1 = 0.01 at lower boundary -> constant_correlation: BIC selection (IC_const=729.91 < IC_dyn=740.98) 
+    Iteration 2 : State 1 - alpha_1 = 0.01 at lower boundary -> constant_correlation: BIC selection (IC_const=679.89 < IC_dyn=690.97) 
+    Iteration 2 : State 2 - alpha_1 = 0.01 at lower boundary -> constant_correlation: BIC selection (IC_const=730.13 < IC_dyn=741.19) 
+    Iteration 3 : State 1 - alpha_1 = 0.01 at lower boundary -> constant_correlation: BIC selection (IC_const=679.77 < IC_dyn=690.86) 
+    Iteration 3 : State 2 - alpha_1 = 0.01 at lower boundary -> constant_correlation: BIC selection (IC_const=730.25 < IC_dyn=741.31) 
+    Iteration 4 : State 1 - alpha_1 = 0.01 at lower boundary -> constant_correlation: BIC selection (IC_const=679.62 < IC_dyn=690.70) 
+    Iteration 4 : State 2 - alpha_1 = 0.01 at lower boundary -> constant_correlation: BIC selection (IC_const=730.41 < IC_dyn=741.47) 
+    Iteration 5 : State 1 - alpha_1 = 0.01 at lower boundary -> constant_correlation: BIC selection (IC_const=679.44 < IC_dyn=690.52) 
+    Iteration 5 : State 2 - alpha_1 = 0.01 at lower boundary -> constant_correlation: BIC selection (IC_const=730.60 < IC_dyn=741.65) 
+    Iteration 6 : State 1 - alpha_1 = 0.01 at lower boundary -> constant_correlation: BIC selection (IC_const=679.26 < IC_dyn=690.33) 
+    Iteration 6 : State 2 - alpha_1 = 0.01 at lower boundary -> constant_correlation: BIC selection (IC_const=730.78 < IC_dyn=741.84) 
+    Iteration 7 : State 1 - alpha_1 = 0.01 at lower boundary -> constant_correlation: BIC selection (IC_const=679.13 < IC_dyn=690.20) 
+    Iteration 7 : State 2 - alpha_1 = 0.01 at lower boundary -> constant_correlation: BIC selection (IC_const=730.92 < IC_dyn=741.98) 
+    Iteration 8 : State 1 - alpha_1 = 0.01 at lower boundary -> constant_correlation: BIC selection (IC_const=679.17 < IC_dyn=690.23) 
+    Iteration 8 : State 2 - alpha_1 = 0.01 at lower boundary -> constant_correlation: BIC selection (IC_const=730.92 < IC_dyn=741.97) 
+    Iteration 9 : State 1 - alpha_1 = 0.01 at lower boundary -> constant_correlation: BIC selection (IC_const=679.48 < IC_dyn=690.52) 
+    Iteration 9 : State 2 - alpha_1 = 0.01 at lower boundary -> constant_correlation: BIC selection (IC_const=730.66 < IC_dyn=741.71) 
+    Iteration 10 : State 2 - alpha_1 = 0.01 at lower boundary -> constant_correlation: BIC selection (IC_const=729.99 < IC_dyn=741.04) 
+    Iteration 11 : State 2 - alpha_1 = 0.01 at lower boundary -> constant_correlation: BIC selection (IC_const=728.84 < IC_dyn=739.89) 
+    Iteration 12 : State 2 - alpha_1 = 0.01 at lower boundary -> constant_correlation: BIC selection (IC_const=727.01 < IC_dyn=738.07) 
+    Iteration 13 : State 2 - alpha_1 = 0.01 at lower boundary -> constant_correlation: BIC selection (IC_const=724.57 < IC_dyn=735.63) 
+    Iteration 14 : State 2 - alpha_1 = 0.01 at lower boundary -> constant_correlation: BIC selection (IC_const=721.84 < IC_dyn=732.89) 
+    Iteration 15 : State 2 - alpha_1 = 0.01 at lower boundary -> constant_correlation: BIC selection (IC_const=719.26 < IC_dyn=730.31) 
+    Iteration 16 : State 2 - alpha_1 = 0.01 at lower boundary -> constant_correlation: BIC selection (IC_const=717.13 < IC_dyn=728.17) 
+    Iteration 17 : State 2 - alpha_1 = 0.01 at lower boundary -> constant_correlation: BIC selection (IC_const=715.45 < IC_dyn=726.49) 
+    Iteration 18 : State 2 - alpha_1 = 0.01 at lower boundary -> constant_correlation: BIC selection (IC_const=714.19 < IC_dyn=725.23) 
+    Iteration 19 : State 2 - alpha_1 = 0.01 at lower boundary -> constant_correlation: BIC selection (IC_const=713.27 < IC_dyn=724.32) 
+
+WARNINGS:
+  Total warnings: 0 
+
+PARAMETER EVOLUTION:
+  States tracked: 2 
+
+SIGMA EVOLUTION:
+  Series tracked: 4 
+
+
+
+
+## Test 8d: Test that "True MS-DCC-GARCH data recovers distinct regimes"
+
+```{r}
+#test_that("True MS-DCC-GARCH data recovers distinct regimes", {
+  skip_on_cran()
+  
+  
+  simulate_ms_dcc_garch <- function(n, k = 2, seed = 456) {
+    set.seed(seed)
+    
+    ## STATE-DEPENDENT PARAMETERS
+    ## State 1: Low volatility, low correlation dynamics
+    omega_1 <- c(0.05, 0.08)
+    alpha_garch_1 <- c(0.08, 0.10)
+    beta_garch_1 <- c(0.85, 0.80)
+    dcc_alpha_1 <- 0.03
+    dcc_beta_1 <- 0.94
+    Rbar_1 <- matrix(c(1, 0.3, 0.3, 1), 2, 2)  # Lower correlation
+    
+    ## State 2: High volatility, high correlation dynamics  
+    omega_2 <- c(0.15, 0.20)
+    alpha_garch_2 <- c(0.15, 0.18)
+    beta_garch_2 <- c(0.70, 0.65)
+    dcc_alpha_2 <- 0.12
+    dcc_beta_2 <- 0.83
+    Rbar_2 <- matrix(c(1, 0.7, 0.7, 1), 2, 2)  # Higher correlation
+    
+    ## Markov chain switching probabilities
+    P <- matrix(c(0.95, 0.05,   # P(stay in 1), P(1->2)
+                  0.10, 0.90),  # P(2->1), P(stay in 2)
+                nrow = 2, byrow = TRUE)
+    
+    ## Generate state sequence
+    states <- numeric(n)
+    states[1] <- 1
+    for (t in 2:n) {
+      states[t] <- sample(1:2, 1, prob = P[states[t-1], ])
+    }
+    
+    ## Initialize
+    y_ms <- matrix(0, n, k)
+    h_ms <- matrix(0, n, k)
+    z_std <- matrix(0, n, k)  # Standardized residuals
+    
+    ## Initialize conditional variances
+    for (i in 1:k) {
+      h_ms[1, i] <- omega_1[i] / (1 - alpha_garch_1[i] - beta_garch_1[i])
+    }
+    
+    ## Initialize DCC matrices for each state
+    Q_1 <- Rbar_1
+    R_1 <- Rbar_1
+    Q_2 <- Rbar_2
+    R_2 <- Rbar_2
+    
+    ## Simulate
+    for (t in 1:n) {
+      s <- states[t]
+      
+      ## Select state-specific parameters
+      omega <- if(s == 1) omega_1 else omega_2
+      alpha_garch <- if(s == 1) alpha_garch_1 else alpha_garch_2
+      beta_garch <- if(s == 1) beta_garch_1 else beta_garch_2
+      dcc_alpha <- if(s == 1) dcc_alpha_1 else dcc_alpha_2
+      dcc_beta <- if(s == 1) dcc_beta_1 else dcc_beta_2
+      Rbar <- if(s == 1) Rbar_1 else Rbar_2
+      
+      ## Get current correlation matrix
+      if (s == 1) {
+        R_t <- R_1
+      } else {
+        R_t <- R_2
+      }
+      
+      ## Draw CORRELATED standardized residuals
+      z_std[t, ] <- mvtnorm::rmvnorm(1, mean = rep(0, k), sigma = R_t)
+      
+      ## Compute conditional variances and raw residuals
+      for (i in 1:k) {
+        if (t > 1) {
+          h_ms[t, i] <- omega[i] + alpha_garch[i] * y_ms[t-1, i]^2 + 
+            beta_garch[i] * h_ms[t-1, i]
+        }
+        y_ms[t, i] <- sqrt(h_ms[t, i]) * z_std[t, i]
+      }
+      
+      ## Update DCC dynamics for NEXT period
+      if (t < n) {
+        z_lag <- matrix(z_std[t, ], ncol = 1)
+        
+        if (states[t+1] == 1) {
+          ## Update State 1 DCC
+          Q_1 <- Rbar_1 * (1 - dcc_alpha_1 - dcc_beta_1) + 
+            dcc_alpha_1 * (z_lag %*% t(z_lag)) + 
+            dcc_beta_1 * Q_1
+          
+          ## Standardize to correlation
+          Q_diag_inv_sqrt <- diag(1 / sqrt(diag(Q_1)), k)
+          R_1 <- Q_diag_inv_sqrt %*% Q_1 %*% Q_diag_inv_sqrt
+          
+        } else {
+          ## Update State 2 DCC
+          Q_2 <- Rbar_2 * (1 - dcc_alpha_2 - dcc_beta_2) + 
+            dcc_alpha_2 * (z_lag %*% t(z_lag)) + 
+            dcc_beta_2 * Q_2
+          
+          Q_diag_inv_sqrt <- diag(1 / sqrt(diag(Q_2)), k)
+          R_2 <- Q_diag_inv_sqrt %*% Q_2 %*% Q_diag_inv_sqrt
+        }
+      }
+    }
+    
+    colnames(y_ms) <- paste0("s", 1:k)
+    
+    return(list(
+      data = y_ms,
+      states = states,
+      h = h_ms,
+      z_std = z_std,
+      true_params = list(
+        state1 = list(
+          omega = omega_1,
+          alpha_garch = alpha_garch_1,
+          beta_garch = beta_garch_1,
+          dcc_alpha = dcc_alpha_1,
+          dcc_beta = dcc_beta_1,
+          Rbar = Rbar_1
+        ),
+        state2 = list(
+          omega = omega_2,
+          alpha_garch = alpha_garch_2,
+          beta_garch = beta_garch_2,
+          dcc_alpha = dcc_alpha_2,
+          dcc_beta = dcc_beta_2,
+          Rbar = Rbar_2
+        )
+      )
+    ))
+  }
+  
+  ## Generate proper MS-DCC data
+  sim_data <- simulate_ms_dcc_garch(n = 300, k = 2, seed = 456)
+  
+  y_ms <- sim_data$data
+  states_true <- sim_data$states
+  
+  cat("\n=== TEST: True MS-DCC Data (PROPERLY SIMULATED) ===\n")
+  cat("True state distribution:\n")
+  print(table(states_true))
+  
+  ## Check that correlation exists in the data
+  cor_s1 <- cor(y_ms[, 1], y_ms[, 2])
+  cat("Sample correlation:", cor_s1, "\n")
+  
+  ## Create specification with DISTINCT starting values
+  spec_ms_dcc <- list(
+    list(
+      var_order = 1,
+      garch_spec_fun = "dcc_modelspec",
+      garch_spec_args = list(
+        garch_model = list(
+          univariate = list(
+            list(model = "garch", garch_order = c(1, 1), distribution = "norm"),
+            list(model = "garch", garch_order = c(1, 1), distribution = "norm")
+          )
+        ),
+        dcc_order = c(1, 1)
+      ),
+      distribution = "mvn",
+      start_pars = list(
+        var_pars = rep(0, 2 * (1 + 2 * 1)),
+        garch_pars = list(
+          list(omega = 0.06, alpha1 = 0.08, beta1 = 0.85),
+          list(omega = 0.09, alpha1 = 0.10, beta1 = 0.80)
+        ),
+        dcc_pars = list(alpha_1 = 0.04, beta_1 = 0.93),
+        dist_pars = list()
+      )
+    ),
+    list(
+      var_order = 1,
+      garch_spec_fun = "dcc_modelspec",
+      garch_spec_args = list(
+        garch_model = list(
+          univariate = list(
+            list(model = "garch", garch_order = c(1, 1), distribution = "norm"),
+            list(model = "garch", garch_order = c(1, 1), distribution = "norm")
+          )
+        ),
+        dcc_order = c(1, 1)
+      ),
+      distribution = "mvn",
+      start_pars = list(
+        var_pars = rep(0, 2 * (1 + 2 * 1)),
+        garch_pars = list(
+          list(omega = 0.16, alpha1 = 0.16, beta1 = 0.68),
+          list(omega = 0.21, alpha1 = 0.19, beta1 = 0.63)
+        ),
+        dcc_pars = list(alpha_1 = 0.13, beta_1 = 0.82),
+        dist_pars = list()
+      )
+    )
+  )
+  
+  ## Fit model
+  fit <- fit_ms_varma_garch(
+    y = y_ms,
+    M = 2,
+    spec = spec_ms_dcc,
+    model_type = "multivariate",
+    control = list(max_iter = 50, tol = 0.05),
+    collect_diagnostics = TRUE,
+    verbose = TRUE,
+    verbose_file = "../logs/verbose_test_8d.log"
+  )
+  
+  ## Verify structure
+  expect_true(!is.null(fit))
+  expect_true("model_fits" %in% names(fit))
+  
+  ## Extract parameters
+  state1_pars <- fit$model_fits[[1]]
+  state2_pars <- fit$model_fits[[2]]
+  
+  cat("\n=== ESTIMATED PARAMETERS ===\n")
+  cat("\nState 1:\n")
+  if (!is.null(state1_pars$garch_pars)) {
+    cat("  GARCH series 1: omega=", state1_pars$garch_pars[[1]]$omega,
+        " alpha=", state1_pars$garch_pars[[1]]$alpha1,
+        " beta=", state1_pars$garch_pars[[1]]$beta1, "\n")
+  }
+  cat("  DCC: alpha=", state1_pars$alpha_1 %||% "constant", 
+      " beta=", state1_pars$beta_1 %||% "N/A", "\n")
+  cat("  Type:", state1_pars$correlation_type %||% "unknown", "\n")
+  
+  cat("\nState 2:\n")
+  if (!is.null(state2_pars$garch_pars)) {
+    cat("  GARCH series 1: omega=", state2_pars$garch_pars[[1]]$omega,
+        " alpha=", state2_pars$garch_pars[[1]]$alpha1,
+        " beta=", state2_pars$garch_pars[[1]]$beta1, "\n")
+  }
+  cat("  DCC: alpha=", state2_pars$alpha_1 %||% "constant", 
+      " beta=", state2_pars$beta_1 %||% "N/A", "\n")
+  cat("  Type:", state2_pars$correlation_type %||% "unknown", "\n")
+  
+  ## Now with proper DCC simulation, both states should have dynamic correlation
+  ## (or at least one should, depending on estimation)
+  
+  ## Basic validity checks
+  expect_true(!is.null(state1_pars$garch_pars))
+  expect_true(!is.null(state2_pars$garch_pars))
+  
+  ## Check that states differ
+  if (!is.null(state1_pars$garch_pars) && !is.null(state2_pars$garch_pars)) {
+    omega_diff <- abs(state1_pars$garch_pars[[1]]$omega - 
+                        state2_pars$garch_pars[[1]]$omega)
+    expect_true(omega_diff > 0.02,
+                info = "States should have different volatility parameters")
+  }
+  
+  # Check diagnostics
+  summary(fit$diagnostics)
+#})
+```
+
+
+=== TEST: True MS-DCC Data (PROPERLY SIMULATED) ===
+True state distribution:
+states_true
+  1   2 
+218  82 
+Sample correlation: 0.3279827 
+Fitting the MS-ARMA-GARCH model via C++ EM algorithm...
+Model fitting complete.
+
+=== ESTIMATED PARAMETERS ===
+
+State 1:
+  GARCH series 1: omega= 0.1262224  alpha= 0.02973186  beta= 0.7602691 
+  DCC: alpha= 0.1962366  beta= 0.5279836 
+  Type: dynamic 
+
+State 2:
+  GARCH series 1: omega= 1e-12  alpha= 0.1396718  beta= 0.8365827 
+  DCC: alpha= constant  beta= N/A 
+  Type: constant 
+=== MS-VARMA-GARCH Diagnostic Summary ===
+
+EM ITERATIONS:
+  Total iterations: 37 
+  Initial LL: -760.954 
+  Final LL: -748.8404 
+  Total LL improvement: 12.11366 
+  LL decreased in 0 iterations
+  Mean LL change per iteration: 0.3273961 
+  Min LL change: 0.04823673 
+  Max LL change: 7.302326 
+  Total computation time: 666.26 seconds
+
+BOUNDARY EVENTS:
+  Total boundary events: 72 
+    Iteration 2 : State 2 - alpha_1 = 0.01 at lower boundary -> constant_correlation_fallback 
+    Iteration 2 : State 2 - alpha_1 = 0.01 at lower boundary -> constant_correlation_fallback: alpha near zero (min: 0.010000) 
+    Iteration 3 : State 2 - alpha_1 = 0.0142 at lower boundary -> constant_correlation_fallback 
+    Iteration 3 : State 2 - alpha_1 = 0.0142 at lower boundary -> constant_correlation_fallback: alpha near zero (min: 0.014228) 
+    Iteration 4 : State 2 - alpha_1 = 0.01 at lower boundary -> constant_correlation_fallback 
+    Iteration 4 : State 2 - alpha_1 = 0.01 at lower boundary -> constant_correlation_fallback: alpha near zero (min: 0.010000) 
+    Iteration 5 : State 2 - alpha_1 = 0.01 at lower boundary -> constant_correlation_fallback 
+    Iteration 5 : State 2 - alpha_1 = 0.01 at lower boundary -> constant_correlation_fallback: alpha near zero (min: 0.010000) 
+    Iteration 6 : State 2 - alpha_1 = 0.01 at lower boundary -> constant_correlation_fallback 
+    Iteration 6 : State 2 - alpha_1 = 0.01 at lower boundary -> constant_correlation_fallback: alpha near zero (min: 0.010000) 
+    Iteration 7 : State 2 - alpha_1 = 0.01 at lower boundary -> constant_correlation_fallback 
+    Iteration 7 : State 2 - alpha_1 = 0.01 at lower boundary -> constant_correlation_fallback: alpha near zero (min: 0.010000) 
+    Iteration 8 : State 2 - alpha_1 = 0.01 at lower boundary -> constant_correlation_fallback 
+    Iteration 8 : State 2 - alpha_1 = 0.01 at lower boundary -> constant_correlation_fallback: alpha near zero (min: 0.010000) 
+    Iteration 9 : State 2 - alpha_1 = 0.01 at lower boundary -> constant_correlation_fallback 
+    Iteration 9 : State 2 - alpha_1 = 0.01 at lower boundary -> constant_correlation_fallback: alpha near zero (min: 0.010000) 
+    Iteration 10 : State 2 - alpha_1 = 0.01 at lower boundary -> constant_correlation_fallback 
+    Iteration 10 : State 2 - alpha_1 = 0.01 at lower boundary -> constant_correlation_fallback: alpha near zero (min: 0.010000) 
+    Iteration 11 : State 2 - alpha_1 = 0.01 at lower boundary -> constant_correlation_fallback 
+    Iteration 11 : State 2 - alpha_1 = 0.01 at lower boundary -> constant_correlation_fallback: alpha near zero (min: 0.010000) 
+    Iteration 12 : State 2 - alpha_1 = 0.01 at lower boundary -> constant_correlation_fallback 
+    Iteration 12 : State 2 - alpha_1 = 0.01 at lower boundary -> constant_correlation_fallback: alpha near zero (min: 0.010000) 
+    Iteration 13 : State 2 - alpha_1 = 0.01 at lower boundary -> constant_correlation_fallback 
+    Iteration 13 : State 2 - alpha_1 = 0.01 at lower boundary -> constant_correlation_fallback: alpha near zero (min: 0.010000) 
+    Iteration 14 : State 2 - alpha_1 = 0.01 at lower boundary -> constant_correlation_fallback 
+    Iteration 14 : State 2 - alpha_1 = 0.01 at lower boundary -> constant_correlation_fallback: alpha near zero (min: 0.010000) 
+    Iteration 15 : State 2 - alpha_1 = 0.01 at lower boundary -> constant_correlation_fallback 
+    Iteration 15 : State 2 - alpha_1 = 0.01 at lower boundary -> constant_correlation_fallback: alpha near zero (min: 0.010000) 
+    Iteration 16 : State 2 - alpha_1 = 0.01 at lower boundary -> constant_correlation_fallback 
+    Iteration 16 : State 2 - alpha_1 = 0.01 at lower boundary -> constant_correlation_fallback: alpha near zero (min: 0.010000) 
+    Iteration 17 : State 2 - alpha_1 = 0.01 at lower boundary -> constant_correlation_fallback 
+    Iteration 17 : State 2 - alpha_1 = 0.01 at lower boundary -> constant_correlation_fallback: alpha near zero (min: 0.010000) 
+    Iteration 18 : State 2 - alpha_1 = 0.01 at lower boundary -> constant_correlation_fallback 
+    Iteration 18 : State 2 - alpha_1 = 0.01 at lower boundary -> constant_correlation_fallback: alpha near zero (min: 0.010000) 
+    Iteration 19 : State 2 - alpha_1 = 0.01 at lower boundary -> constant_correlation_fallback 
+    Iteration 19 : State 2 - alpha_1 = 0.01 at lower boundary -> constant_correlation_fallback: alpha near zero (min: 0.010000) 
+    Iteration 20 : State 2 - alpha_1 = 0.01 at lower boundary -> constant_correlation_fallback 
+    Iteration 20 : State 2 - alpha_1 = 0.01 at lower boundary -> constant_correlation_fallback: alpha near zero (min: 0.010000) 
+    Iteration 21 : State 2 - alpha_1 = 0.01 at lower boundary -> constant_correlation_fallback 
+    Iteration 21 : State 2 - alpha_1 = 0.01 at lower boundary -> constant_correlation_fallback: alpha near zero (min: 0.010000) 
+    Iteration 22 : State 2 - alpha_1 = 0.01 at lower boundary -> constant_correlation_fallback 
+    Iteration 22 : State 2 - alpha_1 = 0.01 at lower boundary -> constant_correlation_fallback: alpha near zero (min: 0.010000) 
+    Iteration 23 : State 2 - alpha_1 = 0.01 at lower boundary -> constant_correlation_fallback 
+    Iteration 23 : State 2 - alpha_1 = 0.01 at lower boundary -> constant_correlation_fallback: alpha near zero (min: 0.010000) 
+    Iteration 24 : State 2 - alpha_1 = 0.01 at lower boundary -> constant_correlation_fallback 
+    Iteration 24 : State 2 - alpha_1 = 0.01 at lower boundary -> constant_correlation_fallback: alpha near zero (min: 0.010000) 
+    Iteration 25 : State 2 - alpha_1 = 0.01 at lower boundary -> constant_correlation_fallback 
+    Iteration 25 : State 2 - alpha_1 = 0.01 at lower boundary -> constant_correlation_fallback: alpha near zero (min: 0.010000) 
+    Iteration 26 : State 2 - alpha_1 = 0.01 at lower boundary -> constant_correlation_fallback 
+    Iteration 26 : State 2 - alpha_1 = 0.01 at lower boundary -> constant_correlation_fallback: alpha near zero (min: 0.010000) 
+    Iteration 27 : State 2 - alpha_1 = 0.01 at lower boundary -> constant_correlation_fallback 
+    Iteration 27 : State 2 - alpha_1 = 0.01 at lower boundary -> constant_correlation_fallback: alpha near zero (min: 0.010000) 
+    Iteration 28 : State 2 - alpha_1 = 0.01 at lower boundary -> constant_correlation_fallback 
+    Iteration 28 : State 2 - alpha_1 = 0.01 at lower boundary -> constant_correlation_fallback: alpha near zero (min: 0.010000) 
+    Iteration 29 : State 2 - alpha_1 = 0.01 at lower boundary -> constant_correlation_fallback 
+    Iteration 29 : State 2 - alpha_1 = 0.01 at lower boundary -> constant_correlation_fallback: alpha near zero (min: 0.010000) 
+    Iteration 30 : State 2 - alpha_1 = 0.01 at lower boundary -> constant_correlation_fallback 
+    Iteration 30 : State 2 - alpha_1 = 0.01 at lower boundary -> constant_correlation_fallback: alpha near zero (min: 0.010000) 
+    Iteration 31 : State 2 - alpha_1 = 0.01 at lower boundary -> constant_correlation_fallback 
+    Iteration 31 : State 2 - alpha_1 = 0.01 at lower boundary -> constant_correlation_fallback: alpha near zero (min: 0.010000) 
+    Iteration 32 : State 2 - alpha_1 = 0.01 at lower boundary -> constant_correlation_fallback 
+    Iteration 32 : State 2 - alpha_1 = 0.01 at lower boundary -> constant_correlation_fallback: alpha near zero (min: 0.010000) 
+    Iteration 33 : State 2 - alpha_1 = 0.01 at lower boundary -> constant_correlation_fallback 
+    Iteration 33 : State 2 - alpha_1 = 0.01 at lower boundary -> constant_correlation_fallback: alpha near zero (min: 0.010000) 
+    Iteration 34 : State 2 - alpha_1 = 0.01 at lower boundary -> constant_correlation_fallback 
+    Iteration 34 : State 2 - alpha_1 = 0.01 at lower boundary -> constant_correlation_fallback: alpha near zero (min: 0.010000) 
+    Iteration 35 : State 2 - alpha_1 = 0.01 at lower boundary -> constant_correlation_fallback 
+    Iteration 35 : State 2 - alpha_1 = 0.01 at lower boundary -> constant_correlation_fallback: alpha near zero (min: 0.010000) 
+    Iteration 36 : State 2 - alpha_1 = 0.01 at lower boundary -> constant_correlation_fallback 
+    Iteration 36 : State 2 - alpha_1 = 0.01 at lower boundary -> constant_correlation_fallback: alpha near zero (min: 0.010000) 
+    Iteration 37 : State 2 - alpha_1 = 0.01 at lower boundary -> constant_correlation_fallback 
+    Iteration 37 : State 2 - alpha_1 = 0.01 at lower boundary -> constant_correlation_fallback: alpha near zero (min: 0.010000) 
+
+WARNINGS:
+  Total warnings: 0 
+
+PARAMETER EVOLUTION:
+  States tracked: 2 
+
+SIGMA EVOLUTION:
+  Series tracked: 4 
+
+
+## Test 8e: Test "DCC estimation with BIC criterion (default)"
+```{r}
+#test_that("DCC estimation with BIC criterion (default)", {
+  
+  set.seed(999)
+  y_test <- simulate_dcc_garch(
+    n = 200, k = 2,
+    omega = c(0.05, 0.08),
+    alpha_garch = c(0.10, 0.12),
+    beta_garch = c(0.85, 0.82),
+    dcc_alpha = 0.04,
+    dcc_beta = 0.93,
+    seed = 999
+  )
+  
+  spec_test <- generate_dcc_spec(M = 2, k = 2, seed = 999)
+  
+  fit <- fit_ms_varma_garch(
+    y = y_test,
+    M = 2,
+    spec = spec_test,
+    model_type = "multivariate",
+    control = list(
+      max_iter = 20,
+      tol = 1e-3
+      # Using defaults: dcc_boundary_criterion = "bic"
+    ),
+    collect_diagnostics = TRUE,
+    verbose = TRUE,
+    verbose_file = "../logs/verbose_test_8e.log"
+  )
+  
+  # Check results
+  diag <- fit$diagnostics
+  
+  cat("\n=== DIAGNOSTIC SUMMARY ===\n")
+  summary(diag)
+  
+  cat("\n=== CONVERGENCE CHECK ===\n")
+  conv_check <- check_convergence(diag, tolerance = 1e-3)
+  print(conv_check)
+  
+  cat("\n=== MONOTONICITY CHECK ===\n")
+  mono_check <- check_em_monotonicity(diag, tolerance = 1e-6)
+  print(mono_check)
+  
+  cat("\n=== FINAL MODEL STRUCTURE ===\n")
+  for (j in 1:2) {
+    cat(sprintf("State %d: %s correlation\n", j,
+                fit$model_fits[[j]]$correlation_type %||% "dynamic"))
+  }
+  
+  # Tests
+  expect_true(!is.null(fit))
+  expect_true(!is.null(fit$diagnostics))
+  
+  # Should have fewer LL decreases than before
+  expect_lte(mono_check$n_violations, 3)
+#})
+```
+
+Model fitting complete.
+
+=== DIAGNOSTIC SUMMARY ===
+=== MS-VARMA-GARCH Diagnostic Summary ===
+
+EM ITERATIONS:
+  Total iterations: 20 
+  Initial LL: -529.9615 
+  Final LL: -509.0508 
+  Total LL improvement: 20.91074 
+  LL decreased in 2 iterations
+  Mean LL change per iteration: 1.045537 
+  Min LL change: -0.1671709 
+  Max LL change: 12.85468 
+  Total computation time: 424.71 seconds
+
+BOUNDARY EVENTS:
+  Total boundary events: 0 
+
+WARNINGS:
+  Total warnings: 2 
+    ll_decrease : 2 
+
+PARAMETER EVOLUTION:
+  States tracked: 2 
+
+SIGMA EVOLUTION:
+  Series tracked: 4 
+
+=== CONVERGENCE CHECK ===
+$converged
+[1] FALSE
+
+$final_change
+[1] -0.1009067
+
+$n_iterations
+[1] 20
+
+$explicitly_marked
+[1] FALSE
+
+
+=== MONOTONICITY CHECK ===
+$passed
+[1] TRUE
+
+$n_violations
+[1] 2
+
+$violation_iters
+[1] 14 20
+
+$max_violation
+[1] -0.1671709
+
+
+=== FINAL MODEL STRUCTURE ===
+State 1: dynamic correlation
+State 2: dynamic correlation
+
+
+## Test 8f: Test "DCC estimation with AIC criterion"
+
+```{r}
+#test_that("DCC estimation with AIC criterion", {
+  
+  set.seed(999)
+  y_test <- simulate_dcc_garch(n = 200, k = 2, seed = 999)
+  spec_test <- generate_dcc_spec(M = 2, k = 2, seed = 999)
+  
+  fit <- fit_ms_varma_garch(
+    y = y_test,
+    M = 2,
+    spec = spec_test,
+    model_type = "multivariate",
+    control = list(
+      max_iter = 20,
+      tol = 1e-3,
+      dcc_boundary_criterion = "aic"  # Use AIC
+    ),
+    collect_diagnostics = TRUE,
+    verbose = FALSE,
+    verbose_file = "../logs/verbose_test_8f.log"
+  )
+  
+  cat("\n=== Testing AIC Criterion ===\n")
+  summary(fit$diagnostics)
+  
+  expect_true(!is.null(fit))
+#})
+```
+
+EM Iteration 1... Log-Likelihood: -517.107 (Duration: 00:00:20)
+EM Iteration 2... Log-Likelihood: -516.444 (Duration: 00:00:24)
+EM Iteration 3... Log-Likelihood: -516.259 (Duration: 00:00:21)
+EM Iteration 4... Log-Likelihood: -516.066 (Duration: 00:00:20)
+EM Iteration 5... Log-Likelihood: -515.873 (Duration: 00:00:23)
+EM Iteration 6... Log-Likelihood: -515.622 (Duration: 00:00:20)
+EM Iteration 7... Log-Likelihood: -515.345 (Duration: 00:00:18)
+EM Iteration 8... Log-Likelihood: -514.55 (Duration: 00:00:25)
+EM Iteration 9... Log-Likelihood: -513.323 (Duration: 00:00:18)
+EM Iteration 10... Log-Likelihood: -511.855 (Duration: 00:00:24)
+EM Iteration 11... Log-Likelihood: -510.925 (Duration: 00:00:20)
+EM Iteration 12... Log-Likelihood: -509.752 (Duration: 00:00:18)
+EM Iteration 13... Log-Likelihood: -509.105 (Duration: 00:00:17)
+EM Iteration 14... Log-Likelihood: -509.272 (Duration: 00:00:26)
+EM Iteration 15... Log-Likelihood: -509.187 (Duration: 00:00:25)
+EM Iteration 16... Log-Likelihood: -509.148 (Duration: 00:00:20)
+EM Iteration 17... Log-Likelihood: -509.143 (Duration: 00:00:17)
+EM Iteration 18... Log-Likelihood: -508.986 (Duration: 00:00:20)
+EM Iteration 19... Log-Likelihood: -508.95 (Duration: 00:00:20)
+EM Iteration 20... Log-Likelihood: -509.051 (Duration: 00:00:20)
+
+=== Testing AIC Criterion ===
+=== MS-VARMA-GARCH Diagnostic Summary ===
+
+EM ITERATIONS:
+  Total iterations: 20 
+  Initial LL: -529.9615 
+  Final LL: -509.0508 
+  Total LL improvement: 20.91074 
+  LL decreased in 2 iterations
+  Mean LL change per iteration: 1.045537 
+  Min LL change: -0.1671709 
+  Max LL change: 12.85468 
+  Total computation time: 426.19 seconds
+
+BOUNDARY EVENTS:
+  Total boundary events: 0 
+
+WARNINGS:
+  Total warnings: 2 
+    ll_decrease : 2 
+
+PARAMETER EVOLUTION:
+  States tracked: 2 
+
+SIGMA EVOLUTION:
+  Series tracked: 4 
+
+
+## Test 8g: Test "DCC estimation with threshold criterion (old behavior)"
+
+```{r}
+#test_that("DCC estimation with threshold criterion (old behavior)", {
+  
+  set.seed(999)
+  y_test <- simulate_dcc_garch(n = 200, k = 2, seed = 999)
+  spec_test <- generate_dcc_spec(M = 2, k = 2, seed = 999)
+  
+  fit <- fit_ms_varma_garch(
+    y = y_test,
+    M = 2,
+    spec = spec_test,
+    model_type = "multivariate",
+    control = list(
+      max_iter = 20,
+      tol = 1e-3,
+      dcc_boundary_criterion = "threshold",
+      dcc_boundary_threshold = 0.02
+    ),
+    collect_diagnostics = TRUE,
+    verbose = FALSE,
+    verbose_file = "../logs/verbose_test_8g.log"
+  )
+  
+  cat("\n=== Testing Threshold Criterion ===\n")
+  summary(fit$diagnostics)
+  
+  expect_true(!is.null(fit))
+#})
+```
+EM Iteration 1... Log-Likelihood: -517.107 (Duration: 00:00:20)
+EM Iteration 2... Log-Likelihood: -516.444 (Duration: 00:00:24)
+EM Iteration 3... Log-Likelihood: -516.259 (Duration: 00:00:22)
+EM Iteration 4... Log-Likelihood: -516.066 (Duration: 00:00:21)
+EM Iteration 5... Log-Likelihood: -515.873 (Duration: 00:00:24)
+EM Iteration 6... Log-Likelihood: -515.622 (Duration: 00:00:21)
+EM Iteration 7... Log-Likelihood: -515.345 (Duration: 00:00:19)
+EM Iteration 8... Log-Likelihood: -514.55 (Duration: 00:00:26)
+EM Iteration 9... Log-Likelihood: -513.323 (Duration: 00:00:19)
+EM Iteration 10... Log-Likelihood: -511.855 (Duration: 00:00:24)
+EM Iteration 11... Log-Likelihood: -510.925 (Duration: 00:00:20)
+EM Iteration 12... Log-Likelihood: -509.752 (Duration: 00:00:18)
+EM Iteration 13... Log-Likelihood: -509.105 (Duration: 00:00:17)
+EM Iteration 14... Log-Likelihood: -509.272 (Duration: 00:00:26)
+EM Iteration 15... Log-Likelihood: -509.187 (Duration: 00:00:25)
+EM Iteration 16... Log-Likelihood: -509.148 (Duration: 00:00:20)
+EM Iteration 17... Log-Likelihood: -509.143 (Duration: 00:00:16)
+EM Iteration 18... Log-Likelihood: -508.986 (Duration: 00:00:20)
+EM Iteration 19... Log-Likelihood: -508.95 (Duration: 00:00:20)
+EM Iteration 20... Log-Likelihood: -509.051 (Duration: 00:00:20)
+
+=== Testing Threshold Criterion ===
+=== MS-VARMA-GARCH Diagnostic Summary ===
+
+EM ITERATIONS:
+  Total iterations: 20 
+  Initial LL: -529.9615 
+  Final LL: -509.0508 
+  Total LL improvement: 20.91074 
+  LL decreased in 2 iterations
+  Mean LL change per iteration: 1.045537 
+  Min LL change: -0.1671709 
+  Max LL change: 12.85468 
+  Total computation time: 432.3 seconds
+
+BOUNDARY EVENTS:
+  Total boundary events: 0 
+
+WARNINGS:
+  Total warnings: 2 
+    ll_decrease : 2 
+
+PARAMETER EVOLUTION:
+  States tracked: 2 
+
+SIGMA EVOLUTION:
+  Series tracked: 4 
+Test passed with 1 success
+
+
+
+## Test 8h: Test "DCC estimation without refitting"
+```{r}
+#test_that("DCC estimation without refitting", {
+  
+  set.seed(999)
+  y_test <- simulate_dcc_garch(n = 200, k = 2, seed = 999)
+  spec_test <- generate_dcc_spec(M = 2, k = 2, seed = 999)
+  
+  fit <- fit_ms_varma_garch(
+    y = y_test,
+    M = 2,
+    spec = spec_test,
+    model_type = "multivariate",
+    control = list(
+      max_iter = 20,
+      tol = 1e-3,
+      dcc_allow_refitting = FALSE  # Disable refitting
+    ),
+    collect_diagnostics = TRUE,
+    verbose = FALSE,
+    verbose_file = "../logs/verbose_test_8h.log"
+  )
+  
+  cat("\n=== Testing Without Refitting ===\n")
+  summary(fit$diagnostics)
+  
+  expect_true(!is.null(fit))
+#})
+```
+
+EM Iteration 1... Log-Likelihood: -517.107 (Duration: 00:00:20)
+EM Iteration 2... Log-Likelihood: -516.444 (Duration: 00:00:24)
+EM Iteration 3... Log-Likelihood: -516.259 (Duration: 00:00:22)
+EM Iteration 4... Log-Likelihood: -516.066 (Duration: 00:00:21)
+EM Iteration 5... Log-Likelihood: -515.873 (Duration: 00:00:23)
+EM Iteration 6... Log-Likelihood: -515.622 (Duration: 00:00:21)
+EM Iteration 7... Log-Likelihood: -515.345 (Duration: 00:00:18)
+EM Iteration 8... Log-Likelihood: -514.55 (Duration: 00:00:26)
+EM Iteration 9... Log-Likelihood: -513.323 (Duration: 00:00:19)
+EM Iteration 10... Log-Likelihood: -511.855 (Duration: 00:00:25)
+EM Iteration 11... Log-Likelihood: -510.925 (Duration: 00:00:21)
+EM Iteration 12... Log-Likelihood: -509.752 (Duration: 00:00:18)
+EM Iteration 13... Log-Likelihood: -509.105 (Duration: 00:00:17)
+EM Iteration 14... Log-Likelihood: -509.272 (Duration: 00:00:27)
+EM Iteration 15... Log-Likelihood: -509.187 (Duration: 00:00:26)
+EM Iteration 16... Log-Likelihood: -509.148 (Duration: 00:00:20)
+EM Iteration 17... Log-Likelihood: -509.143 (Duration: 00:00:16)
+EM Iteration 18... Log-Likelihood: -508.986 (Duration: 00:00:20)
+EM Iteration 19... Log-Likelihood: -508.95 (Duration: 00:00:20)
+EM Iteration 20... Log-Likelihood: -509.051 (Duration: 00:00:20)
+
+=== Testing Without Refitting ===
+=== MS-VARMA-GARCH Diagnostic Summary ===
+
+EM ITERATIONS:
+  Total iterations: 20 
+  Initial LL: -529.9615 
+  Final LL: -509.0508 
+  Total LL improvement: 20.91074 
+  LL decreased in 2 iterations
+  Mean LL change per iteration: 1.045537 
+  Min LL change: -0.1671709 
+  Max LL change: 12.85468 
+  Total computation time: 431.75 seconds
+
+BOUNDARY EVENTS:
+  Total boundary events: 0 
+
+WARNINGS:
+  Total warnings: 2 
+    ll_decrease : 2 
+
+PARAMETER EVOLUTION:
+  States tracked: 2 
+
+SIGMA EVOLUTION:
+  Series tracked: 4 
+
+
+## Test 8i: Test "BIC criterion correctly switches to constant"
+
+```{r}
+#test_that("BIC criterion correctly switches to constant", {
+  
+  # Simulate data with CONSTANT correlation (alpha=0)
+  set.seed(42)
+  y_const <- simulate_dcc_garch(
+    n = 300, k = 2,
+    omega = c(0.05, 0.08),
+    alpha_garch = c(0.10, 0.12),
+    beta_garch = c(0.85, 0.82),
+    dcc_alpha = 0.0,  # TRUE CONSTANT
+    dcc_beta = 0.0,
+    seed = 42
+  )
+  
+  spec_test <- generate_dcc_spec(M = 2, k = 2, seed = 42)
+  
+  fit <- fit_ms_varma_garch(
+    y = y_const,
+    M = 2,
+    spec = spec_test,
+    model_type = "multivariate",
+    control = list(
+      max_iter = 30,
+      tol = 1e-3,
+      dcc_boundary_criterion = "bic"
+    ),
+    collect_diagnostics = TRUE,
+    verbose = TRUE,  # SEE THE MODEL SELECTION IN ACTION
+     verbose_file = "../logs/verbose_test_8i.log"
+  )
+  
+  diag <- fit$diagnostics
+  
+  cat("\n=== RESULTS ===\n")
+  cat("Boundary events:", length(diag$boundary_events), "\n")
+  cat("LL decreases:", check_em_monotonicity(diag)$n_violations, "\n")
+  
+  # At least one state should be constant
+  has_constant <- any(sapply(fit$model_fits, function(s) {
+    !is.null(s$correlation_type) && s$correlation_type == "constant"
+  }))
+  
+  expect_true(has_constant)
+  
+  # Should have boundary events recorded
+  expect_gt(length(diag$boundary_events), 0)
+  
+  # Print model selection output
+  cat("\nFinal model structure:\n")
+  for (j in 1:2) {
+    cat(sprintf("State %d: %s\n", j, 
+                fit$model_fits[[j]]$correlation_type %||% "dynamic"))
+  }
+#})
+```
+Model fitting complete.
+
+=== RESULTS ===
+Boundary events: 60 
+LL decreases: 1 
+
+Final model structure:
+State 1: constant
+State 2: constant
+
+
+
+
+## Other diagnostic tests
+
+DIAGNOSTIC: Convergence criteria and tolerance analysis
+```{r}
+
+  cat("\n=== CONVERGENCE CRITERIA DIAGNOSTIC ===\n")
+  
+  ## Simulate proper 2-state MS-DCC-GARCH data
+  set.seed(456)
+  n <- 300
+  k <- 2
+  
+  ## STATE-DEPENDENT PARAMETERS (clearly different states)
+  ## State 1: Low volatility, low correlation
+  omega_1 <- c(0.05, 0.08)
+  alpha_garch_1 <- c(0.08, 0.10)
+  beta_garch_1 <- c(0.85, 0.80)
+  
+  ## State 2: High volatility, high correlation  
+  omega_2 <- c(0.15, 0.20)
+  alpha_garch_2 <- c(0.15, 0.18)
+  beta_garch_2 <- c(0.70, 0.65)
+  
+  ## Markov switching
+  P <- matrix(c(0.95, 0.05,   # P(stay in 1), P(1->2)
+                0.10, 0.90),  # P(2->1), P(stay in 2)
+              nrow = 2, byrow = TRUE)
+  
+  ## Generate state sequence
+  states <- numeric(n)
+  states[1] <- 1
+  for (t in 2:n) {
+    states[t] <- sample(1:2, 1, prob = P[states[t-1], ])
+  }
+  
+  ## Simulate
+  y_ms <- matrix(0, n, k)
+  h_ms <- matrix(0, n, k)
+  
+  for (i in 1:k) {
+    h_ms[1, i] <- 0.1
+    y_ms[1, i] <- rnorm(1) * sqrt(h_ms[1, i])
+    
+    for (t in 2:n) {
+      s <- states[t]
+      omega <- if(s == 1) omega_1[i] else omega_2[i]
+      alpha <- if(s == 1) alpha_garch_1[i] else alpha_garch_2[i]
+      beta <- if(s == 1) beta_garch_1[i] else beta_garch_2[i]
+      
+      h_ms[t, i] <- omega + alpha * y_ms[t-1, i]^2 + beta * h_ms[t-1, i]
+      y_ms[t, i] <- rnorm(1) * sqrt(h_ms[t, i])
+    }
+  }
+  
+  colnames(y_ms) <- c("s1", "s2")
+  
+  cat("True state distribution:\n")
+  print(table(states))
+  cat("\n")
+  
+  ## Create specification
+  spec_test <- list(
+    list(
+      var_order = 1,
+      garch_spec_fun = "dcc_modelspec",
+      distribution = "mvn",
+      garch_spec_args = list(
+        dcc_order = c(1, 1),
+        dynamics = "dcc",
+        garch_model = list(
+          univariate = list(
+            list(model = "garch", garch_order = c(1, 1), distribution = "norm"),
+            list(model = "garch", garch_order = c(1, 1), distribution = "norm")
+          )
+        )
+      ),
+      start_pars = list(
+        var_pars = rep(0.1, 6),
+        garch_pars = list(
+          list(omega = 0.06, alpha1 = 0.08, beta1 = 0.85),
+          list(omega = 0.09, alpha1 = 0.10, beta1 = 0.80)
+        ),
+        dcc_pars = list(alpha_1 = 0.04, beta_1 = 0.93)
+      )
+    ),
+    list(
+      var_order = 1,
+      garch_spec_fun = "dcc_modelspec",
+      distribution = "mvn",
+      garch_spec_args = list(
+        dcc_order = c(1, 1),
+        dynamics = "dcc",
+        garch_model = list(
+          univariate = list(
+            list(model = "garch", garch_order = c(1, 1), distribution = "norm"),
+            list(model = "garch", garch_order = c(1, 1), distribution = "norm")
+          )
+        )
+      ),
+      start_pars = list(
+        var_pars = rep(0.1, 6),
+        garch_pars = list(
+          list(omega = 0.16, alpha1 = 0.16, beta1 = 0.68),
+          list(omega = 0.21, alpha1 = 0.19, beta1 = 0.63)
+        ),
+        dcc_pars = list(alpha_1 = 0.13, beta_1 = 0.82)
+      )
+    )
+  )
+  
+  ## ========================================================================
+  ## FIT 1: Strict tolerance (0.001)
+  ## ========================================================================
+  cat("\n--- Fitting with STRICT tolerance (tol=0.001) ---\n")
+  
+  fit_strict <- fit_ms_varma_garch(
+    y = y_ms,
+    M = 2,
+    spec = spec_test,
+    model_type = "multivariate",
+    control = list(max_iter = 100, tol = 0.001),
+    collect_diagnostics = TRUE,
+    verbose = FALSE
+  )
+  
+  ## ========================================================================
+  ## FIT 2: Relaxed tolerance (0.05)
+  ## ========================================================================
+  cat("\n--- Fitting with RELAXED tolerance (tol=0.05) ---\n")
+  
+  fit_relaxed <- fit_ms_varma_garch(
+    y = y_ms,
+    M = 2,
+    spec = spec_test,
+    model_type = "multivariate",
+    control = list(max_iter = 100, tol = 0.05),
+    collect_diagnostics = TRUE,
+    verbose = FALSE
+  )
+  
+  ## ========================================================================
+  ## FIT 3: Very strict (0.0001) - to see if we can ever converge
+  ## ========================================================================
+  cat("\n--- Fitting with VERY STRICT tolerance (tol=0.0001) ---\n")
+  
+  fit_very_strict <- fit_ms_varma_garch(
+    y = y_ms,
+    M = 2,
+    spec = spec_test,
+    model_type = "multivariate",
+    control = list(max_iter = 100, tol = 0.0001),
+    collect_diagnostics = TRUE,
+    verbose = FALSE
+  )
+  
+  ## ========================================================================
+  ## ANALYSIS
+  ## ========================================================================
+  
+  cat("\n=== CONVERGENCE COMPARISON ===\n\n")
+  
+  ## Extract metrics
+  analyze_convergence <- function(fit, label) {
+    n_iter <- length(fit$diagnostics$em_iterations)
+    
+    ll_initial <- fit$diagnostics$em_iterations[[1]]$log_lik_before_mstep
+    ll_final <- fit$diagnostics$em_iterations[[n_iter]]$log_lik_after_mstep
+    ll_improvement <- ll_final - ll_initial
+    
+    ll_changes <- sapply(fit$diagnostics$em_iterations, function(x) x$ll_change)
+    
+    # Check if converged or hit max_iter
+    last_change <- ll_changes[length(ll_changes)]
+    converged <- n_iter < 100  # Didn't hit max_iter
+    
+    # Total time
+    total_time <- sum(sapply(fit$diagnostics$em_iterations, function(x) x$duration_seconds))
+    
+    list(
+      label = label,
+      n_iter = n_iter,
+      ll_initial = ll_initial,
+      ll_final = ll_final,
+      ll_improvement = ll_improvement,
+      ll_changes = ll_changes,
+      last_change = last_change,
+      converged = converged,
+      total_time = total_time
+    )
+  }
+  
+  results_strict <- analyze_convergence(fit_strict, "Strict (tol=0.001)")
+  results_relaxed <- analyze_convergence(fit_relaxed, "Relaxed (tol=0.05)")
+  results_very_strict <- analyze_convergence(fit_very_strict, "Very Strict (tol=0.0001)")
+  
+  ## Print comparison
+  print_results <- function(r) {
+    cat(r$label, ":\n")
+    cat("  Iterations:", r$n_iter, if(r$converged) "(converged)" else "(hit max_iter)", "\n")
+    cat("  Initial LL:", round(r$ll_initial, 2), "\n")
+    cat("  Final LL:", round(r$ll_final, 2), "\n")
+    cat("  Total improvement:", round(r$ll_improvement, 4), "\n")
+    cat("  Last LL change:", round(r$last_change, 6), "\n")
+    cat("  Time:", round(r$total_time, 1), "seconds\n")
+    cat("  LL decreased in", sum(r$ll_changes < 0), "iterations\n\n")
+  }
+  
+  print_results(results_strict)
+  print_results(results_relaxed)
+  print_results(results_very_strict)
+  
+  ## ========================================================================
+  ## Compare final parameter estimates
+  ## ========================================================================
+  
+  cat("=== PARAMETER COMPARISON ===\n\n")
+  
+  # Compare omega from state 1, series 1
+  omega_strict <- fit_strict$model_fits[[1]]$garch_pars[[1]]$omega
+  omega_relaxed <- fit_relaxed$model_fits[[1]]$garch_pars[[1]]$omega
+  omega_very_strict <- fit_very_strict$model_fits[[1]]$garch_pars[[1]]$omega
+  
+  cat("State 1, Series 1, omega:\n")
+  cat("  Strict:", round(omega_strict, 6), "\n")
+  cat("  Relaxed:", round(omega_relaxed, 6), "\n")
+  cat("  Very Strict:", round(omega_very_strict, 6), "\n")
+  cat("  Difference (strict vs relaxed):", round(abs(omega_strict - omega_relaxed), 6), "\n")
+  cat("  Difference (strict vs very_strict):", round(abs(omega_strict - omega_very_strict), 6), "\n\n")
+  
+  # Compare DCC alpha from state 1
+  alpha_strict <- fit_strict$model_fits[[1]]$alpha_1 %||% NA
+  alpha_relaxed <- fit_relaxed$model_fits[[1]]$alpha_1 %||% NA
+  alpha_very_strict <- fit_very_strict$model_fits[[1]]$alpha_1 %||% NA
+  
+  cat("State 1, DCC alpha_1:\n")
+  cat("  Strict:", round(alpha_strict, 6), "\n")
+  cat("  Relaxed:", round(alpha_relaxed, 6), "\n")
+  cat("  Very Strict:", round(alpha_very_strict, 6), "\n")
+  if (!is.na(alpha_strict) && !is.na(alpha_relaxed)) {
+    cat("  Difference (strict vs relaxed):", round(abs(alpha_strict - alpha_relaxed), 6), "\n")
+  }
+  if (!is.na(alpha_strict) && !is.na(alpha_very_strict)) {
+    cat("  Difference (strict vs very_strict):", round(abs(alpha_strict - alpha_very_strict), 6), "\n")
+  }
+  cat("\n")
+  
+  ## ========================================================================
+  ## Compare log-likelihood values
+  ## ========================================================================
+  
+  cat("=== LOG-LIKELIHOOD COMPARISON ===\n\n")
+  
+  ll_diff_relaxed <- abs(results_relaxed$ll_final - results_strict$ll_final)
+  ll_diff_very_strict <- abs(results_very_strict$ll_final - results_strict$ll_final)
+  
+  cat("Final LL difference (strict vs relaxed):", round(ll_diff_relaxed, 6), "\n")
+  cat("Final LL difference (strict vs very_strict):", round(ll_diff_very_strict, 6), "\n")
+  cat("Is relaxed 'close enough'?", ll_diff_relaxed < 0.1, "\n")
+  cat("Relative difference:", round(ll_diff_relaxed / abs(results_strict$ll_final) * 100, 4), "%\n\n")
+  
+  ## ========================================================================
+  ## Visualize LL evolution
+  ## ========================================================================
+  
+  cat("=== LL EVOLUTION (last 10 iterations) ===\n\n")
+  
+  show_tail <- function(r, n = 10) {
+    start_idx <- max(1, length(r$ll_changes) - n + 1)
+    tail_changes <- r$ll_changes[start_idx:length(r$ll_changes)]
+    cat(r$label, ":\n")
+    cat("  Changes:", paste(round(tail_changes, 6), collapse = ", "), "\n\n")
+  }
+  
+  show_tail(results_strict)
+  show_tail(results_relaxed)
+  show_tail(results_very_strict)
+  
+  ## ========================================================================
+  ## TESTS
+  ## ========================================================================
+  
+  ## Test 1: All should produce finite LL
+  expect_true(is.finite(fit_strict$log_likelihood))
+  expect_true(is.finite(fit_relaxed$log_likelihood))
+  expect_true(is.finite(fit_very_strict$log_likelihood))
+  
+  ## Test 2: Relaxed should stop earlier (fewer iterations)
+  expect_true(results_relaxed$n_iter <= results_strict$n_iter,
+              info = "Relaxed tolerance should require fewer iterations")
+  
+  ## Test 3: Final LL should be very close despite different tolerance
+  expect_true(ll_diff_relaxed < 1.0,
+              info = paste("Final LL should be similar. Difference:", ll_diff_relaxed))
+  
+  ## Test 4: Parameter estimates should be close
+  param_diff <- abs(omega_strict - omega_relaxed)
+  expect_true(param_diff < 0.01,
+              info = paste("Parameter estimates should be similar. Omega difference:", param_diff))
+  
+  ## Test 5: Relaxed should save substantial time
+  time_saved <- results_strict$total_time - results_relaxed$total_time
+  time_saved_pct <- time_saved / results_strict$total_time * 100
+  cat("Time saved with relaxed tolerance:", round(time_saved, 1), 
+      "seconds (", round(time_saved_pct, 1), "%)\n")
+  
+  ## CONCLUSION
+  cat("\n=== CONCLUSION ===\n")
+  cat("Based on this analysis:\n")
+  if (ll_diff_relaxed < 0.1 && param_diff < 0.01) {
+    cat("✓ tol=0.05 appears APPROPRIATE for LL in the hundreds\n")
+    cat("✓ Final estimates are nearly identical\n")
+    cat("✓ Substantial time savings with relaxed tolerance\n")
+  } else if (ll_diff_relaxed < 1.0) {
+    cat("~ tol=0.05 may be slightly too relaxed but still reasonable\n")
+    cat("  Consider tol=0.01 as a middle ground\n")
+  } else {
+    cat("✗ tol=0.05 may be too relaxed - final estimates differ substantially\n")
+    cat("  Recommend stricter tolerance\n")
+  }
+```
+
+tol=0.05 may be too relaxed - final estimates differ substantially
+  Recommend stricter tolerance
+
+
+
+DIAGNOSTIC: Detailed M-step analysis with beta near zero  
+NALYZING M-STEP WITH BETA LOWER BOUND = 1e-6  
+This will show us WHY beta converges to zero
+```{r}
+
+  cat("\n=== ANALYZING M-STEP WITH BETA LOWER BOUND = 1e-6 ===\n")
+  cat("This will show us WHY beta converges to zero\n\n")
+  
+  ## Simulate proper 2-state MS-DCC-GARCH data
+  set.seed(456)
+  n <- 300
+  k <- 2
+  
+  ## STATE-DEPENDENT PARAMETERS (clearly different states)
+  ## State 1: Low volatility, low correlation
+  omega_1 <- c(0.05, 0.08)
+  alpha_garch_1 <- c(0.08, 0.10)
+  beta_garch_1 <- c(0.85, 0.80)
+  
+  ## State 2: High volatility, high correlation  
+  omega_2 <- c(0.15, 0.20)
+  alpha_garch_2 <- c(0.15, 0.18)
+  beta_garch_2 <- c(0.70, 0.65)
+  
+  ## Markov switching
+  P <- matrix(c(0.95, 0.05,   # P(stay in 1), P(1->2)
+                0.10, 0.90),  # P(2->1), P(stay in 2)
+              nrow = 2, byrow = TRUE)
+  
+  ## Generate state sequence
+  states <- numeric(n)
+  states[1] <- 1
+  for (t in 2:n) {
+    states[t] <- sample(1:2, 1, prob = P[states[t-1], ])
+  }
+  
+  ## Simulate
+  y_ms <- matrix(0, n, k)
+  h_ms <- matrix(0, n, k)
+  
+  for (i in 1:k) {
+    h_ms[1, i] <- 0.1
+    y_ms[1, i] <- rnorm(1) * sqrt(h_ms[1, i])
+    
+    for (t in 2:n) {
+      s <- states[t]
+      omega <- if(s == 1) omega_1[i] else omega_2[i]
+      alpha <- if(s == 1) alpha_garch_1[i] else alpha_garch_2[i]
+      beta <- if(s == 1) beta_garch_1[i] else beta_garch_2[i]
+      
+      h_ms[t, i] <- omega + alpha * y_ms[t-1, i]^2 + beta * h_ms[t-1, i]
+      y_ms[t, i] <- rnorm(1) * sqrt(h_ms[t, i])
+    }
+  }
+  
+  colnames(y_ms) <- c("s1", "s2")
+  
+  cat("True state distribution:\n")
+  print(table(states))
+  cat("\n")
+  
+  ## Create specification
+  spec_test <- list(
+    list(
+      var_order = 1,
+      garch_spec_fun = "dcc_modelspec",
+      distribution = "mvn",
+      garch_spec_args = list(
+        dcc_order = c(1, 1),
+        dynamics = "dcc",
+        garch_model = list(
+          univariate = list(
+            list(model = "garch", garch_order = c(1, 1), distribution = "norm"),
+            list(model = "garch", garch_order = c(1, 1), distribution = "norm")
+          )
+        )
+      ),
+      start_pars = list(
+        var_pars = rep(0.1, 6),
+        garch_pars = list(
+          list(omega = 0.06, alpha1 = 0.08, beta1 = 0.85),
+          list(omega = 0.09, alpha1 = 0.10, beta1 = 0.80)
+        ),
+        dcc_pars = list(alpha_1 = 0.04, beta_1 = 0.93)
+      )
+    ),
+    list(
+      var_order = 1,
+      garch_spec_fun = "dcc_modelspec",
+      distribution = "mvn",
+      garch_spec_args = list(
+        dcc_order = c(1, 1),
+        dynamics = "dcc",
+        garch_model = list(
+          univariate = list(
+            list(model = "garch", garch_order = c(1, 1), distribution = "norm"),
+            list(model = "garch", garch_order = c(1, 1), distribution = "norm")
+          )
+        )
+      ),
+      start_pars = list(
+        var_pars = rep(0.1, 6),
+        garch_pars = list(
+          list(omega = 0.16, alpha1 = 0.16, beta1 = 0.68),
+          list(omega = 0.21, alpha1 = 0.19, beta1 = 0.63)
+        ),
+        dcc_pars = list(alpha_1 = 0.13, beta_1 = 0.82)
+      )
+    )
+  )
+  
+  ## Run with VERBOSE to capture M-step details
+  ## Only need to run until iteration 26-28 when beta=0 is established
+  fit <- fit_ms_varma_garch(
+    y = y_ms,
+    M = 2,
+    spec = spec_test,
+    model_type = "multivariate",
+    control = list(max_iter = 28, tol = 0.001),  # Just past the problem
+    collect_diagnostics = TRUE,
+    verbose = TRUE,
+    verbose_file = "../logs/beta_zero_diagnosis.log"
+  )
+  
+  cat("\n✓ Verbose output saved to: beta_zero_diagnosis.log\n")
+  cat("✓ Fit object saved to global environment as: fit_beta_zero\n\n")
+  
+  ## Analyze what we captured
+  ll_changes <- sapply(fit$diagnostics$em_iterations, function(x) x$ll_change)
+  decrease_iters <- which(ll_changes < -1e-6)
+  
+  cat("=== SUMMARY ===\n")
+  cat("Iterations with LL decreases:", length(decrease_iters), "\n")
+  cat("Decrease iterations:", paste(decrease_iters, collapse = ", "), "\n\n")
+  
+  ## Check for DCC penalties
+  dcc_warnings <- Filter(function(w) w$type == "dcc_penalty", 
+                         fit$diagnostics$warnings)
+  
+  cat("DCC penalty warnings:", length(dcc_warnings), "\n")
+  if (length(dcc_warnings) > 0) {
+    cat("\nFirst 5 penalties:\n")
+    for (w in head(dcc_warnings, 5)) {
+      cat("  Iter", w$iteration, ":", w$message, "\n")
+      if (!is.null(w$details)) {
+        cat("    ", paste(names(w$details), "=", sapply(w$details, round, 4), 
+                          collapse = ", "), "\n")
+      }
+    }
+  }
+  
+  ## Check beta evolution
+  cat("\n=== BETA EVOLUTION ===\n")
+  for (state_num in 1:2) {
+    state_key <- paste0("state_", state_num)
+    state_data <- fit$diagnostics$parameter_evolution[[state_key]]
+    
+    cat("\nState", state_num, ":\n")
+    for (iter_data in tail(state_data, 10)) {
+      beta_val <- iter_data$parameters$beta_1
+      alpha_val <- iter_data$parameters$alpha_1
+      if (!is.null(beta_val) && !is.null(alpha_val)) {
+        cat(sprintf("  Iter %2d: alpha=%.4f, beta=%.4f, sum=%.4f\n",
+                    iter_data$iteration, alpha_val, beta_val, alpha_val + beta_val))
+      }
+    }
+  }
+  
+  ## Save for analysis
+  saveRDS(fit, "fit_beta_zero.rds")
+  assign("fit_beta_zero", fit, envir = .GlobalEnv)
+  
+  cat("\n=== NEXT STEPS ===\n")
+  cat("1. Examine beta_zero_diagnosis.log for M-step optimization details\n")
+  cat("2. Look for 'DCC M-STEP DIAGNOSTIC' sections around iterations 22-26\n")
+  cat("3. Check if optimizer is reporting convergence or hitting bounds\n")
+  cat("4. Look for any 'Returning penalty' messages\n")
+```
+
+=== ANALYZING M-STEP WITH BETA LOWER BOUND = 1e-6 ===
+This will show us WHY beta converges to zero
+
+True state distribution:
+states
+  1   2 
+218  82 
+
+Model fitting complete.
+
+✓ Verbose output saved to: beta_zero_diagnosis.log
+✓ Fit object saved to global environment as: fit_beta_zero
+
+=== SUMMARY ===
+Iterations with LL decreases: 5 
+Decrease iterations: 24, 25, 26, 27, 28 
+
+DCC penalty warnings: 0 
+
+=== BETA EVOLUTION ===
+
+State 1 :
+  Iter 19: alpha=0.1515, beta=0.0000, sum=0.1515
+  Iter 20: alpha=0.1651, beta=0.0000, sum=0.1651
+  Iter 21: alpha=0.1758, beta=0.0000, sum=0.1758
+  Iter 22: alpha=0.1839, beta=0.0000, sum=0.1839
+  Iter 23: alpha=0.1901, beta=0.0000, sum=0.1901
+  Iter 24: alpha=0.1948, beta=0.0000, sum=0.1948
+  Iter 25: alpha=0.1982, beta=0.0000, sum=0.1982
+  Iter 26: alpha=0.2009, beta=0.0000, sum=0.2009
+  Iter 27: alpha=0.2027, beta=0.0000, sum=0.2027
+  Iter 28: alpha=0.2038, beta=0.0000, sum=0.2038
+
+State 2 :
+  Iter 19: alpha=0.2336, beta=0.1457, sum=0.3793
+  Iter 20: alpha=0.2223, beta=0.1518, sum=0.3742
+  Iter 21: alpha=0.2134, beta=0.1572, sum=0.3706
+  Iter 22: alpha=0.2066, beta=0.1621, sum=0.3687
+  Iter 23: alpha=0.2015, beta=0.1669, sum=0.3683
+  Iter 24: alpha=0.1976, beta=0.1716, sum=0.3692
+  Iter 25: alpha=0.1946, beta=0.1765, sum=0.3711
+  Iter 26: alpha=0.1925, beta=0.1811, sum=0.3736
+  Iter 27: alpha=0.1911, beta=0.1861, sum=0.3771
+  Iter 28: alpha=0.1899, beta=0.1911, sum=0.3810
+
+=== NEXT STEPS ===
+1. Examine beta_zero_diagnosis.log for M-step optimization details
+2. Look for 'DCC M-STEP DIAGNOSTIC' sections around iterations 22-26
+3. Check if optimizer is reporting convergence or hitting bounds
+4. Look for any 'Returning penalty' messages
+
+
+
+DIAGNOSTIC: Does beta lower bound = 0.01 prevent LL decreases?  
+Change lower bound to 0.01 in estimate_dcc_parameters_weighted() first!
+```{r}
+
+  cat("\n=== TESTING BETA LOWER BOUND = 0.01 ===\n")
+  cat("NOTE: Change lower bound in estimate_dcc_parameters_weighted() first!\n\n")
+  
+  ## Simulate proper 2-state MS-DCC-GARCH data
+  set.seed(456)
+  n <- 300
+  k <- 2
+  
+  ## STATE-DEPENDENT PARAMETERS (clearly different states)
+  ## State 1: Low volatility, low correlation
+  omega_1 <- c(0.05, 0.08)
+  alpha_garch_1 <- c(0.08, 0.10)
+  beta_garch_1 <- c(0.85, 0.80)
+  
+  ## State 2: High volatility, high correlation  
+  omega_2 <- c(0.15, 0.20)
+  alpha_garch_2 <- c(0.15, 0.18)
+  beta_garch_2 <- c(0.70, 0.65)
+  
+  ## Markov switching
+  P <- matrix(c(0.95, 0.05,   # P(stay in 1), P(1->2)
+                0.10, 0.90),  # P(2->1), P(stay in 2)
+              nrow = 2, byrow = TRUE)
+  
+  ## Generate state sequence
+  states <- numeric(n)
+  states[1] <- 1
+  for (t in 2:n) {
+    states[t] <- sample(1:2, 1, prob = P[states[t-1], ])
+  }
+  
+  ## Simulate
+  y_ms <- matrix(0, n, k)
+  h_ms <- matrix(0, n, k)
+  
+  for (i in 1:k) {
+    h_ms[1, i] <- 0.1
+    y_ms[1, i] <- rnorm(1) * sqrt(h_ms[1, i])
+    
+    for (t in 2:n) {
+      s <- states[t]
+      omega <- if(s == 1) omega_1[i] else omega_2[i]
+      alpha <- if(s == 1) alpha_garch_1[i] else alpha_garch_2[i]
+      beta <- if(s == 1) beta_garch_1[i] else beta_garch_2[i]
+      
+      h_ms[t, i] <- omega + alpha * y_ms[t-1, i]^2 + beta * h_ms[t-1, i]
+      y_ms[t, i] <- rnorm(1) * sqrt(h_ms[t, i])
+    }
+  }
+  
+  colnames(y_ms) <- c("s1", "s2")
+  
+  cat("True state distribution:\n")
+  print(table(states))
+  cat("\n")
+  
+  ## Create specification
+  spec_test <- list(
+    list(
+      var_order = 1,
+      garch_spec_fun = "dcc_modelspec",
+      distribution = "mvn",
+      garch_spec_args = list(
+        dcc_order = c(1, 1),
+        dynamics = "dcc",
+        garch_model = list(
+          univariate = list(
+            list(model = "garch", garch_order = c(1, 1), distribution = "norm"),
+            list(model = "garch", garch_order = c(1, 1), distribution = "norm")
+          )
+        )
+      ),
+      start_pars = list(
+        var_pars = rep(0.1, 6),
+        garch_pars = list(
+          list(omega = 0.06, alpha1 = 0.08, beta1 = 0.85),
+          list(omega = 0.09, alpha1 = 0.10, beta1 = 0.80)
+        ),
+        dcc_pars = list(alpha_1 = 0.04, beta_1 = 0.93)
+      )
+    ),
+    list(
+      var_order = 1,
+      garch_spec_fun = "dcc_modelspec",
+      distribution = "mvn",
+      garch_spec_args = list(
+        dcc_order = c(1, 1),
+        dynamics = "dcc",
+        garch_model = list(
+          univariate = list(
+            list(model = "garch", garch_order = c(1, 1), distribution = "norm"),
+            list(model = "garch", garch_order = c(1, 1), distribution = "norm")
+          )
+        )
+      ),
+      start_pars = list(
+        var_pars = rep(0.1, 6),
+        garch_pars = list(
+          list(omega = 0.16, alpha1 = 0.16, beta1 = 0.68),
+          list(omega = 0.21, alpha1 = 0.19, beta1 = 0.63)
+        ),
+        dcc_pars = list(alpha_1 = 0.13, beta_1 = 0.82)
+      )
+    )
+  )
+  
+  ## Run with same settings as Test 1 for comparison
+  fit <- fit_ms_varma_garch(
+    y = y_ms,
+    M = 2,
+    spec = spec_test,
+    model_type = "multivariate",
+    control = list(max_iter = 28, tol = 0.001),
+    collect_diagnostics = TRUE,
+    verbose = TRUE,
+    verbose_file = "../logs/beta_bounded_diagnosis.log"
+  )
+  
+  ## Analyze
+  ll_changes <- sapply(fit$diagnostics$em_iterations, function(x) x$ll_change)
+  decrease_iters <- which(ll_changes < -1e-6)
+  
+  cat("=== COMPARISON ===\n")
+  cat("With beta >= 0.01:\n")
+  cat("  Iterations with LL decreases:", length(decrease_iters), "\n")
+  
+  if (length(decrease_iters) > 0) {
+    cat("  Decrease iterations:", paste(decrease_iters, collapse = ", "), "\n")
+    cat("  ⚠️  Problem NOT fixed by beta bound\n")
+  } else {
+    cat("  ✓ NO LL decreases! Problem appears to be fixed.\n")
+  }
+  
+  ## Check final beta values
+  cat("\n=== FINAL BETA VALUES ===\n")
+  for (j in 1:2) {
+    beta_val <- fit$model_fits[[j]]$beta_1
+    alpha_val <- fit$model_fits[[j]]$alpha_1
+    cat("State", j, ": alpha=", round(alpha_val %||% NA, 4), 
+        ", beta=", round(beta_val %||% NA, 4), "\n")
+  }
+  
+  saveRDS(fit, "fit_beta_bounded.rds")
+  assign("fit_beta_bounded", fit, envir = .GlobalEnv)
+```
+
+=== TESTING BETA LOWER BOUND = 0.01 ===
+NOTE: Change lower bound in estimate_dcc_parameters_weighted() first!
+
+True state distribution:
+states
+  1   2 
+218  82 
+
+Model fitting complete.
+=== COMPARISON ===
+With beta >= 0.01:
+  Iterations with LL decreases: 5 
+  Decrease iterations: 24, 25, 26, 27, 28 
+  ⚠️  Problem NOT fixed by beta bound
+
+=== FINAL BETA VALUES ===
+State 1 : alpha= 0.2015 , beta= 0.01 
+State 2 : alpha= 0.1901 , beta= 0.1894 
+
+
+```{r}
+# ============================================================================
+## DIAGNOSTIC: Investigate tsgarch omega bounds and behavior
+## ============================================================================
+## 
+## Questions to answer:
+## 1. What are tsgarch's internal bounds for omega?
+## 2. What happens when we feed it near-zero variance data?
+## 3. Does tsgarch issue warnings or errors at boundaries?
+##
+## Run this script and share the output.
+## ============================================================================
+
+#library(tsgarch)
+#library(xts)
+
+cat("=== CONFIRMED: tsgarch omega bounds ===\n")
+cat("Omega lower bound: 1e-12\n")
+cat("Omega upper bound: ~97.9\n\n")
+
+
+cat("=== DIAGNOSTIC 2: Near-zero variance data ===\n\n")
+
+test_sds <- c(0.1, 0.01, 0.001, 0.0001, 1e-5, 1e-6, 1e-7, 1e-8)
+
+for (sd_val in test_sds) {
+  cat("Testing sd =", format(sd_val, scientific = TRUE), "...\n")
+  
+  set.seed(123)
+  test_data <- xts(rnorm(200, sd = sd_val), order.by = Sys.Date() - (200:1))
+  
+  spec <- garch_modelspec(
+    y = test_data,
+    model = "garch",
+    garch_order = c(1, 1),
+    distribution = "norm"
+  )
+  
+  fit <- tryCatch({
+    suppressWarnings(tsmethods::estimate(spec))
+  }, error = function(e) {
+    cat("  ERROR:", e$message, "\n")
+    return(NULL)
+  })
+  
+  if (!is.null(fit)) {
+    omega_est <- fit$parmatrix[parameter == "omega"]$value
+    alpha_est <- fit$parmatrix[parameter == "alpha1"]$value
+    beta_est <- fit$parmatrix[parameter == "beta1"]$value
+    
+    cat(sprintf("  omega = %.2e, alpha = %.4f, beta = %.4f\n", 
+                omega_est, alpha_est, beta_est))
+    
+    ## Check if near lower bound (1e-12)
+    if (omega_est < 1e-10) {
+      cat("  *** OMEGA NEAR LOWER BOUND! ***\n")
+    }
+  }
+  cat("\n")
+}
+
+
+cat("\n=== DIAGNOSTIC 3: Constant/zero data ===\n\n")
+
+set.seed(123)
+constant_data <- xts(rep(0.01, 200), order.by = Sys.Date() - (200:1))
+
+spec_const <- garch_modelspec(
+  y = constant_data,
+  model = "garch",
+  garch_order = c(1, 1),
+  distribution = "norm"
+)
+
+cat("Fitting GARCH to constant data...\n")
+
+fit_const <- tryCatch({
+  suppressWarnings(tsmethods::estimate(spec_const))
+}, error = function(e) {
+  cat("ERROR:", e$message, "\n")
+  return(NULL)
+})
+
+if (!is.null(fit_const)) {
+  omega_est <- fit_const$parmatrix[parameter == "omega"]$value
+  cat(sprintf("  omega = %.2e\n", omega_est))
+  if (omega_est < 1e-10) {
+    cat("  *** OMEGA AT/NEAR LOWER BOUND! ***\n")
+  }
+}
+
+
+cat("\n=== DIAGNOSTIC 4: Near-zero data (sd = 1e-10) ===\n\n")
+
+set.seed(123)
+extreme_data <- xts(rnorm(200, sd = 1e-10), order.by = Sys.Date() - (200:1))
+
+spec_extreme <- garch_modelspec(
+  y = extreme_data,
+  model = "garch",
+  garch_order = c(1, 1),
+  distribution = "norm"
+)
+
+cat("Fitting GARCH to sd=1e-10 data...\n")
+
+fit_extreme <- tryCatch({
+  suppressWarnings(tsmethods::estimate(spec_extreme))
+}, error = function(e) {
+  cat("ERROR:", e$message, "\n")
+  return(NULL)
+})
+
+if (!is.null(fit_extreme)) {
+  omega_est <- fit_extreme$parmatrix[parameter == "omega"]$value
+  cat(sprintf("  omega = %.2e\n", omega_est))
+  if (omega_est < 1e-10) {
+    cat("  *** OMEGA AT/NEAR LOWER BOUND! ***\n")
+  }
+}
+
+cat("\n=== END DIAGNOSTICS ===\n")
+```
+
+```{r}
+## ============================================================================
+## DEBUG: Why isn't omega boundary detection triggering?
+## ============================================================================
+
+#library(tsbs)  ## Or source your files
+
+set.seed(123)
+n <- 200
+k <- 2
+
+## Low variance data (same as test)
+y_low_var <- matrix(rnorm(n * k, sd = 0.001), ncol = k)
+colnames(y_low_var) <- c("s1", "s2")
+
+residuals_data <- y_low_var
+colnames(residuals_data) <- c("series_1", "series_2")
+
+spec_dcc <- list(
+  garch_spec_fun = "dcc_modelspec",
+  distribution = "mvn",
+  garch_spec_args = list(
+    dcc_order = c(1, 1),
+    dynamics = "dcc",
+    garch_model = list(univariate = list(
+      list(model = "garch", garch_order = c(1, 1), distribution = "norm"),
+      list(model = "garch", garch_order = c(1, 1), distribution = "norm")
+    ))
+  ),
+  start_pars = list(
+    garch_pars = list(
+      list(omega = 0.01, alpha1 = 0.1, beta1 = 0.8),
+      list(omega = 0.01, alpha1 = 0.1, beta1 = 0.8)
+    ),
+    dcc_pars = list(alpha_1 = 0.05, beta_1 = 0.90),
+    dist_pars = NULL
+  )
+)
+
+weights <- rep(1, nrow(residuals_data))
+diagnostics <- create_diagnostic_collector()
+
+cat("=== Calling estimate_garch_weighted_dcc ===\n\n")
+
+result <- estimate_garch_weighted_dcc(
+  residuals = residuals_data,
+  weights = weights,
+  spec = spec_dcc,
+  diagnostics = diagnostics,
+  iteration = 1,
+  state = 1,
+  verbose = TRUE  ## Enable verbose!
+)
+
+cat("\n=== Examining results ===\n\n")
+
+cat("Structure of garch_pars:\n")
+str(result$coefficients$garch_pars)
+
+cat("\n\nOmega values:\n")
+for (i in 1:k) {
+  omega_val <- result$coefficients$garch_pars[[i]]$omega
+  cat(sprintf("  Series %d: omega = %.2e", i, omega_val))
+  if (!is.null(omega_val) && omega_val < 1e-8) {
+    cat(" *** BELOW THRESHOLD ***")
+  }
+  cat("\n")
+}
+
+cat("\n\nBoundary events in returned diagnostics:\n")
+print(result$diagnostics$boundary_events)
+
+cat("\n\nAll boundary events (omega-related):\n")
+omega_events <- Filter(
+  function(e) grepl("omega", e$parameter),
+  result$diagnostics$boundary_events
+)
+print(omega_events)
+cat("Count:", length(omega_events), "\n")
+```
+
+
+```{r}
+## ============================================================================
+## DEBUG: Find what SD triggers omega < 1e-8 via estimate_garch_weighted_dcc
+## ============================================================================
+
+#library(tsbs)
+
+test_sds <- c(0.01, 0.001, 0.0001, 1e-5, 1e-6)
+
+cat("Testing different SDs to find omega boundary trigger point:\n\n")
+
+for (sd_val in test_sds) {
+  set.seed(123)
+  n <- 200
+  k <- 2
+  
+  y_test <- matrix(rnorm(n * k, sd = sd_val), ncol = k)
+  colnames(y_test) <- c("s1", "s2")
+  
+  residuals_data <- y_test
+  colnames(residuals_data) <- c("series_1", "series_2")
+  
+  spec_dcc <- list(
+    garch_spec_fun = "dcc_modelspec",
+    distribution = "mvn",
+    garch_spec_args = list(
+      dcc_order = c(1, 1),
+      dynamics = "dcc",
+      garch_model = list(univariate = list(
+        list(model = "garch", garch_order = c(1, 1), distribution = "norm"),
+        list(model = "garch", garch_order = c(1, 1), distribution = "norm")
+      ))
+    ),
+    start_pars = list(
+      garch_pars = list(
+        list(omega = 0.01, alpha1 = 0.1, beta1 = 0.8),
+        list(omega = 0.01, alpha1 = 0.1, beta1 = 0.8)
+      ),
+      dcc_pars = list(alpha_1 = 0.05, beta_1 = 0.90),
+      dist_pars = NULL
+    )
+  )
+  
+  weights <- rep(1, nrow(residuals_data))
+  diagnostics <- create_diagnostic_collector()
+  
+  result <- tryCatch({
+    estimate_garch_weighted_dcc(
+      residuals = residuals_data,
+      weights = weights,
+      spec = spec_dcc,
+      diagnostics = diagnostics,
+      iteration = 1,
+      state = 1,
+      verbose = FALSE
+    )
+  }, error = function(e) {
+    cat(sprintf("SD = %.0e: ERROR - %s\n", sd_val, e$message))
+    return(NULL)
+  })
+  
+  if (!is.null(result)) {
+    omega1 <- result$coefficients$garch_pars[[1]]$omega
+    omega2 <- result$coefficients$garch_pars[[2]]$omega
+    
+    flag1 <- if (omega1 < 1e-8) " *** BELOW 1e-8 ***" else ""
+    flag2 <- if (omega2 < 1e-8) " *** BELOW 1e-8 ***" else ""
+    
+    cat(sprintf("SD = %.0e: omega1 = %.2e%s, omega2 = %.2e%s\n", 
+                sd_val, omega1, flag1, omega2, flag2))
+  }
+}
+
+cat("\n\nConclusion: Adjust test to use SD that produces omega < 1e-8,\n")
+cat("OR adjust threshold to catch realistic boundary cases.\n")
+```
+

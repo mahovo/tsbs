@@ -480,8 +480,19 @@ msvar_bootstrap <- function(
 #' @param spec A list of model specifications, one for each of the M states.
 #' @param model_type A character string, either "univariate" or "multivariate".
 #' @param control A list of control parameters for the EM algorithm.
+#' @param return_fit If `TRUE`, `tsbs()` will return model fit when 
+#' `bs_type = "ms_varma_garch"`. Default is `return_fit = FALSE`. If 
+#'  `bs_type = "ms_varma_garch"`, `return_fit = TRUE` and 
+#'  `collect_diagnostics = TRUE` diagnostics can be extracted from
+#'  `result$fit$diagnostics`. See \code{vignette("Diagnostics", package = "tsbs")}.
 #' @param parallel A logical value indicating whether to use parallel processing.
 #' @param num_cores An integer specifying the number of cores for parallel processing.
+#' @param collect_diagnostics Logical. Collect diagnostics or not.
+#' @param verbose Logical. If TRUE, print detailed diagnostic information during 
+#'   estimation. Default is FALSE.
+#' @param verbose_file Character string specifying path to file for verbose output.
+#'   If NULL (default), verbose output goes to console. If specified, all verbose
+#'   output is written to this file instead. Only used if verbose = TRUE.
 #' 
 #' @details
 #' The fitted model is defined as:  
@@ -523,6 +534,44 @@ msvar_bootstrap <- function(
 #' entire model. The EM algorithm using a Hamilton Filter & Kim Smoother for the 
 #' E-step is used to find the Maximum Likelihood Estimate (MLE) of \eqn{\Psi}.
 #' 
+#' The tsbs package uses different optimization strategies for DCC models
+#' depending on the model order:
+#' 
+#' \strong{DCC(1,1) - Reparameterized Optimization}
+#' 
+#' For the common DCC(1,1) case, we use a reparameterization that transforms
+
+#' the constrained problem into an unconstrained one:
+#' \itemize{
+#'   \item Original: \eqn{\alpha \in (0,1), \beta \in (0,1), \alpha + \beta < 1}
+#'   \item Reparameterized: \eqn{persistence \in (0,1), ratio \in (0,1)}
+#' }
+#' 
+#' where \eqn{persistence = \alpha + \beta} and \eqn{ratio = \alpha/(\alpha + \beta)}.
+#' 
+#' This eliminates the stationarity constraint since \eqn{\alpha + \beta = persistence < 1}
+#' is automatically satisfied by the box constraint on persistence.
+#' 
+#' Benefits:
+#' \itemize{
+#'   \item No penalty function discontinuities
+#'   \item More stable optimization near high-persistence regions
+#'   \item Eliminates "dcc_penalty" warnings from optimizer exploration
+#' }
+#' 
+#' \strong{DCC(p,q) with max(p,q) > 1 - Penalty Method}
+#' 
+#' For higher-order DCC models, reparameterization becomes significantly more
+#' complex (requiring softmax distributions over parameter vectors). We therefore
+#' use the standard penalty method:
+#' \itemize{
+#'   \item Box constraints: \eqn{\alpha_j, \beta_j \in (\epsilon, 1-\epsilon)}
+#'   \item Stationarity enforced via penalty when \eqn{\sum \alpha + \sum \beta \geq 1}
+#' }
+#' 
+#' This may result in optimizer instability warnings for models with high
+#' persistence.
+#' 
 #' @return A list of bootstrapped time series matrices.
 #' 
 #' @references
@@ -542,7 +591,11 @@ ms_varma_garch_bs <- function(
     model_type = c("univariate", "multivariate"),
     control = list(),
     parallel = FALSE,
-    num_cores = 1L
+    num_cores = 1L,
+    return_fit = FALSE,
+    collect_diagnostics = FALSE,
+    verbose = FALSE,
+    verbose_file = NULL
 ) {
   
   ## ---- 1. Input Validation ----
@@ -562,7 +615,12 @@ ms_varma_garch_bs <- function(
     d = d,
     spec = spec,
     model_type = model_type,
-    control = control
+    control = control,
+    # parallel = parallel,
+    # num_cores = num_cores,
+    collect_diagnostics = collect_diagnostics,
+    verbose = verbose,
+    verbose_file = verbose_file
   )
   
   ## ---- 3. Determine the Most Likely State Sequence ----
@@ -598,7 +656,14 @@ ms_varma_garch_bs <- function(
     num_cores = num_cores
   )
   
-  return(bootstrap_samples)
+  if (return_fit) {
+    list(
+      bootstrap_series = bootstrap_samples,
+      fit = ms_model
+    )
+  } else {
+    bootstrap_samples
+  }
 }
 
 

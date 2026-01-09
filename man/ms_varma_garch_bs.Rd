@@ -15,7 +15,11 @@ ms_varma_garch_bs(
   model_type = c("univariate", "multivariate"),
   control = list(),
   parallel = FALSE,
-  num_cores = 1L
+  num_cores = 1L,
+  return_fit = FALSE,
+  collect_diagnostics = FALSE,
+  verbose = FALSE,
+  verbose_file = NULL
 )
 }
 \arguments{
@@ -44,6 +48,21 @@ to generate. Defaults to 100.}
 \item{parallel}{A logical value indicating whether to use parallel processing.}
 
 \item{num_cores}{An integer specifying the number of cores for parallel processing.}
+
+\item{return_fit}{If \code{TRUE}, \code{tsbs()} will return model fit when
+\code{bs_type = "ms_varma_garch"}. Default is \code{return_fit = FALSE}. If
+\code{bs_type = "ms_varma_garch"}, \code{return_fit = TRUE} and
+\code{collect_diagnostics = TRUE} diagnostics can be extracted from
+\code{result$fit$diagnostics}. See \code{vignette("Diagnostics", package = "tsbs")}.}
+
+\item{collect_diagnostics}{Logical. Collect diagnostics or not.}
+
+\item{verbose}{Logical. If TRUE, print detailed diagnostic information during
+estimation. Default is FALSE.}
+
+\item{verbose_file}{Character string specifying path to file for verbose output.
+If NULL (default), verbose output goes to console. If specified, all verbose
+output is written to this file instead. Only used if verbose = TRUE.}
 }
 \value{
 A list of bootstrapped time series matrices.
@@ -93,6 +112,43 @@ the complete set of ARIMA-GARCH parameters for state \eqn{j}, and let
 \eqn{\Psi = \{\Psi_1, \dots, \Psi_M, P\}} be the full parameter set for the
 entire model. The EM algorithm using a Hamilton Filter & Kim Smoother for the
 E-step is used to find the Maximum Likelihood Estimate (MLE) of \eqn{\Psi}.
+
+The tsbs package uses different optimization strategies for DCC models
+depending on the model order:
+
+\strong{DCC(1,1) - Reparameterized Optimization}
+
+For the common DCC(1,1) case, we use a reparameterization that transforms
+the constrained problem into an unconstrained one:
+\itemize{
+\item Original: \eqn{\alpha \in (0,1), \beta \in (0,1), \alpha + \beta < 1}
+\item Reparameterized: \eqn{persistence \in (0,1), ratio \in (0,1)}
+}
+
+where \eqn{persistence = \alpha + \beta} and \eqn{ratio = \alpha/(\alpha + \beta)}.
+
+This eliminates the stationarity constraint since \eqn{\alpha + \beta = persistence < 1}
+is automatically satisfied by the box constraint on persistence.
+
+Benefits:
+\itemize{
+\item No penalty function discontinuities
+\item More stable optimization near high-persistence regions
+\item Eliminates "dcc_penalty" warnings from optimizer exploration
+}
+
+\strong{DCC(p,q) with max(p,q) > 1 - Penalty Method}
+
+For higher-order DCC models, reparameterization becomes significantly more
+complex (requiring softmax distributions over parameter vectors). We therefore
+use the standard penalty method:
+\itemize{
+\item Box constraints: \eqn{\alpha_j, \beta_j \in (\epsilon, 1-\epsilon)}
+\item Stationarity enforced via penalty when \eqn{\sum \alpha + \sum \beta \geq 1}
+}
+
+This may result in optimizer instability warnings for models with high
+persistence.
 }
 \references{
 Natatou Moutari, D. et al. (2021). Dependence Modeling and Risk Assessment

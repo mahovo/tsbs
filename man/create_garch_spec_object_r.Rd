@@ -4,17 +4,40 @@
 \alias{create_garch_spec_object_r}
 \title{Create a GARCH Specification Object (Convenience Function)}
 \usage{
-create_garch_spec_object_r(residuals, spec, model_type, current_pars)
+create_garch_spec_object_r(
+  residuals,
+  spec,
+  model_type,
+  current_pars,
+  diagnostics = NULL,
+  iteration = NULL,
+  state = NULL,
+  verbose = FALSE
+)
 }
 \arguments{
-\item{residuals}{}
+\item{residuals}{Numeric}
 
-\item{spec}{}
+\item{spec}{A spec list}
 
-\item{model_type}{}
+\item{model_type}{Character string}
+
+\item{current_pars}{A list of parameters}
+
+\item{diagnostics}{diagnostics}
+
+\item{iteration}{iteration}
+
+\item{state}{state}
+
+\item{verbose}{verbose}
+}
+\value{
+A GARCH specification object
 }
 \description{
-This is a convenience function that handles the complex,
-model-specific logic for creating both univariate and multivariate GARCH
-specification objects.
+Convenience function that handles the complex, model-specific
+logic for creating both univariate and multivariate GARCH specification
+objects for the purpose of log-likelihood calculation during the
+EM-algorithm.
 }

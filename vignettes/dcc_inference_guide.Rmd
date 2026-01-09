@@ -1,0 +1,329 @@
+---
+title: "DCC Parameter Inference Guide"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{DCC Parameter Inference Guide}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r setup, include = FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>",
+  fig.width = 7,
+  fig.height = 5
+)
+```
+
+## Overview
+
+This vignette provides guidance on inference for DCC(1,1) parameters in the tsbs package. Based on extensive validation studies, we document the statistical properties of DCC estimation and recommend appropriate inference methods.
+
+**Key Finding**: The DCC likelihood surface is highly anisotropic—approximately 8x flatter in the beta direction than the alpha direction. This causes Hessian-based standard errors to severely underestimate uncertainty for beta. Bootstrap and profile likelihood methods provide more reliable inference.
+
+## Executive Summary
+
+| Parameter | Recommended Method | Reason |
+|-----------|-------------------|--------|
+| Alpha (α) | Hessian-based SE | Well-calibrated (ratio ~0.8) |
+| Beta (β) | Bootstrap or Profile Likelihood | Hessian underestimates by ~5-6x |
+| Persistence (α+β) | Delta method or bootstrap | May be better identified than individual parameters |
+
+## Likelihood Surface Characteristics
+
+### The Flat Beta Problem
+
+The DCC(1,1) model has parameters α (news impact) and β (persistence). Our validation studies reveal that the likelihood surface has highly anisotropic curvature:
+
+```
+Curvature Analysis (typical results with n=1000, α=0.05, β=0.90):
+┌─────────────────────────────────────────────────────────────────┐
+│ Metric                        │ Alpha    │ Beta     │ Ratio    │
+├─────────────────────────────────────────────────────────────────┤
+│ d²NLL/dθ² (curvature)         │ ~4900    │ ~630     │ 7.7x     │
+│ NLL change over ±0.05         │ ~7.4     │ ~1.7     │ 4.3x     │
+│ Hessian eigenvalue ratio      │          │          │ 16.2x    │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+The "flat direction" eigenvector is approximately (0.25, -0.97), meaning the likelihood is nearly constant along lines in parameter space. This is a **fundamental property of DCC with high persistence**, not an implementation error.
+
+### Visualization
+
+The likelihood contours are elongated in the beta direction:
+
+```{r eval=FALSE}
+# Compute and visualize likelihood surface
+surface <- compute_nll_surface(std_resid, weights, Qbar,
+                                alpha_range = c(0.01, 0.15),
+                                beta_range = c(0.75, 0.99))
+plot_nll_contours(surface, mle_params = c(alpha, beta))
+```
+
+## Validation Against tsmarch
+
+Our implementation was validated against the tsmarch package (the successor to rmgarch). Key findings:
+
+### NLL Comparison
+
+```
+Monte Carlo validation (n_sim=50, n_obs=1000):
+┌─────────────────────────────────────────────────────────────────┐
+│ Both find similar NLL (|diff| < 0.01):     96%                  │
+│ tsmarch found better optimum:               4%                  │
+│ Our implementation found better:            0%                  │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+The implementations agree to 6 decimal places on single replications.
+
+### Parameter Correlation
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│ Corr(tsmarch_alpha, ours_alpha):  0.99                          │
+│ Corr(tsmarch_beta, ours_beta):    0.69                          │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+The low beta correlation (0.69) despite identical NLL values confirms that different optimizers find different points on the flat ridge—both are valid solutions.
+
+## Standard Error Calibration
+
+Monte Carlo studies reveal severe miscalibration of Hessian-based SEs for beta:
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│ Parameter │ Hessian SE │ Bootstrap SE │ Empirical SD │ Ratio   │
+├─────────────────────────────────────────────────────────────────┤
+│ Alpha     │ 0.019      │ 0.025        │ 0.024        │ 0.78    │
+│ Beta      │ 0.055      │ 0.343        │ 0.218        │ 0.16    │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+**Interpretation**:
+
+- **Alpha**: Hessian SE is ~80% of empirical SD—acceptable for inference
+- **Beta**: Hessian SE is only ~16% of bootstrap SE—severely underestimated
+
+The Hessian assumes a quadratic likelihood, but the DCC likelihood is much flatter than quadratic in the beta direction.
+
+## Inference Methods
+
+The tsbs package provides three inference approaches:
+
+### 1. Hessian-based Standard Errors
+
+Fast but unreliable for beta at high persistence.
+
+```{r eval=FALSE}
+se_result <- dcc11_standard_errors(
+  params = c(alpha, beta),
+  std_resid = std_resid,
+  weights = weights,
+  Qbar = Qbar,
+  distribution = "mvn"
+)
+
+# Returns: se, vcov, info (observed information matrix)
+```
+
+**Use for**: Quick inference, alpha, testing β > 0
+
+### 2. Bootstrap Standard Errors
+
+Resamples data to estimate the true sampling distribution.
+
+```{r eval=FALSE}
+boot_result <- dcc11_bootstrap_se(
+  std_resid = std_resid,
+  weights = weights,
+  Qbar = Qbar,
+  mle_params = c(alpha, beta),
+  n_boot = 200,
+  method = "residual"  # or "parametric"
+)
+
+# Returns: se, boot_estimates, ci_percentile, ci_basic, ci_bca
+```
+**Use for**: Reliable beta inference, publication-quality results
+
+**Methods available**:
+
+- `"residual"`: Resamples rows of standardized residuals (faster)
+- `"parametric"`: Simulates new data from fitted DCC model (more theoretically justified)
+
+### 3. Profile Likelihood Confidence Intervals
+
+Inverts the likelihood ratio test—does not assume quadratic likelihood.
+
+```{r eval=FALSE}
+profile_result <- dcc11_profile_likelihood_ci(
+  std_resid = std_resid,
+  weights = weights,
+  Qbar = Qbar,
+  mle_params = c(alpha, beta),
+  conf_level = 0.95
+)
+
+# Returns: Profile NLL curve, CI bounds for each parameter
+```
+
+**Use for**: Asymmetric CIs, near-boundary inference, when bootstrap is too slow
+
+### 4. Comprehensive Inference
+
+Computes all three methods with comparison.
+
+```{r eval=FALSE}
+inf_result <- dcc11_comprehensive_inference(
+  std_resid = std_resid,
+  weights = weights,
+  Qbar = Qbar,
+  n_boot = 200,
+  conf_level = 0.95
+)
+
+print_inference_comparison(inf_result)
+```
+
+## Diagnostic Workflow
+
+Before reporting results, assess estimation quality:
+
+### Step 1: Check Likelihood Curvature
+
+```{r eval=FALSE}
+hess <- dcc11_hessian(params, std_resid, weights, Qbar)
+
+# Eigenvalue ratio indicates anisotropy
+ratio <- hess$eigenvalues[1] / hess$eigenvalues[2]
+if (ratio > 10) {
+
+  warning("Highly anisotropic curvature - beta SE may be unreliable")
+}
+```
+### Step 2: Compare SE Methods
+
+```{r eval=FALSE}
+hess_se <- dcc11_standard_errors(...)$se
+boot_se <- dcc11_bootstrap_se(...)$se
+
+ratio <- hess_se / boot_se
+if (ratio["beta"] < 0.5) {
+  warning("Hessian SE for beta is less than half of bootstrap SE")
+}
+```
+
+### Step 3: Visualize the Surface
+
+```{r eval=FALSE}
+surface <- compute_nll_surface(std_resid, weights, Qbar)
+plot_nll_contours(surface, mle_params = c(alpha, beta))
+
+# Look for:
+# - Elongated contours (flat direction)
+# - Multiple modes (identification issues)
+# - Boundary proximity
+```
+
+## Known Limitations
+
+### High Persistence (α + β > 0.95)
+
+When persistence is high, the likelihood becomes increasingly flat. This is fundamental to DCC, not a bug.
+
+**Recommendations**:
+
+- Always use bootstrap or profile likelihood for beta
+- Consider reporting persistence rather than individual parameters
+- Be cautious about point estimates—they may not be well-identified
+
+### Small Sample Sizes (n < 500)
+
+With limited data, the flat likelihood becomes even more problematic.
+
+**Recommendations**:
+
+- Increase bootstrap replications (n_boot ≥ 500)
+- Consider imposing priors or using Bayesian methods
+- Report wider confidence intervals
+
+### Near-Boundary Estimates
+
+When α → 0, β → 0, or α + β → 1, standard asymptotic theory fails.
+
+**Our implementation**:
+
+- Detects boundary estimates and returns NA for SEs
+- Profile likelihood handles boundaries correctly
+- Bootstrap may produce boundary estimates in some replications
+
+## Reporting Results
+
+### Recommended Format
+
+For publication, we recommend:
+
+> The DCC parameters were estimated as α̂ = 0.05 (SE = 0.02) and β̂ = 0.90 
+> (bootstrap 95% CI: [0.55, 0.96]). Hessian-based standard errors for β 
+> are known to underestimate uncertainty for high-persistence DCC models; 
+> bootstrap confidence intervals are reported instead.
+
+### What to Report
+
+| Quantity | Method | Notes |
+|----------|--------|-------|
+| Point estimates | MLE | Report both α and β |
+| SE for α | Hessian | Acceptable |
+| CI for β | Bootstrap or Profile | Hessian SE unreliable |
+| Persistence | Point estimate + SE | May be better identified |
+
+## Example: Complete Inference Workflow
+
+```{r eval=FALSE}
+library(tsbs)
+
+# Assume std_resid, weights, Qbar are available from model fitting
+
+# Step 1: Find MLE
+mle_result <- optim(
+  par = c(0.05, 0.90),
+  fn = dcc11_nll,
+  method = "L-BFGS-B",
+  lower = c(1e-6, 1e-6),
+  upper = c(0.5, 0.999),
+  std_resid = std_resid,
+  weights = weights,
+  Qbar = Qbar
+)
+alpha_mle <- mle_result$par[1]
+beta_mle <- mle_result$par[2]
+
+# Step 2: Assess curvature
+hess <- dcc11_hessian(c(alpha_mle, beta_mle), std_resid, weights, Qbar)
+cat("Eigenvalue ratio:", hess$eigenvalues[1] / hess$eigenvalues[2], "\n")
+
+# Step 3: Compute comprehensive inference
+inf <- dcc11_comprehensive_inference(
+  std_resid = std_resid,
+  weights = weights,
+  Qbar = Qbar,
+  mle_params = c(alpha_mle, beta_mle),
+  n_boot = 200
+)
+
+# Step 4: Report results
+print_inference_comparison(inf)
+
+# Step 5: Visualize
+plot_profile_likelihood(inf$profile, "beta")
+```
+
+## References
+
+Engle, R. (2002). Dynamic conditional correlation: A simple class of multivariate generalized autoregressive conditional heteroskedasticity models. *Journal of Business & Economic Statistics*, 20(3), 339-350.
+Aielli, G. P. (2013). Dynamic conditional correlation: On properties and estimation. *Journal of Business & Economic Statistics*, 31(3), 282-299.
+
+For the tsmarch package: https://github.com/tsmodels/tsmarch

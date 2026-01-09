@@ -30,7 +30,9 @@ Rcpp::List fit_ms_varma_garch_cpp(
     int M,
     Rcpp::List spec,
     std::string model_type,
-    Rcpp::List control
+    Rcpp::List control,
+    Rcpp::Nullable<Rcpp::List> diagnostics = R_NilValue,
+    bool verbose = false
 ) {
   // --- 1. SETUP & INITIALIZATION ---
   int T = y.n_rows;
@@ -42,8 +44,15 @@ Rcpp::List fit_ms_varma_garch_cpp(
   arma::mat smooth_probs(T, M);
   Rcpp::List all_warnings; 
   
+  // Initialize diagnostics if provided
+  bool collect_diagnostics = diagnostics.isNotNull();
+  Rcpp::List diag_collector;
+  if (collect_diagnostics) {
+    diag_collector = Rcpp::as<Rcpp::List>(diagnostics);
+  }
+  
   P.fill(1.0 / M);
-  for(int j=0; j<M; ++j) { P(j,j) = 0.9; }
+  for(int j = 0; j < M; ++j) { P(j, j) = 0.9; }
   P = P.each_row([](arma::rowvec& r){ r /= arma::sum(r); });
   
   for (int j = 0; j < M; ++j) {
@@ -52,17 +61,40 @@ Rcpp::List fit_ms_varma_garch_cpp(
   
   double log_lik_old = -std::numeric_limits<double>::infinity();
   
-  // Rcpp::Environment global = Rcpp::Environment::global_env();
-  // Rcpp::Function calculate_loglik_vector_r = global["calculate_loglik_vector_r"];
-  // Rcpp::Function perform_m_step_parallel_r = global["perform_m_step_parallel_r"];
   Rcpp::Environment pkg_env = Rcpp::Environment::namespace_env("tsbs");
   Rcpp::Function calculate_loglik_vector_r = pkg_env["calculate_loglik_vector_r"];
-  Rcpp::Function perform_m_step_parallel_r = pkg_env["perform_m_step_parallel_r"];
+  //Rcpp::Function perform_m_step_parallel_r = pkg_env["perform_m_step_parallel_r"];
+  Rcpp::Function perform_m_step_r = pkg_env["perform_m_step_r"];
+  
+  // Extract DCC control parameters
+  double dcc_threshold = Rcpp::as<double>(control["dcc_boundary_threshold"]);
+  std::string dcc_criterion = Rcpp::as<std::string>(control["dcc_boundary_criterion"]);
+  
+  // Load diagnostic functions if needed
+  // Rcpp::Function add_em_iteration_diagnostic = R_NilValue;
+  // Rcpp::Function add_parameter_evolution = R_NilValue;
+  // Rcpp::Function add_diagnostic_warning = R_NilValue;
+  
+  if (collect_diagnostics) {
+    // add_em_iteration_diagnostic = pkg_env["add_em_iteration_diagnostic"];
+    // add_parameter_evolution = pkg_env["add_parameter_evolution"];
+    // add_diagnostic_warning = pkg_env["add_diagnostic_warning"];
+    Rcpp::Function add_em_iteration_diagnostic = pkg_env["add_em_iteration_diagnostic"];
+    Rcpp::Function add_parameter_evolution = pkg_env["add_parameter_evolution"];
+    Rcpp::Function add_diagnostic_warning = pkg_env["add_diagnostic_warning"];
+  }
+  
+  // Track if we've logged the "all states constant" event
+  bool all_constant_logged = false;
   
   // --- 2. EM ALGORITHM LOOP ---
   for (int iter = 0; iter < max_iter; ++iter) {
     auto start = std::chrono::high_resolution_clock::now();
     Rcpp::checkUserInterrupt();
+    
+    Rcpp::Rcout << "" << std::endl;
+    Rcpp::Rcout << "\n==========================================================" << std::endl;
+    Rcpp::Rcout << "EM Iteration " << iter + 1 << "... ";
     
     // --- E-STEP ---
     arma::mat cond_logliks(T, M, arma::fill::zeros);
@@ -94,11 +126,7 @@ Rcpp::List fit_ms_varma_garch_cpp(
       smooth_probs.row(t) = filt_probs.row(t) % (P * ratio).t();
     }
     
-    
-    // DIAGNOSTIC begin
     double log_lik_before_mstep = arma::sum(arma::log(lik_contrib));
-    // DIAGNOSTIC end
-    
     
     // --- M-STEP ---
     // Update transition matrix P
@@ -109,11 +137,104 @@ Rcpp::List fit_ms_varma_garch_cpp(
     }
     P = trans_mat.each_col() / arma::sum(trans_mat, 1);
     
-    // --- Call the single parallel R function for the M-step ---
-    model_fits = Rcpp::as<Rcpp::List>(perform_m_step_parallel_r(y, smooth_probs, spec, model_type));
+    // Call M-step with diagnostics if collecting
+    /*
+    if (collect_diagnostics) {
+      model_fits = Rcpp::as<Rcpp::List>(perform_m_step_parallel_r(
+        y, 
+        smooth_probs, 
+        spec, 
+        model_type,
+        Rcpp::Named("diagnostics") = diag_collector,
+        Rcpp::Named("iteration") = iter + 1,
+        Rcpp::Named("verbose") = verbose
+      ));
+    } else {
+      model_fits = Rcpp::as<Rcpp::List>(perform_m_step_parallel_r(
+      
+        y, 
+        smooth_probs, 
+        spec, 
+        model_type,
+        Rcpp::Named("verbose") = verbose
+      ));
+    }
+     */
+    Rcpp::List m_step_result;
     
-    // === DIAGNOSTIC: Check if M-step improved likelihood ===
-    Rcpp::Rcout << "\n=== M-STEP CHECK (Iteration " << (iter + 1) << ") ===" << std::endl;
+    if (collect_diagnostics) {
+      m_step_result = Rcpp::as<Rcpp::List>(perform_m_step_r(
+        y, 
+        smooth_probs, 
+        spec, 
+        model_type,
+        Rcpp::Named("diagnostics") = diag_collector,
+        Rcpp::Named("iteration") = iter + 1,
+        Rcpp::Named("verbose") = verbose,
+        Rcpp::Named("dcc_threshold") = dcc_threshold,
+        Rcpp::Named("dcc_criterion") = dcc_criterion
+      ));
+      
+      // Extract fits and diagnostics
+      model_fits = Rcpp::as<Rcpp::List>(m_step_result["fits"]);
+      diag_collector = Rcpp::as<Rcpp::List>(m_step_result["diagnostics"]);
+      
+    } else {
+      m_step_result = Rcpp::as<Rcpp::List>(perform_m_step_r(
+        y, 
+        smooth_probs, 
+        spec, 
+        model_type,
+        Rcpp::Named("verbose") = verbose,
+        Rcpp::Named("dcc_threshold") = dcc_threshold,
+        Rcpp::Named("dcc_criterion") = dcc_criterion
+      ));
+      
+      // Extract just fits (no diagnostics)
+      model_fits = Rcpp::as<Rcpp::List>(m_step_result["fits"]);
+    }
+    
+    // --- CHECK IF ALL STATES HAVE CONSTANT CORRELATION ---
+    // This is a significant event: once all states are constant, 
+    // no DCC parameters remain to optimize
+    bool all_states_constant = true;
+    for (int j = 0; j < M; ++j) {
+      Rcpp::List state_fit = Rcpp::as<Rcpp::List>(model_fits[j]);
+      if (state_fit.containsElementNamed("correlation_type")) {
+        std::string corr_type = Rcpp::as<std::string>(state_fit["correlation_type"]);
+        if (corr_type != "constant") {
+          all_states_constant = false;
+          break;
+        }
+      } else {
+        // If correlation_type not set, assume dynamic
+        all_states_constant = false;
+        break;
+      }
+    }
+    
+    // Log the event when all states become constant (first time only)
+    if (all_states_constant && !all_constant_logged) {
+      if (verbose) {
+        Rcpp::Rcout << "\n*** ALL STATES NOW HAVE CONSTANT CORRELATION (iteration " 
+                    << (iter + 1) << ") ***" << std::endl;
+        Rcpp::Rcout << "    No DCC parameters remain to optimize." << std::endl;
+        Rcpp::Rcout << "    Continuing to converge VAR/GARCH parameters..." << std::endl;
+      }
+      
+      if (collect_diagnostics) {
+        Rcpp::Function add_diagnostic_warning = pkg_env["add_diagnostic_warning"];
+        diag_collector = Rcpp::as<Rcpp::List>(add_diagnostic_warning(
+          diag_collector,
+          iter + 1,
+          "all_states_constant",
+          "All states now have constant correlation - no DCC parameters to optimize",
+          Rcpp::List::create(Rcpp::Named("iteration") = iter + 1)
+        ));
+      }
+      
+      all_constant_logged = true;
+    }
     
     // Recompute likelihoods with NEW parameters
     arma::mat cond_logliks_new(T, M, arma::fill::zeros);
@@ -141,79 +262,101 @@ Rcpp::List fit_ms_varma_garch_cpp(
     }
     
     double log_lik_after_mstep = arma::sum(arma::log(lik_contrib_new));
-    
-    Rcpp::Rcout << "  LL before M-step: " << log_lik_before_mstep << std::endl;
-    Rcpp::Rcout << "  LL after M-step:  " << log_lik_after_mstep << std::endl;
-    Rcpp::Rcout << "  Change: " << (log_lik_after_mstep - log_lik_before_mstep) << std::endl;
-    
-    if (log_lik_after_mstep < log_lik_before_mstep - 1e-6) {
-      Rcpp::Rcout << "  *** WARNING: M-step DECREASED LL! ***" << std::endl;
-    }
-    
-    // Print parameter values for diagnosis
-    for (int j = 0; j < M; ++j) {
-      Rcpp::Rcout << "  State " << (j+1) << " params after M-step:" << std::endl;
-      Rcpp::List state_pars = model_fits[j];
-      
-      // Print GARCH parameters
-      if (state_pars.containsElementNamed("garch_pars")) {
-        Rcpp::List garch_pars = state_pars["garch_pars"];
-        Rcpp::Rcout << "    garch_pars length: " << garch_pars.size() << std::endl;
-        
-        for (int s = 0; s < garch_pars.size(); ++s) {
-          Rcpp::List series_pars = garch_pars[s];
-          Rcpp::Rcout << "      Series " << (s+1) << ": ";
-          if (series_pars.containsElementNamed("alpha1")) {
-            Rcpp::Rcout << "alpha1=" << Rcpp::as<double>(series_pars["alpha1"]) << " ";
-          }
-          if (series_pars.containsElementNamed("beta1")) {
-            Rcpp::Rcout << "beta1=" << Rcpp::as<double>(series_pars["beta1"]) << " ";
-          }
-          Rcpp::Rcout << std::endl;
-        }
-      }
-      
-      // Print DCC parameters
-      if (state_pars.containsElementNamed("alpha_1")) {
-        Rcpp::Rcout << "    DCC alpha_1: " << Rcpp::as<double>(state_pars["alpha_1"]) << std::endl;
-      }
-      if (state_pars.containsElementNamed("beta_1")) {
-        Rcpp::Rcout << "    DCC beta_1: " << Rcpp::as<double>(state_pars["beta_1"]) << std::endl;
-      }
-    }
+    double ll_change = log_lik_after_mstep - log_lik_before_mstep;
     
     // Update cond_logliks for next E-step
     cond_logliks = cond_logliks_new;
     
-    
-    // ================ END Check if M-step improved likelihood  ===============
-    
-    
-    // --- 3. CHECK CONVERGENCE & PROVIDE FEEDBACK ---
-    
-    // === DIAGNOSTIC begin ===
-
-    // Next line replaced with diagnostic code.
-    //double log_lik_new = arma::sum(arma::log(lik_contrib));
-    double log_lik_new = log_lik_after_mstep;  // Use the post-M-step LL
-    
-    // === DIAGNOSTIC end ===
-    
+    // Calculate iteration duration
     auto end = std::chrono::high_resolution_clock::now();
     std::chrono::duration<double> elapsed = end - start;
-    int total_seconds = static_cast<int>(elapsed.count());
+    double duration_sec = elapsed.count();
+    
+    // Output to console
+    if (verbose) {
+      Rcpp::Rcout << "\n=== EM ITERATION " << (iter + 1) << " ===" << std::endl;
+      Rcpp::Rcout << "\n=== EM ITERATION " << (iter + 1) << " ===" << std::endl;
+      Rcpp::Rcout << "  LL before M-step: " << log_lik_before_mstep << std::endl;
+      Rcpp::Rcout << "  LL after M-step:  " << log_lik_after_mstep << std::endl;
+      Rcpp::Rcout << "  Change: " << ll_change << std::endl;
+      
+      if (ll_change < -1e-6) {
+        Rcpp::Rcout << "  *** WARNING: M-step DECREASED LL! ***" << std::endl;
+      }
+    }
+    
+    int total_seconds = static_cast<int>(duration_sec);
     int hours = total_seconds / 3600;
     int minutes = (total_seconds % 3600) / 60;
     int seconds = total_seconds % 60;
     
-    Rcpp::Rcout << "EM Iteration: " << iter + 1 
-                << ", Log-Likelihood: " << log_lik_new 
-                << ", Duration: "
+    //Rcpp::Rcout << "EM Iteration: " << iter + 1 
+    Rcpp::Rcout << "Log-Likelihood: " << log_lik_after_mstep 
+                << " (Duration: "
                 << std::setw(2) << std::setfill('0') << hours << ":"
                 << std::setw(2) << std::setfill('0') << minutes << ":"
-                << std::setw(2) << std::setfill('0') << seconds << std::endl;
+                << std::setw(2) << std::setfill('0') << seconds << ")" 
+                << std::endl;
     
+    // Collect diagnostics
+    if (collect_diagnostics) {
+      Rcpp::Function add_em_iteration_diagnostic = pkg_env["add_em_iteration_diagnostic"];
+      Rcpp::Function add_parameter_evolution = pkg_env["add_parameter_evolution"];
+      Rcpp::Function add_diagnostic_warning = pkg_env["add_diagnostic_warning"];
+      
+      diag_collector = Rcpp::as<Rcpp::List>(add_em_iteration_diagnostic(
+        diag_collector, // diagnostics
+        iter + 1, // iteration
+        log_lik_before_mstep, // log_lik_before
+        log_lik_after_mstep, // log_lik_after
+        ll_change, // ll_change
+        duration_sec, // duration_sec
+        model_fits, // parameters
+        false  // converged flag
+      ));
+      
+      // Collect parameter evolution for each state
+      for (int j = 0; j < M; ++j) {
+        diag_collector = Rcpp::as<Rcpp::List>(add_parameter_evolution(
+          diag_collector,
+          iter + 1,
+          j + 1,
+          model_fits[j]
+        ));
+      }
+      
+      // Add warning if LL decreased
+      if (ll_change < -1e-6) {
+        diag_collector = Rcpp::as<Rcpp::List>(add_diagnostic_warning(
+          diag_collector,
+          iter + 1,
+          "ll_decrease",
+          "M-step decreased log-likelihood",
+          Rcpp::List::create(Rcpp::Named("decrease") = ll_change)
+        ));
+      }
+    }
+    
+    // Update log_lik_old
+    double log_lik_new = log_lik_after_mstep;
+    
+    // --- 3. CHECK CONVERGENCE ---
     if (std::abs(log_lik_new - log_lik_old) < tol) {
+      if (verbose) {
+        Rcpp::Rcout << "\n=== CONVERGED at iteration " << (iter + 1) << " ===" << std::endl;
+      }
+      
+      if (collect_diagnostics) {
+        // Mark last iteration as converged
+        Rcpp::List last_iter = diag_collector["em_iterations"];
+        if (last_iter.size() > 0) {
+          Rcpp::List final_iter = last_iter[last_iter.size() - 1];
+          final_iter["converged"] = true;
+          last_iter[last_iter.size() - 1] = final_iter;
+          diag_collector["em_iterations"] = last_iter;
+        }
+      }
+      
       log_lik_old = log_lik_new;
       break;
     }
@@ -221,14 +364,20 @@ Rcpp::List fit_ms_varma_garch_cpp(
   }
   
   // --- 4. RETURN RESULTS ---
-  return Rcpp::List::create(
+  Rcpp::List result = Rcpp::List::create(
     Rcpp::Named("model_fits") = model_fits,
     Rcpp::Named("P") = P,
     Rcpp::Named("log_likelihood") = log_lik_old,
     Rcpp::Named("smoothed_probabilities") = smooth_probs,
     Rcpp::Named("convergence") = Rcpp::List::create(Rcpp::Named("final_loglik") = log_lik_old),
-    Rcpp::Named("warnings") = Rcpp::List() // Warning collection removed for simplicity
+    Rcpp::Named("warnings") = Rcpp::List()
   );
+  
+  if (collect_diagnostics) {
+    result["diagnostics"] = diag_collector;
+  }
+  
+  return result;
 }
 
 

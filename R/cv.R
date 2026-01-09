@@ -45,7 +45,8 @@ k_fold_cv_ts <- function(
     k = 5, 
     p_grid = seq(0.01, 0.5, by = 0.01), 
     model_func = default_model_func, 
-    score_func = mse) {
+    score_func = mse
+  ) {
   # Input validation
   if (!is.numeric(x)) stop("`x` must be numeric vector, matrix, or data frame.")
   if (is.vector(x)) x <- as.matrix(x)
@@ -57,6 +58,8 @@ k_fold_cv_ts <- function(
   fold_size <- floor(n / k)
   ends <- seq(fold_size, by = fold_size, length.out = k)
   starts <- c(1, head(ends, -1) + 1)
+  
+  if (k > n) stop("Cannot split ", n, " observations into ", k, " folds.")
   
   # Evaluate each p value
   mean_scores <- sapply(p_grid, function(p_val) {

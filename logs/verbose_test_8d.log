@@ -1,0 +1,2900 @@
+=== MS-VARMA-GARCH Verbose Output ===
+Started: 2025-12-05 13:36:24 
+Data dimensions: 300 x 2 
+Number of states: 2 
+Model type: multivariate 
+
+
+=== MS-VARMA-GARCH Model Fitting ===
+Model type: multivariate 
+Number of states: 2 
+Sample size: 300 
+Control parameters:
+  max_iter: 50 
+  tol: 0.05 
+  dcc_boundary_threshold: 0.02 
+  dcc_boundary_criterion: bic 
+  dcc_allow_refitting: TRUE 
+
+Fitting the MS-ARMA-GARCH model via C++ EM algorithm...
+
+
+==========================================================
+EM Iteration 1... 
+=== TESTING OBJECTIVE AT START PARAMS ===
+
+=== OBJECTIVE FUNCTION DIAGNOSTIC ===
+Weight summary: min = 0.3037314 , max = 0.5683581 , mean = 0.5062405 
+Effective sample size: 297.888 
+Params: alpha = 0.04 , beta = 0.93 
+Qbar eigenvalues: 1.31348 0.6807037 
+Negative log-likelihood: 421.8913 
+Number of valid obs: 299 / 299 
+Start NLL: 421.8913 
+
+=== DCC M-STEP DIAGNOSTIC ===
+Starting DCC params:
+alpha_1  beta_1 
+   0.04    0.93 
+
+Optimized DCC params:
+   alpha_1     beta_1 
+0.04191354 0.49622721 
+
+Optimization convergence: 0 
+Final objective value: 420.8707 
+Optimizer convergence code: 0 
+  0 = success, 1 = maxit reached, 51/52 = warning
+Starting NLL: 421.8913 
+Final NLL: 420.8707 
+Improvement: 1.020605 
+Function evaluations: 12 
+At boundary: FALSE 
+
+=== TESTING OBJECTIVE AT START PARAMS ===
+
+=== OBJECTIVE FUNCTION DIAGNOSTIC ===
+Weight summary: min = 0.4316419 , max = 0.6962686 , mean = 0.4937595 
+Effective sample size: 297.8313 
+Params: alpha = 0.13 , beta = 0.82 
+Qbar eigenvalues: 1.30602 0.6885517 
+Negative log-likelihood: 416.9682 
+Number of valid obs: 299 / 299 
+Start NLL: 416.9682 
+
+=== DCC M-STEP DIAGNOSTIC ===
+Starting DCC params:
+alpha_1  beta_1 
+   0.13    0.82 
+
+Optimized DCC params:
+   alpha_1     beta_1 
+0.03869531 0.48601492 
+
+Optimization convergence: 0 
+Final objective value: 410.9735 
+Optimizer convergence code: 0 
+  0 = success, 1 = maxit reached, 51/52 = warning
+Starting NLL: 416.9682 
+Final NLL: 410.9735 
+Improvement: 5.994714 
+Function evaluations: 16 
+At boundary: FALSE 
+
+=== EM ITERATION 1 ===
+
+=== EM ITERATION 1 ===
+  LL before M-step: -760.954
+  LL after M-step:  -753.652
+  Change: 7.30233
+Log-Likelihood: -753.652 (Duration: 00:00:20)
+
+
+==========================================================
+EM Iteration 2... 
+=== TESTING OBJECTIVE AT START PARAMS ===
+
+=== OBJECTIVE FUNCTION DIAGNOSTIC ===
+Weight summary: min = 0.2027452 , max = 0.55176 , mean = 0.5062493 
+Effective sample size: 297.731 
+Params: alpha = 0.04 , beta = 0.93 
+Qbar eigenvalues: 1.315752 0.679009 
+Negative log-likelihood: 421.7662 
+Number of valid obs: 299 / 299 
+Start NLL: 421.7662 
+
+=== DCC M-STEP DIAGNOSTIC ===
+Starting DCC params:
+alpha_1  beta_1 
+   0.04    0.93 
+
+Optimized DCC params:
+   alpha_1     beta_1 
+0.04751079 0.50235505 
+
+Optimization convergence: 0 
+Final objective value: 420.756 
+Optimizer convergence code: 0 
+  0 = success, 1 = maxit reached, 51/52 = warning
+Starting NLL: 421.7662 
+Final NLL: 420.756 
+Improvement: 1.010242 
+Function evaluations: 14 
+At boundary: FALSE 
+
+=== TESTING OBJECTIVE AT START PARAMS ===
+
+=== OBJECTIVE FUNCTION DIAGNOSTIC ===
+Weight summary: min = 0.44824 , max = 0.7972548 , mean = 0.4937507 
+Effective sample size: 297.6663 
+Params: alpha = 0.13 , beta = 0.82 
+Qbar eigenvalues: 1.304619 0.6895777 
+Negative log-likelihood: 417.3089 
+Number of valid obs: 299 / 299 
+Start NLL: 417.3089 
+
+=== DCC M-STEP DIAGNOSTIC ===
+Starting DCC params:
+alpha_1  beta_1 
+   0.13    0.82 
+
+Optimized DCC params:
+  alpha_1    beta_1 
+0.0100000 0.2586981 
+
+Optimization convergence: 0 
+Final objective value: 411.1302 
+Optimizer convergence code: 0 
+  0 = success, 1 = maxit reached, 51/52 = warning
+Starting NLL: 417.3089 
+Final NLL: 411.1302 
+Improvement: 6.178733 
+Function evaluations: 22 
+At boundary: TRUE 
+
+=== Model Selection (State 2, Iter 2) ===
+Criterion: BIC (n_eff=299.0)
+Dynamic:  LL=-411.1302, k=2, BIC=833.6612
+Constant: LL=-411.1794, k=0, BIC=822.3588
+Decision: CONSTANT
+
+
+=== EM ITERATION 2 ===
+
+=== EM ITERATION 2 ===
+  LL before M-step: -753.652
+  LL after M-step:  -753.512
+  Change: 0.139279
+Log-Likelihood: -753.512 (Duration: 00:00:16)
+
+
+==========================================================
+EM Iteration 3... 
+=== TESTING OBJECTIVE AT START PARAMS ===
+
+=== OBJECTIVE FUNCTION DIAGNOSTIC ===
+Weight summary: min = 0.1264847 , max = 0.5903654 , mean = 0.5067334 
+Effective sample size: 296.8489 
+Params: alpha = 0.04 , beta = 0.93 
+Qbar eigenvalues: 1.324325 0.6710123 
+Negative log-likelihood: 421.3151 
+Number of valid obs: 299 / 299 
+Start NLL: 421.3151 
+
+=== DCC M-STEP DIAGNOSTIC ===
+Starting DCC params:
+alpha_1  beta_1 
+   0.04    0.93 
+
+Optimized DCC params:
+   alpha_1     beta_1 
+0.07683559 0.49592856 
+
+Optimization convergence: 0 
+Final objective value: 420.3287 
+Optimizer convergence code: 0 
+  0 = success, 1 = maxit reached, 51/52 = warning
+Starting NLL: 421.3151 
+Final NLL: 420.3287 
+Improvement: 0.9863802 
+Function evaluations: 16 
+At boundary: FALSE 
+
+=== TESTING OBJECTIVE AT START PARAMS ===
+
+=== OBJECTIVE FUNCTION DIAGNOSTIC ===
+Weight summary: min = 0.4096346 , max = 0.8735153 , mean = 0.4932666 
+Effective sample size: 296.7308 
+Params: alpha = 0.13 , beta = 0.82 
+Qbar eigenvalues: 1.298095 0.6959644 
+Negative log-likelihood: 418.5048 
+Number of valid obs: 299 / 299 
+Start NLL: 418.5048 
+
+=== DCC M-STEP DIAGNOSTIC ===
+Starting DCC params:
+alpha_1  beta_1 
+   0.13    0.82 
+
+Optimized DCC params:
+   alpha_1     beta_1 
+0.01422753 0.49311931 
+
+Optimization convergence: 0 
+Final objective value: 411.0577 
+Optimizer convergence code: 0 
+  0 = success, 1 = maxit reached, 51/52 = warning
+Starting NLL: 418.5048 
+Final NLL: 411.0577 
+Improvement: 7.447023 
+Function evaluations: 20 
+At boundary: TRUE 
+
+=== Model Selection (State 2, Iter 3) ===
+Criterion: BIC (n_eff=299.0)
+Dynamic:  LL=-411.0577, k=2, BIC=833.5164
+Constant: LL=-411.0843, k=0, BIC=822.1685
+Decision: CONSTANT
+
+
+=== EM ITERATION 3 ===
+
+=== EM ITERATION 3 ===
+  LL before M-step: -753.512
+  LL after M-step:  -753.151
+  Change: 0.361642
+Log-Likelihood: -753.151 (Duration: 00:00:15)
+
+
+==========================================================
+EM Iteration 4... 
+=== TESTING OBJECTIVE AT START PARAMS ===
+
+=== OBJECTIVE FUNCTION DIAGNOSTIC ===
+Weight summary: min = 0.06436994 , max = 0.6354648 , mean = 0.5068618 
+Effective sample size: 295.5543 
+Params: alpha = 0.04 , beta = 0.93 
+Qbar eigenvalues: 1.331706 0.6641494 
+Negative log-likelihood: 420.7512 
+Number of valid obs: 299 / 299 
+Start NLL: 420.7512 
+
+=== DCC M-STEP DIAGNOSTIC ===
+Starting DCC params:
+alpha_1  beta_1 
+   0.04    0.93 
+
+Optimized DCC params:
+  alpha_1    beta_1 
+0.1019744 0.4928029 
+
+Optimization convergence: 0 
+Final objective value: 419.6164 
+Optimizer convergence code: 0 
+  0 = success, 1 = maxit reached, 51/52 = warning
+Starting NLL: 420.7512 
+Final NLL: 419.6164 
+Improvement: 1.134802 
+Function evaluations: 16 
+At boundary: FALSE 
+
+=== TESTING OBJECTIVE AT START PARAMS ===
+
+=== OBJECTIVE FUNCTION DIAGNOSTIC ===
+Weight summary: min = 0.3645352 , max = 0.9356301 , mean = 0.4931382 
+Effective sample size: 295.3622 
+Params: alpha = 0.13 , beta = 0.82 
+Qbar eigenvalues: 1.292953 0.7009107 
+Negative log-likelihood: 419.4839 
+Number of valid obs: 299 / 299 
+Start NLL: 419.4839 
+
+=== DCC M-STEP DIAGNOSTIC ===
+Starting DCC params:
+alpha_1  beta_1 
+   0.13    0.82 
+
+Optimized DCC params:
+  alpha_1    beta_1 
+0.0100000 0.4771794 
+
+Optimization convergence: 0 
+Final objective value: 411.2117 
+Optimizer convergence code: 0 
+  0 = success, 1 = maxit reached, 51/52 = warning
+Starting NLL: 419.4839 
+Final NLL: 411.2117 
+Improvement: 8.272142 
+Function evaluations: 11 
+At boundary: TRUE 
+
+=== Model Selection (State 2, Iter 4) ===
+Criterion: BIC (n_eff=299.0)
+Dynamic:  LL=-411.2117, k=2, BIC=833.8244
+Constant: LL=-411.2053, k=0, BIC=822.4106
+Decision: CONSTANT
+
+
+=== EM ITERATION 4 ===
+
+=== EM ITERATION 4 ===
+  LL before M-step: -753.151
+  LL after M-step:  -752.816
+  Change: 0.334875
+Log-Likelihood: -752.816 (Duration: 00:00:16)
+
+
+==========================================================
+EM Iteration 5... 
+=== TESTING OBJECTIVE AT START PARAMS ===
+
+=== OBJECTIVE FUNCTION DIAGNOSTIC ===
+Weight summary: min = 0.02917935 , max = 0.6663339 , mean = 0.5065775 
+Effective sample size: 294.0078 
+Params: alpha = 0.04 , beta = 0.93 
+Qbar eigenvalues: 1.338096 0.6582313 
+Negative log-likelihood: 419.9799 
+Number of valid obs: 299 / 299 
+Start NLL: 419.9799 
+
+=== DCC M-STEP DIAGNOSTIC ===
+Starting DCC params:
+alpha_1  beta_1 
+   0.04    0.93 
+
+Optimized DCC params:
+  alpha_1    beta_1 
+0.1223037 0.4917833 
+
+Optimization convergence: 0 
+Final objective value: 418.6208 
+Optimizer convergence code: 0 
+  0 = success, 1 = maxit reached, 51/52 = warning
+Starting NLL: 419.9799 
+Final NLL: 418.6208 
+Improvement: 1.359105 
+Function evaluations: 11 
+At boundary: FALSE 
+
+=== TESTING OBJECTIVE AT START PARAMS ===
+
+=== OBJECTIVE FUNCTION DIAGNOSTIC ===
+Weight summary: min = 0.3336661 , max = 0.9708207 , mean = 0.4934225 
+Effective sample size: 293.7428 
+Params: alpha = 0.13 , beta = 0.82 
+Qbar eigenvalues: 1.288673 0.7050239 
+Negative log-likelihood: 420.4448 
+Number of valid obs: 299 / 299 
+Start NLL: 420.4448 
+
+=== DCC M-STEP DIAGNOSTIC ===
+Starting DCC params:
+alpha_1  beta_1 
+   0.13    0.82 
+
+Optimized DCC params:
+  alpha_1    beta_1 
+0.0100000 0.4569608 
+
+Optimization convergence: 0 
+Final objective value: 411.6547 
+Optimizer convergence code: 0 
+  0 = success, 1 = maxit reached, 51/52 = warning
+Starting NLL: 420.4448 
+Final NLL: 411.6547 
+Improvement: 8.790069 
+Function evaluations: 11 
+At boundary: TRUE 
+
+=== Model Selection (State 2, Iter 5) ===
+Criterion: BIC (n_eff=299.0)
+Dynamic:  LL=-411.6547, k=2, BIC=834.7103
+Constant: LL=-411.6286, k=0, BIC=823.2572
+Decision: CONSTANT
+
+
+=== EM ITERATION 5 ===
+
+=== EM ITERATION 5 ===
+  LL before M-step: -752.816
+  LL after M-step:  -752.526
+  Change: 0.290162
+Log-Likelihood: -752.526 (Duration: 00:00:18)
+
+
+==========================================================
+EM Iteration 6... 
+=== TESTING OBJECTIVE AT START PARAMS ===
+
+=== OBJECTIVE FUNCTION DIAGNOSTIC ===
+Weight summary: min = 0.01337366 , max = 0.684806 , mean = 0.5058467 
+Effective sample size: 292.2684 
+Params: alpha = 0.04 , beta = 0.93 
+Qbar eigenvalues: 1.343378 0.6535189 
+Negative log-likelihood: 418.9762 
+Number of valid obs: 299 / 299 
+Start NLL: 418.9762 
+
+=== DCC M-STEP DIAGNOSTIC ===
+Starting DCC params:
+alpha_1  beta_1 
+   0.04    0.93 
+
+Optimized DCC params:
+  alpha_1    beta_1 
+0.1363988 0.4928807 
+
+Optimization convergence: 0 
+Final objective value: 417.403 
+Optimizer convergence code: 0 
+  0 = success, 1 = maxit reached, 51/52 = warning
+Starting NLL: 418.9762 
+Final NLL: 417.403 
+Improvement: 1.57317 
+Function evaluations: 11 
+At boundary: FALSE 
+
+=== TESTING OBJECTIVE AT START PARAMS ===
+
+=== OBJECTIVE FUNCTION DIAGNOSTIC ===
+Weight summary: min = 0.315194 , max = 0.9866263 , mean = 0.4941533 
+Effective sample size: 291.9537 
+Params: alpha = 0.13 , beta = 0.82 
+Qbar eigenvalues: 1.284923 0.7084539 
+Negative log-likelihood: 421.4813 
+Number of valid obs: 299 / 299 
+Start NLL: 421.4813 
+
+=== DCC M-STEP DIAGNOSTIC ===
+Starting DCC params:
+alpha_1  beta_1 
+   0.13    0.82 
+
+Optimized DCC params:
+  alpha_1    beta_1 
+0.0100000 0.4424444 
+
+Optimization convergence: 0 
+Final objective value: 412.4188 
+Optimizer convergence code: 0 
+  0 = success, 1 = maxit reached, 51/52 = warning
+Starting NLL: 421.4813 
+Final NLL: 412.4188 
+Improvement: 9.062506 
+Function evaluations: 11 
+At boundary: TRUE 
+
+=== Model Selection (State 2, Iter 6) ===
+Criterion: BIC (n_eff=299.0)
+Dynamic:  LL=-412.4188, k=2, BIC=836.2385
+Constant: LL=-412.3814, k=0, BIC=824.7627
+Decision: CONSTANT
+
+
+=== EM ITERATION 6 ===
+
+=== EM ITERATION 6 ===
+  LL before M-step: -752.526
+  LL after M-step:  -752.276
+  Change: 0.250133
+Log-Likelihood: -752.276 (Duration: 00:00:13)
+
+
+==========================================================
+EM Iteration 7... 
+=== TESTING OBJECTIVE AT START PARAMS ===
+
+=== OBJECTIVE FUNCTION DIAGNOSTIC ===
+Weight summary: min = 0.006806523 , max = 0.6924368 , mean = 0.5047204 
+Effective sample size: 290.3609 
+Params: alpha = 0.04 , beta = 0.93 
+Qbar eigenvalues: 1.347366 0.6500961 
+Negative log-likelihood: 417.7554 
+Number of valid obs: 299 / 299 
+Start NLL: 417.7554 
+
+=== DCC M-STEP DIAGNOSTIC ===
+Starting DCC params:
+alpha_1  beta_1 
+   0.04    0.93 
+
+Optimized DCC params:
+  alpha_1    beta_1 
+0.1450308 0.4958145 
+
+Optimization convergence: 0 
+Final objective value: 416.0242 
+Optimizer convergence code: 0 
+  0 = success, 1 = maxit reached, 51/52 = warning
+Starting NLL: 417.7554 
+Final NLL: 416.0242 
+Improvement: 1.731232 
+Function evaluations: 11 
+At boundary: FALSE 
+
+=== TESTING OBJECTIVE AT START PARAMS ===
+
+=== OBJECTIVE FUNCTION DIAGNOSTIC ===
+Weight summary: min = 0.3075632 , max = 0.9931935 , mean = 0.4952796 
+Effective sample size: 290.0384 
+Params: alpha = 0.13 , beta = 0.82 
+Qbar eigenvalues: 1.281701 0.7114741 
+Negative log-likelihood: 422.6606 
+Number of valid obs: 299 / 299 
+Start NLL: 422.6606 
+
+=== DCC M-STEP DIAGNOSTIC ===
+Starting DCC params:
+alpha_1  beta_1 
+   0.13    0.82 
+
+Optimized DCC params:
+  alpha_1    beta_1 
+0.0100000 0.4337309 
+
+Optimization convergence: 0 
+Final objective value: 413.4931 
+Optimizer convergence code: 0 
+  0 = success, 1 = maxit reached, 51/52 = warning
+Starting NLL: 422.6606 
+Final NLL: 413.4931 
+Improvement: 9.167525 
+Function evaluations: 11 
+At boundary: TRUE 
+
+=== Model Selection (State 2, Iter 7) ===
+Criterion: BIC (n_eff=299.0)
+Dynamic:  LL=-413.4931, k=2, BIC=838.3871
+Constant: LL=-413.4508, k=0, BIC=826.9015
+Decision: CONSTANT
+
+
+=== EM ITERATION 7 ===
+
+=== EM ITERATION 7 ===
+  LL before M-step: -752.276
+  LL after M-step:  -752.043
+  Change: 0.232719
+Log-Likelihood: -752.043 (Duration: 00:00:15)
+
+
+==========================================================
+EM Iteration 8... 
+=== TESTING OBJECTIVE AT START PARAMS ===
+
+=== OBJECTIVE FUNCTION DIAGNOSTIC ===
+Weight summary: min = 0.003950658 , max = 0.691613 , mean = 0.5033346 
+Effective sample size: 288.2998 
+Params: alpha = 0.04 , beta = 0.93 
+Qbar eigenvalues: 1.350158 0.6478085 
+Negative log-likelihood: 416.3979 
+Number of valid obs: 299 / 299 
+Start NLL: 416.3979 
+
+=== DCC M-STEP DIAGNOSTIC ===
+Starting DCC params:
+alpha_1  beta_1 
+   0.04    0.93 
+
+Optimized DCC params:
+  alpha_1    beta_1 
+0.1498593 0.5001052 
+
+Optimization convergence: 0 
+Final objective value: 414.5697 
+Optimizer convergence code: 0 
+  0 = success, 1 = maxit reached, 51/52 = warning
+Starting NLL: 416.3979 
+Final NLL: 414.5697 
+Improvement: 1.828198 
+Function evaluations: 11 
+At boundary: FALSE 
+
+=== TESTING OBJECTIVE AT START PARAMS ===
+
+=== OBJECTIVE FUNCTION DIAGNOSTIC ===
+Weight summary: min = 0.308387 , max = 0.9960493 , mean = 0.4966654 
+Effective sample size: 288.0211 
+Params: alpha = 0.13 , beta = 0.82 
+Qbar eigenvalues: 1.278608 0.7142363 
+Negative log-likelihood: 423.9302 
+Number of valid obs: 299 / 299 
+Start NLL: 423.9302 
+
+=== DCC M-STEP DIAGNOSTIC ===
+Starting DCC params:
+alpha_1  beta_1 
+   0.13    0.82 
+
+Optimized DCC params:
+  alpha_1    beta_1 
+0.0100000 0.4302823 
+
+Optimization convergence: 0 
+Final objective value: 414.7597 
+Optimizer convergence code: 0 
+  0 = success, 1 = maxit reached, 51/52 = warning
+Starting NLL: 423.9302 
+Final NLL: 414.7597 
+Improvement: 9.170464 
+Function evaluations: 10 
+At boundary: TRUE 
+
+=== Model Selection (State 2, Iter 8) ===
+Criterion: BIC (n_eff=299.0)
+Dynamic:  LL=-414.7597, k=2, BIC=840.9203
+Constant: LL=-414.7167, k=0, BIC=829.4334
+Decision: CONSTANT
+
+
+=== EM ITERATION 8 ===
+
+=== EM ITERATION 8 ===
+  LL before M-step: -752.043
+  LL after M-step:  -751.814
+  Change: 0.229072
+Log-Likelihood: -751.814 (Duration: 00:00:21)
+
+
+==========================================================
+EM Iteration 9... 
+=== TESTING OBJECTIVE AT START PARAMS ===
+
+=== OBJECTIVE FUNCTION DIAGNOSTIC ===
+Weight summary: min = 0.002553793 , max = 0.7050154 , mean = 0.5018398 
+Effective sample size: 286.1076 
+Params: alpha = 0.04 , beta = 0.93 
+Qbar eigenvalues: 1.352025 0.6464905 
+Negative log-likelihood: 415.0026 
+Number of valid obs: 299 / 299 
+Start NLL: 415.0026 
+
+=== DCC M-STEP DIAGNOSTIC ===
+Starting DCC params:
+alpha_1  beta_1 
+   0.04    0.93 
+
+Optimized DCC params:
+  alpha_1    beta_1 
+0.1518593 0.5074496 
+
+Optimization convergence: 0 
+Final objective value: 413.1418 
+Optimizer convergence code: 0 
+  0 = success, 1 = maxit reached, 51/52 = warning
+Starting NLL: 415.0026 
+Final NLL: 413.1418 
+Improvement: 1.860813 
+Function evaluations: 11 
+At boundary: FALSE 
+
+=== TESTING OBJECTIVE AT START PARAMS ===
+
+=== OBJECTIVE FUNCTION DIAGNOSTIC ===
+Weight summary: min = 0.2949846 , max = 0.9974462 , mean = 0.4981602 
+Effective sample size: 285.9248 
+Params: alpha = 0.13 , beta = 0.82 
+Qbar eigenvalues: 1.275603 0.717037 
+Negative log-likelihood: 425.2448 
+Number of valid obs: 299 / 299 
+Start NLL: 425.2448 
+
+=== DCC M-STEP DIAGNOSTIC ===
+Starting DCC params:
+alpha_1  beta_1 
+   0.13    0.82 
+
+Optimized DCC params:
+  alpha_1    beta_1 
+0.0100000 0.4308807 
+
+Optimization convergence: 0 
+Final objective value: 416.1233 
+Optimizer convergence code: 0 
+  0 = success, 1 = maxit reached, 51/52 = warning
+Starting NLL: 425.2448 
+Final NLL: 416.1233 
+Improvement: 9.121531 
+Function evaluations: 10 
+At boundary: TRUE 
+
+=== Model Selection (State 2, Iter 9) ===
+Criterion: BIC (n_eff=299.0)
+Dynamic:  LL=-416.1233, k=2, BIC=843.6474
+Constant: LL=-416.0820, k=0, BIC=832.1639
+Decision: CONSTANT
+
+
+=== EM ITERATION 9 ===
+
+=== EM ITERATION 9 ===
+  LL before M-step: -751.814
+  LL after M-step:  -751.594
+  Change: 0.220005
+Log-Likelihood: -751.594 (Duration: 00:00:19)
+
+
+==========================================================
+EM Iteration 10... 
+=== TESTING OBJECTIVE AT START PARAMS ===
+
+=== OBJECTIVE FUNCTION DIAGNOSTIC ===
+Weight summary: min = 0.001617823 , max = 0.7314508 , mean = 0.5002267 
+Effective sample size: 283.7407 
+Params: alpha = 0.04 , beta = 0.93 
+Qbar eigenvalues: 1.353442 0.6457028 
+Negative log-likelihood: 413.576 
+Number of valid obs: 299 / 299 
+Start NLL: 413.576 
+
+=== DCC M-STEP DIAGNOSTIC ===
+Starting DCC params:
+alpha_1  beta_1 
+   0.04    0.93 
+
+Optimized DCC params:
+  alpha_1    beta_1 
+0.1540799 0.5088341 
+
+Optimization convergence: 0 
+Final objective value: 411.6595 
+Optimizer convergence code: 0 
+  0 = success, 1 = maxit reached, 51/52 = warning
+Starting NLL: 413.576 
+Final NLL: 411.6595 
+Improvement: 1.916559 
+Function evaluations: 11 
+At boundary: FALSE 
+
+=== TESTING OBJECTIVE AT START PARAMS ===
+
+=== OBJECTIVE FUNCTION DIAGNOSTIC ===
+Weight summary: min = 0.2685492 , max = 0.9983822 , mean = 0.4997733 
+Effective sample size: 283.7144 
+Params: alpha = 0.13 , beta = 0.82 
+Qbar eigenvalues: 1.272444 0.7198939 
+Negative log-likelihood: 426.6584 
+Number of valid obs: 299 / 299 
+Start NLL: 426.6584 
+
+=== DCC M-STEP DIAGNOSTIC ===
+Starting DCC params:
+alpha_1  beta_1 
+   0.13    0.82 
+
+Optimized DCC params:
+  alpha_1    beta_1 
+0.0100000 0.4335816 
+
+Optimization convergence: 0 
+Final objective value: 417.5812 
+Optimizer convergence code: 0 
+  0 = success, 1 = maxit reached, 51/52 = warning
+Starting NLL: 426.6584 
+Final NLL: 417.5812 
+Improvement: 9.077228 
+Function evaluations: 10 
+At boundary: TRUE 
+
+=== Model Selection (State 2, Iter 10) ===
+Criterion: BIC (n_eff=299.0)
+Dynamic:  LL=-417.5812, k=2, BIC=846.5633
+Constant: LL=-417.5419, k=0, BIC=835.0839
+Decision: CONSTANT
+
+
+=== EM ITERATION 10 ===
+
+=== EM ITERATION 10 ===
+  LL before M-step: -751.594
+  LL after M-step:  -751.373
+  Change: 0.221253
+Log-Likelihood: -751.373 (Duration: 00:00:18)
+
+
+==========================================================
+EM Iteration 11... 
+=== TESTING OBJECTIVE AT START PARAMS ===
+
+=== OBJECTIVE FUNCTION DIAGNOSTIC ===
+Weight summary: min = 0.001341741 , max = 0.7554714 , mean = 0.4989153 
+Effective sample size: 281.6024 
+Params: alpha = 0.04 , beta = 0.93 
+Qbar eigenvalues: 1.353782 0.6456985 
+Negative log-likelihood: 412.4366 
+Number of valid obs: 299 / 299 
+Start NLL: 412.4366 
+
+=== DCC M-STEP DIAGNOSTIC ===
+Starting DCC params:
+alpha_1  beta_1 
+   0.04    0.93 
+
+Optimized DCC params:
+  alpha_1    beta_1 
+0.1552974 0.5101656 
+
+Optimization convergence: 0 
+Final objective value: 410.4943 
+Optimizer convergence code: 0 
+  0 = success, 1 = maxit reached, 51/52 = warning
+Starting NLL: 412.4366 
+Final NLL: 410.4943 
+Improvement: 1.94224 
+Function evaluations: 11 
+At boundary: FALSE 
+
+=== TESTING OBJECTIVE AT START PARAMS ===
+
+=== OBJECTIVE FUNCTION DIAGNOSTIC ===
+Weight summary: min = 0.2445286 , max = 0.9986583 , mean = 0.5010847 
+Effective sample size: 281.7441 
+Params: alpha = 0.13 , beta = 0.82 
+Qbar eigenvalues: 1.269423 0.7225777 
+Negative log-likelihood: 427.7842 
+Number of valid obs: 299 / 299 
+Start NLL: 427.7842 
+
+=== DCC M-STEP DIAGNOSTIC ===
+Starting DCC params:
+alpha_1  beta_1 
+   0.13    0.82 
+
+Optimized DCC params:
+  alpha_1    beta_1 
+0.0100000 0.4383864 
+
+Optimization convergence: 0 
+Final objective value: 418.776 
+Optimizer convergence code: 0 
+  0 = success, 1 = maxit reached, 51/52 = warning
+Starting NLL: 427.7842 
+Final NLL: 418.776 
+Improvement: 9.008276 
+Function evaluations: 11 
+At boundary: TRUE 
+
+=== Model Selection (State 2, Iter 11) ===
+Criterion: BIC (n_eff=299.0)
+Dynamic:  LL=-418.7760, k=2, BIC=848.9528
+Constant: LL=-418.7393, k=0, BIC=837.4786
+Decision: CONSTANT
+
+
+=== EM ITERATION 11 ===
+
+=== EM ITERATION 11 ===
+  LL before M-step: -751.373
+  LL after M-step:  -751.185
+  Change: 0.187222
+Log-Likelihood: -751.185 (Duration: 00:00:20)
+
+
+==========================================================
+EM Iteration 12... 
+=== TESTING OBJECTIVE AT START PARAMS ===
+
+=== OBJECTIVE FUNCTION DIAGNOSTIC ===
+Weight summary: min = 0.0009608939 , max = 0.7753731 , mean = 0.4979082 
+Effective sample size: 279.6054 
+Params: alpha = 0.04 , beta = 0.93 
+Qbar eigenvalues: 1.353244 0.6460498 
+Negative log-likelihood: 411.5555 
+Number of valid obs: 299 / 299 
+Start NLL: 411.5555 
+
+=== DCC M-STEP DIAGNOSTIC ===
+Starting DCC params:
+alpha_1  beta_1 
+   0.04    0.93 
+
+Optimized DCC params:
+  alpha_1    beta_1 
+0.1559162 0.5111958 
+
+Optimization convergence: 0 
+Final objective value: 409.6028 
+Optimizer convergence code: 0 
+  0 = success, 1 = maxit reached, 51/52 = warning
+Starting NLL: 411.5555 
+Final NLL: 409.6028 
+Improvement: 1.952662 
+Function evaluations: 11 
+At boundary: FALSE 
+
+=== TESTING OBJECTIVE AT START PARAMS ===
+
+=== OBJECTIVE FUNCTION DIAGNOSTIC ===
+Weight summary: min = 0.2246269 , max = 0.9990391 , mean = 0.5020918 
+Effective sample size: 279.9067 
+Params: alpha = 0.13 , beta = 0.82 
+Qbar eigenvalues: 1.266837 0.7248173 
+Negative log-likelihood: 428.6373 
+Number of valid obs: 299 / 299 
+Start NLL: 428.6373 
+
+=== DCC M-STEP DIAGNOSTIC ===
+Starting DCC params:
+alpha_1  beta_1 
+   0.13    0.82 
+
+Optimized DCC params:
+  alpha_1    beta_1 
+0.0100000 0.4449255 
+
+Optimization convergence: 0 
+Final objective value: 419.6954 
+Optimizer convergence code: 0 
+  0 = success, 1 = maxit reached, 51/52 = warning
+Starting NLL: 428.6373 
+Final NLL: 419.6954 
+Improvement: 8.941839 
+Function evaluations: 11 
+At boundary: TRUE 
+
+=== Model Selection (State 2, Iter 12) ===
+Criterion: BIC (n_eff=299.0)
+Dynamic:  LL=-419.6954, k=2, BIC=850.7917
+Constant: LL=-419.6612, k=0, BIC=839.3225
+Decision: CONSTANT
+
+
+=== EM ITERATION 12 ===
+
+=== EM ITERATION 12 ===
+  LL before M-step: -751.185
+  LL after M-step:  -751.031
+  Change: 0.154427
+Log-Likelihood: -751.031 (Duration: 00:00:13)
+
+
+==========================================================
+EM Iteration 13... 
+=== TESTING OBJECTIVE AT START PARAMS ===
+
+=== OBJECTIVE FUNCTION DIAGNOSTIC ===
+Weight summary: min = 0.0007286971 , max = 0.791283 , mean = 0.497248 
+Effective sample size: 277.7733 
+Params: alpha = 0.04 , beta = 0.93 
+Qbar eigenvalues: 1.352517 0.6468448 
+Negative log-likelihood: 411.0148 
+Number of valid obs: 299 / 299 
+Start NLL: 411.0148 
+
+=== DCC M-STEP DIAGNOSTIC ===
+Starting DCC params:
+alpha_1  beta_1 
+   0.04    0.93 
+
+Optimized DCC params:
+  alpha_1    beta_1 
+0.1560533 0.5119504 
+
+Optimization convergence: 0 
+Final objective value: 409.0632 
+Optimizer convergence code: 0 
+  0 = success, 1 = maxit reached, 51/52 = warning
+Starting NLL: 411.0148 
+Final NLL: 409.0632 
+Improvement: 1.951554 
+Function evaluations: 11 
+At boundary: FALSE 
+
+=== TESTING OBJECTIVE AT START PARAMS ===
+
+=== OBJECTIVE FUNCTION DIAGNOSTIC ===
+Weight summary: min = 0.208717 , max = 0.9992713 , mean = 0.502752 
+Effective sample size: 278.2034 
+Params: alpha = 0.13 , beta = 0.82 
+Qbar eigenvalues: 1.264992 0.7264277 
+Negative log-likelihood: 429.1972 
+Number of valid obs: 299 / 299 
+Start NLL: 429.1972 
+
+=== DCC M-STEP DIAGNOSTIC ===
+Starting DCC params:
+alpha_1  beta_1 
+   0.13    0.82 
+
+Optimized DCC params:
+  alpha_1    beta_1 
+0.0100000 0.4517482 
+
+Optimization convergence: 0 
+Final objective value: 420.3038 
+Optimizer convergence code: 0 
+  0 = success, 1 = maxit reached, 51/52 = warning
+Starting NLL: 429.1972 
+Final NLL: 420.3038 
+Improvement: 8.893328 
+Function evaluations: 12 
+At boundary: TRUE 
+
+=== Model Selection (State 2, Iter 13) ===
+Criterion: BIC (n_eff=299.0)
+Dynamic:  LL=-420.3038, k=2, BIC=852.0086
+Constant: LL=-420.2714, k=0, BIC=840.5428
+Decision: CONSTANT
+
+
+=== EM ITERATION 13 ===
+
+=== EM ITERATION 13 ===
+  LL before M-step: -751.031
+  LL after M-step:  -750.905
+  Change: 0.126206
+Log-Likelihood: -750.905 (Duration: 00:00:18)
+
+
+==========================================================
+EM Iteration 14... 
+=== TESTING OBJECTIVE AT START PARAMS ===
+
+=== OBJECTIVE FUNCTION DIAGNOSTIC ===
+Weight summary: min = 0.0005820586 , max = 0.8092536 , mean = 0.4969829 
+Effective sample size: 276.1164 
+Params: alpha = 0.04 , beta = 0.93 
+Qbar eigenvalues: 1.351659 0.6479955 
+Negative log-likelihood: 410.8449 
+Number of valid obs: 299 / 299 
+Start NLL: 410.8449 
+
+=== DCC M-STEP DIAGNOSTIC ===
+Starting DCC params:
+alpha_1  beta_1 
+   0.04    0.93 
+
+Optimized DCC params:
+  alpha_1    beta_1 
+0.1559350 0.5125082 
+
+Optimization convergence: 0 
+Final objective value: 408.9008 
+Optimizer convergence code: 0 
+  0 = success, 1 = maxit reached, 51/52 = warning
+Starting NLL: 410.8449 
+Final NLL: 408.9008 
+Improvement: 1.94411 
+Function evaluations: 11 
+At boundary: FALSE 
+
+=== TESTING OBJECTIVE AT START PARAMS ===
+
+=== OBJECTIVE FUNCTION DIAGNOSTIC ===
+Weight summary: min = 0.1907464 , max = 0.9994179 , mean = 0.5030171 
+Effective sample size: 276.6213 
+Params: alpha = 0.13 , beta = 0.82 
+Qbar eigenvalues: 1.263896 0.7271623 
+Negative log-likelihood: 429.4006 
+Number of valid obs: 299 / 299 
+Start NLL: 429.4006 
+
+=== DCC M-STEP DIAGNOSTIC ===
+Starting DCC params:
+alpha_1  beta_1 
+   0.13    0.82 
+
+Optimized DCC params:
+  alpha_1    beta_1 
+0.0100000 0.4577328 
+
+Optimization convergence: 0 
+Final objective value: 420.5365 
+Optimizer convergence code: 0 
+  0 = success, 1 = maxit reached, 51/52 = warning
+Starting NLL: 429.4006 
+Final NLL: 420.5365 
+Improvement: 8.864103 
+Function evaluations: 12 
+At boundary: TRUE 
+
+=== Model Selection (State 2, Iter 14) ===
+Criterion: BIC (n_eff=299.0)
+Dynamic:  LL=-420.5365, k=2, BIC=852.4739
+Constant: LL=-420.5048, k=0, BIC=841.0096
+Decision: CONSTANT
+
+
+=== EM ITERATION 14 ===
+
+=== EM ITERATION 14 ===
+  LL before M-step: -750.905
+  LL after M-step:  -750.801
+  Change: 0.104139
+Log-Likelihood: -750.801 (Duration: 00:00:15)
+
+
+==========================================================
+EM Iteration 15... 
+=== TESTING OBJECTIVE AT START PARAMS ===
+
+=== OBJECTIVE FUNCTION DIAGNOSTIC ===
+Weight summary: min = 0.0004875508 , max = 0.8265492 , mean = 0.4971528 
+Effective sample size: 274.6276 
+Params: alpha = 0.04 , beta = 0.93 
+Qbar eigenvalues: 1.350189 0.6491648 
+Negative log-likelihood: 411.0101 
+Number of valid obs: 299 / 299 
+Start NLL: 411.0101 
+
+=== DCC M-STEP DIAGNOSTIC ===
+Starting DCC params:
+alpha_1  beta_1 
+   0.04    0.93 
+
+Optimized DCC params:
+  alpha_1    beta_1 
+0.1558942 0.5129159 
+
+Optimization convergence: 0 
+Final objective value: 409.0734 
+Optimizer convergence code: 0 
+  0 = success, 1 = maxit reached, 51/52 = warning
+Starting NLL: 411.0101 
+Final NLL: 409.0734 
+Improvement: 1.936709 
+Function evaluations: 11 
+At boundary: FALSE 
+
+=== TESTING OBJECTIVE AT START PARAMS ===
+
+=== OBJECTIVE FUNCTION DIAGNOSTIC ===
+Weight summary: min = 0.1734508 , max = 0.9995124 , mean = 0.5028472 
+Effective sample size: 275.1326 
+Params: alpha = 0.13 , beta = 0.82 
+Qbar eigenvalues: 1.263639 0.7270769 
+Negative log-likelihood: 429.2267 
+Number of valid obs: 299 / 299 
+Start NLL: 429.2267 
+
+=== DCC M-STEP DIAGNOSTIC ===
+Starting DCC params:
+alpha_1  beta_1 
+   0.13    0.82 
+
+Optimized DCC params:
+  alpha_1    beta_1 
+0.0100000 0.4620829 
+
+Optimization convergence: 0 
+Final objective value: 420.3716 
+Optimizer convergence code: 0 
+  0 = success, 1 = maxit reached, 51/52 = warning
+Starting NLL: 429.2267 
+Final NLL: 420.3716 
+Improvement: 8.855147 
+Function evaluations: 12 
+At boundary: TRUE 
+
+=== Model Selection (State 2, Iter 15) ===
+Criterion: BIC (n_eff=299.0)
+Dynamic:  LL=-420.3716, k=2, BIC=852.1440
+Constant: LL=-420.3395, k=0, BIC=840.6791
+Decision: CONSTANT
+
+
+=== EM ITERATION 15 ===
+
+=== EM ITERATION 15 ===
+  LL before M-step: -750.801
+  LL after M-step:  -750.714
+  Change: 0.0865799
+Log-Likelihood: -750.714 (Duration: 00:00:15)
+
+
+==========================================================
+EM Iteration 16... 
+=== TESTING OBJECTIVE AT START PARAMS ===
+
+=== OBJECTIVE FUNCTION DIAGNOSTIC ===
+Weight summary: min = 0.0004262538 , max = 0.8403489 , mean = 0.4977785 
+Effective sample size: 273.2934 
+Params: alpha = 0.04 , beta = 0.93 
+Qbar eigenvalues: 1.348761 0.6505253 
+Negative log-likelihood: 411.5822 
+Number of valid obs: 299 / 299 
+Start NLL: 411.5822 
+
+=== DCC M-STEP DIAGNOSTIC ===
+Starting DCC params:
+alpha_1  beta_1 
+   0.04    0.93 
+
+Optimized DCC params:
+  alpha_1    beta_1 
+0.1559518 0.5132612 
+
+Optimization convergence: 0 
+Final objective value: 409.6497 
+Optimizer convergence code: 0 
+  0 = success, 1 = maxit reached, 51/52 = warning
+Starting NLL: 411.5822 
+Final NLL: 409.6497 
+Improvement: 1.932506 
+Function evaluations: 11 
+At boundary: FALSE 
+
+=== TESTING OBJECTIVE AT START PARAMS ===
+
+=== OBJECTIVE FUNCTION DIAGNOSTIC ===
+Weight summary: min = 0.1596511 , max = 0.9995737 , mean = 0.5022215 
+Effective sample size: 273.7079 
+Params: alpha = 0.13 , beta = 0.82 
+Qbar eigenvalues: 1.26418 0.7261996 
+Negative log-likelihood: 428.6609 
+Number of valid obs: 299 / 299 
+Start NLL: 428.6609 
+
+=== DCC M-STEP DIAGNOSTIC ===
+Starting DCC params:
+alpha_1  beta_1 
+   0.13    0.82 
+
+Optimized DCC params:
+  alpha_1    beta_1 
+0.0100000 0.4643782 
+
+Optimization convergence: 0 
+Final objective value: 419.7924 
+Optimizer convergence code: 0 
+  0 = success, 1 = maxit reached, 51/52 = warning
+Starting NLL: 428.6609 
+Final NLL: 419.7924 
+Improvement: 8.868579 
+Function evaluations: 12 
+At boundary: TRUE 
+
+=== Model Selection (State 2, Iter 16) ===
+Criterion: BIC (n_eff=299.0)
+Dynamic:  LL=-419.7924, k=2, BIC=850.9856
+Constant: LL=-419.7589, k=0, BIC=839.5178
+Decision: CONSTANT
+
+
+=== EM ITERATION 16 ===
+
+=== EM ITERATION 16 ===
+  LL before M-step: -750.714
+  LL after M-step:  -750.64
+  Change: 0.0736088
+Log-Likelihood: -750.64 (Duration: 00:00:16)
+
+
+==========================================================
+EM Iteration 17... 
+=== TESTING OBJECTIVE AT START PARAMS ===
+
+=== OBJECTIVE FUNCTION DIAGNOSTIC ===
+Weight summary: min = 0.0003865624 , max = 0.8530094 , mean = 0.4988608 
+Effective sample size: 272.1004 
+Params: alpha = 0.04 , beta = 0.93 
+Qbar eigenvalues: 1.347033 0.6518234 
+Negative log-likelihood: 412.5121 
+Number of valid obs: 299 / 299 
+Start NLL: 412.5121 
+
+=== DCC M-STEP DIAGNOSTIC ===
+Starting DCC params:
+alpha_1  beta_1 
+   0.04    0.93 
+
+Optimized DCC params:
+  alpha_1    beta_1 
+0.1562670 0.5136186 
+
+Optimization convergence: 0 
+Final objective value: 410.577 
+Optimizer convergence code: 0 
+  0 = success, 1 = maxit reached, 51/52 = warning
+Starting NLL: 412.5121 
+Final NLL: 410.577 
+Improvement: 1.935134 
+Function evaluations: 11 
+At boundary: FALSE 
+
+=== TESTING OBJECTIVE AT START PARAMS ===
+
+=== OBJECTIVE FUNCTION DIAGNOSTIC ===
+Weight summary: min = 0.1469906 , max = 0.9996134 , mean = 0.5011392 
+Effective sample size: 272.3227 
+Params: alpha = 0.13 , beta = 0.82 
+Qbar eigenvalues: 1.265436 0.7246299 
+Negative log-likelihood: 427.7059 
+Number of valid obs: 299 / 299 
+Start NLL: 427.7059 
+
+=== DCC M-STEP DIAGNOSTIC ===
+Starting DCC params:
+alpha_1  beta_1 
+   0.13    0.82 
+
+Optimized DCC params:
+  alpha_1    beta_1 
+0.0100000 0.4646572 
+
+Optimization convergence: 0 
+Final objective value: 418.8035 
+Optimizer convergence code: 0 
+  0 = success, 1 = maxit reached, 51/52 = warning
+Starting NLL: 427.7059 
+Final NLL: 418.8035 
+Improvement: 8.902351 
+Function evaluations: 12 
+At boundary: TRUE 
+
+=== Model Selection (State 2, Iter 17) ===
+Criterion: BIC (n_eff=299.0)
+Dynamic:  LL=-418.8035, k=2, BIC=849.0080
+Constant: LL=-418.7676, k=0, BIC=837.5351
+Decision: CONSTANT
+
+
+=== EM ITERATION 17 ===
+
+=== EM ITERATION 17 ===
+  LL before M-step: -750.64
+  LL after M-step:  -750.576
+  Change: 0.0647813
+Log-Likelihood: -750.576 (Duration: 00:00:18)
+
+
+==========================================================
+EM Iteration 18... 
+=== TESTING OBJECTIVE AT START PARAMS ===
+
+=== OBJECTIVE FUNCTION DIAGNOSTIC ===
+Weight summary: min = 0.0003610748 , max = 0.8699487 , mean = 0.5003867 
+Effective sample size: 271.0461 
+Params: alpha = 0.04 , beta = 0.93 
+Qbar eigenvalues: 1.345271 0.6531228 
+Negative log-likelihood: 413.8104 
+Number of valid obs: 299 / 299 
+Start NLL: 413.8104 
+
+=== DCC M-STEP DIAGNOSTIC ===
+Starting DCC params:
+alpha_1  beta_1 
+   0.04    0.93 
+
+Optimized DCC params:
+  alpha_1    beta_1 
+0.1568561 0.5141022 
+
+Optimization convergence: 0 
+Final objective value: 411.8641 
+Optimizer convergence code: 0 
+  0 = success, 1 = maxit reached, 51/52 = warning
+Starting NLL: 413.8104 
+Final NLL: 411.8641 
+Improvement: 1.946251 
+Function evaluations: 11 
+At boundary: FALSE 
+
+=== TESTING OBJECTIVE AT START PARAMS ===
+
+=== OBJECTIVE FUNCTION DIAGNOSTIC ===
+Weight summary: min = 0.1300513 , max = 0.9996389 , mean = 0.4996133 
+Effective sample size: 270.9676 
+Params: alpha = 0.13 , beta = 0.82 
+Qbar eigenvalues: 1.267309 0.7224844 
+Negative log-likelihood: 426.3767 
+Number of valid obs: 299 / 299 
+Start NLL: 426.3767 
+
+=== DCC M-STEP DIAGNOSTIC ===
+Starting DCC params:
+alpha_1  beta_1 
+   0.13    0.82 
+
+Optimized DCC params:
+  alpha_1    beta_1 
+0.0100000 0.4632519 
+
+Optimization convergence: 0 
+Final objective value: 417.422 
+Optimizer convergence code: 0 
+  0 = success, 1 = maxit reached, 51/52 = warning
+Starting NLL: 426.3767 
+Final NLL: 417.422 
+Improvement: 8.954635 
+Function evaluations: 12 
+At boundary: TRUE 
+
+=== Model Selection (State 2, Iter 18) ===
+Criterion: BIC (n_eff=299.0)
+Dynamic:  LL=-417.4220, k=2, BIC=846.2450
+Constant: LL=-417.3825, k=0, BIC=834.7650
+Decision: CONSTANT
+
+
+=== EM ITERATION 18 ===
+
+=== EM ITERATION 18 ===
+  LL before M-step: -750.576
+  LL after M-step:  -750.516
+  Change: 0.0591698
+Log-Likelihood: -750.516 (Duration: 00:00:19)
+
+
+==========================================================
+EM Iteration 19... 
+=== TESTING OBJECTIVE AT START PARAMS ===
+
+=== OBJECTIVE FUNCTION DIAGNOSTIC ===
+Weight summary: min = 0.0003454947 , max = 0.9015837 , mean = 0.5023338 
+Effective sample size: 270.1242 
+Params: alpha = 0.04 , beta = 0.93 
+Qbar eigenvalues: 1.343745 0.6546361 
+Negative log-likelihood: 415.4969 
+Number of valid obs: 299 / 299 
+Start NLL: 415.4969 
+
+=== DCC M-STEP DIAGNOSTIC ===
+Starting DCC params:
+alpha_1  beta_1 
+   0.04    0.93 
+
+Optimized DCC params:
+  alpha_1    beta_1 
+0.1578811 0.5147216 
+
+Optimization convergence: 0 
+Final objective value: 413.5258 
+Optimizer convergence code: 0 
+  0 = success, 1 = maxit reached, 51/52 = warning
+Starting NLL: 415.4969 
+Final NLL: 413.5258 
+Improvement: 1.971121 
+Function evaluations: 11 
+At boundary: FALSE 
+
+=== TESTING OBJECTIVE AT START PARAMS ===
+
+=== OBJECTIVE FUNCTION DIAGNOSTIC ===
+Weight summary: min = 0.09841631 , max = 0.9996545 , mean = 0.4976662 
+Effective sample size: 269.6335 
+Params: alpha = 0.13 , beta = 0.82 
+Qbar eigenvalues: 1.269609 0.7198165 
+Negative log-likelihood: 424.6801 
+Number of valid obs: 299 / 299 
+Start NLL: 424.6801 
+
+=== DCC M-STEP DIAGNOSTIC ===
+Starting DCC params:
+alpha_1  beta_1 
+   0.13    0.82 
+
+Optimized DCC params:
+  alpha_1    beta_1 
+0.0100000 0.4608387 
+
+Optimization convergence: 0 
+Final objective value: 415.6605 
+Optimizer convergence code: 0 
+  0 = success, 1 = maxit reached, 51/52 = warning
+Starting NLL: 424.6801 
+Final NLL: 415.6605 
+Improvement: 9.019505 
+Function evaluations: 12 
+At boundary: TRUE 
+
+=== Model Selection (State 2, Iter 19) ===
+Criterion: BIC (n_eff=299.0)
+Dynamic:  LL=-415.6605, k=2, BIC=842.7220
+Constant: LL=-415.6165, k=0, BIC=831.2330
+Decision: CONSTANT
+
+
+=== EM ITERATION 19 ===
+
+=== EM ITERATION 19 ===
+  LL before M-step: -750.516
+  LL after M-step:  -750.459
+  Change: 0.0576143
+Log-Likelihood: -750.459 (Duration: 00:00:17)
+
+
+==========================================================
+EM Iteration 20... 
+=== TESTING OBJECTIVE AT START PARAMS ===
+
+=== OBJECTIVE FUNCTION DIAGNOSTIC ===
+Weight summary: min = 0.000336699 , max = 0.9266831 , mean = 0.5046747 
+Effective sample size: 269.3132 
+Params: alpha = 0.04 , beta = 0.93 
+Qbar eigenvalues: 1.342027 0.6560881 
+Negative log-likelihood: 417.4918 
+Number of valid obs: 299 / 299 
+Start NLL: 417.4918 
+
+=== DCC M-STEP DIAGNOSTIC ===
+Starting DCC params:
+alpha_1  beta_1 
+   0.04    0.93 
+
+Optimized DCC params:
+  alpha_1    beta_1 
+0.1594521 0.5155209 
+
+Optimization convergence: 0 
+Final objective value: 415.4804 
+Optimizer convergence code: 0 
+  0 = success, 1 = maxit reached, 51/52 = warning
+Starting NLL: 417.4918 
+Final NLL: 415.4804 
+Improvement: 2.011381 
+Function evaluations: 11 
+At boundary: FALSE 
+
+=== TESTING OBJECTIVE AT START PARAMS ===
+
+=== OBJECTIVE FUNCTION DIAGNOSTIC ===
+Weight summary: min = 0.07331687 , max = 0.9996633 , mean = 0.4953253 
+Effective sample size: 268.2981 
+Params: alpha = 0.13 , beta = 0.82 
+Qbar eigenvalues: 1.272381 0.7168095 
+Negative log-likelihood: 422.6614 
+Number of valid obs: 299 / 299 
+Start NLL: 422.6614 
+
+=== DCC M-STEP DIAGNOSTIC ===
+Starting DCC params:
+alpha_1  beta_1 
+   0.13    0.82 
+
+Optimized DCC params:
+  alpha_1    beta_1 
+0.0100000 0.4580763 
+
+Optimization convergence: 0 
+Final objective value: 413.5636 
+Optimizer convergence code: 0 
+  0 = success, 1 = maxit reached, 51/52 = warning
+Starting NLL: 422.6614 
+Final NLL: 413.5636 
+Improvement: 9.097772 
+Function evaluations: 12 
+At boundary: TRUE 
+
+=== Model Selection (State 2, Iter 20) ===
+Criterion: BIC (n_eff=299.0)
+Dynamic:  LL=-413.5636, k=2, BIC=838.5281
+Constant: LL=-413.5143, k=0, BIC=827.0286
+Decision: CONSTANT
+
+
+=== EM ITERATION 20 ===
+
+=== EM ITERATION 20 ===
+  LL before M-step: -750.459
+  LL after M-step:  -750.397
+  Change: 0.0618214
+Log-Likelihood: -750.397 (Duration: 00:00:23)
+
+
+==========================================================
+EM Iteration 21... 
+=== TESTING OBJECTIVE AT START PARAMS ===
+
+=== OBJECTIVE FUNCTION DIAGNOSTIC ===
+Weight summary: min = 0.0003322743 , max = 0.946172 , mean = 0.5073791 
+Effective sample size: 268.5962 
+Params: alpha = 0.04 , beta = 0.93 
+Qbar eigenvalues: 1.340255 0.657478 
+Negative log-likelihood: 419.7772 
+Number of valid obs: 299 / 299 
+Start NLL: 419.7772 
+
+=== DCC M-STEP DIAGNOSTIC ===
+Starting DCC params:
+alpha_1  beta_1 
+   0.04    0.93 
+
+Optimized DCC params:
+  alpha_1    beta_1 
+0.1615484 0.5165991 
+
+Optimization convergence: 0 
+Final objective value: 417.7099 
+Optimizer convergence code: 0 
+  0 = success, 1 = maxit reached, 51/52 = warning
+Starting NLL: 419.7772 
+Final NLL: 417.7099 
+Improvement: 2.06726 
+Function evaluations: 11 
+At boundary: FALSE 
+
+=== TESTING OBJECTIVE AT START PARAMS ===
+
+=== OBJECTIVE FUNCTION DIAGNOSTIC ===
+Weight summary: min = 0.05382799 , max = 0.9996677 , mean = 0.4926209 
+Effective sample size: 266.9455 
+Params: alpha = 0.13 , beta = 0.82 
+Qbar eigenvalues: 1.275511 0.7134634 
+Negative log-likelihood: 420.3372 
+Number of valid obs: 299 / 299 
+Start NLL: 420.3372 
+
+=== DCC M-STEP DIAGNOSTIC ===
+Starting DCC params:
+alpha_1  beta_1 
+   0.13    0.82 
+
+Optimized DCC params:
+  alpha_1    beta_1 
+0.0100000 0.4556387 
+
+Optimization convergence: 0 
+Final objective value: 411.1496 
+Optimizer convergence code: 0 
+  0 = success, 1 = maxit reached, 51/52 = warning
+Starting NLL: 420.3372 
+Final NLL: 411.1496 
+Improvement: 9.187643 
+Function evaluations: 11 
+At boundary: TRUE 
+
+=== Model Selection (State 2, Iter 21) ===
+Criterion: BIC (n_eff=299.0)
+Dynamic:  LL=-411.1496, k=2, BIC=833.7000
+Constant: LL=-411.0942, k=0, BIC=822.1883
+Decision: CONSTANT
+
+
+=== EM ITERATION 21 ===
+
+=== EM ITERATION 21 ===
+  LL before M-step: -750.397
+  LL after M-step:  -750.324
+  Change: 0.0733719
+Log-Likelihood: -750.324 (Duration: 00:00:17)
+
+
+==========================================================
+EM Iteration 22... 
+=== TESTING OBJECTIVE AT START PARAMS ===
+
+=== OBJECTIVE FUNCTION DIAGNOSTIC ===
+Weight summary: min = 0.0003296111 , max = 0.9646962 , mean = 0.5104199 
+Effective sample size: 267.9437 
+Params: alpha = 0.04 , beta = 0.93 
+Qbar eigenvalues: 1.338263 0.6586667 
+Negative log-likelihood: 422.3037 
+Number of valid obs: 299 / 299 
+Start NLL: 422.3037 
+
+=== DCC M-STEP DIAGNOSTIC ===
+Starting DCC params:
+alpha_1  beta_1 
+   0.04    0.93 
+
+Optimized DCC params:
+  alpha_1    beta_1 
+0.1642580 0.5179629 
+
+Optimization convergence: 0 
+Final objective value: 420.1638 
+Optimizer convergence code: 0 
+  0 = success, 1 = maxit reached, 51/52 = warning
+Starting NLL: 422.3037 
+Final NLL: 420.1638 
+Improvement: 2.13991 
+Function evaluations: 11 
+At boundary: FALSE 
+
+=== TESTING OBJECTIVE AT START PARAMS ===
+
+=== OBJECTIVE FUNCTION DIAGNOSTIC ===
+Weight summary: min = 0.03530377 , max = 0.9996704 , mean = 0.4895801 
+Effective sample size: 265.5456 
+Params: alpha = 0.13 , beta = 0.82 
+Qbar eigenvalues: 1.278984 0.7098389 
+Negative log-likelihood: 417.7318 
+Number of valid obs: 299 / 299 
+Start NLL: 417.7318 
+
+=== DCC M-STEP DIAGNOSTIC ===
+Starting DCC params:
+alpha_1  beta_1 
+   0.13    0.82 
+
+Optimized DCC params:
+  alpha_1    beta_1 
+0.0100000 0.4544207 
+
+Optimization convergence: 0 
+Final objective value: 408.4463 
+Optimizer convergence code: 0 
+  0 = success, 1 = maxit reached, 51/52 = warning
+Starting NLL: 417.7318 
+Final NLL: 408.4463 
+Improvement: 9.285477 
+Function evaluations: 11 
+At boundary: TRUE 
+
+=== Model Selection (State 2, Iter 22) ===
+Criterion: BIC (n_eff=299.0)
+Dynamic:  LL=-408.4463, k=2, BIC=828.2935
+Constant: LL=-408.3842, k=0, BIC=816.7683
+Decision: CONSTANT
+
+
+=== EM ITERATION 22 ===
+
+=== EM ITERATION 22 ===
+  LL before M-step: -750.324
+  LL after M-step:  -750.233
+  Change: 0.0901462
+Log-Likelihood: -750.233 (Duration: 00:00:19)
+
+
+==========================================================
+EM Iteration 23... 
+=== TESTING OBJECTIVE AT START PARAMS ===
+
+=== OBJECTIVE FUNCTION DIAGNOSTIC ===
+Weight summary: min = 0.0003282377 , max = 0.979089 , mean = 0.5137585 
+Effective sample size: 267.318 
+Params: alpha = 0.04 , beta = 0.93 
+Qbar eigenvalues: 1.33745 0.6600902 
+Negative log-likelihood: 425.1704 
+Number of valid obs: 299 / 299 
+Start NLL: 425.1704 
+
+=== DCC M-STEP DIAGNOSTIC ===
+Starting DCC params:
+alpha_1  beta_1 
+   0.04    0.93 
+
+Optimized DCC params:
+  alpha_1    beta_1 
+0.1674003 0.5195822 
+
+Optimization convergence: 0 
+Final objective value: 422.9404 
+Optimizer convergence code: 0 
+  0 = success, 1 = maxit reached, 51/52 = warning
+Starting NLL: 425.1704 
+Final NLL: 422.9404 
+Improvement: 2.229955 
+Function evaluations: 11 
+At boundary: FALSE 
+
+=== TESTING OBJECTIVE AT START PARAMS ===
+
+=== OBJECTIVE FUNCTION DIAGNOSTIC ===
+Weight summary: min = 0.02091101 , max = 0.9996718 , mean = 0.4862415 
+Effective sample size: 264.0615 
+Params: alpha = 0.13 , beta = 0.82 
+Qbar eigenvalues: 1.282689 0.7060789 
+Negative log-likelihood: 414.8851 
+Number of valid obs: 299 / 299 
+Start NLL: 414.8851 
+
+=== DCC M-STEP DIAGNOSTIC ===
+Starting DCC params:
+alpha_1  beta_1 
+   0.13    0.82 
+
+Optimized DCC params:
+  alpha_1    beta_1 
+0.0100000 0.4551081 
+
+Optimization convergence: 0 
+Final objective value: 405.4944 
+Optimizer convergence code: 0 
+  0 = success, 1 = maxit reached, 51/52 = warning
+Starting NLL: 414.8851 
+Final NLL: 405.4944 
+Improvement: 9.390692 
+Function evaluations: 11 
+At boundary: TRUE 
+
+=== Model Selection (State 2, Iter 23) ===
+Criterion: BIC (n_eff=299.0)
+Dynamic:  LL=-405.4944, k=2, BIC=822.3898
+Constant: LL=-405.4251, k=0, BIC=810.8501
+Decision: CONSTANT
+
+
+=== EM ITERATION 23 ===
+
+=== EM ITERATION 23 ===
+  LL before M-step: -750.233
+  LL after M-step:  -750.123
+  Change: 0.110634
+Log-Likelihood: -750.123 (Duration: 00:00:21)
+
+
+==========================================================
+EM Iteration 24... 
+=== TESTING OBJECTIVE AT START PARAMS ===
+
+=== OBJECTIVE FUNCTION DIAGNOSTIC ===
+Weight summary: min = 0.0003264129 , max = 0.9889129 , mean = 0.5173515 
+Effective sample size: 266.6719 
+Params: alpha = 0.04 , beta = 0.93 
+Qbar eigenvalues: 1.33595 0.6604074 
+Negative log-likelihood: 428.0761 
+Number of valid obs: 299 / 299 
+Start NLL: 428.0761 
+
+=== DCC M-STEP DIAGNOSTIC ===
+Starting DCC params:
+alpha_1  beta_1 
+   0.04    0.93 
+
+Optimized DCC params:
+  alpha_1    beta_1 
+0.1712116 0.5212260 
+
+Optimization convergence: 0 
+Final objective value: 425.7389 
+Optimizer convergence code: 0 
+  0 = success, 1 = maxit reached, 51/52 = warning
+Starting NLL: 428.0761 
+Final NLL: 425.7389 
+Improvement: 2.337211 
+Function evaluations: 11 
+At boundary: FALSE 
+
+=== TESTING OBJECTIVE AT START PARAMS ===
+
+=== OBJECTIVE FUNCTION DIAGNOSTIC ===
+Weight summary: min = 0.01108706 , max = 0.9996736 , mean = 0.4826485 
+Effective sample size: 262.4448 
+Params: alpha = 0.13 , beta = 0.82 
+Qbar eigenvalues: 1.286259 0.7023457 
+Negative log-likelihood: 411.8249 
+Number of valid obs: 299 / 299 
+Start NLL: 411.8249 
+
+=== DCC M-STEP DIAGNOSTIC ===
+Starting DCC params:
+alpha_1  beta_1 
+   0.13    0.82 
+
+Optimized DCC params:
+  alpha_1    beta_1 
+0.0100000 0.4575823 
+
+Optimization convergence: 0 
+Final objective value: 402.326 
+Optimizer convergence code: 0 
+  0 = success, 1 = maxit reached, 51/52 = warning
+Starting NLL: 411.8249 
+Final NLL: 402.326 
+Improvement: 9.498912 
+Function evaluations: 10 
+At boundary: TRUE 
+
+=== Model Selection (State 2, Iter 24) ===
+Criterion: BIC (n_eff=299.0)
+Dynamic:  LL=-402.3260, k=2, BIC=816.0530
+Constant: LL=-402.2489, k=0, BIC=804.4979
+Decision: CONSTANT
+
+
+=== EM ITERATION 24 ===
+
+=== EM ITERATION 24 ===
+  LL before M-step: -750.123
+  LL after M-step:  -749.991
+  Change: 0.13141
+Log-Likelihood: -749.991 (Duration: 00:00:21)
+
+
+==========================================================
+EM Iteration 25... 
+=== TESTING OBJECTIVE AT START PARAMS ===
+
+=== OBJECTIVE FUNCTION DIAGNOSTIC ===
+Weight summary: min = 0.0003233796 , max = 0.9947746 , mean = 0.5211239 
+Effective sample size: 266.0301 
+Params: alpha = 0.04 , beta = 0.93 
+Qbar eigenvalues: 1.335833 0.660266 
+Negative log-likelihood: 431.155 
+Number of valid obs: 299 / 299 
+Start NLL: 431.155 
+
+=== DCC M-STEP DIAGNOSTIC ===
+Starting DCC params:
+alpha_1  beta_1 
+   0.04    0.93 
+
+Optimized DCC params:
+  alpha_1    beta_1 
+0.1752830 0.5227258 
+
+Optimization convergence: 0 
+Final objective value: 428.6972 
+Optimizer convergence code: 0 
+  0 = success, 1 = maxit reached, 51/52 = warning
+Starting NLL: 431.155 
+Final NLL: 428.6972 
+Improvement: 2.457766 
+Function evaluations: 17 
+At boundary: FALSE 
+
+=== TESTING OBJECTIVE AT START PARAMS ===
+
+=== OBJECTIVE FUNCTION DIAGNOSTIC ===
+Weight summary: min = 0.005225395 , max = 0.9996766 , mean = 0.4788761 
+Effective sample size: 260.7334 
+Params: alpha = 0.13 , beta = 0.82 
+Qbar eigenvalues: 1.288401 0.7001495 
+Negative log-likelihood: 408.6886 
+Number of valid obs: 299 / 299 
+Start NLL: 408.6886 
+
+=== DCC M-STEP DIAGNOSTIC ===
+Starting DCC params:
+alpha_1  beta_1 
+   0.13    0.82 
+
+Optimized DCC params:
+  alpha_1    beta_1 
+0.0100000 0.4676216 
+
+Optimization convergence: 0 
+Final objective value: 399.0868 
+Optimizer convergence code: 0 
+  0 = success, 1 = maxit reached, 51/52 = warning
+Starting NLL: 408.6886 
+Final NLL: 399.0868 
+Improvement: 9.601783 
+Function evaluations: 10 
+At boundary: TRUE 
+
+=== Model Selection (State 2, Iter 25) ===
+Criterion: BIC (n_eff=299.0)
+Dynamic:  LL=-399.0868, k=2, BIC=809.5745
+Constant: LL=-399.0034, k=0, BIC=798.0068
+Decision: CONSTANT
+
+
+=== EM ITERATION 25 ===
+
+=== EM ITERATION 25 ===
+  LL before M-step: -749.991
+  LL after M-step:  -749.886
+  Change: 0.105327
+Log-Likelihood: -749.886 (Duration: 00:00:16)
+
+
+==========================================================
+EM Iteration 26... 
+=== TESTING OBJECTIVE AT START PARAMS ===
+
+=== OBJECTIVE FUNCTION DIAGNOSTIC ===
+Weight summary: min = 0.0003208064 , max = 0.9987493 , mean = 0.5254661 
+Effective sample size: 265.2478 
+Params: alpha = 0.04 , beta = 0.93 
+Qbar eigenvalues: 1.336449 0.6588432 
+Negative log-likelihood: 434.5976 
+Number of valid obs: 299 / 299 
+Start NLL: 434.5976 
+
+=== DCC M-STEP DIAGNOSTIC ===
+Starting DCC params:
+alpha_1  beta_1 
+   0.04    0.93 
+
+Optimized DCC params:
+  alpha_1    beta_1 
+0.1799382 0.5229299 
+
+Optimization convergence: 0 
+Final objective value: 431.9995 
+Optimizer convergence code: 0 
+  0 = success, 1 = maxit reached, 51/52 = warning
+Starting NLL: 434.5976 
+Final NLL: 431.9995 
+Improvement: 2.598031 
+Function evaluations: 12 
+At boundary: FALSE 
+
+=== TESTING OBJECTIVE AT START PARAMS ===
+
+=== OBJECTIVE FUNCTION DIAGNOSTIC ===
+Weight summary: min = 0.001250672 , max = 0.9996792 , mean = 0.4745339 
+Effective sample size: 258.6441 
+Params: alpha = 0.13 , beta = 0.82 
+Qbar eigenvalues: 1.29249 0.696479 
+Negative log-likelihood: 405.0825 
+Number of valid obs: 299 / 299 
+Start NLL: 405.0825 
+
+=== DCC M-STEP DIAGNOSTIC ===
+Starting DCC params:
+alpha_1  beta_1 
+   0.13    0.82 
+
+Optimized DCC params:
+  alpha_1    beta_1 
+0.0100000 0.4638471 
+
+Optimization convergence: 0 
+Final objective value: 395.3313 
+Optimizer convergence code: 0 
+  0 = success, 1 = maxit reached, 51/52 = warning
+Starting NLL: 405.0825 
+Final NLL: 395.3313 
+Improvement: 9.75122 
+Function evaluations: 10 
+At boundary: TRUE 
+
+=== Model Selection (State 2, Iter 26) ===
+Criterion: BIC (n_eff=299.0)
+Dynamic:  LL=-395.3313, k=2, BIC=802.0634
+Constant: LL=-395.2373, k=0, BIC=790.4746
+Decision: CONSTANT
+
+
+=== EM ITERATION 26 ===
+
+=== EM ITERATION 26 ===
+  LL before M-step: -749.886
+  LL after M-step:  -749.688
+  Change: 0.198567
+Log-Likelihood: -749.688 (Duration: 00:00:18)
+
+
+==========================================================
+EM Iteration 27... 
+=== TESTING OBJECTIVE AT START PARAMS ===
+
+=== OBJECTIVE FUNCTION DIAGNOSTIC ===
+Weight summary: min = 0.0003142376 , max = 0.9992123 , mean = 0.5292575 
+Effective sample size: 264.8144 
+Params: alpha = 0.04 , beta = 0.93 
+Qbar eigenvalues: 1.338305 0.6573751 
+Negative log-likelihood: 437.6476 
+Number of valid obs: 299 / 299 
+Start NLL: 437.6476 
+
+=== DCC M-STEP DIAGNOSTIC ===
+Starting DCC params:
+alpha_1  beta_1 
+   0.04    0.93 
+
+Optimized DCC params:
+  alpha_1    beta_1 
+0.1836033 0.5245438 
+
+Optimization convergence: 0 
+Final objective value: 434.9248 
+Optimizer convergence code: 0 
+  0 = success, 1 = maxit reached, 51/52 = warning
+Starting NLL: 437.6476 
+Final NLL: 434.9248 
+Improvement: 2.722731 
+Function evaluations: 11 
+At boundary: FALSE 
+
+=== TESTING OBJECTIVE AT START PARAMS ===
+
+=== OBJECTIVE FUNCTION DIAGNOSTIC ===
+Weight summary: min = 0.000787694 , max = 0.9996858 , mean = 0.4707425 
+Effective sample size: 257.0538 
+Params: alpha = 0.13 , beta = 0.82 
+Qbar eigenvalues: 1.294756 0.6944978 
+Negative log-likelihood: 401.9562 
+Number of valid obs: 299 / 299 
+Start NLL: 401.9562 
+
+=== DCC M-STEP DIAGNOSTIC ===
+Starting DCC params:
+alpha_1  beta_1 
+   0.13    0.82 
+
+Optimized DCC params:
+  alpha_1    beta_1 
+0.0100000 0.4578704 
+
+Optimization convergence: 0 
+Final objective value: 392.1033 
+Optimizer convergence code: 0 
+  0 = success, 1 = maxit reached, 51/52 = warning
+Starting NLL: 401.9562 
+Final NLL: 392.1033 
+Improvement: 9.85293 
+Function evaluations: 10 
+At boundary: TRUE 
+
+=== Model Selection (State 2, Iter 27) ===
+Criterion: BIC (n_eff=299.0)
+Dynamic:  LL=-392.1033, k=2, BIC=795.6075
+Constant: LL=-392.0021, k=0, BIC=784.0043
+Decision: CONSTANT
+
+
+=== EM ITERATION 27 ===
+
+=== EM ITERATION 27 ===
+  LL before M-step: -749.688
+  LL after M-step:  -749.548
+  Change: 0.139709
+Log-Likelihood: -749.548 (Duration: 00:00:18)
+
+
+==========================================================
+EM Iteration 28... 
+=== TESTING OBJECTIVE AT START PARAMS ===
+
+=== OBJECTIVE FUNCTION DIAGNOSTIC ===
+Weight summary: min = 0.0003110614 , max = 0.9994413 , mean = 0.5326406 
+Effective sample size: 264.4995 
+Params: alpha = 0.04 , beta = 0.93 
+Qbar eigenvalues: 1.339593 0.655637 
+Negative log-likelihood: 440.2931 
+Number of valid obs: 299 / 299 
+Start NLL: 440.2931 
+
+=== DCC M-STEP DIAGNOSTIC ===
+Starting DCC params:
+alpha_1  beta_1 
+   0.04    0.93 
+
+Optimized DCC params:
+  alpha_1    beta_1 
+0.1867745 0.5259693 
+
+Optimization convergence: 0 
+Final objective value: 437.4623 
+Optimizer convergence code: 0 
+  0 = success, 1 = maxit reached, 51/52 = warning
+Starting NLL: 440.2931 
+Final NLL: 437.4623 
+Improvement: 2.830828 
+Function evaluations: 11 
+At boundary: FALSE 
+
+=== TESTING OBJECTIVE AT START PARAMS ===
+
+=== OBJECTIVE FUNCTION DIAGNOSTIC ===
+Weight summary: min = 0.0005586737 , max = 0.9996889 , mean = 0.4673594 
+Effective sample size: 255.6821 
+Params: alpha = 0.13 , beta = 0.82 
+Qbar eigenvalues: 1.295903 0.6935465 
+Negative log-likelihood: 399.1943 
+Number of valid obs: 299 / 299 
+Start NLL: 399.1943 
+
+=== DCC M-STEP DIAGNOSTIC ===
+Starting DCC params:
+alpha_1  beta_1 
+   0.13    0.82 
+
+Optimized DCC params:
+  alpha_1    beta_1 
+0.0100000 0.4514192 
+
+Optimization convergence: 0 
+Final objective value: 389.2579 
+Optimizer convergence code: 0 
+  0 = success, 1 = maxit reached, 51/52 = warning
+Starting NLL: 399.1943 
+Final NLL: 389.2579 
+Improvement: 9.936396 
+Function evaluations: 10 
+At boundary: TRUE 
+
+=== Model Selection (State 2, Iter 28) ===
+Criterion: BIC (n_eff=299.0)
+Dynamic:  LL=-389.2579, k=2, BIC=789.9166
+Constant: LL=-389.1509, k=0, BIC=778.3019
+Decision: CONSTANT
+
+
+=== EM ITERATION 28 ===
+
+=== EM ITERATION 28 ===
+  LL before M-step: -749.548
+  LL after M-step:  -749.437
+  Change: 0.110633
+Log-Likelihood: -749.437 (Duration: 00:00:20)
+
+
+==========================================================
+EM Iteration 29... 
+=== TESTING OBJECTIVE AT START PARAMS ===
+
+=== OBJECTIVE FUNCTION DIAGNOSTIC ===
+Weight summary: min = 0.0003106909 , max = 0.9995654 , mean = 0.5356743 
+Effective sample size: 264.2811 
+Params: alpha = 0.04 , beta = 0.93 
+Qbar eigenvalues: 1.340884 0.6540402 
+Negative log-likelihood: 442.6698 
+Number of valid obs: 299 / 299 
+Start NLL: 442.6698 
+
+=== DCC M-STEP DIAGNOSTIC ===
+Starting DCC params:
+alpha_1  beta_1 
+   0.04    0.93 
+
+Optimized DCC params:
+  alpha_1    beta_1 
+0.1892750 0.5269661 
+
+Optimization convergence: 0 
+Final objective value: 439.7525 
+Optimizer convergence code: 0 
+  0 = success, 1 = maxit reached, 51/52 = warning
+Starting NLL: 442.6698 
+Final NLL: 439.7525 
+Improvement: 2.917322 
+Function evaluations: 11 
+At boundary: FALSE 
+
+=== TESTING OBJECTIVE AT START PARAMS ===
+
+=== OBJECTIVE FUNCTION DIAGNOSTIC ===
+Weight summary: min = 0.0004346477 , max = 0.9996893 , mean = 0.4643257 
+Effective sample size: 254.5014 
+Params: alpha = 0.13 , beta = 0.82 
+Qbar eigenvalues: 1.296389 0.6932366 
+Negative log-likelihood: 396.7349 
+Number of valid obs: 299 / 299 
+Start NLL: 396.7349 
+
+=== DCC M-STEP DIAGNOSTIC ===
+Starting DCC params:
+alpha_1  beta_1 
+   0.13    0.82 
+
+Optimized DCC params:
+  alpha_1    beta_1 
+0.0100000 0.4459112 
+
+Optimization convergence: 0 
+Final objective value: 386.7314 
+Optimizer convergence code: 0 
+  0 = success, 1 = maxit reached, 51/52 = warning
+Starting NLL: 396.7349 
+Final NLL: 386.7314 
+Improvement: 10.00356 
+Function evaluations: 10 
+At boundary: TRUE 
+
+=== Model Selection (State 2, Iter 29) ===
+Criterion: BIC (n_eff=299.0)
+Dynamic:  LL=-386.7314, k=2, BIC=784.8636
+Constant: LL=-386.6198, k=0, BIC=773.2395
+Decision: CONSTANT
+
+
+=== EM ITERATION 29 ===
+
+=== EM ITERATION 29 ===
+  LL before M-step: -749.437
+  LL after M-step:  -749.341
+  Change: 0.0958661
+Log-Likelihood: -749.341 (Duration: 00:00:16)
+
+
+==========================================================
+EM Iteration 30... 
+=== TESTING OBJECTIVE AT START PARAMS ===
+
+=== OBJECTIVE FUNCTION DIAGNOSTIC ===
+Weight summary: min = 0.0003114553 , max = 0.9996386 , mean = 0.5383801 
+Effective sample size: 264.1239 
+Params: alpha = 0.04 , beta = 0.93 
+Qbar eigenvalues: 1.341948 0.6528922 
+Negative log-likelihood: 444.8174 
+Number of valid obs: 299 / 299 
+Start NLL: 444.8174 
+
+=== DCC M-STEP DIAGNOSTIC ===
+Starting DCC params:
+alpha_1  beta_1 
+   0.04    0.93 
+
+Optimized DCC params:
+  alpha_1    beta_1 
+0.1914976 0.5274431 
+
+Optimization convergence: 0 
+Final objective value: 441.825 
+Optimizer convergence code: 0 
+  0 = success, 1 = maxit reached, 51/52 = warning
+Starting NLL: 444.8174 
+Final NLL: 441.825 
+Improvement: 2.992348 
+Function evaluations: 11 
+At boundary: FALSE 
+
+=== TESTING OBJECTIVE AT START PARAMS ===
+
+=== OBJECTIVE FUNCTION DIAGNOSTIC ===
+Weight summary: min = 0.0003613542 , max = 0.9996885 , mean = 0.4616199 
+Effective sample size: 253.4737 
+Params: alpha = 0.13 , beta = 0.82 
+Qbar eigenvalues: 1.296438 0.6933547 
+Negative log-likelihood: 394.5468 
+Number of valid obs: 299 / 299 
+Start NLL: 394.5468 
+
+=== DCC M-STEP DIAGNOSTIC ===
+Starting DCC params:
+alpha_1  beta_1 
+   0.13    0.82 
+
+Optimized DCC params:
+  alpha_1    beta_1 
+0.0100000 0.4419143 
+
+Optimization convergence: 0 
+Final objective value: 384.4963 
+Optimizer convergence code: 0 
+  0 = success, 1 = maxit reached, 51/52 = warning
+Starting NLL: 394.5468 
+Final NLL: 384.4963 
+Improvement: 10.05054 
+Function evaluations: 10 
+At boundary: TRUE 
+
+=== Model Selection (State 2, Iter 30) ===
+Criterion: BIC (n_eff=299.0)
+Dynamic:  LL=-384.4963, k=2, BIC=780.3935
+Constant: LL=-384.3812, k=0, BIC=768.7623
+Decision: CONSTANT
+
+
+=== EM ITERATION 30 ===
+
+=== EM ITERATION 30 ===
+  LL before M-step: -749.341
+  LL after M-step:  -749.259
+  Change: 0.0820552
+Log-Likelihood: -749.259 (Duration: 00:00:18)
+
+
+==========================================================
+EM Iteration 31... 
+=== TESTING OBJECTIVE AT START PARAMS ===
+
+=== OBJECTIVE FUNCTION DIAGNOSTIC ===
+Weight summary: min = 0.0003150243 , max = 0.999686 , mean = 0.5407952 
+Effective sample size: 263.9944 
+Params: alpha = 0.04 , beta = 0.93 
+Qbar eigenvalues: 1.342755 0.6518419 
+Negative log-likelihood: 446.7247 
+Number of valid obs: 299 / 299 
+Start NLL: 446.7247 
+
+=== DCC M-STEP DIAGNOSTIC ===
+Starting DCC params:
+alpha_1  beta_1 
+   0.04    0.93 
+
+Optimized DCC params:
+  alpha_1    beta_1 
+0.1932087 0.5276593 
+
+Optimization convergence: 0 
+Final objective value: 443.6745 
+Optimizer convergence code: 0 
+  0 = success, 1 = maxit reached, 51/52 = warning
+Starting NLL: 446.7247 
+Final NLL: 443.6745 
+Improvement: 3.050178 
+Function evaluations: 11 
+At boundary: FALSE 
+
+=== TESTING OBJECTIVE AT START PARAMS ===
+
+=== OBJECTIVE FUNCTION DIAGNOSTIC ===
+Weight summary: min = 0.0003139507 , max = 0.999685 , mean = 0.4592048 
+Effective sample size: 252.5538 
+Params: alpha = 0.13 , beta = 0.82 
+Qbar eigenvalues: 1.296167 0.693753 
+Negative log-likelihood: 392.5985 
+Number of valid obs: 299 / 299 
+Start NLL: 392.5985 
+
+=== DCC M-STEP DIAGNOSTIC ===
+Starting DCC params:
+alpha_1  beta_1 
+   0.13    0.82 
+
+Optimized DCC params:
+  alpha_1    beta_1 
+0.0100000 0.4390125 
+
+Optimization convergence: 0 
+Final objective value: 382.5132 
+Optimizer convergence code: 0 
+  0 = success, 1 = maxit reached, 51/52 = warning
+Starting NLL: 392.5985 
+Final NLL: 382.5132 
+Improvement: 10.08525 
+Function evaluations: 10 
+At boundary: TRUE 
+
+=== Model Selection (State 2, Iter 31) ===
+Criterion: BIC (n_eff=299.0)
+Dynamic:  LL=-382.5132, k=2, BIC=776.4273
+Constant: LL=-382.3953, k=0, BIC=764.7907
+Decision: CONSTANT
+
+
+=== EM ITERATION 31 ===
+
+=== EM ITERATION 31 ===
+  LL before M-step: -749.259
+  LL after M-step:  -749.184
+  Change: 0.0753705
+Log-Likelihood: -749.184 (Duration: 00:00:17)
+
+
+==========================================================
+EM Iteration 32... 
+=== TESTING OBJECTIVE AT START PARAMS ===
+
+=== OBJECTIVE FUNCTION DIAGNOSTIC ===
+Weight summary: min = 0.000319765 , max = 0.9997183 , mean = 0.5429341 
+Effective sample size: 263.8785 
+Params: alpha = 0.04 , beta = 0.93 
+Qbar eigenvalues: 1.343558 0.6510261 
+Negative log-likelihood: 448.4344 
+Number of valid obs: 299 / 299 
+Start NLL: 448.4344 
+
+=== DCC M-STEP DIAGNOSTIC ===
+Starting DCC params:
+alpha_1  beta_1 
+   0.04    0.93 
+
+Optimized DCC params:
+  alpha_1    beta_1 
+0.1944606 0.5277368 
+
+Optimization convergence: 0 
+Final objective value: 445.3419 
+Optimizer convergence code: 0 
+  0 = success, 1 = maxit reached, 51/52 = warning
+Starting NLL: 448.4344 
+Final NLL: 445.3419 
+Improvement: 3.092521 
+Function evaluations: 11 
+At boundary: FALSE 
+
+=== TESTING OBJECTIVE AT START PARAMS ===
+
+=== OBJECTIVE FUNCTION DIAGNOSTIC ===
+Weight summary: min = 0.0002817093 , max = 0.9996802 , mean = 0.4570659 
+Effective sample size: 251.7249 
+Params: alpha = 0.13 , beta = 0.82 
+Qbar eigenvalues: 1.295684 0.6943474 
+Negative log-likelihood: 390.8742 
+Number of valid obs: 299 / 299 
+Start NLL: 390.8742 
+
+=== DCC M-STEP DIAGNOSTIC ===
+Starting DCC params:
+alpha_1  beta_1 
+   0.13    0.82 
+
+Optimized DCC params:
+  alpha_1    beta_1 
+0.0100000 0.4372155 
+
+Optimization convergence: 0 
+Final objective value: 380.7672 
+Optimizer convergence code: 0 
+  0 = success, 1 = maxit reached, 51/52 = warning
+Starting NLL: 390.8742 
+Final NLL: 380.7672 
+Improvement: 10.10701 
+Function evaluations: 10 
+At boundary: TRUE 
+
+=== Model Selection (State 2, Iter 32) ===
+Criterion: BIC (n_eff=299.0)
+Dynamic:  LL=-380.7672, k=2, BIC=772.9353
+Constant: LL=-380.6473, k=0, BIC=761.2947
+Decision: CONSTANT
+
+
+=== EM ITERATION 32 ===
+
+=== EM ITERATION 32 ===
+  LL before M-step: -749.184
+  LL after M-step:  -749.115
+  Change: 0.0686666
+Log-Likelihood: -749.115 (Duration: 00:00:20)
+
+
+==========================================================
+EM Iteration 33... 
+=== TESTING OBJECTIVE AT START PARAMS ===
+
+=== OBJECTIVE FUNCTION DIAGNOSTIC ===
+Weight summary: min = 0.0003260458 , max = 0.9997416 , mean = 0.5448234 
+Effective sample size: 263.7633 
+Params: alpha = 0.04 , beta = 0.93 
+Qbar eigenvalues: 1.344019 0.650278 
+Negative log-likelihood: 449.9272 
+Number of valid obs: 299 / 299 
+Start NLL: 449.9272 
+
+=== DCC M-STEP DIAGNOSTIC ===
+Starting DCC params:
+alpha_1  beta_1 
+   0.04    0.93 
+
+Optimized DCC params:
+  alpha_1    beta_1 
+0.1953940 0.5277395 
+
+Optimization convergence: 0 
+Final objective value: 446.8043 
+Optimizer convergence code: 0 
+  0 = success, 1 = maxit reached, 51/52 = warning
+Starting NLL: 449.9272 
+Final NLL: 446.8043 
+Improvement: 3.122885 
+Function evaluations: 11 
+At boundary: FALSE 
+
+=== TESTING OBJECTIVE AT START PARAMS ===
+
+=== OBJECTIVE FUNCTION DIAGNOSTIC ===
+Weight summary: min = 0.0002584207 , max = 0.999674 , mean = 0.4551766 
+Effective sample size: 250.9662 
+Params: alpha = 0.13 , beta = 0.82 
+Qbar eigenvalues: 1.295037 0.6950795 
+Negative log-likelihood: 389.3496 
+Number of valid obs: 299 / 299 
+Start NLL: 389.3496 
+
+=== DCC M-STEP DIAGNOSTIC ===
+Starting DCC params:
+alpha_1  beta_1 
+   0.13    0.82 
+
+Optimized DCC params:
+  alpha_1    beta_1 
+0.0100000 0.4363122 
+
+Optimization convergence: 0 
+Final objective value: 379.2329 
+Optimizer convergence code: 0 
+  0 = success, 1 = maxit reached, 51/52 = warning
+Starting NLL: 389.3496 
+Final NLL: 379.2329 
+Improvement: 10.11671 
+Function evaluations: 10 
+At boundary: TRUE 
+
+=== Model Selection (State 2, Iter 33) ===
+Criterion: BIC (n_eff=299.0)
+Dynamic:  LL=-379.2329, k=2, BIC=769.8667
+Constant: LL=-379.1117, k=0, BIC=758.2234
+Decision: CONSTANT
+
+
+=== EM ITERATION 33 ===
+
+=== EM ITERATION 33 ===
+  LL before M-step: -749.115
+  LL after M-step:  -749.053
+  Change: 0.0626132
+Log-Likelihood: -749.053 (Duration: 00:00:21)
+
+
+==========================================================
+EM Iteration 34... 
+=== TESTING OBJECTIVE AT START PARAMS ===
+
+=== OBJECTIVE FUNCTION DIAGNOSTIC ===
+Weight summary: min = 0.0003336812 , max = 0.9997592 , mean = 0.5464916 
+Effective sample size: 263.6465 
+Params: alpha = 0.04 , beta = 0.93 
+Qbar eigenvalues: 1.344497 0.6496702 
+Negative log-likelihood: 451.2567 
+Number of valid obs: 299 / 299 
+Start NLL: 451.2567 
+
+=== DCC M-STEP DIAGNOSTIC ===
+Starting DCC params:
+alpha_1  beta_1 
+   0.04    0.93 
+
+Optimized DCC params:
+  alpha_1    beta_1 
+0.1959980 0.5277415 
+
+Optimization convergence: 0 
+Final objective value: 448.1147 
+Optimizer convergence code: 0 
+  0 = success, 1 = maxit reached, 51/52 = warning
+Starting NLL: 451.2567 
+Final NLL: 448.1147 
+Improvement: 3.141965 
+Function evaluations: 11 
+At boundary: FALSE 
+
+=== TESTING OBJECTIVE AT START PARAMS ===
+
+=== OBJECTIVE FUNCTION DIAGNOSTIC ===
+Weight summary: min = 0.0002408318 , max = 0.9996663 , mean = 0.4535084 
+Effective sample size: 250.2682 
+Params: alpha = 0.13 , beta = 0.82 
+Qbar eigenvalues: 1.294268 0.6959139 
+Negative log-likelihood: 388.0036 
+Number of valid obs: 299 / 299 
+Start NLL: 388.0036 
+
+=== DCC M-STEP DIAGNOSTIC ===
+Starting DCC params:
+alpha_1  beta_1 
+   0.13    0.82 
+
+Optimized DCC params:
+  alpha_1    beta_1 
+0.0100000 0.4360524 
+
+Optimization convergence: 0 
+Final objective value: 377.8855 
+Optimizer convergence code: 0 
+  0 = success, 1 = maxit reached, 51/52 = warning
+Starting NLL: 388.0036 
+Final NLL: 377.8855 
+Improvement: 10.11812 
+Function evaluations: 10 
+At boundary: TRUE 
+
+=== Model Selection (State 2, Iter 34) ===
+Criterion: BIC (n_eff=299.0)
+Dynamic:  LL=-377.8855, k=2, BIC=767.1719
+Constant: LL=-377.7635, k=0, BIC=755.5270
+Decision: CONSTANT
+
+
+=== EM ITERATION 34 ===
+
+=== EM ITERATION 34 ===
+  LL before M-step: -749.053
+  LL after M-step:  -748.993
+  Change: 0.0592412
+Log-Likelihood: -748.993 (Duration: 00:00:22)
+
+
+==========================================================
+EM Iteration 35... 
+=== TESTING OBJECTIVE AT START PARAMS ===
+
+=== OBJECTIVE FUNCTION DIAGNOSTIC ===
+Weight summary: min = 0.0003416775 , max = 0.9997729 , mean = 0.5479595 
+Effective sample size: 263.5229 
+Params: alpha = 0.04 , beta = 0.93 
+Qbar eigenvalues: 1.34493 0.6492274 
+Negative log-likelihood: 452.4395 
+Number of valid obs: 299 / 299 
+Start NLL: 452.4395 
+
+=== DCC M-STEP DIAGNOSTIC ===
+Starting DCC params:
+alpha_1  beta_1 
+   0.04    0.93 
+
+Optimized DCC params:
+  alpha_1    beta_1 
+0.1963363 0.5277614 
+
+Optimization convergence: 0 
+Final objective value: 449.2871 
+Optimizer convergence code: 0 
+  0 = success, 1 = maxit reached, 51/52 = warning
+Starting NLL: 452.4395 
+Final NLL: 449.2871 
+Improvement: 3.152426 
+Function evaluations: 11 
+At boundary: FALSE 
+
+=== TESTING OBJECTIVE AT START PARAMS ===
+
+=== OBJECTIVE FUNCTION DIAGNOSTIC ===
+Weight summary: min = 0.0002271443 , max = 0.9996583 , mean = 0.4520405 
+Effective sample size: 249.62 
+Params: alpha = 0.13 , beta = 0.82 
+Qbar eigenvalues: 1.293444 0.6968188 
+Negative log-likelihood: 386.8188 
+Number of valid obs: 299 / 299 
+Start NLL: 386.8188 
+
+=== DCC M-STEP DIAGNOSTIC ===
+Starting DCC params:
+alpha_1  beta_1 
+   0.13    0.82 
+
+Optimized DCC params:
+  alpha_1    beta_1 
+0.0100000 0.4364493 
+
+Optimization convergence: 0 
+Final objective value: 376.7082 
+Optimizer convergence code: 0 
+  0 = success, 1 = maxit reached, 51/52 = warning
+Starting NLL: 386.8188 
+Final NLL: 376.7082 
+Improvement: 10.11062 
+Function evaluations: 10 
+At boundary: TRUE 
+
+=== Model Selection (State 2, Iter 35) ===
+Criterion: BIC (n_eff=299.0)
+Dynamic:  LL=-376.7082, k=2, BIC=764.8172
+Constant: LL=-376.5858, k=0, BIC=753.1716
+Decision: CONSTANT
+
+
+=== EM ITERATION 35 ===
+
+=== EM ITERATION 35 ===
+  LL before M-step: -748.993
+  LL after M-step:  -748.939
+  Change: 0.0540994
+Log-Likelihood: -748.939 (Duration: 00:00:19)
+
+
+==========================================================
+EM Iteration 36... 
+=== TESTING OBJECTIVE AT START PARAMS ===
+
+=== OBJECTIVE FUNCTION DIAGNOSTIC ===
+Weight summary: min = 0.0003507032 , max = 0.9997839 , mean = 0.5492537 
+Effective sample size: 263.3926 
+Params: alpha = 0.04 , beta = 0.93 
+Qbar eigenvalues: 1.345631 0.6490018 
+Negative log-likelihood: 453.5237 
+Number of valid obs: 299 / 299 
+Start NLL: 453.5237 
+
+=== DCC M-STEP DIAGNOSTIC ===
+Starting DCC params:
+alpha_1  beta_1 
+   0.04    0.93 
+
+Optimized DCC params:
+  alpha_1    beta_1 
+0.1963366 0.5278594 
+
+Optimization convergence: 0 
+Final objective value: 450.37 
+Optimizer convergence code: 0 
+  0 = success, 1 = maxit reached, 51/52 = warning
+Starting NLL: 453.5237 
+Final NLL: 450.37 
+Improvement: 3.153723 
+Function evaluations: 11 
+At boundary: FALSE 
+
+=== TESTING OBJECTIVE AT START PARAMS ===
+
+=== OBJECTIVE FUNCTION DIAGNOSTIC ===
+Weight summary: min = 0.0002160974 , max = 0.9996493 , mean = 0.4507463 
+Effective sample size: 249.0146 
+Params: alpha = 0.13 , beta = 0.82 
+Qbar eigenvalues: 1.292569 0.6977788 
+Negative log-likelihood: 385.7739 
+Number of valid obs: 299 / 299 
+Start NLL: 385.7739 
+
+=== DCC M-STEP DIAGNOSTIC ===
+Starting DCC params:
+alpha_1  beta_1 
+   0.13    0.82 
+
+Optimized DCC params:
+  alpha_1    beta_1 
+0.0100000 0.4372675 
+
+Optimization convergence: 0 
+Final objective value: 375.6773 
+Optimizer convergence code: 0 
+  0 = success, 1 = maxit reached, 51/52 = warning
+Starting NLL: 385.7739 
+Final NLL: 375.6773 
+Improvement: 10.09665 
+Function evaluations: 10 
+At boundary: TRUE 
+
+=== Model Selection (State 2, Iter 36) ===
+Criterion: BIC (n_eff=299.0)
+Dynamic:  LL=-375.6773, k=2, BIC=762.7555
+Constant: LL=-375.5550, k=0, BIC=751.1099
+Decision: CONSTANT
+
+
+=== EM ITERATION 36 ===
+
+=== EM ITERATION 36 ===
+  LL before M-step: -748.939
+  LL after M-step:  -748.889
+  Change: 0.0506723
+Log-Likelihood: -748.889 (Duration: 00:00:19)
+
+
+==========================================================
+EM Iteration 37... 
+=== TESTING OBJECTIVE AT START PARAMS ===
+
+=== OBJECTIVE FUNCTION DIAGNOSTIC ===
+Weight summary: min = 0.0003606686 , max = 0.999793 , mean = 0.5503989 
+Effective sample size: 263.2548 
+Params: alpha = 0.04 , beta = 0.93 
+Qbar eigenvalues: 1.345536 0.648485 
+Negative log-likelihood: 454.3997 
+Number of valid obs: 299 / 299 
+Start NLL: 454.3997 
+
+=== DCC M-STEP DIAGNOSTIC ===
+Starting DCC params:
+alpha_1  beta_1 
+   0.04    0.93 
+
+Optimized DCC params:
+  alpha_1    beta_1 
+0.1962366 0.5279836 
+
+Optimization convergence: 0 
+Final objective value: 451.2511 
+Optimizer convergence code: 0 
+  0 = success, 1 = maxit reached, 51/52 = warning
+Starting NLL: 454.3997 
+Final NLL: 451.2511 
+Improvement: 3.148589 
+Function evaluations: 11 
+At boundary: FALSE 
+
+=== TESTING OBJECTIVE AT START PARAMS ===
+
+=== OBJECTIVE FUNCTION DIAGNOSTIC ===
+Weight summary: min = 0.0002070288 , max = 0.9996393 , mean = 0.4496011 
+Effective sample size: 248.4442 
+Params: alpha = 0.13 , beta = 0.82 
+Qbar eigenvalues: 1.291624 0.6987788 
+Negative log-likelihood: 384.8465 
+Number of valid obs: 299 / 299 
+Start NLL: 384.8465 
+
+=== DCC M-STEP DIAGNOSTIC ===
+Starting DCC params:
+alpha_1  beta_1 
+   0.13    0.82 
+
+Optimized DCC params:
+  alpha_1    beta_1 
+0.0100000 0.4384401 
+
+Optimization convergence: 0 
+Final objective value: 374.7702 
+Optimizer convergence code: 0 
+  0 = success, 1 = maxit reached, 51/52 = warning
+Starting NLL: 384.8465 
+Final NLL: 374.7702 
+Improvement: 10.07638 
+Function evaluations: 10 
+At boundary: TRUE 
+
+=== Model Selection (State 2, Iter 37) ===
+Criterion: BIC (n_eff=299.0)
+Dynamic:  LL=-374.7702, k=2, BIC=760.9412
+Constant: LL=-374.6483, k=0, BIC=749.2965
+Decision: CONSTANT
+
+
+=== EM ITERATION 37 ===
+
+=== EM ITERATION 37 ===
+  LL before M-step: -748.889
+  LL after M-step:  -748.84
+  Change: 0.0482367
+Log-Likelihood: -748.84 (Duration: 00:00:18)
+
+=== CONVERGED at iteration 37 ===

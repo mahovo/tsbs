@@ -2,7 +2,7 @@
 % Please edit documentation in R/fit_ms_varma_garch.R
 \name{fit_ms_varma_garch}
 \alias{fit_ms_varma_garch}
-\title{Fit a Flexible N-State Markov-Switching ARMA-GARCH Model}
+\title{Fit a Flexible N-State Markov-Switching Vector-ARMA-GARCH Model}
 \usage{
 fit_ms_varma_garch(
   y,
@@ -12,14 +12,17 @@ fit_ms_varma_garch(
   model_type = c("univariate", "multivariate"),
   control = list(),
   parallel = FALSE,
-  num_cores = 1L
+  num_cores = 1L,
+  collect_diagnostics = FALSE,
+  verbose = FALSE,
+  verbose_file = NULL
 )
 }
 \arguments{
 \item{y}{A numeric matrix or data frame where rows are observations and
 columns are the time series variables.}
 
-\item{M}{An integer specifying the number of states in the Markov chain.}
+\item{M}{An integer >1 specifying the number of states in the Markov chain.}
 
 \item{d}{An integer specifying the order of differencing to be applied to
 the series before fitting. This order is constant across all states.
@@ -37,11 +40,38 @@ Defaults to "univariate".}
 \item{tol}{A numeric value specifying the convergence tolerance for the
 log-likelihood. Defaults to 1e-6.}
 }}
+
+\item{parallel}{Logical.}
+
+\item{num_cores}{Number of cores.}
+
+\item{collect_diagnostics}{Logical. Collect diagnostics or not.}
+
+\item{verbose}{Logical. If TRUE, print detailed diagnostic information during
+estimation. Default is FALSE.}
+
+\item{verbose_file}{Character string specifying path to file for verbose output.
+If NULL (default), verbose output goes to console. If specified, all verbose
+output is written to this file instead. Only used if verbose = TRUE.}
 }
 \value{
-An object of class \code{msm.fit} containing the full results of the
-estimation, including model fits for each state, the transition matrix,
-smoothed probabilities, and information criteria.
+A list containing the full results of the estimation, including model
+fits for each state, the transition matrix, smoothed probabilities, and
+information criteria:
+\itemize{
+\item{model_fits}
+\item{P}
+\item{log_likelihood}
+\item{smoothed_probabilities}
+\item{aic}
+\item{bic}
+\item{d}
+\item{y}
+\item{call}
+\item{convergence}
+\item{warnings}
+\item{diagnostics}
+}
 }
 \description{
 This function provides a user-friendly interface to fit a general Markov-Switching
@@ -61,4 +91,11 @@ and \code{garch_pars}.}
 }
 
 For mathematical expression of the model see \code{\link[=ms_varma_garch_bs]{ms_varma_garch_bs()}}.
+
+Note: For single-regime data, since M > 1, and assuming we set M = 2:
+\itemize{
+\item{both states should converge to similar parameters,}
+\item{or one state should have nearly zero probability.}
+}
+Check: \code{fit$smoothed_probabilities} - is one state dominant?
 }

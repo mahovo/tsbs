@@ -27,17 +27,25 @@
 #'   instead of the total. Cannot be used with return_components = TRUE. Default is FALSE.
 #' @param ... Additional arguments (currently unused)
 #'
-#' @return 
+#' @return
 #'   If ll_vec = TRUE, returns a numeric vector of per-observation log-likelihoods.
-#'   
-#'   If ll_vec = FALSE and return_components = FALSE (default), returns a single 
-#'   numeric value representing the total log-likelihood. 
-#'   
-#'   If ll_vec = FALSE and return_components = TRUE, returns a list with components:
-#'   \item{loglik}{Total log-likelihood}
-#'   \item{garch_loglik}{Univariate GARCH component (DCC/Copula only)}
-#'   \item{multivariate_loglik}{Multivariate component log-likelihood}
+#'   The vector has length n-1 for DCC models where n is the number of observations,
+#'   because the first observation serves as initialization for the DCC recursion
+#'   (tsmarch returns a zero placeholder for this observation which is removed).
+#'   The sum of the returned vector equals the scalar log-likelihood returned when
+#'   ll_vec = FALSE, and also equals logLik(object) when using estimated parameters.
 #'
+#'   If ll_vec = FALSE and return_components = FALSE (default), returns a single
+#'   numeric value representing the total log-likelihood.
+#'
+#'   If ll_vec = FALSE and return_components = TRUE, returns a list with components:
+#'
+#'   \itemize{
+#'     \item{loglik}{Total log-likelihood}
+#'     \item{garch_loglik}{Univariate GARCH component (DCC/Copula only)}
+#'     \item{multivariate_loglik}{Multivariate component log-likelihood}
+#'  }
+#' 
 #' @details
 #' This function extracts the specification from an estimated tsmarch object,
 #' replaces the estimated parameters with the user-provided fixed parameters,
@@ -231,9 +239,9 @@ compute_loglik_fixed <- function(
   }
   
   ## Cannot use both return_components and ll_vec
-  # if (return_components && ll_vec) {
-  #   stop("Cannot use both return_components = TRUE and ll_vec = TRUE")
-  # }
+  if (return_components && ll_vec) {
+    stop("Cannot use both return_components = TRUE and ll_vec = TRUE")
+  }
 
   ## Dispatch to appropriate method
   if (inherits(object, "dcc.estimate")) {
@@ -271,7 +279,13 @@ compute_loglik_fixed <- function(
   spec <- object$spec
   
   ## Update parameters in the parmatrix
-  spec$parmatrix <- .update_parmatrix(spec$parmatrix, params)
+  #spec$parmatrix <- .update_parmatrix(spec$parmatrix, params)
+  ## If no params provided, use the fitted values from the object
+  if (length(params) == 0) {
+    spec$parmatrix <- object$parmatrix
+  } else {
+    spec$parmatrix <- .update_parmatrix(object$parmatrix, params)
+  }
   
   ## Get parameter values for the multivariate component
   estimate <- NULL
@@ -281,15 +295,20 @@ compute_loglik_fixed <- function(
     ## Get vector of per-observation negative log-likelihoods
     ## NOTE: For DCC models, ll_vec includes BOTH GARCH and DCC components
     total_nll_vec <- tsmarch:::.dcc_dynamic_values(pars, spec, type = "ll_vec")
+
+    # ## tsmarch:::.dcc_dynamic_values returns n+1 values:
+    # ##   - Row 1: initialization placeholder (always 0)
+    # ##   - Rows 2:(n+1): actual log-likelihoods for observations 1:n
+    # ## We remove the first row plus any additional DCC burn-in
+    # dccorder <- spec$dynamics$order
+    # maxpq <- max(dccorder)
+    # n_remove <- 1 + maxpq  ## 1 for placeholder + maxpq for DCC burn-in
+    # total_nll_vec <- total_nll_vec[-(1:n_remove), , drop = TRUE]
     
-    ## Strip off the first maxpq observations (initialization period)
-    dccorder <- spec$dynamics$order
-    maxpq <- max(dccorder)
-    if (maxpq > 0) {
-      total_nll_vec <- total_nll_vec[-(1:maxpq), , drop = TRUE]
-    } else {
-      total_nll_vec <- as.vector(total_nll_vec)
-    }
+    ## *** FIXED ***
+    ## Remove only the initialization placeholder (first row, always 0)
+    ## Note: tsmarch's type="nll" includes all subsequent observations, so we do too
+    total_nll_vec <- total_nll_vec[-1, , drop = TRUE]
     
     ## Return positive per-observation log-likelihoods
     return(-total_nll_vec)
