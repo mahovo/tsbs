@@ -28,24 +28,44 @@ max_num_rb = Inf ## Maximum number of rebalances
 ```
 
 
-```{r chunk11, echo=FALSE}
-## =============================================================================
 ## tsbs: Advanced Portfolio Optimization with DCC-GARCH Bootstrap
-## =============================================================================
-##
-## Extended demo featuring:
-## - Real market data (ETFs)
-## - Multiple portfolio strategies (6 total)
-## - Out-of-sample backtesting
-## - Bootstrap uncertainty quantification
-## - Robust weight estimation
-## - Turnover and transaction cost analysis
-##
-## =============================================================================
 
+This demo demonstrates:  
+1. Six portfolio optimization strategies:  
+  - Equal Weight (benchmark)  
+  - Minimum Variance  
+  - Maximum Sharpe Ratio  
+  - Risk Parity  
+  - Black-Litterman\  
+  - Shrinkage (Ledoit-Wolf)  
+2. Real market data  
+3. Out-of-sample backtesting with quarterly rebalancing  
+4. Bootstrap uncertainty quantification for optimal weights  
+5. DCC-GARCH modeling for time-varying correlations  
+6. Robust weight estimation methods  
+7. Turnover and transaction cost analysis  
+
+The MS-VARMA-GARCH bootstrap provides:  
+ - Realistic uncertainty estimates for portfolio weights  
+  - Proper handling of volatility clustering  
+  - Dynamic correlation structure preservation  
+  - Regime-switching capability for changing market conditions  
+
+Key takeaways:
+- Optimal weights have substantial estimation uncertainty  
+- Bootstrap CIs help set realistic expectations  
+- Regularized methods (Risk Parity, Shrinkage) often perform well OOS  
+- Transaction costs matter - consider turnover when selecting strategies  
+- Report uncertainty alongside point estimates for transparency  
+
+
+```{r chunk11, echo=FALSE, results=FALSE, message=FALSE}
 library(tsbs)
 library(quantmod)
+```
 
+
+```{r chunk11a, echo=FALSE} 
 ## =============================================================================
 ## PART 1: PORTFOLIO OPTIMIZATION FUNCTIONS
 ## =============================================================================
@@ -440,7 +460,7 @@ n_boot <- 50           # Bootstrap replicates per rebalance
 n_total <- nrow(y_full)
 rebalance_dates <- seq(train_window + 1, n_total - rebalance_freq, by = rebalance_freq)
 
-cat("\nBacktest setup:\n")
+cat("\nBac <- test setup:\n")
 cat("  Training window:", train_window, "days (~2 years)\n")
 cat("  Rebalance frequency:", rebalance_freq, "days (~quarterly)\n")
 cat("  Number of rebalances:", length(rebalance_dates), "\n")
@@ -451,7 +471,7 @@ strategies <- list(
   "Equal Weight" = equal_weight_portfolio,
   "Min Variance" = min_variance_portfolio,
   "Max Sharpe" = max_sharpe_portfolio,
-  "Risk Parity" = risk_parity_portfolio,
+  "Ris <-  Parity" = risk_parity_portfolio,
   "Black-Litterman" = black_litterman_portfolio,
   "Shrinkage" = shrinkage_portfolio
 )
@@ -475,7 +495,7 @@ boot_weight_history <- list()
 ## PART 7: RUN BACKTEST
 ## =============================================================================
 
-cat("\nRunning backtest...\n")
+cat("\nRunning backtest with ootstrap for Risk Parity...\n")
 ```
 
 
@@ -512,7 +532,7 @@ for (rb_idx in seq_along(rebalance_dates)) {
     })
   }
   
-  ## Bootstrap for Min Variance to get uncertainty estimates
+  ## Bootstrap for Risk Parity to get uncertainty estimates
   if (rb_idx <= max_num_rb) {
     result <- tryCatch({
       boot_result <- tsbs(
@@ -523,7 +543,7 @@ for (rb_idx in seq_along(rebalance_dates)) {
         num_states = 2,
         spec = spec,
         model_type = "multivariate",
-        func = min_variance_portfolio,
+        func = risk_parity_portfolio,
         apply_func_to = "all",
         control = list(max_iter = 10, tol = 1e-2),
         parallel = TRUE,
@@ -716,15 +736,74 @@ if (nrow(w_hist) > 1) {
 
 
 
+```{r chunk17b, echo=FALSE}
+## Plot 3b: Weight evolution (Risk Parity)
+w_hist <- weight_history[["Max Sharpe"]]
+w_hist <- w_hist[complete.cases(w_hist), ]
+if (nrow(w_hist) > 1) {
+  barplot(t(w_hist), col = rainbow(k), border = NA,
+          main = "Sharpe Weights Over Time",
+          xlab = "Rebalance Period", ylab = "Weight")
+  legend("topright", symbols, fill = rainbow(k), cex = 0.7, ncol = 2)
+}
+```
+
+
+
+
+```{r chunk17c, echo=FALSE}
+## Plot 3b: Weight evolution (Risk Parity)
+w_hist <- weight_history[["Risk Parity"]]
+w_hist <- w_hist[complete.cases(w_hist), ]
+if (nrow(w_hist) > 1) {
+  barplot(t(w_hist), col = rainbow(k), border = NA,
+          main = "Risk Parity Weights Over Time",
+          xlab = "Rebalance Period", ylab = "Weight")
+  legend("topright", symbols, fill = rainbow(k), cex = 0.7, ncol = 2)
+}
+```
+
+
+
+
+
+```{r chunk17d, echo=FALSE}
+## Plot 3b: Weight evolution (Risk Parity)
+w_hist <- weight_history[["Black-Litterman"]]
+w_hist <- w_hist[complete.cases(w_hist), ]
+if (nrow(w_hist) > 1) {
+  barplot(t(w_hist), col = rainbow(k), border = NA,
+          main = "Black-Litterman Weights Over Time",
+          xlab = "Rebalance Period", ylab = "Weight")
+  legend("topright", symbols, fill = rainbow(k), cex = 0.7, ncol = 2)
+}
+```
+
+
+
+```{r chunk17e, echo=FALSE}
+## Plot 3b: Weight evolution (Risk Parity)
+w_hist <- weight_history[["Shrinkage"]]
+w_hist <- w_hist[complete.cases(w_hist), ]
+if (nrow(w_hist) > 1) {
+  barplot(t(w_hist), col = rainbow(k), border = NA,
+          main = "Shrinkage Weights Over Time",
+          xlab = "Rebalance Period", ylab = "Weight")
+  legend("topright", symbols, fill = rainbow(k), cex = 0.7, ncol = 2)
+}
+```
+
+
+
 ```{r chunk18, echo=FALSE}
 ## Plot 4: Bootstrap weight distribution (first rebalance)
 if (!is.null(boot_weight_history[[1]])) {
   boot_w <- boot_weight_history[[1]]
   boxplot(boot_w, col = rainbow(k),
-          main = "Bootstrap Weight Distribution\n(First Rebalance)",
+          main = "Risk Parity Bootstrap Weight Distribution\n(First Rebalance)",
           xlab = "Asset", ylab = "Weight",
           names = symbols)
-  points(1:k, weight_history[["Min Variance"]][1, ], pch = 18, col = "black", cex = 1.5)
+  points(1:k, weight_history[["Risk Parity"]][1, ], pch = 18, col = "black", cex = 1.5)
 }
 
 par(mfrow = c(1, 1))
@@ -1048,43 +1127,9 @@ print(tc_adj_df, row.names = FALSE)
 ```
 
 
-
 ```{r chunk25, echo=FALSE}
-## =============================================================================
-## FINAL SUMMARY
-## =============================================================================
-
-cat("\n")
-cat("=", rep("=", 70), "\n", sep = "")
 cat("DEMO COMPLETE\n")
-cat("=", rep("=", 70), "\n", sep = "")
-cat("\n")
-cat("This demo demonstrated:\n")
-cat("  1. Six portfolio optimization strategies:\n")
-cat("     - Equal Weight (benchmark)\n")
-cat("     - Minimum Variance\n")
-cat("     - Maximum Sharpe Ratio\n")
-cat("     - Risk Parity\n")
-cat("     - Black-Litterman\n")
-cat("     - Shrinkage (Ledoit-Wolf)\n")
-cat("  2. Real market data (", paste(symbols, collapse = ", "), ")\n", sep = "")
-cat("  3. Out-of-sample backtesting with quarterly rebalancing\n")
-cat("  4. Bootstrap uncertainty quantification for optimal weights\n")
-cat("  5. DCC-GARCH modeling for time-varying correlations\n")
-cat("  6. Robust weight estimation methods\n")
-cat("  7. Turnover and transaction cost analysis\n")
-cat("\n")
-cat("The MS-VARMA-GARCH bootstrap provides:\n")
-cat("  - Realistic uncertainty estimates for portfolio weights\n")
-cat("  - Proper handling of volatility clustering\n")
-cat("  - Dynamic correlation structure preservation\n")
-cat("  - Regime-switching capability for changing market conditions\n")
-cat("\n")
-cat("Key takeaways:\n")
-cat("  - Optimal weights have substantial estimation uncertainty\n")
-cat("  - Bootstrap CIs help set realistic expectations\n")
-cat("  - Regularized methods (Risk Parity, Shrinkage) often perform well OOS\n")
-cat("  - Transaction costs matter - consider turnover when selecting strategies\n")
-cat("  - Report uncertainty alongside point estimates for transparency\n")
 ```
+
+
 

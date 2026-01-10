@@ -330,10 +330,15 @@ numerical_hessian_richardson <- function(fn, params, eps = 1e-4, r = 2, ...) {
 #' @param eps Step size for numerical differentiation (default 1e-5)
 #' @return Observed information matrix (positive semi-definite if at MLE)
 #' @export
-dcc11_observed_information <- function(params, std_resid, weights, Qbar,
-                                       distribution = "mvn",
-                                       use_reparam = FALSE,
-                                       eps = 1e-5) {
+dcc11_observed_information <- function(
+    params, 
+    std_resid, 
+    weights, 
+    Qbar,
+    distribution = "mvn",
+    use_reparam = FALSE,
+    eps = 1e-5
+  ) {
   
   ## Compute Hessian of NLL (using Richardson for accuracy)
   H <- numerical_hessian_richardson(
@@ -375,11 +380,16 @@ dcc11_observed_information <- function(params, std_resid, weights, Qbar,
 #'   \item{eigenvalues}{Eigenvalues of Hessian}
 #'   \item{condition_number}{Condition number of Hessian}
 #' @export
-dcc11_hessian <- function(params, std_resid, weights, Qbar,
-                          distribution = "mvn",
-                          use_reparam = FALSE,
-                          method = "numerical",
-                          eps = 1e-5) {
+dcc11_hessian <- function(
+    params, 
+    std_resid, 
+    weights, 
+    Qbar,
+    distribution = "mvn",
+    use_reparam = FALSE,
+    method = "numerical",
+    eps = 1e-5
+  ) {
   
   n_params <- length(params)
   
@@ -472,8 +482,13 @@ dcc11_hessian <- function(params, std_resid, weights, Qbar,
 #' @param distribution "mvn" or "mvt"
 #' @return k x k Hessian matrix
 #' @keywords internal
-dcc11_analytical_hessian <- function(params, std_resid, weights, Qbar,
-                                     distribution = "mvn") {
+dcc11_analytical_hessian <- function(
+    params, 
+    std_resid, 
+    weights, 
+    Qbar,
+    distribution = "mvn"
+  ) {
   
   alpha <- params[1]
   beta <- params[2]
@@ -730,18 +745,31 @@ compute_d2R_dQ2 <- function(Q, dQ1, dQ2, d2Q, k) {
 #'   \item{info_inv}{Inverse information (variance-covariance)}
 #'   \item{method}{Method used}
 #' @export
-dcc11_standard_errors <- function(params, std_resid, weights, Qbar,
-                                  distribution = "mvn",
-                                  use_reparam = FALSE,
-                                  method = "hessian") {
+dcc11_standard_errors <- function(
+    params, 
+    std_resid, 
+    weights, 
+    Qbar,
+    distribution = "mvn",
+    use_reparam = FALSE,
+    method = "hessian"
+  ) {
   
   n_params <- length(params)
   param_names <- names(params)
   if (is.null(param_names)) {
     if (use_reparam) {
-      param_names <- if (distribution == "mvt") c("psi", "phi", "shape") else c("psi", "phi")
+      param_names <- if (distribution == "mvt") {
+        c("psi", "phi", "shape")
+      } else {
+        c("psi", "phi")
+      }
     } else {
-      param_names <- if (distribution == "mvt") c("alpha", "beta", "shape") else c("alpha", "beta")
+      param_names <- if (distribution == "mvt") {
+        c("alpha", "beta", "shape")
+      } else {
+        c("alpha", "beta")
+      }
     }
   }
   
@@ -830,9 +858,14 @@ dcc11_standard_errors <- function(params, std_resid, weights, Qbar,
 #' @param use_reparam Logical: parameters in (psi, phi) space?
 #' @return List with se, vcov, bread (I_inv), meat (J), sandwich
 #' @export
-dcc11_sandwich_se <- function(params, std_resid, weights, Qbar,
-                              distribution = "mvn",
-                              use_reparam = FALSE) {
+dcc11_sandwich_se <- function(
+    params, 
+    std_resid, 
+    weights, 
+    Qbar,
+    distribution = "mvn",
+    use_reparam = FALSE
+  ) {
   
   T_obs <- nrow(std_resid)
   n_params <- length(params)
@@ -911,8 +944,16 @@ dcc11_sandwich_se <- function(params, std_resid, weights, Qbar,
 #' @description Helper function to compute the gradient contribution from a
 #'   single observation, needed for sandwich estimator.
 #' @keywords internal
-numerical_gradient_single_obs <- function(params, std_resid, weights, Qbar,
-                                          t, distribution, use_reparam, eps = 1e-6) {
+numerical_gradient_single_obs <- function(
+    params, 
+    std_resid, 
+    weights, 
+    Qbar,
+    t, 
+    distribution, 
+    use_reparam, 
+    eps = 1e-6
+  ) {
   n_params <- length(params)
   grad <- numeric(n_params)
   
@@ -940,8 +981,15 @@ numerical_gradient_single_obs <- function(params, std_resid, weights, Qbar,
 #' @title NLL Contribution from Single Observation
 #' @description Compute the NLL contribution from observation t.
 #' @keywords internal
-dcc11_nll_single_obs <- function(params, std_resid, weights, Qbar, t,
-                                 distribution, use_reparam) {
+dcc11_nll_single_obs <- function(
+    params, 
+    std_resid, 
+    weights, 
+    Qbar, 
+    t,
+    distribution, 
+    use_reparam
+  ) {
   
   k <- ncol(std_resid)
   
@@ -1121,9 +1169,17 @@ dcc11_confint <- function(se_result, level = 0.95) {
 #' @param n_grid Number of grid points for profile (default 50)
 #' @return Named vector c(lower, upper)
 #' @export
-dcc11_profile_ci <- function(params, std_resid, weights, Qbar,
-                             distribution = "mvn", use_reparam = FALSE,
-                             param_idx = 1, level = 0.95, n_grid = 50) {
+dcc11_profile_ci <- function(
+    params, 
+    std_resid, 
+    weights,
+    Qbar,
+    distribution = "mvn", 
+    use_reparam = FALSE,
+    param_idx = 1, 
+    level = 0.95,
+    n_grid = 50
+  ) {
   
   ## Critical value for chi-squared(1)
   chi2_crit <- qchisq(level, df = 1)
@@ -1191,11 +1247,16 @@ dcc11_profile_ci <- function(params, std_resid, weights, Qbar,
 #' @param se_method "hessian" or "sandwich" (default "hessian")
 #' @return List with comprehensive estimation summary
 #' @export
-dcc11_estimation_summary <- function(params, std_resid, weights, Qbar,
-                                     distribution = "mvn",
-                                     use_reparam = FALSE,
-                                     level = 0.95,
-                                     se_method = "hessian") {
+dcc11_estimation_summary <- function(
+    params, 
+    std_resid,
+    weights, 
+    Qbar,
+    distribution = "mvn",
+    use_reparam = FALSE,
+    level = 0.95,
+    se_method = "hessian"
+  ) {
   
   T_obs <- nrow(std_resid)
   k <- ncol(std_resid)

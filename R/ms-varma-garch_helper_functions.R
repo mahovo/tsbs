@@ -95,7 +95,7 @@ validate_spec_dcc_orders <- function(spec, action = c("error", "warn")) {
     
     ## Check if this is a DCC model
     if (!is.null(state_spec$garch_spec_fun) && 
-        state_spec$garch_spec_fun == "dcc_modelspec") {
+        state_spec$garch_spec_fun %in% c("dcc_modelspec", "cgarch_modelspec")) {
       
       dcc_order <- state_spec$garch_spec_args$dcc_order
       
@@ -435,6 +435,20 @@ create_garch_spec_object_r <- function(
       multi_estimate_object <- tsgarch::to_multi_estimate(univariate_models)
       names(multi_estimate_object) <- paste0("series_", 1:ncol(residuals_xts))
       
+      # ## STEP 3: Create DCC spec from the multi_estimate object
+      # final_args <- c(
+      #   list(object = multi_estimate_object), 
+      #   spec_args[names(spec_args) != "garch_model"]
+      # )
+      # final_args$distribution <- spec$distribution
+      # 
+      # ## Must explicitly specify dynamics = "dcc" for dynamic correlation
+      # ## Without this, tsmarch defaults to constant correlation!
+      # if (is.null(final_args$dynamics)) {
+      #   final_args$dynamics <- "dcc"
+      # }
+      # 
+      # garch_spec_obj <- do.call(spec_fun, final_args)
       ## STEP 3: Create DCC spec from the multi_estimate object
       final_args <- c(
         list(object = multi_estimate_object), 
@@ -449,6 +463,7 @@ create_garch_spec_object_r <- function(
       }
       
       garch_spec_obj <- do.call(spec_fun, final_args)
+      
       
       
       ## STEP 4: Set DCC-level parameters (now that spec is created)
@@ -791,6 +806,13 @@ calculate_loglik_vector_r <- function(
             }
             
             garch_nll_vec <- .get_garch_nll_vec_from_univariate(garch_spec_obj$univariate)
+            
+            ## Align lengths if needed
+            if (length(garch_nll_vec) > length(copula_nll_vec)) {
+              n_diff <- length(garch_nll_vec) - length(copula_nll_vec)
+              garch_nll_vec <- garch_nll_vec[-(1:n_diff)]
+            }
+            
             total_nll_vec <- garch_nll_vec + copula_nll_vec
             ll_vector <- -total_nll_vec
           } else {
@@ -1106,7 +1128,7 @@ estimate_garch_weighted_multivariate <- function(
   ## Determine model type
   model_type <- spec$garch_spec_fun
 
-  if (model_type %in% c("dcc_modelspec", "cgarch_modelspec")) {
+  if (model_type %in% c("dcc_modelspec")) {
     return(estimate_garch_weighted_dcc(
       residuals = residuals,
       weights = weights,
@@ -1119,13 +1141,18 @@ estimate_garch_weighted_multivariate <- function(
       dcc_criterion = dcc_criterion,
       force_constant = force_constant
     ))
-  } else if (model_type == "copula_modelspec") {
-    return(estimate_garch_weighted_copula(
+  } else if (model_type == "cgarch_modelspec") {
+    return(estimate_garch_weighted_cgarch(
       residuals = residuals,
       weights = weights,
       spec = spec,
       diagnostics = diagnostics,
-      verbose = verbose
+      iteration = iteration,
+      state = state,
+      verbose = verbose,
+      dcc_threshold = dcc_threshold,
+      dcc_criterion = dcc_criterion,
+      force_constant = force_constant
     ))
   } else if (model_type == "gogarch_modelspec") {
     return(estimate_garch_weighted_gogarch(
