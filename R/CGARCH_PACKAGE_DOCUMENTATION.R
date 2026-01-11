@@ -18,8 +18,83 @@
 ## The following should be ADDED to the existing tsbs.R documentation in the
 ## appropriate sections.
 
-## In the @details section, after the DCC multivariate documentation, ADD:
+## In the @details section, after the multivariate models documentation, ADD:
 ##
+#' ### DCC (Dynamic Conditional Correlation) Models
+#'
+#' DCC models capture time-varying correlations between multiple series by 
+#' modeling the correlation dynamics directly on standardized residuals. This
+#' is the standard approach for multivariate GARCH modeling in the tsbs package.
+#'
+#' To use DCC, set `garch_spec_fun = "dcc_modelspec"` in your spec.
+#' See [dcc_modelspec()] for the tsmarch specification function.
+#'
+#' **DCC-specific `garch_spec_args`:**
+#' \itemize{
+#'   \item `dcc_order`: Integer vector c(p, q) for DCC(p, q) order. Default is
+#'     c(1, 1). Note: DCC(1,1) uses analytical gradients; higher orders use
+#'     numerical differentiation.
+#'   \item `dynamics`: Character. Correlation dynamics type:
+#'     \itemize{
+#'       \item `"constant"`: Time-invariant correlation (reduces to CCC model)
+#'       \item `"dcc"`: Standard DCC dynamics
+#'       \item `"adcc"`: Asymmetric DCC (negative shocks have larger impact)
+#'     }
+#'   \item `distribution`: Character. Multivariate distribution:
+#'     \itemize{
+#'       \item `"mvn"`: Multivariate Normal
+#'       \item `"mvt"`: Multivariate Student-t (adds shape parameter)
+#'     }
+#' }
+#'
+#' **Important**: For DCC models, the univariate GARCH distributions should
+#' always be Normal (`distribution = "norm"`), regardless of whether the
+#' multivariate distribution is MVN or MVT. The multivariate distribution
+#' applies to the joint model, not the marginals.
+#'
+#' **Example DCC specification:**
+#' ```
+#' spec_dcc <- list(
+#'   list(
+#'     var_order = 1,
+#'     garch_spec_fun = "dcc_modelspec",
+#'     distribution = "mvn",
+#'     garch_spec_args = list(
+#'       dcc_order = c(1, 1),
+#'       dynamics = "dcc",
+#'       distribution = "mvn",
+#'       garch_model = list(univariate = list(
+#'         list(model = "garch", garch_order = c(1, 1), distribution = "norm"),
+#'         list(model = "garch", garch_order = c(1, 1), distribution = "norm")
+#'       ))
+#'     ),
+#'     start_pars = list(
+#'       var_pars = rep(0, 6),
+#'       garch_pars = list(
+#'         list(omega = 0.05, alpha1 = 0.08, beta1 = 0.85),
+#'         list(omega = 0.05, alpha1 = 0.08, beta1 = 0.85)
+#'       ),
+#'       dcc_pars = list(alpha_1 = 0.05, beta_1 = 0.90),
+#'       dist_pars = NULL
+#'     )
+#'   )
+#' )
+#' ```
+#'
+#' For ADCC (asymmetric correlation dynamics), use `dynamics = "adcc"` and
+#' include gamma parameters in `dcc_pars`:
+#' ```
+#' dcc_pars = list(alpha_1 = 0.05, gamma_1 = 0.03, beta_1 = 0.90)
+#' ```
+#'
+#' @seealso
+#' \itemize{
+#'   \item [dcc_modelspec()] for creating DCC specifications
+#'   \item [estimate_garch_weighted_dcc()] for the weighted estimation method
+#'   \item `vignette("cgarch_vs_dcc", package = "tsbs")` for model comparison
+#' }
+#'
+#'
 #' ### Copula GARCH (CGARCH) Models
 #'
 #' Copula GARCH models provide an alternative to DCC for modeling dynamic
@@ -105,11 +180,14 @@
 #'
 #' @seealso
 #' \itemize{
+#'   \item [dcc_modelspec()] for creating DCC specifications
 #'   \item [cgarch_modelspec()] for creating CGARCH specifications
-#'   \item [estimate_garch_weighted_cgarch()] for the weighted estimation method
+#'   \item [estimate_garch_weighted_dcc()] for DCC weighted estimation
+#'   \item [estimate_garch_weighted_cgarch()] for CGARCH weighted estimation
 #'   \item [compute_pit_transform()] for PIT transformation details
 #'   \item [adcc_recursion()] for asymmetric DCC dynamics
 #'   \item `vignette("cgarch_vs_dcc", package = "tsbs")` for model comparison
+#'   \item `vignette("Diagnostics", package = "tsbs")` for diagnostic system
 #' }
 
 
