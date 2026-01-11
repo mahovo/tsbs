@@ -6,20 +6,98 @@
 ## alternative to the DCC model for the tsbs package's Markov-Switching 
 ## VARMA-GARCH framework.
 ##
-## Key differences from DCC:
-## - Copula GARCH uses probability integral transform (PIT) on standardized
-##   residuals to create uniform margins, then applies copula for dependence
-## - Supports "parametric", "empirical", and "spd" transformations
-## - Available copula families: "mvn" (Gaussian) and "mvt" (Student-t)
-## - Log-likelihood = sum(univariate GARCH LL) + copula LL
-##   (whereas DCC combines them differently)
+## OVERVIEW
+## - - - - 
+## Copula GARCH models separate marginal distributions from the dependence
+## structure, providing greater flexibility than DCC for modeling multivariate
+## financial time series. This implementation supports:
 ##
-## Structure:
-## - - - - - -
-## PART 1: Copula GARCH Weighted Estimation (Stage 1 + Stage 2)
-## PART 2: Copula Parameters Weighted Estimation 
-## PART 3: Helper Functions for Copula Computations
-## PART 4: Constant Correlation Copula Likelihood
+##   - Three PIT transformation methods: parametric, empirical, SPD
+##   - Two copula families: Gaussian (MVN) and Student-t (MVT)
+##   - Three dynamics types: constant, DCC, ADCC (asymmetric)
+##   - Analytical gradients for DCC(1,1) optimization
+##   - Full integration with MS-VARMA-GARCH bootstrap framework
+##
+## KEY DIFFERENCES FROM DCC
+## 
+## | Aspect            | DCC                    | Copula GARCH           |
+## |- - - - - - - - - -|- - - - - - - - - - - - |- - - - - - - - - - - - |
+## | Marginals         | Normal assumed         | Flexible (via PIT)     |
+## | Tail dependence   | Limited                | MVT copula captures    |
+## | Transformation    | None                   | PIT to uniform         |
+## | Distribution      | MVN or MVT on z        | Copula on U → Z        |
+##
+## USAGE IN tsbs()
+## - - - - - - - -
+## To use CGARCH instead of DCC, specify in your model:
+##
+##   spec <- list(
+##     list(
+##       var_order = 1,
+##       garch_spec_fun = "cgarch_modelspec",    # Key setting
+##       distribution = "mvn",                   # or "mvt"
+##       garch_spec_args = list(
+##         dcc_order = c(1, 1),
+##         dynamics = "dcc",                     # or "adcc", "constant"
+##         transformation = "parametric",        # or "empirical", "spd"
+##         copula = "mvn",                       # or "mvt"
+##         garch_model = list(univariate = list(...))
+##       ),
+##       start_pars = list(...)
+##     )
+##   )
+##
+## FILE STRUCTURE
+## - - - - - - - 
+## PART 1:  Copula GARCH Weighted Estimation (main entry point)
+##          - estimate_garch_weighted_cgarch()
+##
+## PART 2:  Copula Parameters Weighted Estimation (Stage 2)
+##          - estimate_copula_parameters_weighted()
+##
+## PART 3:  Helper Functions for Copula Computations
+##          - compute_pit_transform()
+##          - fit_spd_transform()
+##          - compute_spd_manual()
+##          - compute_copula_residuals()
+##
+## PART 4:  Copula Log-Likelihood Functions
+##          - copula_nll()
+##          - compute_constant_copula_likelihood()
+##
+## PART 4b: Analytical Gradient Implementation
+##          - copula_gradient()
+##          - copula_gradient_original()
+##          - grad_nll_wrt_R_copula_mvn/mvt()
+##          - grad_R_to_Q_copula()
+##          - copula_gradient_shape()
+##
+## PART 4c: ADCC (Asymmetric DCC) Support
+##          - adcc_recursion()
+##          - adcc_stationarity()
+##          - adcc_copula_nll()
+##          - adcc_copula_gradient()
+##          - estimate_adcc_copula()
+##
+## DEPENDENCIES
+## - - - - - - 
+## Requires: tsgarch, tsmarch, tsmethods, xts, data.table
+## Optional: tsdistributions (for full SPD support)
+##
+## The following functions from dcc_gradient.R are used:
+##   - dcc11_to_unconstrained(), dcc11_from_unconstrained()
+##   - dcc11_reparam_jacobian()
+##   - dcc_recursion()
+##   - dcc11_recursion_with_grad()
+##   - is_dcc11(), get_dcc_order()
+##
+## SEE ALSO
+## - - - - 
+## - tsbs(): Main bootstrap function (set garch_spec_fun = "cgarch_modelspec")
+## - dcc_gradient.R: DCC gradient and recursion functions
+## - ms-varma-garch_helper_functions.R: Integration with MS framework
+## - vignette("cgarch_vs_dcc"): Comparison of DCC and CGARCH models
+## - vignette("Diagnostics"): Diagnostic system documentation
 ##
 ## = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = =
 
@@ -43,7 +121,7 @@
 #'    transformation can be:
 #'    - "parametric": Uses the estimated univariate distribution's CDF
 #'    - "empirical": Uses the empirical CDF
-#'    - "spd": Uses semi-parametric distribution
+#'    - "spd": Uses semi-parametric distribution (see \code{\link{fit_spd_transform}})
 #'
 #' 2. **Copula Specification**: The uniform margins are then transformed
 #'    according to the copula distribution:
@@ -51,6 +129,10 @@
 #'    - "mvt": Multivariate Student-t copula
 #'
 #' 3. **Correlation Dynamics**: Same as DCC - can be "constant", "dcc", or "adcc"
+#'    For ADCC, see \code{\link{adcc_recursion}}.
+#'
+#' This function is called by the M-step of the EM algorithm in
+#' \code{\link{fit_ms_varma_garch}} when \code{garch_spec_fun = "cgarch_modelspec"}.
 #'
 #' @param residuals Matrix of residuals (T x k)
 #' @param weights Vector of observation weights (length T)
@@ -72,6 +154,16 @@
 #'   - coefficients: list with garch_pars, dcc_pars, dist_pars, correlation_type
 #'   - warnings: list of warning messages
 #'   - diagnostics: updated diagnostics object
+#'
+#' @seealso 
+#' \itemize{
+#'   \item \code{\link{tsbs}}: Main bootstrap function (use \code{garch_spec_fun = "cgarch_modelspec"})
+#'   \item \code{\link{estimate_copula_parameters_weighted}}: Stage 2 estimation
+#'   \item \code{\link{compute_pit_transform}}: PIT transformation methods
+#'   \item \code{\link{copula_nll}}: Copula log-likelihood
+#'   \item \code{\link{adcc_recursion}}: ADCC dynamics
+#'   \item \code{\link{estimate_garch_weighted_dcc}}: Alternative DCC estimator
+#' }
 #'
 #' @keywords internal
 estimate_garch_weighted_cgarch <- function(
