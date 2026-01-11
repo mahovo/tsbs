@@ -24,7 +24,8 @@ collect_diagnostics = TRUE
 verbose = TRUE
 return_fit = TRUE
 
-max_num_rb = Inf ## Maximum number of rebalances
+max_num_rb = 3 ## Maximum number of rebalances
+max_iter = 2 ## Maximum EM iterations
 ```
 
 
@@ -59,13 +60,13 @@ Key takeaways:
 - Report uncertainty alongside point estimates for transparency  
 
 
-```{r chunk11, echo=FALSE, results=FALSE, message=FALSE}
+```{r chunk2, echo=FALSE, results=FALSE, message=FALSE}
 library(tsbs)
 library(quantmod)
 ```
 
 
-```{r chunk11a, echo=FALSE} 
+```{r chunk3, echo=FALSE} 
 ## =============================================================================
 ## PART 1: PORTFOLIO OPTIMIZATION FUNCTIONS
 ## =============================================================================
@@ -141,28 +142,66 @@ max_sharpe_portfolio <- function(returns, rf = 0, ...) {
 ## -----------------------------------------------------------------------------
 ## 1.3 Risk Parity Portfolio
 ## -----------------------------------------------------------------------------
+# risk_parity_portfolio <- function(returns, ...) {
+#   Sigma <- cov(returns)
+#   n <- ncol(returns)
+#   
+#   ## Target: equal risk contribution from each asset
+#   ## Approximate solution: w_i proportional to 1/sigma_i
+#   vols <- sqrt(diag(Sigma))
+#   
+#   ## Iterative refinement (simple version)
+#   weights <- 1 / vols
+#   weights <- weights / sum(weights)
+#   
+#   for (iter in 1:20) {
+#     ## Marginal risk contributions
+#     port_vol <- sqrt(t(weights) %*% Sigma %*% weights)
+#     mrc <- (Sigma %*% weights) / as.numeric(port_vol)
+#     rc <- weights * mrc
+#     
+#     ## Adjust weights to equalize risk contributions
+#     target_rc <- sum(rc) / n
+#     adjustment <- target_rc / (rc + 1e-8)
+#     weights <- weights * sqrt(adjustment)
+#     weights <- weights / sum(weights)
+#   }
+#   
+#   names(weights) <- colnames(returns)
+#   weights
+# }
 risk_parity_portfolio <- function(returns, ...) {
   Sigma <- cov(returns)
   n <- ncol(returns)
   
-  ## Target: equal risk contribution from each asset
-  ## Approximate solution: w_i proportional to 1/sigma_i
+  ## Defensive: check for valid covariance matrix
   vols <- sqrt(diag(Sigma))
+  if (any(!is.finite(vols)) || any(vols < 1e-10)) {
+    ## Fallback to equal weights
+    weights <- rep(1/n, n)
+    names(weights) <- colnames(returns)
+    return(weights)
+  }
   
-  ## Iterative refinement (simple version)
+  ## Initial weights proportional to 1/sigma_i
   weights <- 1 / vols
   weights <- weights / sum(weights)
   
   for (iter in 1:20) {
-    ## Marginal risk contributions
     port_vol <- sqrt(t(weights) %*% Sigma %*% weights)
+    if (!is.finite(port_vol) || port_vol < 1e-10) break
+    
     mrc <- (Sigma %*% weights) / as.numeric(port_vol)
     rc <- weights * mrc
     
-    ## Adjust weights to equalize risk contributions
     target_rc <- sum(rc) / n
     adjustment <- target_rc / (rc + 1e-8)
-    weights <- weights * sqrt(adjustment)
+    weights <- weights * sqrt(pmax(adjustment, 0))  # Prevent sqrt of negative
+    
+    if (sum(weights) < 1e-10 || any(!is.finite(weights))) {
+      weights <- rep(1/n, n)
+      break
+    }
     weights <- weights / sum(weights)
   }
   
@@ -471,7 +510,7 @@ strategies <- list(
   "Equal Weight" = equal_weight_portfolio,
   "Min Variance" = min_variance_portfolio,
   "Max Sharpe" = max_sharpe_portfolio,
-  "Ris <-  Parity" = risk_parity_portfolio,
+  "Risk Parity" = risk_parity_portfolio,
   "Black-Litterman" = black_litterman_portfolio,
   "Shrinkage" = shrinkage_portfolio
 )
@@ -483,14 +522,11 @@ colnames(backtest_returns) <- names(strategies)
 weight_history <- lapply(strategies, function(x) {
   matrix(NA, nrow = length(rebalance_dates), ncol = k)
 })
-
-## Storage for bootstrap uncertainty
-boot_weight_history <- list()
 ```
 
 
 
-```{r chunk12, echo=FALSE}
+```{r chunk4, echo=FALSE}
 ## =============================================================================
 ## PART 7: RUN BACKTEST
 ## =============================================================================
@@ -499,7 +535,7 @@ cat("\nRunning backtest with ootstrap for Risk Parity...\n")
 ```
 
 
-```{r chunk12a, echo=FALSE, results='hide', message=FALSE, warning=FALSE}
+```{r chunk5, echo=FALSE, results='hide', message=FALSE, warning=FALSE}
 set.seed(42)
 current_weights <- lapply(strategies, function(x) rep(1/k, k))
 
@@ -508,6 +544,7 @@ pb <- txtProgressBar(min = 0, max = length(rebalance_dates), style = 3)
 ## Capture diagnostics
 if(collect_diagnostics && return_fit) {diagnostics <- list()}
 
+## Storage for bootstrap uncertainty
 boot_weight_history <- list()
 if(collect_diagnostics && return_fit) {diagnostics_history <- list()}
 
@@ -545,14 +582,15 @@ for (rb_idx in seq_along(rebalance_dates)) {
         model_type = "multivariate",
         func = risk_parity_portfolio,
         apply_func_to = "all",
-        control = list(max_iter = 10, tol = 1e-2),
+        control = list(max_iter = max_iter, tol = 1e-2),
         parallel = TRUE,
         num_cores = 8,
         return_fit = return_fit,
         collect_diagnostics = collect_diagnostics
       )
       list(
-        weights = do.call(rbind, boot_result$func_outs),
+        #weights = do.call(rbind, boot_result$func_outs),
+        weights = do.call(rbind, lapply(boot_result$func_outs, function(w) t(w))),
         diagnostics = if(collect_diagnostics && return_fit) {
           boot_result$fit$diagnostics
         } else {NULL}
@@ -593,13 +631,13 @@ close(pb)
 ```
 
 
-```{r chunk12b, echo=FALSE}
+```{r chunk6, echo=FALSE}
 cat("\nBacktest completed!\n")
 ```
 
 
 
-```{r chunk13, echo=FALSE}
+```{r chunk7, echo=FALSE}
 ## =============================================================================
 ## PART 8: BACKTEST RESULTS
 ## =============================================================================
@@ -643,7 +681,7 @@ cat("\nBest Sharpe ratio:", names(best_sharpe),
 
 
 
-```{r chunk14, echo=FALSE}
+```{r chunk8, echo=FALSE}
 ## =============================================================================
 ## PART 9: BOOTSTRAP UNCERTAINTY ANALYSIS
 ## =============================================================================
@@ -655,9 +693,17 @@ cat("-", rep("-", 70), "\n", sep = "")
 
 for (rb_idx in 1:min(3, length(boot_weight_history))) {
   print(rb_idx)
+  
   boot_w <- boot_weight_history[[rb_idx]]
   if (!is.null(boot_w) && nrow(boot_w) > 1) {
-    colnames(boot_w) <- symbols
+    
+    if (ncol(boot_w) == length(symbols)) {
+      colnames(boot_w) <- symbols
+    } else {
+      warning(sprintf("Rebalance %d: boot_w has %d columns but symbols has %d elements", 
+                      rb_idx, ncol(boot_w), length(symbols)))
+      next
+    }
     
     cat("\nRebalance", rb_idx, "(Date:", as.character(dates_full[rebalance_dates[rb_idx]]), "):\n")
     cat("  Point estimate:\n")
@@ -677,7 +723,7 @@ for (rb_idx in 1:min(3, length(boot_weight_history))) {
 
 
 
-```{r chunk15, echo=FALSE}
+```{r chunk9, echo=FALSE}
 ## =============================================================================
 ## PART 10: VISUALIZATIONS
 ## =============================================================================
@@ -698,7 +744,7 @@ legend("topleft", colnames(cum_returns), col = rainbow(ncol(cum_returns)),
 
 
 
-```{r chunk16, echo=FALSE}
+```{r chunk10, echo=FALSE}
 ## Plot 2: Rolling Sharpe (252-day)
 roll_sharpe <- function(ret, window = 252) {
   n <- length(ret)
@@ -722,7 +768,7 @@ abline(h = 0, col = "gray", lty = 2)
 
 
 
-```{r chunk17, echo=FALSE}
+```{r chunk11, echo=FALSE}
 ## Plot 3: Weight evolution (Min Variance)
 w_hist <- weight_history[["Min Variance"]]
 w_hist <- w_hist[complete.cases(w_hist), ]
@@ -736,7 +782,7 @@ if (nrow(w_hist) > 1) {
 
 
 
-```{r chunk17b, echo=FALSE}
+```{r chunk12, echo=FALSE}
 ## Plot 3b: Weight evolution (Risk Parity)
 w_hist <- weight_history[["Max Sharpe"]]
 w_hist <- w_hist[complete.cases(w_hist), ]
@@ -751,7 +797,7 @@ if (nrow(w_hist) > 1) {
 
 
 
-```{r chunk17c, echo=FALSE}
+```{r chunk13, echo=FALSE}
 ## Plot 3b: Weight evolution (Risk Parity)
 w_hist <- weight_history[["Risk Parity"]]
 w_hist <- w_hist[complete.cases(w_hist), ]
@@ -767,7 +813,7 @@ if (nrow(w_hist) > 1) {
 
 
 
-```{r chunk17d, echo=FALSE}
+```{r chunk14, echo=FALSE}
 ## Plot 3b: Weight evolution (Risk Parity)
 w_hist <- weight_history[["Black-Litterman"]]
 w_hist <- w_hist[complete.cases(w_hist), ]
@@ -781,7 +827,7 @@ if (nrow(w_hist) > 1) {
 
 
 
-```{r chunk17e, echo=FALSE}
+```{r chunk15, echo=FALSE}
 ## Plot 3b: Weight evolution (Risk Parity)
 w_hist <- weight_history[["Shrinkage"]]
 w_hist <- w_hist[complete.cases(w_hist), ]
@@ -795,7 +841,7 @@ if (nrow(w_hist) > 1) {
 
 
 
-```{r chunk18, echo=FALSE}
+```{r chunk16, echo=FALSE}
 ## Plot 4: Bootstrap weight distribution (first rebalance)
 if (!is.null(boot_weight_history[[1]])) {
   boot_w <- boot_weight_history[[1]]
@@ -811,7 +857,7 @@ par(mfrow = c(1, 1))
 
 
 
-```{r chunk19, echo=FALSE}
+```{r chunk17, echo=FALSE}
 ## =============================================================================
 ## PART 11: STRATEGY COMPARISON
 ## =============================================================================
@@ -911,7 +957,7 @@ if (length(boot_weight_history) > 0 && !is.null(boot_weight_history[[1]])) {
 
 
 
-```{r, echo=FALSE}
+```{r chunk18, echo=FALSE}
 ## =============================================================================
 ## PART 13: PORTFOLIO PERFORMANCE UNCERTAINTY
 ## =============================================================================
@@ -1005,7 +1051,7 @@ if (length(boot_weight_history) > 0 && !is.null(boot_weight_history[[1]])) {
 
 
 
-```{r chunk23, echo=FALSE}
+```{r chunk19, echo=FALSE}
 ## =============================================================================
 ## PART 14: ROBUST WEIGHT RECOMMENDATIONS
 ## =============================================================================
@@ -1122,12 +1168,12 @@ tc_adj_df <- data.frame(
 
 
 
-```{r chunk24, echo=FALSE}
+```{r chunk20, echo=FALSE}
 print(tc_adj_df, row.names = FALSE)
 ```
 
 
-```{r chunk25, echo=FALSE}
+```{r chunk21, echo=FALSE}
 cat("DEMO COMPLETE\n")
 ```
 

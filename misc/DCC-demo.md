@@ -15,42 +15,47 @@ output:
     toc: true
     toc_depth: 3
 #fontsize: 10pt # for pdf. Limited to 10pt, 11pt and 12pt. Else use scrextend.
-date: "22:47 09 January 2026"
+date: "11:39 11 January 2026"
 ---
 
 
 
 
 
+## tsbs: Advanced Portfolio Optimization with DCC-GARCH Bootstrap
 
-```
-## Loading required package: xts
-```
+This demo demonstrates:  
+1. Six portfolio optimization strategies:  
+  - Equal Weight (benchmark)  
+  - Minimum Variance  
+  - Maximum Sharpe Ratio  
+  - Risk Parity  
+  - Black-Litterman\  
+  - Shrinkage (Ledoit-Wolf)  
+2. Real market data  
+3. Out-of-sample backtesting with quarterly rebalancing  
+4. Bootstrap uncertainty quantification for optimal weights  
+5. DCC-GARCH modeling for time-varying correlations  
+6. Robust weight estimation methods  
+7. Turnover and transaction cost analysis  
 
-```
-## Loading required package: zoo
-```
+The MS-VARMA-GARCH bootstrap provides:  
+ - Realistic uncertainty estimates for portfolio weights  
+  - Proper handling of volatility clustering  
+  - Dynamic correlation structure preservation  
+  - Regime-switching capability for changing market conditions  
 
-```
-## 
-## Attaching package: 'zoo'
-```
+Key takeaways:
+- Optimal weights have substantial estimation uncertainty  
+- Bootstrap CIs help set realistic expectations  
+- Regularized methods (Risk Parity, Shrinkage) often perform well OOS  
+- Transaction costs matter - consider turnover when selecting strategies  
+- Report uncertainty alongside point estimates for transparency  
 
-```
-## The following objects are masked from 'package:base':
-## 
-##     as.Date, as.Date.numeric
-```
 
-```
-## Loading required package: TTR
-```
 
-```
-## Registered S3 method overwritten by 'quantmod':
-##   method            from
-##   as.zoo.data.frame zoo
-```
+
+
 
 ```
 ## =======================================================================
@@ -75,11 +80,11 @@ date: "22:47 09 January 2026"
 ```
 
 ```
-##   Period: 2018-01-03 to 2026-01-08
+##   Period: 2018-01-03 to 2026-01-09
 ```
 
 ```
-##   Observations: 2015
+##   Observations: 2016
 ```
 
 ```
@@ -105,9 +110,9 @@ date: "22:47 09 January 2026"
 
 ```
 ##              SPY   EFA  BND   GLD   VNQ
-## Return (%) 13.34  7.08 1.77 14.89  4.80
-## Vol (%)    19.48 18.04 5.97 15.17 22.42
-## Sharpe      0.68  0.39 0.30  0.98  0.21
+## Return (%) 13.42  7.19 1.80 14.97  4.83
+## Vol (%)    19.48 18.04 5.96 15.17 22.41
+## Sharpe      0.69  0.40 0.30  0.99  0.22
 ```
 
 ```
@@ -138,7 +143,7 @@ date: "22:47 09 January 2026"
 
 ```
 ## 
-## Backtest setup:
+## Bac <- test setup:
 ```
 
 ```
@@ -162,7 +167,7 @@ date: "22:47 09 January 2026"
 
 ```
 ## 
-## Running backtest...
+## Running backtest with ootstrap for Risk Parity...
 ```
 
 
@@ -197,17 +202,17 @@ date: "22:47 09 January 2026"
 
 ```
 ##                 Ann.Return(%) Ann.Vol(%) Sharpe MaxDD(%)
-## Equal Weight            8.811     13.557  0.650  -25.572
-## Min Variance            1.639      6.795  0.241  -18.538
-## Max Sharpe              7.705     14.107  0.546  -28.729
-## Risk Parity             7.067      9.389  0.753  -18.448
-## Black-Litterman         3.135      7.088  0.442  -17.882
-## Shrinkage               1.649      6.799  0.243  -18.540
+## Equal Weight            8.847     13.553  0.653  -25.572
+## Min Variance            1.615      6.793  0.238  -18.538
+## Max Sharpe              7.742     14.103  0.549  -28.729
+## Risk Parity             7.083      9.386  0.755  -18.449
+## Black-Litterman         3.117      7.086  0.440  -17.882
+## Shrinkage               1.625      6.797  0.239  -18.540
 ```
 
 ```
 ## 
-## Best Sharpe ratio: Risk Parity = 0.753
+## Best Sharpe ratio: Risk Parity = 0.755
 ```
 
 
@@ -233,16 +238,16 @@ date: "22:47 09 January 2026"
 ## [1] 0.0325 0.0651 0.9024 0.0000 0.0000
 ##   Bootstrap mean:
 ##    SPY    EFA    BND    GLD    VNQ 
-## 0.0456 0.0498 0.9041 0.0004 0.0000 
+## 0.0966 0.1084 0.5633 0.1434 0.0883 
 ##   Bootstrap SE:
 ##    SPY    EFA    BND    GLD    VNQ 
-## 0.0522 0.0429 0.0344 0.0020 0.0000 
+## 0.0225 0.0179 0.0493 0.0194 0.0166 
 ##   95% CI:
-##     SPY: [0.000, 0.167]
-##     EFA: [0.000, 0.126]
-##     BND: [0.818, 0.956]
-##     GLD: [0.000, 0.005]
-##     VNQ: [0.000, 0.000]
+##     SPY: [0.064, 0.136]
+##     EFA: [0.075, 0.142]
+##     BND: [0.486, 0.653]
+##     GLD: [0.106, 0.183]
+##     VNQ: [0.060, 0.114]
 ## [1] 2
 ## 
 ## Rebalance 2 (Date: 2020-04-06 ):
@@ -250,16 +255,16 @@ date: "22:47 09 January 2026"
 ## [1] 0.0448 0.0000 0.8516 0.1037 0.0000
 ##   Bootstrap mean:
 ##    SPY    EFA    BND    GLD    VNQ 
-## 0.0442 0.0156 0.8306 0.1097 0.0000 
+## 0.0903 0.0980 0.5555 0.1759 0.0803 
 ##   Bootstrap SE:
 ##    SPY    EFA    BND    GLD    VNQ 
-## 0.0338 0.0301 0.0999 0.1364 0.0000 
+## 0.0260 0.0300 0.1035 0.0911 0.0214 
 ##   95% CI:
-##     SPY: [0.000, 0.100]
-##     EFA: [0.000, 0.085]
-##     BND: [0.610, 0.921]
-##     GLD: [0.000, 0.390]
-##     VNQ: [0.000, 0.000]
+##     SPY: [0.014, 0.129]
+##     EFA: [0.000, 0.144]
+##     BND: [0.308, 0.707]
+##     GLD: [0.107, 0.434]
+##     VNQ: [0.052, 0.128]
 ## [1] 3
 ## 
 ## Rebalance 3 (Date: 2020-07-07 ):
@@ -267,17 +272,44 @@ date: "22:47 09 January 2026"
 ## [1] 0.0357 0.0000 0.8802 0.0841 0.0000
 ##   Bootstrap mean:
 ##    SPY    EFA    BND    GLD    VNQ 
-## 0.0451 0.0119 0.8648 0.0782 0.0000 
+## 0.0945 0.0999 0.5631 0.1654 0.0771 
 ##   Bootstrap SE:
 ##    SPY    EFA    BND    GLD    VNQ 
-## 0.0303 0.0217 0.1051 0.1324 0.0000 
+## 0.0209 0.0211 0.0893 0.0743 0.0128 
 ##   95% CI:
-##     SPY: [0.000, 0.093]
-##     EFA: [0.000, 0.063]
-##     BND: [0.585, 0.943]
-##     GLD: [0.000, 0.415]
-##     VNQ: [0.000, 0.000]
+##     SPY: [0.060, 0.135]
+##     EFA: [0.062, 0.139]
+##     BND: [0.342, 0.700]
+##     GLD: [0.094, 0.391]
+##     VNQ: [0.055, 0.101]
 ```
+
+
+
+![](DCC-demo_files/figure-html/chunk9-1.png)<!-- -->
+
+
+
+![](DCC-demo_files/figure-html/chunk10-1.png)<!-- -->
+
+
+
+![](DCC-demo_files/figure-html/chunk11-1.png)<!-- -->
+
+
+
+![](DCC-demo_files/figure-html/chunk12-1.png)<!-- -->
+
+
+
+
+![](DCC-demo_files/figure-html/chunk13-1.png)<!-- -->
+
+
+
+
+
+![](DCC-demo_files/figure-html/chunk14-1.png)<!-- -->
 
 
 
@@ -286,14 +318,6 @@ date: "22:47 09 January 2026"
 
 
 ![](DCC-demo_files/figure-html/chunk16-1.png)<!-- -->
-
-
-
-![](DCC-demo_files/figure-html/chunk17-1.png)<!-- -->
-
-
-
-![](DCC-demo_files/figure-html/chunk18-1.png)<!-- -->
 
 
 
@@ -409,11 +433,11 @@ date: "22:47 09 January 2026"
 ## 
 ## First Rebalance - Weight Comparison:
 ##  Asset Point_Est Boot_Mean Difference Boot_SE CI_Lower CI_Upper
-##    SPY    0.0325    0.0456     0.0131  0.0522    0.000   0.1672
-##    EFA    0.0651    0.0498    -0.0153  0.0429    0.000   0.1264
-##    BND    0.9024    0.9041     0.0017  0.0344    0.818   0.9558
-##    GLD    0.0000    0.0004     0.0004  0.0020    0.000   0.0048
-##    VNQ    0.0000    0.0000     0.0000  0.0000    0.000   0.0000
+##    SPY    0.0325    0.0966     0.0641  0.0225   0.0635   0.1357
+##    EFA    0.0651    0.1084     0.0434  0.0179   0.0754   0.1421
+##    BND    0.9024    0.5633    -0.3391  0.0493   0.4855   0.6532
+##    GLD    0.0000    0.1434     0.1434  0.0194   0.1058   0.1834
+##    VNQ    0.0000    0.0883     0.0883  0.0166   0.0605   0.1140
 ## 
 ## Probability of being largest allocation:
 ##   SPY: 0.0%
@@ -423,11 +447,11 @@ date: "22:47 09 January 2026"
 ##   VNQ: 0.0%
 ## 
 ## Weight stability (coefficient of variation):
-##   SPY: CV=1.14 (Unstable)
-##   EFA: CV=0.86 (Unstable)
-##   BND: CV=0.04 (Stable)
-##   GLD: CV=4.53 (Unstable)
-##   VNQ: CV=0.00 (Stable)
+##   SPY: CV=0.23 (Stable)
+##   EFA: CV=0.16 (Stable)
+##   BND: CV=0.09 (Stable)
+##   GLD: CV=0.14 (Stable)
+##   VNQ: CV=0.19 (Stable)
 ```
 
 
@@ -456,12 +480,12 @@ date: "22:47 09 January 2026"
 ##   Sharpe: -0.101
 ## 
 ## Bootstrap distribution:
-##   Ann_Return: Median=-1.44, 95% CI=[-10.04, 4.99]
-##   Ann_Vol: Median=18.50, 95% CI=[18.03, 19.99]
-##   Sharpe: Median=-0.08, 95% CI=[-0.50, 0.28]
+##   Ann_Return: Median=-27.57, 95% CI=[-36.69, -16.85]
+##   Ann_Vol: Median=23.41, 95% CI=[20.61, 26.21]
+##   Sharpe: Median=-1.18, 95% CI=[-1.40, -0.82]
 ```
 
-![](DCC-demo_files/figure-html/unnamed-chunk-1-1.png)<!-- -->
+![](DCC-demo_files/figure-html/chunk18-1.png)<!-- -->
 
 
 
@@ -482,11 +506,11 @@ date: "22:47 09 January 2026"
 ## 
 ## Alternative weight estimates:
 ##  Asset Point Boot_Mean Boot_Median Winsorized Conservative
-##    SPY 0.033     0.046       0.030      0.038        0.000
-##    EFA 0.065     0.050       0.049      0.047        0.002
-##    BND 0.902     0.904       0.905      0.907        0.998
-##    GLD 0.000     0.000       0.000      0.000        0.000
-##    VNQ 0.000     0.000       0.000      0.000        0.000
+##    SPY 0.033     0.097       0.095      0.096        0.088
+##    EFA 0.065     0.108       0.105      0.108        0.106
+##    BND 0.902     0.563       0.561      0.562        0.582
+##    GLD 0.000     0.143       0.141      0.143        0.143
+##    VNQ 0.000     0.088       0.088      0.088        0.081
 ## 
 ## Recommendation:
 ##   - For maximum expected return: Use Point Estimate or Boot Mean
@@ -494,7 +518,7 @@ date: "22:47 09 January 2026"
 ##   - For risk-averse investors: Use Conservative (25th percentile)
 ```
 
-![](DCC-demo_files/figure-html/chunk23-1.png)<!-- -->
+![](DCC-demo_files/figure-html/chunk19-1.png)<!-- -->
 
 ```
 ## -----------------------------------------------------------------------
@@ -533,126 +557,19 @@ date: "22:47 09 January 2026"
 
 ```
 ##                         Strategy Raw_Sharpe TC_Adj_Sharpe Difference
-##        Equal Weight.Equal Weight      0.650         0.650      0.000
-##        Min Variance.Min Variance      0.241         0.238     -0.004
-##            Max Sharpe.Max Sharpe      0.546         0.532     -0.015
-##          Risk Parity.Risk Parity      0.753         0.750     -0.002
-##  Black-Litterman.Black-Litterman      0.442         0.438     -0.004
-##              Shrinkage.Shrinkage      0.243         0.239     -0.004
+##        Equal Weight.Equal Weight      0.653         0.653      0.000
+##        Min Variance.Min Variance      0.238         0.234     -0.004
+##            Max Sharpe.Max Sharpe      0.549         0.534     -0.015
+##          Risk Parity.Risk Parity      0.755         0.752     -0.002
+##  Black-Litterman.Black-Litterman      0.440         0.436     -0.004
+##              Shrinkage.Shrinkage      0.239         0.236     -0.004
 ```
 
 
-
-
-```
-## =======================================================================
-```
 
 ```
 ## DEMO COMPLETE
 ```
 
-```
-## =======================================================================
-```
 
-```
-## This demo demonstrated:
-```
-
-```
-##   1. Six portfolio optimization strategies:
-```
-
-```
-##      - Equal Weight (benchmark)
-```
-
-```
-##      - Minimum Variance
-```
-
-```
-##      - Maximum Sharpe Ratio
-```
-
-```
-##      - Risk Parity
-```
-
-```
-##      - Black-Litterman
-```
-
-```
-##      - Shrinkage (Ledoit-Wolf)
-```
-
-```
-##   2. Real market data (SPY, EFA, BND, GLD, VNQ)
-```
-
-```
-##   3. Out-of-sample backtesting with quarterly rebalancing
-```
-
-```
-##   4. Bootstrap uncertainty quantification for optimal weights
-```
-
-```
-##   5. DCC-GARCH modeling for time-varying correlations
-```
-
-```
-##   6. Robust weight estimation methods
-```
-
-```
-##   7. Turnover and transaction cost analysis
-```
-
-```
-## The MS-VARMA-GARCH bootstrap provides:
-```
-
-```
-##   - Realistic uncertainty estimates for portfolio weights
-```
-
-```
-##   - Proper handling of volatility clustering
-```
-
-```
-##   - Dynamic correlation structure preservation
-```
-
-```
-##   - Regime-switching capability for changing market conditions
-```
-
-```
-## Key takeaways:
-```
-
-```
-##   - Optimal weights have substantial estimation uncertainty
-```
-
-```
-##   - Bootstrap CIs help set realistic expectations
-```
-
-```
-##   - Regularized methods (Risk Parity, Shrinkage) often perform well OOS
-```
-
-```
-##   - Transaction costs matter - consider turnover when selecting strategies
-```
-
-```
-##   - Report uncertainty alongside point estimates for transparency
-```
 
