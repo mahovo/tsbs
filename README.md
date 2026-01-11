@@ -159,6 +159,7 @@ The package includes two vignettes for specialized topics:
 |----------|-------------|
 | `vignette("Diagnostics", package = "tsbs")` | Diagnostic system for monitoring EM convergence, parameter evolution, and numerical stability |
 | `vignette("dcc_inference_guide", package = "tsbs")` | Statistical inference for DCC parameters including standard errors and hypothesis testing |
+| `vignette("cgarch_vs_dcc_vignette", package = "tsbs")` | Diagnostic vignette comparing DCC and CGARCH models |
 
 ### Learning from Test Files
 
