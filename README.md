@@ -1,4 +1,4 @@
-# tsbs: Time Series Bootstrap Methods
+# tsbs: Advanced Time Series Bootstrap Tools
 
 [![R Package](https://img.shields.io/badge/R-Package-blue.svg)](https://github.com/mahovo/tsbs)
 
@@ -172,6 +172,10 @@ system.file("tests", package = "tsbs")
 Key test files include:
 - `test-ms_varma_garch_bs.R` — Comprehensive examples of MS-VARMA-GARCH specifications
 - `test-dcc_gradient.R` — DCC gradient and inference testing
+
+### Other resources
+
+See also [https://github.com/mahovo/tsbs/tree/dev/misc](https://github.com/mahovo/tsbs/tree/dev/misc), especially "Portfolio Optimization Demo.Rmd".
 
 ### Related Packages
 

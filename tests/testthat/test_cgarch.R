@@ -19,13 +19,13 @@
 #### TEST SETUP                                                             ####
 
 ## Required packages
-# library(testthat)
-# library(tsmarch)
-# library(tsgarch)
-# library(tsmethods)
-# library(tsdistributions)
-# library(xts)
-# library(data.table)
+library(testthat)
+library(tsmarch)
+library(tsgarch)
+library(tsmethods)
+library(tsdistributions)
+library(xts)
+library(data.table)
 
 
 ## ---- Test Data Setups ----
@@ -372,6 +372,115 @@ test_that("compute_pit_transform works with empirical transformation", {
 })
 
 
+test_that("compute_pit_transform works with SPD transformation", {
+  skip_if_not(exists("compute_pit_transform"),
+              "compute_pit_transform not available")
+  
+  set.seed(123)
+  std_resid <- matrix(rnorm(500 * 2), ncol = 2)
+  
+  uni_fit_list <- list(list(), list())  # SPD doesn't necessarily need uni_fit
+  
+  ## Suppress the warning about tsdistributions not being available
+  u_matrix <- suppressWarnings(compute_pit_transform(
+    std_residuals = std_resid,
+    uni_fit_list = uni_fit_list,
+    transformation = "spd",
+    copula_dist = "mvn"
+  ))
+  
+  ## Check output dimensions
+  expect_equal(dim(u_matrix), c(500, 2))
+  
+  ## Check that values are in (0, 1)
+  expect_true(all(u_matrix > 0 & u_matrix < 1))
+  
+  ## SPD should produce approximately uniform marginals
+  ## Use KS test (p-value > 0.01 for uniformity)
+  ks_result1 <- ks.test(u_matrix[, 1], "punif")
+  ks_result2 <- ks.test(u_matrix[, 2], "punif")
+  
+  expect_true(ks_result1$p.value > 0.01)
+  expect_true(ks_result2$p.value > 0.01)
+})
+
+
+test_that("compute_spd_manual produces uniform output", {
+  skip_if_not(exists("compute_spd_manual"),
+              "compute_spd_manual not available")
+  
+  set.seed(456)
+  z <- rnorm(500)
+  
+  u <- compute_spd_manual(z, lower_threshold = 0.1, upper_threshold = 0.9)
+  
+  ## Check basic properties
+  expect_equal(length(u), 500)
+  expect_true(all(u > 0 & u < 1))
+  
+  ## Check that the result is approximately uniform
+  ks_result <- ks.test(u, "punif")
+  expect_true(ks_result$p.value > 0.01)
+})
+
+
+test_that("compute_spd_manual handles different thresholds", {
+  skip_if_not(exists("compute_spd_manual"),
+              "compute_spd_manual not available")
+  
+  set.seed(789)
+  z <- rnorm(500)
+  
+  ## Test with different thresholds
+  u_narrow <- compute_spd_manual(z, lower_threshold = 0.25, upper_threshold = 0.75)
+  u_wide <- compute_spd_manual(z, lower_threshold = 0.05, upper_threshold = 0.95)
+  
+  ## Both should be valid uniform values
+  expect_true(all(u_narrow > 0 & u_narrow < 1))
+  expect_true(all(u_wide > 0 & u_wide < 1))
+  
+  ## Both should pass uniformity test
+  expect_true(ks.test(u_narrow, "punif")$p.value > 0.01)
+  expect_true(ks.test(u_wide, "punif")$p.value > 0.01)
+})
+
+
+test_that("compute_spd_manual handles heavy-tailed data", {
+  skip_if_not(exists("compute_spd_manual"),
+              "compute_spd_manual not available")
+  
+  set.seed(101)
+  ## Generate t-distributed data (heavier tails than normal)
+  z <- rt(500, df = 4)
+  
+  u <- compute_spd_manual(z, lower_threshold = 0.1, upper_threshold = 0.9)
+  
+  ## Check basic properties
+  expect_equal(length(u), 500)
+  expect_true(all(u > 0 & u < 1))
+  
+  ## Should still produce reasonably uniform output
+  ks_result <- ks.test(u, "punif")
+  expect_true(ks_result$p.value > 0.001)  # More lenient for heavy tails
+})
+
+
+test_that("fit_spd_transform returns valid structure", {
+  skip_if_not(exists("fit_spd_transform"),
+              "fit_spd_transform not available")
+  
+  set.seed(202)
+  z <- rnorm(300)
+  
+  result <- suppressWarnings(fit_spd_transform(z))
+  
+  expect_true(is.list(result))
+  expect_true("u" %in% names(result))
+  expect_equal(length(result$u), 300)
+  expect_true(all(result$u > 0 & result$u < 1))
+})
+
+
 #### ______________________________________________________________________ ####
 #### PART 3: Copula Residual Computation Tests                              ####
 ## = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = =
@@ -478,10 +587,387 @@ test_that("copula_nll returns large values for invalid parameters", {
     weights = weights,
     Qbar = Qbar,
     copula_dist = "mvn",
-    use_reparam = FALSE
+    use_reparam = TRUE
   )
   
   expect_true(nll >= 1e10 || is.infinite(nll))
+})
+
+
+#### ______________________________________________________________________ ####
+#### PART 4b: Analytical Gradient Tests                                     ####
+## = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = =
+
+
+test_that("copula_gradient returns correct dimensions", {
+  skip_if_not(exists("copula_gradient"),
+              "copula_gradient not available")
+  
+  set.seed(789)
+  T_obs <- 200
+  k <- 2
+  
+  z_matrix <- matrix(rnorm(T_obs * k), ncol = k)
+  weights <- rep(1, T_obs)
+  Qbar <- cov(z_matrix)
+  
+  ## Test MVN with reparameterization
+  params_mvn <- c(psi = 0, phi = 0)
+  grad_mvn <- copula_gradient(params_mvn, z_matrix, weights, Qbar, 
+                              copula_dist = "mvn", use_reparam = TRUE)
+  
+  expect_equal(length(grad_mvn), 2)
+  expect_true(all(is.finite(grad_mvn)))
+  
+  ## Test MVT with reparameterization (includes shape)
+  params_mvt <- c(psi = 0, phi = 0, shape = 8)
+  grad_mvt <- copula_gradient(params_mvt, z_matrix, weights, Qbar,
+                              copula_dist = "mvt", use_reparam = TRUE)
+  
+  expect_equal(length(grad_mvt), 3)
+  expect_true(all(is.finite(grad_mvt)))
+})
+
+
+test_that("analytical gradient matches numerical gradient for MVN copula", {
+  skip_if_not(exists("copula_gradient"),
+              "copula_gradient not available")
+  skip_if_not(exists("copula_nll"),
+              "copula_nll not available")
+  
+  set.seed(101)
+  T_obs <- 200
+  k <- 2
+  
+  ## Generate correlated data
+  rho <- 0.5
+  Sigma <- matrix(c(1, rho, rho, 1), 2, 2)
+  z_matrix <- matrix(rnorm(T_obs * k), ncol = k) %*% chol(Sigma)
+  weights <- rep(1, T_obs)
+  Qbar <- cov(z_matrix)
+  
+  ## Test at a few parameter values
+  test_params <- list(
+    c(psi = 0, phi = 0),      # Moderate persistence
+    c(psi = -2, phi = 0),     # Low persistence  
+    c(psi = 2, phi = 1)       # High persistence, alpha > beta
+  )
+  
+  for (params in test_params) {
+    ## Analytical gradient
+    grad_analytical <- copula_gradient(params, z_matrix, weights, Qbar,
+                                       copula_dist = "mvn", use_reparam = TRUE)
+    
+    ## Numerical gradient (central difference)
+    eps <- 1e-5
+    grad_numerical <- numeric(length(params))
+    for (i in seq_along(params)) {
+      params_plus <- params_minus <- params
+      params_plus[i] <- params[i] + eps
+      params_minus[i] <- params[i] - eps
+      
+      nll_plus <- copula_nll(params_plus, z_matrix, weights, Qbar, 
+                             "mvn", use_reparam = TRUE)
+      nll_minus <- copula_nll(params_minus, z_matrix, weights, Qbar,
+                              "mvn", use_reparam = TRUE)
+      
+      grad_numerical[i] <- (nll_plus - nll_minus) / (2 * eps)
+    }
+    
+    ## Check relative error (allow 1% tolerance)
+    rel_error <- abs(grad_analytical - grad_numerical) / 
+      (abs(grad_numerical) + 1e-8)
+    
+    expect_true(all(rel_error < 0.01),
+                info = sprintf("Gradient mismatch at psi=%.2f, phi=%.2f: rel_error = %s",
+                               params[1], params[2], 
+                               paste(round(rel_error, 4), collapse = ", ")))
+  }
+})
+
+
+test_that("analytical gradient matches numerical gradient for MVT copula", {
+  skip_if_not(exists("copula_gradient"),
+              "copula_gradient not available")
+  skip_if_not(exists("copula_nll"),
+              "copula_nll not available")
+  
+  set.seed(202)
+  T_obs <- 200
+  k <- 2
+  
+  ## Generate correlated data
+  rho <- 0.4
+  Sigma <- matrix(c(1, rho, rho, 1), 2, 2)
+  z_matrix <- matrix(rnorm(T_obs * k), ncol = k) %*% chol(Sigma)
+  weights <- rep(1, T_obs)
+  Qbar <- cov(z_matrix)
+  
+  ## Test with MVT (includes shape parameter)
+  params <- c(psi = 0, phi = 0, shape = 8)
+  
+  ## Analytical gradient
+  grad_analytical <- copula_gradient(params, z_matrix, weights, Qbar,
+                                     copula_dist = "mvt", use_reparam = TRUE)
+  
+  ## Numerical gradient (central difference)
+  eps <- 1e-5
+  grad_numerical <- numeric(length(params))
+  for (i in seq_along(params)) {
+    params_plus <- params_minus <- params
+    params_plus[i] <- params[i] + eps
+    params_minus[i] <- params[i] - eps
+    
+    nll_plus <- copula_nll(params_plus, z_matrix, weights, Qbar,
+                           "mvt", use_reparam = TRUE)
+    nll_minus <- copula_nll(params_minus, z_matrix, weights, Qbar,
+                            "mvt", use_reparam = TRUE)
+    
+    grad_numerical[i] <- (nll_plus - nll_minus) / (2 * eps)
+  }
+  
+  ## Check relative error (allow 1% tolerance for DCC params, 5% for shape)
+  rel_error <- abs(grad_analytical - grad_numerical) / 
+    (abs(grad_numerical) + 1e-8)
+  
+  expect_true(rel_error[1] < 0.01, 
+              info = sprintf("Psi gradient error: %.4f", rel_error[1]))
+  expect_true(rel_error[2] < 0.01,
+              info = sprintf("Phi gradient error: %.4f", rel_error[2]))
+  expect_true(rel_error[3] < 0.05,
+              info = sprintf("Shape gradient error: %.4f", rel_error[3]))
+})
+
+
+test_that("analytical gradient works with non-uniform weights", {
+  skip_if_not(exists("copula_gradient"),
+              "copula_gradient not available")
+  
+  set.seed(303)
+  T_obs <- 200
+  k <- 2
+  
+  z_matrix <- matrix(rnorm(T_obs * k), ncol = k)
+  ## Non-uniform weights (simulate EM posterior probabilities)
+  weights <- runif(T_obs, 0.1, 1)
+  weights <- weights / sum(weights) * T_obs  # Normalize
+  Qbar <- cov(z_matrix)
+  
+  params <- c(psi = 0.5, phi = -0.5)
+  
+  ## Should not error with non-uniform weights
+  grad <- copula_gradient(params, z_matrix, weights, Qbar,
+                          copula_dist = "mvn", use_reparam = TRUE)
+  
+  expect_equal(length(grad), 2)
+  expect_true(all(is.finite(grad)))
+  
+  ## Verify against numerical gradient
+  eps <- 1e-5
+  grad_numerical <- numeric(2)
+  for (i in 1:2) {
+    params_plus <- params_minus <- params
+    params_plus[i] <- params[i] + eps
+    params_minus[i] <- params[i] - eps
+    
+    nll_plus <- copula_nll(params_plus, z_matrix, weights, Qbar,
+                           "mvn", use_reparam = TRUE)
+    nll_minus <- copula_nll(params_minus, z_matrix, weights, Qbar,
+                            "mvn", use_reparam = TRUE)
+    
+    grad_numerical[i] <- (nll_plus - nll_minus) / (2 * eps)
+  }
+  
+  rel_error <- abs(grad - grad_numerical) / (abs(grad_numerical) + 1e-8)
+  expect_true(all(rel_error < 0.01))
+})
+
+
+#### ______________________________________________________________________ ####
+#### PART 4c: ADCC (Asymmetric DCC) Tests                                   ####
+## = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = =
+
+
+test_that("adcc_recursion computes valid correlation matrices", {
+  skip_if_not(exists("adcc_recursion"),
+              "adcc_recursion not available")
+  
+  set.seed(111)
+  T_obs <- 200
+  k <- 2
+  
+  ## Generate asymmetric data (more negative shocks)
+  z_matrix <- matrix(rnorm(T_obs * k), ncol = k)
+  ## Add some negative skew
+  z_matrix[z_matrix < 0] <- z_matrix[z_matrix < 0] * 1.2
+  
+  Qbar <- cov(z_matrix)
+  
+  result <- adcc_recursion(
+    std_resid = z_matrix,
+    Qbar = Qbar,
+    alpha = 0.05,
+    gamma = 0.02,
+    beta = 0.90
+  )
+  
+  expect_true(result$success)
+  expect_equal(dim(result$R), c(k, k, T_obs))
+  expect_equal(dim(result$Q), c(k, k, T_obs))
+  expect_true(!is.null(result$Nbar))
+  
+  ## Check correlation matrices are valid
+  for (t in 1:T_obs) {
+    R_t <- result$R[,,t]
+    expect_true(all(diag(R_t) > 0.99 & diag(R_t) < 1.01),
+                info = sprintf("Diagonal of R_%d not ~1", t))
+    expect_true(all(abs(R_t) <= 1.01),
+                info = sprintf("R_%d has elements > 1", t))
+  }
+})
+
+
+test_that("adcc_stationarity computes correct constraint", {
+  skip_if_not(exists("adcc_stationarity"),
+              "adcc_stationarity not available")
+  
+  ## Stationary case
+  stat1 <- adcc_stationarity(alpha = 0.05, gamma = 0.02, beta = 0.90)
+  expect_true(stat1 < 1)
+  
+  ## Non-stationary case
+  stat2 <- adcc_stationarity(alpha = 0.3, gamma = 0.2, beta = 0.7)
+  expect_true(stat2 > 1)
+  
+  ## Edge case
+  stat3 <- adcc_stationarity(alpha = 0.05, gamma = 0.0, beta = 0.90)
+  expect_equal(stat3, 0.95)
+})
+
+
+test_that("adcc_copula_nll computes valid likelihood", {
+  skip_if_not(exists("adcc_copula_nll"),
+              "adcc_copula_nll not available")
+  
+  set.seed(222)
+  T_obs <- 200
+  k <- 2
+  
+  z_matrix <- matrix(rnorm(T_obs * k), ncol = k)
+  weights <- rep(1, T_obs)
+  Qbar <- cov(z_matrix)
+  
+  ## Test MVN copula
+  nll_mvn <- adcc_copula_nll(
+    params = c(0.05, 0.02, 0.90),
+    z_matrix = z_matrix,
+    weights = weights,
+    Qbar = Qbar,
+    copula_dist = "mvn"
+  )
+  
+  expect_true(is.finite(nll_mvn))
+  expect_true(nll_mvn > 0)
+  
+  ## Test MVT copula
+  nll_mvt <- adcc_copula_nll(
+    params = c(0.05, 0.02, 0.90, 8),
+    z_matrix = z_matrix,
+    weights = weights,
+    Qbar = Qbar,
+    copula_dist = "mvt"
+  )
+  
+  expect_true(is.finite(nll_mvt))
+  expect_true(nll_mvt > 0)
+})
+
+
+test_that("adcc_copula_nll returns penalty for non-stationary parameters", {
+  skip_if_not(exists("adcc_copula_nll"),
+              "adcc_copula_nll not available")
+  
+  set.seed(333)
+  T_obs <- 100
+  k <- 2
+  
+  z_matrix <- matrix(rnorm(T_obs * k), ncol = k)
+  weights <- rep(1, T_obs)
+  Qbar <- cov(z_matrix)
+  
+  ## Non-stationary parameters
+  nll <- adcc_copula_nll(
+    params = c(0.5, 0.3, 0.7),  # sum > 1 with typical delta
+    z_matrix = z_matrix,
+    weights = weights,
+    Qbar = Qbar,
+    copula_dist = "mvn"
+  )
+  
+  expect_true(nll >= 1e10)
+})
+
+
+test_that("estimate_adcc_copula returns valid estimates", {
+  skip_if_not(exists("estimate_adcc_copula"),
+              "estimate_adcc_copula not available")
+  
+  set.seed(444)
+  T_obs <- 300
+  k <- 2
+  
+  ## Generate correlated data with asymmetry
+  rho <- 0.4
+  Sigma <- matrix(c(1, rho, rho, 1), 2, 2)
+  z_matrix <- matrix(rnorm(T_obs * k), ncol = k) %*% chol(Sigma)
+  ## Add asymmetry
+  z_matrix[z_matrix < 0] <- z_matrix[z_matrix < 0] * 1.1
+  
+  weights <- rep(1, T_obs)
+  Qbar <- cov(z_matrix)
+  
+  result <- estimate_adcc_copula(
+    z_matrix = z_matrix,
+    weights = weights,
+    Qbar = Qbar,
+    copula_dist = "mvn"
+  )
+  
+  expect_true("alpha" %in% names(result))
+  expect_true("gamma" %in% names(result))
+  expect_true("beta" %in% names(result))
+  expect_true("nll" %in% names(result))
+  expect_true("stationarity" %in% names(result))
+  
+  ## Check parameters are valid
+  expect_true(result$alpha > 0 && result$alpha < 1)
+  expect_true(result$gamma >= 0 && result$gamma < 1)
+  expect_true(result$beta > 0 && result$beta < 1)
+  expect_true(result$stationarity < 1)
+})
+
+
+test_that("estimate_adcc_copula works with MVT distribution", {
+  skip_if_not(exists("estimate_adcc_copula"),
+              "estimate_adcc_copula not available")
+  
+  set.seed(555)
+  T_obs <- 300
+  k <- 2
+  
+  z_matrix <- matrix(rnorm(T_obs * k), ncol = k)
+  weights <- rep(1, T_obs)
+  Qbar <- cov(z_matrix)
+  
+  result <- estimate_adcc_copula(
+    z_matrix = z_matrix,
+    weights = weights,
+    Qbar = Qbar,
+    copula_dist = "mvt"
+  )
+  
+  expect_true("shape" %in% names(result))
+  expect_true(result$shape > 2)
 })
 
 

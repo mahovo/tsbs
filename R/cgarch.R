@@ -422,6 +422,7 @@ estimate_copula_parameters_weighted <- function(
     spec,
     transformation = "parametric",
     copula_dist = "mvn",
+    dynamics = "dcc",
     diagnostics = NULL,
     iteration = NULL,
     state = NULL,
@@ -430,6 +431,11 @@ estimate_copula_parameters_weighted <- function(
   
   k <- ncol(residuals)
   T_obs <- nrow(residuals)
+  
+  ## Get dynamics from spec if not explicitly provided
+  if (missing(dynamics) && !is.null(spec$garch_spec_args$dynamics)) {
+    dynamics <- spec$garch_spec_args$dynamics
+  }
   
   if (length(weights) != T_obs) {
     stop(sprintf("Dimension mismatch: residuals has %d rows but weights has %d elements", 
@@ -526,10 +532,14 @@ estimate_copula_parameters_weighted <- function(
   }
   
   ## 6. Determine optimization strategy based on DCC order =====================
-  use_analytical_gradient <- is_dcc11(dcc_start_pars)
+  ## 6. Determine optimization strategy based on dynamics and DCC order ========
+  is_adcc <- (dynamics == "adcc")
+  use_analytical_gradient <- is_dcc11(dcc_start_pars) && !is_adcc
   
   if (verbose) {
-    if (use_analytical_gradient) {
+    if (is_adcc) {
+      cat("Copula GARCH ADCC detected: Using numerical gradient\n")
+    } else if (use_analytical_gradient) {
       cat("Copula GARCH DCC(1,1) detected: Using analytical gradient with reparameterization\n")
     } else {
       order <- get_dcc_order(dcc_start_pars)
@@ -542,7 +552,45 @@ estimate_copula_parameters_weighted <- function(
   
   ## 7. Optimization ===========================================================
   
-  if (use_analytical_gradient) {
+  if (is_adcc) {
+    ## ADCC optimization
+    adcc_result <- estimate_adcc_copula(
+      z_matrix = z_matrix,
+      weights = weights,
+      Qbar = Qbar,
+      copula_dist = copula_dist,
+      start_pars = NULL  # Use defaults
+    )
+    
+    ## Convert to output format
+    dcc_pars_final <- list(
+      alpha_1 = adcc_result$alpha,
+      gamma_1 = adcc_result$gamma,
+      beta_1 = adcc_result$beta
+    )
+    
+    if (copula_dist == "mvt") {
+      dist_pars_final <- list(shape = adcc_result$shape)
+    } else {
+      dist_pars_final <- list()
+    }
+    
+    final_nll <- adcc_result$nll
+    
+    if (adcc_result$stationarity >= 0.999) {
+      warnings_list <- c(warnings_list, 
+                         list("ADCC stationarity constraint near boundary"))
+    }
+    
+    return(list(
+      dcc_pars = dcc_pars_final,
+      dist_pars = dist_pars_final,
+      weighted_ll = -final_nll,
+      warnings = warnings_list,
+      diagnostics = diagnostics,
+      Nbar = adcc_result$Nbar
+    ))
+  } else if (use_analytical_gradient) {
     ## DCC(1,1) with reparameterization
     alpha_start <- as.numeric(dcc_start_pars$alpha_1)
     beta_start <- as.numeric(dcc_start_pars$beta_1)
@@ -847,17 +895,164 @@ compute_pit_transform <- function(
     ## Adjust to avoid exact 0 and 1
     u_matrix <- u_matrix * (T_obs / (T_obs + 1))
   } else if (transformation == "spd") {
-    ## Semi-parametric distribution - would need tsdistributions::spd
-    ## For now, fall back to empirical
-    warning("SPD transformation not fully implemented, using empirical.\n")
-    for (i in 1:k) {
-      ecdf_fn <- ecdf(std_residuals[, i])
-      u_matrix[, i] <- ecdf_fn(std_residuals[, i])
+    ## Semi-Parametric Distribution (SPD)
+    ## Combines parametric tails with empirical/kernel-smoothed center
+    ## Requires tsdistributions package
+    
+    if (!requireNamespace("tsdistributions", quietly = TRUE)) {
+      warning("tsdistributions package not available for SPD transformation, using empirical.\n")
+      for (i in 1:k) {
+        ecdf_fn <- ecdf(std_residuals[, i])
+        u_matrix[, i] <- ecdf_fn(std_residuals[, i])
+      }
+      u_matrix <- u_matrix * (T_obs / (T_obs + 1))
+    } else {
+      ## Use SPD transformation for each series
+      for (i in 1:k) {
+        spd_result <- fit_spd_transform(
+          z = std_residuals[, i],
+          uni_fit = uni_fit_list[[i]],
+          dist_pars = dist_pars
+        )
+        u_matrix[, i] <- spd_result$u
+      }
     }
-    u_matrix <- u_matrix * (T_obs / (T_obs + 1))
   }
   
   return(u_matrix)
+}
+
+
+#' @title Fit SPD Transformation for a Single Series
+#' @description Fits a Semi-Parametric Distribution and computes PIT values.
+#'   SPD combines:
+#'   - Parametric tails from the fitted univariate distribution
+#'   - Kernel-smoothed empirical distribution in the center
+#' @param z Standardized residuals for one series
+#' @param uni_fit Univariate GARCH fit object (optional, for parametric tails)
+#' @param dist_pars Distribution parameters (optional)
+#' @param lower_threshold Lower quantile for parametric tail (default 0.1)
+#' @param upper_threshold Upper quantile for parametric tail (default 0.9)
+#' @return List with u (uniform values) and spd_model (fitted SPD object)
+#' @keywords internal
+fit_spd_transform <- function(
+    z,
+    uni_fit = NULL,
+    dist_pars = NULL,
+    lower_threshold = 0.1,
+    upper_threshold = 0.9
+) {
+  n <- length(z)
+  
+  ## Try to use tsdistributions::spd_modelspec if available
+  if (requireNamespace("tsdistributions", quietly = TRUE)) {
+    tryCatch({
+      ## Fit SPD model
+      ## SPD uses kernel density estimation in the interior
+      ## and GPD (Generalized Pareto) for the tails
+      spd_spec <- tsdistributions::spd_modelspec(
+        y = z,
+        lower = lower_threshold,
+        upper = upper_threshold
+      )
+      
+      spd_fit <- tsdistributions::estimate(spd_spec)
+      
+      ## Get PIT values using the fitted SPD
+      u <- tsdistributions::pspd(z, object = spd_fit)
+      
+      ## Bound away from 0 and 1
+      u <- pmax(pmin(u, 1 - 1e-10), 1e-10)
+      
+      return(list(u = u, spd_model = spd_fit))
+    }, error = function(e) {
+      ## Fall back to manual SPD implementation
+      warning(sprintf("SPD fitting failed: %s. Using manual SPD.\n", e$message))
+    })
+  }
+  
+  ## Manual SPD implementation as fallback
+  ## This implements a simplified version of SPD:
+  ## - Uses kernel density estimation (KDE) for the interior
+  ## - Uses empirical quantiles for the tails
+  
+  u <- compute_spd_manual(z, lower_threshold, upper_threshold)
+  
+  return(list(u = u, spd_model = NULL))
+}
+
+
+#' @title Manual SPD Computation
+#' @description Computes SPD transformation manually without tsdistributions.
+#'   Uses kernel density estimation for interior and empirical tails.
+#' @param z Standardized residuals
+#' @param lower_threshold Lower quantile threshold
+#' @param upper_threshold Upper quantile threshold
+#' @return Vector of uniform values
+#' @keywords internal
+compute_spd_manual <- function(z, lower_threshold = 0.1, upper_threshold = 0.9) {
+  n <- length(z)
+  
+  ## Get threshold values
+  q_lower <- quantile(z, lower_threshold)
+  q_upper <- quantile(z, upper_threshold)
+  
+  ## Identify regions
+  idx_lower <- z < q_lower
+  idx_upper <- z > q_upper
+  idx_middle <- !idx_lower & !idx_upper
+  
+  u <- numeric(n)
+  
+  ## Lower tail: Use empirical CDF scaled to [0, lower_threshold]
+  if (any(idx_lower)) {
+    z_lower <- z[idx_lower]
+    ## Rank within lower tail
+    ranks_lower <- rank(z_lower, ties.method = "average")
+    n_lower <- sum(idx_lower)
+    ## Scale to [0, lower_threshold]
+    u[idx_lower] <- (ranks_lower / (n_lower + 1)) * lower_threshold
+  }
+  
+  ## Upper tail: Use empirical CDF scaled to [upper_threshold, 1]
+  if (any(idx_upper)) {
+    z_upper <- z[idx_upper]
+    ## Rank within upper tail
+    ranks_upper <- rank(z_upper, ties.method = "average")
+    n_upper <- sum(idx_upper)
+    ## Scale to [upper_threshold, 1]
+    u[idx_upper] <- upper_threshold + (ranks_upper / (n_upper + 1)) * (1 - upper_threshold)
+  }
+  
+  ## Middle: Use kernel density estimation
+  if (any(idx_middle)) {
+    z_middle <- z[idx_middle]
+    
+    ## Fit kernel density to middle region
+    kde <- tryCatch({
+      density(z_middle, bw = "SJ", n = 512)  # Sheather-Jones bandwidth
+    }, error = function(e) {
+      density(z_middle, n = 512)  # Fall back to default bandwidth
+    })
+    
+    ## Create CDF from KDE by numerical integration
+    kde_cdf <- approxfun(
+      x = kde$x,
+      y = cumsum(kde$y) / sum(kde$y),
+      rule = 2  # Return boundary values for out-of-range
+    )
+    
+    ## Get raw CDF values
+    cdf_raw <- kde_cdf(z_middle)
+    
+    ## Scale to [lower_threshold, upper_threshold]
+    u[idx_middle] <- lower_threshold + cdf_raw * (upper_threshold - lower_threshold)
+  }
+  
+  ## Ensure values are in (0, 1)
+  u <- pmax(pmin(u, 1 - 1e-10), 1e-10)
+  
+  return(u)
 }
 
 
@@ -1033,15 +1228,369 @@ copula_nll <- function(
 }
 
 
-#' @title Copula Gradient for DCC(1,1)
-#' @description Computes the gradient of copula NLL using numerical differentiation
-#' @param params Parameter vector
-#' @param z_matrix Copula residuals
+#### ______________________________________________________________________ ####
+#### PART 4c: ADCC (Asymmetric DCC) Support                                 ####
+## = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = =
+
+
+#' @title ADCC(1,1) Recursion
+#' @description Computes Q and R matrices for ADCC(1,1) model.
+#'   ADCC adds asymmetric response to negative shocks via gamma parameter.
+#'   
+#'   The ADCC recursion is:
+#'   Q_t = Ω + α*(z_{t-1}z'_{t-1}) + γ*(n_{t-1}n'_{t-1}) + β*Q_{t-1}
+#'   
+#'   where n_t = z_t * I(z_t < 0) (element-wise negative indicator)
+#'   and Ω = (1 - α - β)*Qbar - γ*Nbar
+#'   
+#' @param std_resid Matrix of standardized residuals (T x k)
+#' @param Qbar Unconditional covariance matrix (k x k)
+#' @param alpha ADCC alpha parameter (response to shocks)
+#' @param gamma ADCC gamma parameter (asymmetric response to negative shocks)
+#' @param beta ADCC beta parameter (persistence)
+#' @param Nbar Unconditional covariance of negative shocks (k x k), computed if NULL
+#' @return List with success, Q, R, Nbar, and error info if failed
+#' @keywords internal
+adcc_recursion <- function(std_resid, Qbar, alpha, gamma, beta, Nbar = NULL) {
+  T_obs <- nrow(std_resid)
+  k <- ncol(std_resid)
+  
+  ## Ensure scalar parameters
+  alpha <- as.numeric(alpha)[1]
+  gamma <- as.numeric(gamma)[1]
+  beta <- as.numeric(beta)[1]
+  
+  ## Compute negative indicator shocks: n_t = z_t * I(z_t < 0)
+  neg_resid <- std_resid * (std_resid < 0)
+  
+  ## Compute Nbar (unconditional covariance of negative shocks) if not provided
+  if (is.null(Nbar)) {
+    Nbar <- crossprod(neg_resid) / T_obs
+  }
+  
+  ## Compute Omega: Ω = (1 - α - β)*Qbar - γ*Nbar
+  persistence <- alpha + beta
+  Omega <- (1 - persistence) * Qbar - gamma * Nbar
+  
+  ## Initialize arrays
+  Q <- array(0, dim = c(k, k, T_obs))
+  R <- array(0, dim = c(k, k, T_obs))
+  
+  ## Initialize first observation with Qbar
+  Q[,,1] <- Qbar
+  Qbar_diag <- diag(Qbar)
+  if (any(Qbar_diag <= 0)) {
+    return(list(success = FALSE, error_type = "non_positive_Qbar_diagonal",
+                error_time = 0, Q = Q, R = R, Nbar = Nbar))
+  }
+  Qbar_diag_inv_sqrt <- diag(1/sqrt(Qbar_diag), k)
+  R[,,1] <- Qbar_diag_inv_sqrt %*% Qbar %*% Qbar_diag_inv_sqrt
+  
+  ## Main recursion for t >= 2
+  for (t in 2:T_obs) {
+    z_lag <- std_resid[t - 1, , drop = FALSE]
+    n_lag <- neg_resid[t - 1, , drop = FALSE]
+    
+    Q_t <- Omega + 
+      alpha * (t(z_lag) %*% z_lag) + 
+      gamma * (t(n_lag) %*% n_lag) + 
+      beta * Q[,,t - 1]
+    
+    if (any(!is.finite(Q_t))) {
+      return(list(success = FALSE, error_type = "non_finite_Q",
+                  error_time = t, Q = Q, R = R, Nbar = Nbar))
+    }
+    
+    Q_diag <- diag(Q_t)
+    if (any(Q_diag <= 0)) {
+      return(list(success = FALSE, error_type = "non_positive_Q_diagonal",
+                  error_time = t, Q = Q, R = R, Nbar = Nbar))
+    }
+    
+    Q[,,t] <- Q_t
+    Q_diag_inv_sqrt <- diag(1/sqrt(Q_diag), k)
+    R[,,t] <- Q_diag_inv_sqrt %*% Q_t %*% Q_diag_inv_sqrt
+  }
+  
+  return(list(success = TRUE, Q = Q, R = R, Nbar = Nbar))
+}
+
+
+#' @title ADCC Stationarity Constraint
+#' @description Computes the ADCC stationarity constraint value.
+#'   For ADCC: α + β + δ*γ < 1, where δ depends on the data.
+#'   A simplified constraint is: α + β + 0.5*γ < 1
+#' @param alpha ADCC alpha
+#' @param gamma ADCC gamma  
+#' @param beta ADCC beta
+#' @param delta Asymmetry scaling factor (default 0.5)
+#' @return Stationarity measure (should be < 1 for stationarity)
+#' @keywords internal
+adcc_stationarity <- function(alpha, gamma, beta, delta = 0.5) {
+  alpha + beta + delta * gamma
+}
+
+
+#' @title ADCC Copula Negative Log-Likelihood
+#' @description Computes the weighted copula NLL for ADCC model.
+#' @param params Parameter vector: (alpha, gamma, beta) or with shape for MVT
+#' @param z_matrix Matrix of copula residuals (T x k)
 #' @param weights Observation weights
-#' @param Qbar Unconditional covariance
+#' @param Qbar Unconditional covariance matrix
+#' @param Nbar Unconditional covariance of negative shocks (computed if NULL)
+#' @param copula_dist Copula distribution ("mvn" or "mvt")
+#' @return Scalar negative log-likelihood
+#' @keywords internal
+adcc_copula_nll <- function(
+    params,
+    z_matrix,
+    weights,
+    Qbar,
+    Nbar = NULL,
+    copula_dist = "mvn"
+) {
+  ## Extract parameters
+  alpha <- params[1]
+  gamma <- params[2]
+  beta <- params[3]
+  
+  if (copula_dist == "mvt" && length(params) >= 4) {
+    shape <- params[4]
+    if (shape <= 2) return(1e10)
+  } else {
+    shape <- NULL
+  }
+  
+  ## Check stationarity (simplified constraint)
+  if (adcc_stationarity(alpha, gamma, beta) >= 1 || 
+      alpha < 0 || gamma < 0 || beta < 0) {
+    return(1e10)
+  }
+  
+  ## ADCC recursion
+  recursion <- adcc_recursion(
+    std_resid = z_matrix,
+    Qbar = Qbar,
+    alpha = alpha,
+    gamma = gamma,
+    beta = beta,
+    Nbar = Nbar
+  )
+  
+  if (!recursion$success) {
+    return(1e10)
+  }
+  
+  R <- recursion$R
+  T_obs <- nrow(z_matrix)
+  k <- ncol(z_matrix)
+  ll_vec <- numeric(T_obs)
+  
+  if (copula_dist == "mvn") {
+    ## Gaussian copula log-likelihood
+    for (t in 1:T_obs) {
+      R_t <- R[,,t]
+      if (any(!is.finite(R_t))) {
+        ll_vec[t] <- -1e10
+        next
+      }
+      
+      det_R <- det(R_t)
+      if (det_R <= 0) {
+        ll_vec[t] <- -1e10
+        next
+      }
+      
+      R_inv <- tryCatch(solve(R_t), error = function(e) NULL)
+      if (is.null(R_inv)) {
+        ll_vec[t] <- -1e10
+        next
+      }
+      
+      z_t <- z_matrix[t, ]
+      mahal <- as.numeric(t(z_t) %*% R_inv %*% z_t)
+      
+      ## Copula LL = -0.5 * (log|R| + z'R^{-1}z - z'z)
+      ll_vec[t] <- -0.5 * (log(det_R) + mahal - as.numeric(t(z_t) %*% z_t))
+    }
+  } else {
+    ## Student-t copula
+    if (is.null(shape)) shape <- 4
+    const_term <- lgamma(0.5 * (k + shape)) - lgamma(0.5 * shape) - 
+      0.5 * k * log(pi * (shape - 2))
+    
+    for (t in 1:T_obs) {
+      R_t <- R[,,t]
+      if (any(!is.finite(R_t))) {
+        ll_vec[t] <- -1e10
+        next
+      }
+      
+      det_R <- det(R_t)
+      if (det_R <= 0) {
+        ll_vec[t] <- -1e10
+        next
+      }
+      
+      R_inv <- tryCatch(solve(R_t), error = function(e) NULL)
+      if (is.null(R_inv)) {
+        ll_vec[t] <- -1e10
+        next
+      }
+      
+      z_t <- z_matrix[t, ]
+      mahal <- as.numeric(t(z_t) %*% R_inv %*% z_t)
+      
+      ll_vec[t] <- const_term - 0.5 * log(det_R) - 
+        0.5 * (shape + k) * log(1 + mahal / (shape - 2))
+      
+      ## Subtract marginal t log-densities
+      for (j in 1:k) {
+        ll_vec[t] <- ll_vec[t] - dt_scaled_log(z_t[j], shape)
+      }
+    }
+  }
+  
+  ll_vec[!is.finite(ll_vec)] <- -1e10
+  nll <- -sum(weights * ll_vec)
+  
+  return(nll)
+}
+
+
+#' @title ADCC Copula Gradient (Numerical)
+#' @description Computes the gradient of ADCC copula NLL using numerical differentiation.
+#' @param params Parameter vector: (alpha, gamma, beta) or with shape for MVT
+#' @param z_matrix Matrix of copula residuals
+#' @param weights Observation weights
+#' @param Qbar Unconditional covariance matrix
+#' @param Nbar Unconditional covariance of negative shocks
 #' @param copula_dist Copula distribution
-#' @param use_reparam Logical; reparameterization flag
 #' @return Gradient vector
+#' @keywords internal
+adcc_copula_gradient <- function(
+    params,
+    z_matrix,
+    weights,
+    Qbar,
+    Nbar = NULL,
+    copula_dist = "mvn"
+) {
+  ## Use numerical gradient for ADCC (analytical is more complex due to gamma)
+  eps <- 1e-6
+  n_params <- length(params)
+  grad <- numeric(n_params)
+  
+  f0 <- adcc_copula_nll(params, z_matrix, weights, Qbar, Nbar, copula_dist)
+  
+  for (i in 1:n_params) {
+    params_plus <- params
+    params_plus[i] <- params_plus[i] + eps
+    f_plus <- adcc_copula_nll(params_plus, z_matrix, weights, Qbar, Nbar, copula_dist)
+    grad[i] <- (f_plus - f0) / eps
+  }
+  
+  return(grad)
+}
+
+
+#' @title Estimate ADCC Copula Parameters
+#' @description Estimates ADCC parameters (alpha, gamma, beta) for copula model.
+#' @param z_matrix Matrix of copula residuals (T x k)
+#' @param weights Observation weights
+#' @param Qbar Unconditional covariance matrix
+#' @param copula_dist Copula distribution ("mvn" or "mvt")
+#' @param start_pars Optional starting values
+#' @return List with alpha, gamma, beta, shape (if MVT), nll, convergence
+#' @keywords internal
+estimate_adcc_copula <- function(
+    z_matrix,
+    weights,
+    Qbar,
+    copula_dist = "mvn",
+    start_pars = NULL
+) {
+  T_obs <- nrow(z_matrix)
+  k <- ncol(z_matrix)
+  
+  ## Compute Nbar
+  neg_resid <- z_matrix * (z_matrix < 0)
+  Nbar <- crossprod(neg_resid) / T_obs
+  
+  ## Set up starting values
+  if (is.null(start_pars)) {
+    start_pars <- c(alpha = 0.05, gamma = 0.02, beta = 0.90)
+    if (copula_dist == "mvt") {
+      start_pars <- c(start_pars, shape = 8)
+    }
+  }
+  
+  ## Objective function
+  obj_fn <- function(params) {
+    adcc_copula_nll(params, z_matrix, weights, Qbar, Nbar, copula_dist)
+  }
+  
+  ## Gradient function
+  grad_fn <- function(params) {
+    adcc_copula_gradient(params, z_matrix, weights, Qbar, Nbar, copula_dist)
+  }
+  
+  ## Set bounds
+  n_dcc <- 3  # alpha, gamma, beta
+  lower <- c(rep(1e-8, n_dcc))
+  upper <- c(rep(0.999, n_dcc))
+  
+  if (copula_dist == "mvt") {
+    lower <- c(lower, 2.01)
+    upper <- c(upper, 50)
+  }
+  
+  ## Optimize
+  result <- tryCatch({
+    optim(
+      par = start_pars,
+      fn = obj_fn,
+      gr = grad_fn,
+      method = "L-BFGS-B",
+      lower = lower,
+      upper = upper,
+      control = list(maxit = 500)
+    )
+  }, error = function(e) {
+    list(par = start_pars, value = Inf, convergence = 1, message = e$message)
+  })
+  
+  ## Extract results
+  out <- list(
+    alpha = result$par[1],
+    gamma = result$par[2],
+    beta = result$par[3],
+    nll = result$value,
+    convergence = result$convergence
+  )
+  
+  if (copula_dist == "mvt") {
+    out$shape <- result$par[4]
+  }
+  
+  out$Nbar <- Nbar
+  out$stationarity <- adcc_stationarity(out$alpha, out$gamma, out$beta)
+  
+  return(out)
+}
+
+
+#' @title Copula Gradient for DCC(1,1) - Analytical
+#' @description Computes the analytical gradient of copula NLL w.r.t. (psi, phi)
+#'   or (alpha, beta) depending on use_reparam flag.
+#' @param params Parameter vector: (psi, phi) if use_reparam=TRUE, (alpha, beta) otherwise.
+#'   For MVT copula, params[3] is the shape parameter.
+#' @param z_matrix T x k matrix of copula residuals
+#' @param weights T-vector of observation weights
+#' @param Qbar k x k unconditional covariance matrix
+#' @param copula_dist "mvn" or "mvt"
+#' @param use_reparam Logical; if TRUE, use reparameterized (psi, phi) space
+#' @return Gradient vector (same length as params)
 #' @keywords internal
 copula_gradient <- function(
     params,
@@ -1051,21 +1600,338 @@ copula_gradient <- function(
     copula_dist = "mvn",
     use_reparam = TRUE
 ) {
-  ## Use numerical gradient (can be replaced with analytical later)
-  eps <- 1e-6
-  n_params <- length(params)
-  grad <- numeric(n_params)
-  
-  f0 <- copula_nll(params, z_matrix, weights, Qbar, copula_dist, use_reparam)
-  
-  for (i in 1:n_params) {
-    params_plus <- params
-    params_plus[i] <- params_plus[i] + eps
-    f_plus <- copula_nll(params_plus, z_matrix, weights, Qbar, copula_dist, use_reparam)
-    grad[i] <- (f_plus - f0) / eps
+  ## Extract parameters
+  if (use_reparam) {
+    psi <- params[1]
+    phi <- params[2]
+    ab <- dcc11_from_unconstrained(psi, phi)
+    alpha <- ab["alpha"]
+    beta <- ab["beta"]
+  } else {
+    alpha <- params[1]
+    beta <- params[2]
   }
   
-  return(grad)
+  ## Shape parameter for MVT
+  if (copula_dist == "mvt" && length(params) >= 3) {
+    shape <- params[3]
+    if (shape <= 2) {
+      ## Return large gradient pointing toward valid region
+      grad <- rep(0, length(params))
+      grad[3] <- -1e10  # Push shape up
+      return(grad)
+    }
+  } else {
+    shape <- NULL
+  }
+  
+  ## Check stationarity - if violated, return gradient pointing to valid region
+  persistence <- alpha + beta
+  if (persistence >= 1 || alpha < 0 || beta < 0) {
+    if (use_reparam) {
+      ## Reparameterization should prevent this, but just in case
+      return(rep(0, length(params)))
+    } else {
+      grad <- c(0, 0)
+      if (persistence >= 1) {
+        grad <- c(-1e10, -1e10)  # Push both down
+      }
+      if (alpha < 0) grad[1] <- 1e10  # Push alpha up
+      if (beta < 0) grad[2] <- 1e10   # Push beta up
+      if (copula_dist == "mvt") grad <- c(grad, 0)
+      return(grad)
+    }
+  }
+  
+  ## Compute gradient in original (alpha, beta) space
+  grad_orig <- copula_gradient_original(
+    alpha = alpha,
+    beta = beta,
+    z = z_matrix,
+    weights = weights,
+    Qbar = Qbar,
+    copula_dist = copula_dist,
+    shape = shape
+  )
+  
+  ## Check for NA gradients (recursion failure)
+  if (any(is.na(grad_orig))) {
+    return(rep(0, length(params)))
+  }
+  
+  ## Transform gradient if using reparameterization
+  if (use_reparam) {
+    ## Compute Jacobian d(alpha, beta)/d(psi, phi)
+    J <- dcc11_reparam_jacobian(psi, phi)
+    
+    ## Chain rule: grad_reparam = J^T * grad_orig
+    grad_reparam <- as.vector(t(J) %*% grad_orig[1:2])
+    names(grad_reparam) <- c("psi", "phi")
+    
+    ## Add shape gradient if MVT
+    if (copula_dist == "mvt" && length(params) >= 3) {
+      grad_shape <- copula_gradient_shape(
+        shape = shape,
+        z = z_matrix,
+        weights = weights,
+        alpha = alpha,
+        beta = beta,
+        Qbar = Qbar
+      )
+      grad_reparam <- c(grad_reparam, shape = grad_shape)
+    }
+    
+    return(grad_reparam)
+  } else {
+    ## Return gradient in original space
+    if (copula_dist == "mvt" && length(params) >= 3) {
+      grad_shape <- copula_gradient_shape(
+        shape = shape,
+        z = z_matrix,
+        weights = weights,
+        alpha = alpha,
+        beta = beta,
+        Qbar = Qbar
+      )
+      grad_orig <- c(grad_orig, shape = grad_shape)
+    }
+    return(grad_orig)
+  }
+}
+
+
+#' @title Copula Gradient in Original (alpha, beta) Space
+#' @description Computes analytical gradient of copula NLL w.r.t. (alpha, beta)
+#' @param alpha DCC alpha parameter
+#' @param beta DCC beta parameter
+#' @param z T x k matrix of copula residuals
+#' @param weights T-vector of observation weights
+#' @param Qbar k x k unconditional covariance
+#' @param copula_dist "mvn" or "mvt"
+#' @param shape Degrees of freedom (MVT only)
+#' @return Named vector c(alpha, beta)
+#' @keywords internal
+copula_gradient_original <- function(alpha, beta, z, weights, Qbar,
+                                     copula_dist = "mvn", shape = NULL) {
+  ## Ensure plain numeric scalars
+  alpha <- as.numeric(alpha)[1]
+  beta <- as.numeric(beta)[1]
+  
+  T_obs <- nrow(z)
+  k <- ncol(z)
+  
+  ## Forward pass with gradient storage
+  fwd <- dcc11_recursion_with_grad(z, alpha, beta, Qbar)
+  
+  ## Check for recursion failure
+  if (!isTRUE(fwd$success)) {
+    return(c(alpha = NA_real_, beta = NA_real_))
+  }
+  
+  ## Accumulate gradients
+  grad_alpha <- 0
+  grad_beta <- 0
+  
+  for (t in 1:T_obs) {
+    w_t <- weights[t]
+    z_t <- z[t, ]
+    R_t <- fwd$R[,,t]
+    R_inv_t <- fwd$R_inv[,,t]
+    Q_t <- fwd$Q[,,t]
+    
+    ## Skip if any matrix is invalid
+    if (any(!is.finite(R_t)) || any(!is.finite(R_inv_t))) {
+      next
+    }
+    
+    ## Gradient of NLL w.r.t. R_t
+    if (copula_dist == "mvn") {
+      grad_R <- grad_nll_wrt_R_copula_mvn(z_t, R_t, R_inv_t)
+    } else {
+      grad_R <- grad_nll_wrt_R_copula_mvt(z_t, R_t, R_inv_t, shape)
+    }
+    
+    ## Backpropagate to Q_t
+    grad_Q <- grad_R_to_Q_copula(grad_R, Q_t, R_t)
+    
+    ## Chain rule using Frobenius inner product
+    grad_alpha <- grad_alpha + w_t * sum(grad_Q * fwd$dQ_dalpha[,,t])
+    grad_beta <- grad_beta + w_t * sum(grad_Q * fwd$dQ_dbeta[,,t])
+  }
+  
+  c(alpha = grad_alpha, beta = grad_beta)
+}
+
+
+#' @title Gradient of Copula NLL w.r.t. R_t (MVN)
+#' @description Compute gradient of Gaussian copula NLL contribution w.r.t. R_t.
+#'   For Gaussian copula: LL_t = -0.5 * (log|R| + z'R^{-1}z - z'z)
+#'   Gradient: d(-LL_t)/dR = 0.5 * (R^{-1} - R^{-1}zz'R^{-1})
+#' @param z_t k-vector of copula residuals at time t
+#' @param R_t k x k correlation matrix
+#' @param R_inv_t k x k inverse correlation matrix
+#' @return k x k gradient matrix
+#' @keywords internal
+grad_nll_wrt_R_copula_mvn <- function(z_t, R_t, R_inv_t) {
+  u <- as.vector(R_inv_t %*% z_t)
+  0.5 * (R_inv_t - outer(u, u))
+}
+
+
+#' @title Gradient of Copula NLL w.r.t. R_t (MVT)
+#' @description Compute gradient of Student-t copula NLL contribution w.r.t. R_t.
+#'   For Student-t copula, the gradient has an additional scaling factor.
+#' @param z_t k-vector of copula residuals at time t
+#' @param R_t k x k correlation matrix
+#' @param R_inv_t k x k inverse correlation matrix
+#' @param shape Degrees of freedom
+#' @return k x k gradient matrix
+#' @keywords internal
+grad_nll_wrt_R_copula_mvt <- function(z_t, R_t, R_inv_t, shape) {
+  k <- length(z_t)
+  u <- as.vector(R_inv_t %*% z_t)
+  q_t <- sum(z_t * u)  # Mahalanobis distance
+  kappa_t <- 1 + q_t / (shape - 2)
+  weight <- (shape + k) / (2 * (shape - 2) * kappa_t)
+  0.5 * R_inv_t - weight * outer(u, u)
+}
+
+
+#' @title Gradient of NLL w.r.t. Q_t (Copula)
+#' @description Backpropagate gradient from R_t to Q_t through the normalization.
+#'   R_t = D^{-1} Q_t D^{-1} where D = diag(sqrt(diag(Q_t)))
+#' @param grad_R k x k gradient w.r.t. R_t
+#' @param Q_t k x k Q matrix
+#' @param R_t k x k correlation matrix
+#' @return k x k gradient w.r.t. Q_t
+#' @keywords internal
+grad_R_to_Q_copula <- function(grad_R, Q_t, R_t) {
+  k <- nrow(Q_t)
+  
+  d <- sqrt(diag(Q_t))
+  d[d <= 0] <- 1e-6
+  D_inv <- diag(1 / d, k)
+  
+  ## Main term: D^{-1} grad_R D^{-1}
+  grad_Q <- D_inv %*% grad_R %*% D_inv
+  
+  ## Diagonal correction for the chain rule through D^{-1}
+  for (i in 1:k) {
+    correction <- sum(grad_R[i,] * R_t[i,]) / Q_t[i, i]
+    grad_Q[i, i] <- grad_Q[i, i] - correction
+  }
+  
+  ## Ensure symmetry
+  (grad_Q + t(grad_Q)) / 2
+}
+
+
+#' @title Gradient of Copula NLL w.r.t. Shape (MVT)
+#' @description Computes gradient of MVT copula NLL w.r.t. degrees of freedom.
+#'   Uses numerical differentiation for simplicity.
+#' @param shape Current degrees of freedom
+#' @param z T x k matrix of copula residuals
+#' @param weights Observation weights
+#' @param alpha DCC alpha
+#' @param beta DCC beta
+#' @param Qbar Unconditional covariance
+#' @return Scalar gradient
+#' @keywords internal
+copula_gradient_shape <- function(shape, z, weights, alpha, beta, Qbar) {
+  ## Use numerical differentiation for shape parameter
+  ## (analytical gradient is complex due to digamma functions)
+  eps <- 1e-6
+  
+  nll_base <- copula_nll_fixed_dcc(
+    shape = shape,
+    z_matrix = z,
+    weights = weights,
+    alpha = alpha,
+    beta = beta,
+    Qbar = Qbar
+  )
+  
+  nll_plus <- copula_nll_fixed_dcc(
+    shape = shape + eps,
+    z_matrix = z,
+    weights = weights,
+    alpha = alpha,
+    beta = beta,
+    Qbar = Qbar
+  )
+  
+  (nll_plus - nll_base) / eps
+}
+
+
+#' @title Copula NLL with Fixed DCC Parameters
+#' @description Computes copula NLL for given shape with fixed (alpha, beta).
+#'   Helper for shape gradient computation.
+#' @param shape Degrees of freedom
+#' @param z_matrix Copula residuals
+#' @param weights Observation weights
+#' @param alpha DCC alpha
+#' @param beta DCC beta
+#' @param Qbar Unconditional covariance
+#' @return Scalar NLL
+#' @keywords internal
+copula_nll_fixed_dcc <- function(shape, z_matrix, weights, alpha, beta, Qbar) {
+  if (shape <= 2) return(1e10)
+  
+  ## DCC recursion
+  recursion <- dcc_recursion(
+    std_resid = z_matrix,
+    Qbar = Qbar,
+    alphas = alpha,
+    betas = beta,
+    verbose = FALSE
+  )
+  
+  if (!recursion$success) return(1e10)
+  
+  R <- recursion$R
+  T_obs <- nrow(z_matrix)
+  k <- ncol(z_matrix)
+  
+  ## Student-t copula log-likelihood
+  const_term <- lgamma(0.5 * (k + shape)) - lgamma(0.5 * shape) - 
+    0.5 * k * log(pi * (shape - 2))
+  
+  ll_vec <- numeric(T_obs)
+  
+  for (t in 1:T_obs) {
+    R_t <- R[,,t]
+    if (any(!is.finite(R_t))) {
+      ll_vec[t] <- -1e10
+      next
+    }
+    
+    det_R <- det(R_t)
+    if (det_R <= 0) {
+      ll_vec[t] <- -1e10
+      next
+    }
+    
+    R_inv <- tryCatch(solve(R_t), error = function(e) NULL)
+    if (is.null(R_inv)) {
+      ll_vec[t] <- -1e10
+      next
+    }
+    
+    z_t <- z_matrix[t, ]
+    mahal <- as.numeric(t(z_t) %*% R_inv %*% z_t)
+    
+    ll_vec[t] <- const_term - 0.5 * log(det_R) - 
+      0.5 * (shape + k) * log(1 + mahal / (shape - 2))
+    
+    ## Subtract marginal t log-densities
+    for (j in 1:k) {
+      ll_vec[t] <- ll_vec[t] - dt_scaled_log(z_t[j], shape)
+    }
+  }
+  
+  ll_vec[!is.finite(ll_vec)] <- -1e10
+  -sum(weights * ll_vec)
 }
 
 
