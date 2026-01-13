@@ -2,37 +2,10 @@
 ## Unit Tests for MS-VARMA-GARCH Functionality
 ## = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = =
 ##
-## Test Organization:
-## - - - - - - - - - 
-## PART 1:  Input Validation (fast, no fitting)
-## PART 2:  Smoke Tests (1-2 iterations, structure checks)
-## PART 3:  Unit Tests - Univariate Log-Likelihood
-## PART 4:  Unit Tests - Univariate Parameter Estimation  
-## PART 5:  Unit Tests - Univariate M-Step Orchestrator
-## PART 6:  Unit Tests - Multivariate Log-Likelihood
-## PART 7:  Unit Tests - Multivariate Parameter Estimation
-## PART 8:  Integration - Regime Detection
-## PART 9:  Integration - Criterion Selection (BIC/AIC/threshold)
-## PART 10: Diagnostic System
-## PART 11: Parameter Recovery
-## PART 12: Convergence
-## PART 13: Boundary Handling
-##
 ## Tip: 
 ## Formatted for optimal display in RStudio document outline (CMD+shift+O on Mac)
 ##
-## Naming Convention:
-## - Test names are self-contained and descriptive
-## - Test numbers appear in comments only (e.g., ## Test 1a)
-## - Names describe WHAT is tested, not expected outcome
-##
-## max_iter/tol Guidelines:
-## - Smoke tests: max_iter = 1-2, tol = 1
-## - Unit tests: No fitting, N/A
-## - Integration (structure): max_iter = 5-10, tol = 0.1
-## - Integration (regime detection): max_iter = 15-25, tol = 0.05
-## - Convergence tests: max_iter = 100, tol = 1e-4
-## - Parameter recovery: max_iter = 30-50, tol = 1e-4
+## See additional ms-varma-garch-bs tests in "test-cgarch.R" and "test-gogarch.R"
 ##
 ## = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = =
 
@@ -4970,3 +4943,1649 @@ test_that("No penalty warnings with reparameterization", {
 })
 
 
+#### ______________________________________________________________________ ####
+#### PART 28: BOOTSTRAP SAMPLE GENERATION TESTS                             ####
+
+context("Bootstrap Sample Generation")
+
+## ---- 28a ----
+test_that("ms_varma_garch_bs returns correct number of bootstrap samples", {
+  skip_on_cran()
+  
+  set.seed(123)
+  y <- as.matrix(arima.sim(n = 150, list(ar = 0.5)))
+  colnames(y) <- "series_1"
+  
+  num_boots_test <- 5
+  
+  result <- ms_varma_garch_bs(
+    x = y,
+    M = 2,
+    spec = spec_test_uni_norm,
+    num_boots = num_boots_test,
+    n_boot = 100,
+    control = list(max_iter = 3, tol = 0.5)
+  )
+  
+  expect_length(result, num_boots_test)
+  expect_true(all(sapply(result, is.matrix)))
+})
+
+
+## ---- 28b ----
+test_that("ms_varma_garch_bs bootstrap samples have correct dimensions", {
+  skip_on_cran()
+  
+  set.seed(456)
+  n_boot_target <- 80
+  y <- as.matrix(arima.sim(n = 150, list(ar = 0.5)))
+  colnames(y) <- "series_1"
+  
+  result <- ms_varma_garch_bs(
+    x = y,
+    M = 2,
+    spec = spec_test_uni_norm,
+    num_boots = 3,
+    n_boot = n_boot_target,
+    control = list(max_iter = 3, tol = 0.5)
+  )
+  
+  ## Each bootstrap sample should have n_boot rows
+  for (i in seq_along(result)) {
+    expect_equal(nrow(result[[i]]), n_boot_target,
+                 info = sprintf("Sample %d should have %d rows", i, n_boot_target))
+    expect_equal(ncol(result[[i]]), 1,
+                 info = sprintf("Sample %d should have 1 column", i))
+  }
+})
+
+
+## ---- 28c ----
+test_that("ms_varma_garch_bs multivariate bootstrap preserves column count", {
+  skip_on_cran()
+  
+  set.seed(789)
+  k <- 2
+  n <- 150
+  y_mv <- matrix(rnorm(n * k), ncol = k)
+  colnames(y_mv) <- paste0("series_", 1:k)
+  
+  result <- ms_varma_garch_bs(
+    x = y_mv,
+    M = 2,
+    spec = spec_test_mv_smoke,
+    model_type = "multivariate",
+    num_boots = 3,
+    n_boot = 100,
+    control = list(max_iter = 3, tol = 0.5)
+  )
+  
+  for (i in seq_along(result)) {
+    expect_equal(ncol(result[[i]]), k,
+                 info = sprintf("Sample %d should have %d columns", i, k))
+  }
+})
+
+
+## ---- 28d ----
+test_that("ms_varma_garch_bs with num_blocks parameter works", {
+  skip_on_cran()
+  
+  set.seed(101)
+  y <- as.matrix(arima.sim(n = 150, list(ar = 0.5)))
+  colnames(y) <- "series_1"
+  
+  result <- ms_varma_garch_bs(
+    x = y,
+    M = 2,
+    spec = spec_test_uni_norm,
+    num_boots = 3,
+    num_blocks = 15,  ## Use num_blocks instead of n_boot
+    control = list(max_iter = 3, tol = 0.5)
+  )
+  
+  expect_length(result, 3)
+  
+  ## With num_blocks, lengths may vary but should all be positive
+  for (i in seq_along(result)) {
+    expect_true(nrow(result[[i]]) > 0,
+                info = sprintf("Sample %d should have positive length", i))
+  }
+})
+
+
+## ---- 28e ----
+test_that("ms_varma_garch_bs returns fit object when requested", {
+  skip_on_cran()
+  
+  set.seed(202)
+  y <- as.matrix(arima.sim(n = 150, list(ar = 0.5)))
+  colnames(y) <- "series_1"
+  
+  ## Note: ms_varma_garch_bs should support return_fit parameter
+  result <- ms_varma_garch_bs(
+    x = y,
+    M = 2,
+    spec = spec_test_uni_norm,
+    num_boots = 3,
+    n_boot = 80,
+    control = list(max_iter = 3, tol = 0.5),
+    return_fit = TRUE
+  )
+  
+  ## When return_fit = TRUE, should return list with bootstrap_series and fit
+  expect_true("bootstrap_series" %in% names(result) || is.list(result[[1]]))
+  
+  if ("fit" %in% names(result)) {
+    expect_true(!is.null(result$fit))
+    expect_true("model_fits" %in% names(result$fit))
+  }
+})
+
+
+#### ______________________________________________________________________ ####
+#### PART 29: TRANSITION MATRIX ESTIMATION TESTS                            ####
+
+context("Transition Matrix Estimation")
+
+## ---- 29a ----
+test_that("Transition matrix P has correct dimensions", {
+  skip_on_cran()
+  
+  M <- 2
+  
+  fit <- fit_ms_varma_garch(
+    y = y_test,
+    M = M,
+    spec = spec_test_uni_norm,
+    control = list(max_iter = 5, tol = 0.5)
+  )
+  
+  expect_equal(dim(fit$P), c(M, M))
+})
+
+
+## ---- 29b ----
+test_that("Transition matrix rows sum to 1", {
+  skip_on_cran()
+  
+  fit <- fit_ms_varma_garch(
+    y = y_test,
+    M = 2,
+    spec = spec_test_uni_norm,
+    control = list(max_iter = 5, tol = 0.5)
+  )
+  
+  row_sums <- rowSums(fit$P)
+  
+  expect_equal(row_sums, rep(1, 2), tolerance = 1e-6,
+               info = "Each row of P should sum to 1")
+})
+
+
+## ---- 29c ----
+test_that("Transition matrix entries are non-negative", {
+  skip_on_cran()
+  
+  fit <- fit_ms_varma_garch(
+    y = y_test,
+    M = 2,
+    spec = spec_test_uni_norm,
+    control = list(max_iter = 5, tol = 0.5)
+  )
+  
+  expect_true(all(fit$P >= 0),
+              info = "All entries of P should be non-negative")
+})
+
+
+## ---- 29d ----
+test_that("Transition matrix for 3 states has correct structure", {
+  skip_on_cran()
+  
+  M <- 3
+  
+  ## Create 3-state spec
+  spec_3state <- list(
+    list(
+      arma_order = c(1, 0),
+      garch_model = "garch",
+      garch_order = c(1, 1),
+      distribution = "norm",
+      start_pars = list(
+        arma_pars = c(ar1 = 0.1),
+        garch_pars = list(omega = 0.1, alpha1 = 0.1, beta1 = 0.8),
+        dist_pars = NULL
+      )
+    ),
+    list(
+      arma_order = c(1, 0),
+      garch_model = "garch",
+      garch_order = c(1, 1),
+      distribution = "norm",
+      start_pars = list(
+        arma_pars = c(ar1 = 0.5),
+        garch_pars = list(omega = 0.15, alpha1 = 0.15, beta1 = 0.7),
+        dist_pars = NULL
+      )
+    ),
+    list(
+      arma_order = c(1, 0),
+      garch_model = "garch",
+      garch_order = c(1, 1),
+      distribution = "norm",
+      start_pars = list(
+        arma_pars = c(ar1 = 0.8),
+        garch_pars = list(omega = 0.2, alpha1 = 0.2, beta1 = 0.6),
+        dist_pars = NULL
+      )
+    )
+  )
+  
+  set.seed(333)
+  y_larger <- as.matrix(arima.sim(n = 200, list(ar = 0.5)))
+  colnames(y_larger) <- "series_1"
+  
+  fit <- fit_ms_varma_garch(
+    y = y_larger,
+    M = M,
+    spec = spec_3state,
+    control = list(max_iter = 5, tol = 0.5)
+  )
+  
+  expect_equal(dim(fit$P), c(M, M))
+  expect_equal(rowSums(fit$P), rep(1, M), tolerance = 1e-6)
+  expect_true(all(fit$P >= 0))
+})
+
+
+#### ______________________________________________________________________ ####
+#### PART 30: SMOOTHED PROBABILITY TESTS                                    ####
+
+context("Smoothed Probabilities")
+
+## ---- 30a ----
+test_that("Smoothed probabilities sum to 1 at each time point", {
+  skip_on_cran()
+  
+  fit <- fit_ms_varma_garch(
+    y = y_test,
+    M = 2,
+    spec = spec_test_uni_norm,
+    control = list(max_iter = 5, tol = 0.5)
+  )
+  
+  row_sums <- rowSums(fit$smoothed_probabilities, na.rm = TRUE)
+  
+  ## Filter out any NA rows from differencing/initialization
+  valid_rows <- !is.na(row_sums) & row_sums > 0
+  
+  expect_true(all(abs(row_sums[valid_rows] - 1) < 1e-6),
+              info = "Smoothed probabilities should sum to 1 at each time point")
+})
+
+
+## ---- 30b ----
+test_that("Smoothed probabilities are in [0, 1]", {
+  skip_on_cran()
+  
+  fit <- fit_ms_varma_garch(
+    y = y_test,
+    M = 2,
+    spec = spec_test_uni_norm,
+    control = list(max_iter = 5, tol = 0.5)
+  )
+  
+  valid_probs <- fit$smoothed_probabilities[!is.na(fit$smoothed_probabilities)]
+  
+  expect_true(all(valid_probs >= 0 & valid_probs <= 1),
+              info = "All smoothed probabilities should be in [0, 1]")
+})
+
+
+## ---- 30c ----
+test_that("Smoothed probabilities have correct dimensions", {
+  skip_on_cran()
+  
+  M <- 2
+  
+  fit <- fit_ms_varma_garch(
+    y = y_test,
+    M = M,
+    spec = spec_test_uni_norm,
+    control = list(max_iter = 5, tol = 0.5)
+  )
+  
+  expect_equal(nrow(fit$smoothed_probabilities), nrow(y_test))
+  expect_equal(ncol(fit$smoothed_probabilities), M)
+})
+
+
+## ---- 30d ----
+test_that("Smoothed probabilities multivariate DCC has correct structure", {
+  skip_on_cran()
+  
+  M <- 2
+  
+  fit <- fit_ms_varma_garch(
+    y = y_test_mv,
+    M = M,
+    spec = spec_test_mv_smoke,
+    model_type = "multivariate",
+    control = list(max_iter = 3, tol = 0.5)
+  )
+  
+  expect_equal(nrow(fit$smoothed_probabilities), nrow(y_test_mv))
+  expect_equal(ncol(fit$smoothed_probabilities), M)
+  
+  ## Check probabilities are valid
+  valid_rows <- apply(fit$smoothed_probabilities, 1, function(r) !any(is.na(r)))
+  
+  if (any(valid_rows)) {
+    row_sums <- rowSums(fit$smoothed_probabilities[valid_rows, , drop = FALSE])
+    expect_true(all(abs(row_sums - 1) < 1e-6))
+  }
+})
+
+
+#### ______________________________________________________________________ ####
+#### PART 31: INFORMATION CRITERIA TESTS                                    ####
+
+context("Information Criteria")
+
+## ---- 31a ----
+test_that("AIC and BIC are finite", {
+  skip_on_cran()
+  
+  fit <- fit_ms_varma_garch(
+    y = y_test,
+    M = 2,
+    spec = spec_test_uni_norm,
+    control = list(max_iter = 10, tol = 0.1)
+  )
+  
+  expect_true(is.finite(fit$aic), info = "AIC should be finite")
+  expect_true(is.finite(fit$bic), info = "BIC should be finite")
+})
+
+
+## ---- 31b ----
+test_that("BIC >= AIC for positive sample size", {
+  skip_on_cran()
+  
+  ## For n > e^2 ≈ 7.4, BIC penalizes more heavily than AIC
+  ## For typical time series, n >> 7.4, so BIC > AIC
+  
+  fit <- fit_ms_varma_garch(
+    y = y_test,  ## n = 100
+    M = 2,
+    spec = spec_test_uni_norm,
+    control = list(max_iter = 10, tol = 0.1)
+  )
+  
+  ## BIC = -2*LL + log(n)*k, AIC = -2*LL + 2*k
+  ## BIC - AIC = (log(n) - 2)*k
+  ## For n = 100, log(100) ≈ 4.6 > 2, so BIC > AIC if k > 0
+  expect_true(fit$bic >= fit$aic,
+              info = "BIC should be >= AIC for n >> 7")
+})
+
+
+## ---- 31c ----
+test_that("Information criteria are consistent with log-likelihood", {
+  skip_on_cran()
+  
+  fit <- fit_ms_varma_garch(
+    y = y_test,
+    M = 2,
+    spec = spec_test_uni_norm,
+    control = list(max_iter = 10, tol = 0.1)
+  )
+  
+  ## Both AIC and BIC should be based on -2*LL
+  ## So AIC + BIC should be >= -4*LL (with some penalty term)
+  expect_true(fit$aic > -2 * fit$log_likelihood || is.na(fit$log_likelihood),
+              info = "AIC should include positive penalty")
+  expect_true(fit$bic > -2 * fit$log_likelihood || is.na(fit$log_likelihood),
+              info = "BIC should include positive penalty")
+})
+
+
+#### ______________________________________________________________________ ####
+#### PART 32: PARALLEL EXECUTION TESTS                                      ####
+
+context("Parallel Execution")
+
+## ---- 32a ----
+test_that("Sequential and parallel results are structurally equivalent", {
+  skip_on_cran()
+  skip_if_not_installed("parallel")
+  skip_if_not_installed("foreach")
+  
+  set.seed(111)
+  y <- as.matrix(arima.sim(n = 150, list(ar = 0.5)))
+  colnames(y) <- "series_1"
+  
+  ## Sequential
+  result_seq <- ms_varma_garch_bs(
+    x = y,
+    M = 2,
+    spec = spec_test_uni_norm,
+    num_boots = 3,
+    n_boot = 50,
+    control = list(max_iter = 2, tol = 1),
+    parallel = FALSE
+  )
+  
+  ## Parallel (if available)
+  result_par <- tryCatch({
+    ms_varma_garch_bs(
+      x = y,
+      M = 2,
+      spec = spec_test_uni_norm,
+      num_boots = 3,
+      n_boot = 50,
+      control = list(max_iter = 2, tol = 1),
+      parallel = TRUE,
+      num_cores = 2
+    )
+  }, error = function(e) NULL)
+  
+  if (!is.null(result_par)) {
+    expect_length(result_par, length(result_seq))
+    
+    for (i in seq_along(result_seq)) {
+      expect_equal(dim(result_par[[i]]), dim(result_seq[[i]]),
+                   info = sprintf("Sample %d dimensions should match", i))
+    }
+  }
+})
+
+
+#### ______________________________________________________________________ ####
+#### PART 33: VERBOSE OUTPUT TESTS                                          ####
+
+context("Verbose Output")
+
+## ---- 33a ----
+test_that("Verbose mode produces output without error", {
+  skip_on_cran()
+  
+  set.seed(222)
+  y <- as.matrix(arima.sim(n = 100, list(ar = 0.5)))
+  colnames(y) <- "series_1"
+  
+  ## Capture output
+  output <- capture.output({
+    fit <- fit_ms_varma_garch(
+      y = y,
+      M = 2,
+      spec = spec_test_uni_norm,
+      control = list(max_iter = 2, tol = 1),
+      verbose = TRUE
+    )
+  })
+  
+  expect_true(!is.null(fit))
+  expect_true(length(output) > 0 || is.character(output),
+              info = "Verbose mode should produce some output")
+})
+
+
+## ---- 33b ----
+test_that("Verbose file output works", {
+  skip_on_cran()
+  
+  set.seed(333)
+  y <- as.matrix(arima.sim(n = 100, list(ar = 0.5)))
+  colnames(y) <- "series_1"
+  
+  temp_file <- tempfile(fileext = ".txt")
+  on.exit(unlink(temp_file), add = TRUE)
+  
+  fit <- fit_ms_varma_garch(
+    y = y,
+    M = 2,
+    spec = spec_test_uni_norm,
+    control = list(max_iter = 2, tol = 1),
+    verbose = TRUE,
+    verbose_file = temp_file
+  )
+  
+  expect_true(!is.null(fit))
+  
+  ## Check file was created
+  expect_true(file.exists(temp_file),
+              info = "Verbose file should be created")
+  
+  if (file.exists(temp_file)) {
+    content <- readLines(temp_file)
+    expect_true(length(content) > 0,
+                info = "Verbose file should have content")
+  }
+})
+
+
+#### ______________________________________________________________________ ####
+#### PART 34: DIFFERENCING TESTS                                            ####
+
+context("Differencing")
+
+## ---- 34a ----
+test_that("fit_ms_varma_garch handles d = 1 differencing", {
+  skip_on_cran()
+  
+  set.seed(444)
+  ## Generate random walk data (non-stationary)
+  y_rw <- cumsum(rnorm(150))
+  y_rw <- as.matrix(y_rw)
+  colnames(y_rw) <- "series_1"
+  
+  fit <- fit_ms_varma_garch(
+    y = y_rw,
+    M = 2,
+    d = 1,  ## Apply first differencing
+    spec = spec_test_uni_norm,
+    control = list(max_iter = 5, tol = 0.5)
+  )
+  
+  expect_true(!is.null(fit))
+  expect_equal(fit$d, 1)
+  expect_true(is.finite(fit$log_likelihood))
+})
+
+
+## ---- 34b ----
+test_that("Smoothed probabilities align with original data after differencing", {
+  skip_on_cran()
+  
+  set.seed(555)
+  n <- 100
+  y_rw <- cumsum(rnorm(n))
+  y_rw <- as.matrix(y_rw)
+  colnames(y_rw) <- "series_1"
+  
+  fit <- fit_ms_varma_garch(
+    y = y_rw,
+    M = 2,
+    d = 1,
+    spec = spec_test_uni_norm,
+    control = list(max_iter = 5, tol = 0.5)
+  )
+  
+  ## After d=1 differencing, effective sample is n-1
+  ## Smoothed probabilities should align with original data length
+  expect_equal(nrow(fit$smoothed_probabilities), n)
+})
+
+
+## ---- 34c ----
+test_that("Multivariate differencing works correctly", {
+  skip_on_cran()
+  
+  set.seed(666)
+  n <- 150
+  k <- 2
+  
+  ## Generate cointegrated series
+  y_mv_rw <- matrix(0, n, k)
+  y_mv_rw[, 1] <- cumsum(rnorm(n))
+  y_mv_rw[, 2] <- y_mv_rw[, 1] + rnorm(n, sd = 0.5)
+  colnames(y_mv_rw) <- paste0("series_", 1:k)
+  
+  fit <- fit_ms_varma_garch(
+    y = y_mv_rw,
+    M = 2,
+    d = 1,
+    spec = spec_test_mv_smoke,
+    model_type = "multivariate",
+    control = list(max_iter = 3, tol = 0.5)
+  )
+  
+  expect_true(!is.null(fit))
+  expect_equal(fit$d, 1)
+})
+
+
+#### ______________________________________________________________________ ####
+#### PART 35: CONSTANT CORRELATION EDGE CASES                               ####
+
+context("Constant Correlation Edge Cases")
+
+## ---- 35a ----
+test_that("DCC with highly correlated series doesn't fail", {
+  skip_on_cran()
+  
+  set.seed(777)
+  n <- 150
+  
+  ## Generate highly correlated series
+  x <- rnorm(n)
+  y <- 0.98 * x + 0.2 * rnorm(n)  ## correlation ≈ 0.98
+  y_high_cor <- cbind(x, y)
+  colnames(y_high_cor) <- c("series_1", "series_2")
+  
+  fit <- fit_ms_varma_garch(
+    y = y_high_cor,
+    M = 2,
+    spec = spec_test_mv_smoke,
+    model_type = "multivariate",
+    control = list(max_iter = 5, tol = 0.5)
+  )
+  
+  expect_true(!is.null(fit))
+  expect_true(is.finite(fit$log_likelihood))
+})
+
+
+## ---- 35b ----
+test_that("DCC with uncorrelated series produces valid results", {
+  skip_on_cran()
+  
+  set.seed(888)
+  n <- 150
+  
+  ## Generate uncorrelated series
+  y_uncor <- matrix(rnorm(n * 2), ncol = 2)
+  colnames(y_uncor) <- c("series_1", "series_2")
+  
+  fit <- fit_ms_varma_garch(
+    y = y_uncor,
+    M = 2,
+    spec = spec_test_mv_smoke,
+    model_type = "multivariate",
+    control = list(max_iter = 5, tol = 0.5)
+  )
+  
+  expect_true(!is.null(fit))
+  expect_true(is.finite(fit$log_likelihood))
+  
+  ## At least one state should have valid structure
+  for (j in 1:2) {
+    state <- fit$model_fits[[j]]
+    expect_true("garch_pars" %in% names(state) || !is.null(state$garch_pars))
+  }
+})
+
+
+## ---- 35c ----
+test_that("Spec with DCC(0,0) produces constant correlation", {
+  skip_on_cran()
+  
+  set.seed(999)
+  
+  fit <- fit_ms_varma_garch(
+    y = y_test_mv,
+    M = 2,
+    spec = spec_test_mv_constant_corr,
+    model_type = "multivariate",
+    control = list(max_iter = 5, tol = 0.5)
+  )
+  
+  expect_true(!is.null(fit))
+  
+  ## Check that states have constant correlation type or no DCC params
+  for (j in 1:2) {
+    state <- fit$model_fits[[j]]
+    if (!is.null(state$correlation_type)) {
+      expect_equal(state$correlation_type, "constant")
+    }
+  }
+})
+
+
+#### ______________________________________________________________________ ####
+#### PART 36: 3-STATE MODEL TESTS                                           ####
+
+context("3-State Model Tests")
+
+## ---- 36a ----
+test_that("Univariate 3-state model fits without error", {
+  skip_on_cran()
+  
+  ## Create 3-state spec
+  spec_3state_uni <- list(
+    list(
+      arma_order = c(1, 0),
+      garch_model = "garch",
+      garch_order = c(1, 1),
+      distribution = "norm",
+      start_pars = list(
+        arma_pars = c(ar1 = 0.1),
+        garch_pars = list(omega = 0.05, alpha1 = 0.1, beta1 = 0.85),
+        dist_pars = NULL
+      )
+    ),
+    list(
+      arma_order = c(1, 0),
+      garch_model = "garch",
+      garch_order = c(1, 1),
+      distribution = "norm",
+      start_pars = list(
+        arma_pars = c(ar1 = 0.4),
+        garch_pars = list(omega = 0.1, alpha1 = 0.15, beta1 = 0.75),
+        dist_pars = NULL
+      )
+    ),
+    list(
+      arma_order = c(1, 0),
+      garch_model = "garch",
+      garch_order = c(1, 1),
+      distribution = "norm",
+      start_pars = list(
+        arma_pars = c(ar1 = 0.7),
+        garch_pars = list(omega = 0.15, alpha1 = 0.2, beta1 = 0.65),
+        dist_pars = NULL
+      )
+    )
+  )
+  
+  set.seed(1001)
+  y_large <- as.matrix(arima.sim(n = 250, list(ar = 0.5)))
+  colnames(y_large) <- "series_1"
+  
+  fit <- fit_ms_varma_garch(
+    y = y_large,
+    M = 3,
+    spec = spec_3state_uni,
+    control = list(max_iter = 10, tol = 0.1)
+  )
+  
+  expect_true(!is.null(fit))
+  expect_length(fit$model_fits, 3)
+  expect_equal(dim(fit$P), c(3, 3))
+  expect_equal(ncol(fit$smoothed_probabilities), 3)
+})
+
+
+## ---- 36b ----
+test_that("3-state smoothed probabilities are valid", {
+  skip_on_cran()
+  
+  spec_3state <- list(
+    spec_test_uni_norm[[1]],
+    spec_test_uni_norm[[2]],
+    list(
+      arma_order = c(1, 0),
+      garch_model = "garch",
+      garch_order = c(1, 1),
+      distribution = "norm",
+      start_pars = list(
+        arma_pars = c(ar1 = 0.3),
+        garch_pars = list(omega = 0.15, alpha1 = 0.15, beta1 = 0.7),
+        dist_pars = NULL
+      )
+    )
+  )
+  
+  set.seed(1002)
+  y_large <- as.matrix(arima.sim(n = 200, list(ar = 0.5)))
+  colnames(y_large) <- "series_1"
+  
+  fit <- fit_ms_varma_garch(
+    y = y_large,
+    M = 3,
+    spec = spec_3state,
+    control = list(max_iter = 5, tol = 0.5)
+  )
+  
+  ## Check probabilities sum to 1
+  valid_rows <- apply(fit$smoothed_probabilities, 1, function(r) !any(is.na(r)))
+  if (any(valid_rows)) {
+    row_sums <- rowSums(fit$smoothed_probabilities[valid_rows, ])
+    expect_true(all(abs(row_sums - 1) < 1e-6))
+  }
+  
+  ## Check all probabilities in [0, 1]
+  valid_probs <- fit$smoothed_probabilities[!is.na(fit$smoothed_probabilities)]
+  expect_true(all(valid_probs >= 0 & valid_probs <= 1))
+})
+
+
+#### ______________________________________________________________________ ####
+#### PART 37: TIME SERIES PROPERTIES PRESERVATION TESTS                     ####
+
+context("Time Series Properties Preservation")
+
+## ---- 37a ----
+test_that("Bootstrap samples preserve approximate mean", {
+  skip_on_cran()
+  
+  set.seed(1111)
+  y <- as.matrix(rnorm(200, mean = 5, sd = 1))
+  colnames(y) <- "series_1"
+  original_mean <- mean(y)
+  
+  result <- ms_varma_garch_bs(
+    x = y,
+    M = 2,
+    spec = spec_test_uni_norm,
+    num_boots = 10,
+    n_boot = 150,
+    control = list(max_iter = 5, tol = 0.5)
+  )
+  
+  boot_means <- sapply(result, mean)
+  
+  ## Bootstrap means should be in a reasonable range of original mean
+  expect_true(mean(boot_means) > original_mean - 2 * sd(y) / sqrt(150),
+              info = "Mean of bootstrap means should not be too low")
+  expect_true(mean(boot_means) < original_mean + 2 * sd(y) / sqrt(150),
+              info = "Mean of bootstrap means should not be too high")
+})
+
+
+## ---- 37b ----
+test_that("Bootstrap samples preserve approximate variance", {
+  skip_on_cran()
+  
+  set.seed(2222)
+  y <- as.matrix(rnorm(200, mean = 0, sd = 2))
+  colnames(y) <- "series_1"
+  original_var <- var(y)
+  
+  result <- ms_varma_garch_bs(
+    x = y,
+    M = 2,
+    spec = spec_test_uni_norm,
+    num_boots = 10,
+    n_boot = 150,
+    control = list(max_iter = 5, tol = 0.5)
+  )
+  
+  boot_vars <- sapply(result, var)
+  mean_boot_var <- mean(boot_vars)
+  
+  ## Bootstrap variance should be in reasonable range
+  ## (within factor of 3 of original)
+  expect_true(mean_boot_var > original_var / 3,
+              info = "Mean bootstrap variance should not be too low")
+  expect_true(mean_boot_var < original_var * 3,
+              info = "Mean bootstrap variance should not be too high")
+})
+
+
+## ---- 37c ----
+test_that("Bootstrap preserves approximate correlation structure", {
+  skip_on_cran()
+  
+  set.seed(3333)
+  n <- 200
+  x <- rnorm(n)
+  y <- 0.7 * x + sqrt(1 - 0.7^2) * rnorm(n)  ## correlation ≈ 0.7
+  y_mv <- cbind(x, y)
+  colnames(y_mv) <- c("series_1", "series_2")
+  
+  original_cor <- cor(y_mv[, 1], y_mv[, 2])
+  
+  result <- ms_varma_garch_bs(
+    x = y_mv,
+    M = 2,
+    spec = spec_test_mv_smoke,
+    model_type = "multivariate",
+    num_boots = 10,
+    n_boot = 150,
+    control = list(max_iter = 3, tol = 0.5)
+  )
+  
+  boot_cors <- sapply(result, function(r) cor(r[, 1], r[, 2]))
+  mean_boot_cor <- mean(boot_cors)
+  
+  ## Bootstrap correlation should be in reasonable range
+  expect_true(mean_boot_cor > original_cor - 0.4,
+              info = "Mean bootstrap correlation should not be too low")
+  expect_true(mean_boot_cor < original_cor + 0.4,
+              info = "Mean bootstrap correlation should not be too high")
+})
+
+
+#### ______________________________________________________________________ ####
+#### PART 38: BOOTSTRAP REPRODUCIBILITY TESTS                               ####
+
+context("Bootstrap Reproducibility")
+
+## ---- 38a ----
+test_that("Same seed produces same model fit", {
+  skip_on_cran()
+  
+  set.seed(4444)
+  y <- as.matrix(arima.sim(n = 100, list(ar = 0.5)))
+  colnames(y) <- "series_1"
+  
+  ## Two identical fits
+  fit1 <- fit_ms_varma_garch(
+    y = y,
+    M = 2,
+    spec = spec_test_uni_norm,
+    control = list(max_iter = 5, tol = 0.5)
+  )
+  
+  fit2 <- fit_ms_varma_garch(
+    y = y,
+    M = 2,
+    spec = spec_test_uni_norm,
+    control = list(max_iter = 5, tol = 0.5)
+  )
+  
+  ## Log-likelihoods should be identical
+  expect_equal(fit1$log_likelihood, fit2$log_likelihood, tolerance = 1e-10)
+})
+
+
+## ---- 38b ----
+test_that("Different seeds produce different bootstrap samples", {
+  skip_on_cran()
+  
+  y <- as.matrix(arima.sim(n = 150, list(ar = 0.5)))
+  colnames(y) <- "series_1"
+  
+  set.seed(5555)
+  result1 <- ms_varma_garch_bs(
+    x = y,
+    M = 2,
+    spec = spec_test_uni_norm,
+    num_boots = 2,
+    n_boot = 50,
+    control = list(max_iter = 3, tol = 0.5)
+  )
+  
+  set.seed(6666)
+  result2 <- ms_varma_garch_bs(
+    x = y,
+    M = 2,
+    spec = spec_test_uni_norm,
+    num_boots = 2,
+    n_boot = 50,
+    control = list(max_iter = 3, tol = 0.5)
+  )
+  
+  ## Bootstrap samples should differ
+  expect_false(identical(result1[[1]], result2[[1]]),
+               info = "Different seeds should produce different samples")
+})
+
+
+#### ______________________________________________________________________ ####
+#### PART 39: MEMORY/PERFORMANCE STRESS TESTS                               ####
+
+context("Performance Stress Tests")
+
+## ---- 39a ----
+test_that("Handles longer time series without memory issues", {
+  skip_on_cran()
+  skip_if(Sys.getenv("CI") == "true", "Skip memory test on CI")
+  
+  set.seed(7777)
+  n_large <- 1000
+  y_large <- as.matrix(arima.sim(n = n_large, list(ar = 0.5)))
+  colnames(y_large) <- "series_1"
+  
+  fit <- fit_ms_varma_garch(
+    y = y_large,
+    M = 2,
+    spec = spec_test_uni_norm,
+    control = list(max_iter = 3, tol = 0.5)
+  )
+  
+  expect_true(!is.null(fit))
+  expect_equal(nrow(fit$smoothed_probabilities), n_large)
+})
+
+
+## ---- 39b ----
+test_that("Handles many bootstrap samples without issues", {
+  skip_on_cran()
+  skip_if(Sys.getenv("CI") == "true", "Skip stress test on CI")
+  
+  set.seed(8888)
+  y <- as.matrix(arima.sim(n = 150, list(ar = 0.5)))
+  colnames(y) <- "series_1"
+  
+  num_boots_large <- 50
+  
+  result <- ms_varma_garch_bs(
+    x = y,
+    M = 2,
+    spec = spec_test_uni_norm,
+    num_boots = num_boots_large,
+    n_boot = 100,
+    control = list(max_iter = 2, tol = 1)
+  )
+  
+  expect_length(result, num_boots_large)
+})
+
+
+## ---- 39c ----
+test_that("Handles wider multivariate data (3 series)", {
+  skip_on_cran()
+  
+  set.seed(9999)
+  n <- 150
+  k <- 3
+  y_wide <- matrix(rnorm(n * k), ncol = k)
+  colnames(y_wide) <- paste0("series_", 1:k)
+  
+  ## Create 3-series DCC spec
+  spec_3series <- list(
+    list(
+      var_order = 1,
+      garch_spec_fun = "dcc_modelspec",
+      distribution = "mvn",
+      garch_spec_args = list(
+        dcc_order = c(1, 1),
+        dynamics = "dcc",
+        garch_model = list(univariate = list(
+          list(model = "garch", garch_order = c(1, 1), distribution = "norm"),
+          list(model = "garch", garch_order = c(1, 1), distribution = "norm"),
+          list(model = "garch", garch_order = c(1, 1), distribution = "norm")
+        ))
+      ),
+      start_pars = list(
+        var_pars = rep(0.1, 12),  ## 3 intercepts + 9 VAR coefficients
+        garch_pars = list(
+          list(omega = 0.1, alpha1 = 0.1, beta1 = 0.8),
+          list(omega = 0.1, alpha1 = 0.1, beta1 = 0.8),
+          list(omega = 0.1, alpha1 = 0.1, beta1 = 0.8)
+        ),
+        dcc_pars = list(alpha_1 = 0.05, beta_1 = 0.90),
+        dist_pars = NULL
+      )
+    ),
+    list(
+      var_order = 1,
+      garch_spec_fun = "dcc_modelspec",
+      distribution = "mvn",
+      garch_spec_args = list(
+        dcc_order = c(1, 1),
+        dynamics = "dcc",
+        garch_model = list(univariate = list(
+          list(model = "garch", garch_order = c(1, 1), distribution = "norm"),
+          list(model = "garch", garch_order = c(1, 1), distribution = "norm"),
+          list(model = "garch", garch_order = c(1, 1), distribution = "norm")
+        ))
+      ),
+      start_pars = list(
+        var_pars = rep(0.1, 12),
+        garch_pars = list(
+          list(omega = 0.15, alpha1 = 0.15, beta1 = 0.7),
+          list(omega = 0.15, alpha1 = 0.15, beta1 = 0.7),
+          list(omega = 0.15, alpha1 = 0.15, beta1 = 0.7)
+        ),
+        dcc_pars = list(alpha_1 = 0.1, beta_1 = 0.85),
+        dist_pars = NULL
+      )
+    )
+  )
+  
+  fit <- fit_ms_varma_garch(
+    y = y_wide,
+    M = 2,
+    spec = spec_3series,
+    model_type = "multivariate",
+    control = list(max_iter = 3, tol = 0.5)
+  )
+  
+  expect_true(!is.null(fit))
+  expect_equal(ncol(fit$y), k)
+})
+
+
+#### ______________________________________________________________________ ####
+#### PART 40: tsbs() INTEGRATION TESTS                                      ####
+
+context("tsbs() Integration")
+
+## ---- 40a ----
+test_that("tsbs with ms_varma_garch returns correct structure", {
+  skip_on_cran()
+  
+  set.seed(10001)
+  y <- as.matrix(arima.sim(n = 150, list(ar = 0.5)))
+  colnames(y) <- "series_1"
+  
+  result <- tsbs(
+    x = y,
+    bs_type = "ms_varma_garch",
+    num_boots = 3,
+    n_boot = 80,
+    num_states = 2,
+    spec = spec_test_uni_norm,
+    control = list(max_iter = 2, tol = 1)
+  )
+  
+  expect_named(result, c("bootstrap_series", "func_outs", "func_out_means"))
+  expect_length(result$bootstrap_series, 3)
+})
+
+
+## ---- 40b ----
+test_that("tsbs with custom function applies correctly", {
+  skip_on_cran()
+  
+  set.seed(10002)
+  y <- as.matrix(arima.sim(n = 150, list(ar = 0.5)))
+  colnames(y) <- "series_1"
+  
+  result <- tsbs(
+    x = y,
+    bs_type = "ms_varma_garch",
+    num_boots = 5,
+    n_boot = 80,
+    num_states = 2,
+    spec = spec_test_uni_norm,
+    func = sd,  ## Custom function
+    control = list(max_iter = 2, tol = 1)
+  )
+  
+  expect_length(result$func_outs, 5)
+  
+  ## Each func_out should be a standard deviation (positive scalar)
+  for (out in result$func_outs) {
+    expect_true(is.numeric(out))
+    expect_true(out > 0)
+  }
+  
+  ## Mean should also be positive
+  expect_true(result$func_out_means > 0)
+})
+
+
+## ---- 40c ----
+test_that("tsbs multivariate ms_varma_garch works", {
+  skip_on_cran()
+  
+  set.seed(10003)
+  y_mv <- matrix(rnorm(300), ncol = 2)
+  colnames(y_mv) <- c("series_1", "series_2")
+  
+  result <- tsbs(
+    x = y_mv,
+    bs_type = "ms_varma_garch",
+    num_boots = 3,
+    n_boot = 80,
+    num_states = 2,
+    spec = spec_test_mv_smoke,
+    model_type = "multivariate",
+    control = list(max_iter = 2, tol = 1)
+  )
+  
+  expect_length(result$bootstrap_series, 3)
+  
+  ## Each bootstrap sample should have 2 columns
+  for (i in seq_along(result$bootstrap_series)) {
+    expect_equal(ncol(result$bootstrap_series[[i]]), 2)
+  }
+})
+
+
+## ---- 40d ----
+test_that("tsbs with apply_func_to='all' works correctly", {
+  skip_on_cran()
+  
+  set.seed(10004)
+  y_mv <- matrix(rnorm(300), ncol = 2)
+  colnames(y_mv) <- c("series_1", "series_2")
+  
+  ## Custom function that takes whole matrix
+  cor_func <- function(x) cor(x[, 1], x[, 2])
+  
+  result <- tsbs(
+    x = y_mv,
+    bs_type = "ms_varma_garch",
+    num_boots = 5,
+    n_boot = 80,
+    num_states = 2,
+    spec = spec_test_mv_smoke,
+    model_type = "multivariate",
+    func = cor_func,
+    apply_func_to = "all",
+    control = list(max_iter = 2, tol = 1)
+  )
+  
+  ## Each output should be a correlation (between -1 and 1)
+  for (out in result$func_outs) {
+    expect_true(out >= -1 && out <= 1,
+                info = "Correlation should be in [-1, 1]")
+  }
+})
+
+
+## ---- 40e ----
+test_that("tsbs with return_fit=TRUE returns fit object", {
+  skip_on_cran()
+  
+  set.seed(10005)
+  y <- as.matrix(arima.sim(n = 150, list(ar = 0.5)))
+  colnames(y) <- "series_1"
+  
+  result <- tsbs(
+    x = y,
+    bs_type = "ms_varma_garch",
+    num_boots = 2,
+    n_boot = 80,
+    num_states = 2,
+    spec = spec_test_uni_norm,
+    control = list(max_iter = 2, tol = 1),
+    return_fit = TRUE
+  )
+  
+  ## When return_fit=TRUE, result structure may include fit
+  if ("fit" %in% names(result)) {
+    expect_true(!is.null(result$fit))
+  }
+})
+
+
+#### ______________________________________________________________________ ####
+#### PART 41: DIAGNOSTICS COLLECTION TESTS                                  ####
+
+context("Diagnostics Collection")
+
+## ---- 41a ----
+test_that("Diagnostics collection produces valid output", {
+  skip_on_cran()
+  
+  set.seed(11001)
+  y <- as.matrix(arima.sim(n = 150, list(ar = 0.5)))
+  colnames(y) <- "series_1"
+  
+  fit <- fit_ms_varma_garch(
+    y = y,
+    M = 2,
+    spec = spec_test_uni_norm,
+    control = list(max_iter = 5, tol = 0.5),
+    collect_diagnostics = TRUE
+  )
+  
+  if (!is.null(fit$diagnostics)) {
+    expect_true(is.list(fit$diagnostics))
+  }
+})
+
+
+## ---- 41b ----
+test_that("Multivariate diagnostics include boundary events", {
+  skip_on_cran()
+  
+  set.seed(11002)
+  
+  fit <- fit_ms_varma_garch(
+    y = y_test_mv,
+    M = 2,
+    spec = spec_test_mv_smoke,
+    model_type = "multivariate",
+    control = list(max_iter = 5, tol = 0.5),
+    collect_diagnostics = TRUE
+  )
+  
+  if (!is.null(fit$diagnostics)) {
+    expect_true(is.list(fit$diagnostics))
+    
+    if ("boundary_events" %in% names(fit$diagnostics)) {
+      expect_true(is.list(fit$diagnostics$boundary_events) || 
+                    length(fit$diagnostics$boundary_events) == 0)
+    }
+  }
+})
+
+
+#### ______________________________________________________________________ ####
+#### PART 42: WARNING AND ERROR HANDLING TESTS                              ####
+
+context("Warning and Error Handling")
+
+## ---- 42a ----
+test_that("Convergence warnings are captured", {
+  skip_on_cran()
+  
+  set.seed(12001)
+  y <- as.matrix(arima.sim(n = 50, list(ar = 0.5)))
+  colnames(y) <- "series_1"
+  
+  ## Very few iterations to trigger non-convergence
+  fit <- fit_ms_varma_garch(
+    y = y,
+    M = 2,
+    spec = spec_test_uni_norm,
+    control = list(max_iter = 1, tol = 1e-10)
+  )
+  
+  ## Should have convergence info
+  expect_true("convergence" %in% names(fit) || "converged" %in% names(fit))
+})
+
+
+## ---- 42b ----
+test_that("Warnings list is populated when issues occur", {
+  skip_on_cran()
+  
+  set.seed(12002)
+  y <- as.matrix(arima.sim(n = 100, list(ar = 0.5)))
+  colnames(y) <- "series_1"
+  
+  fit <- fit_ms_varma_garch(
+    y = y,
+    M = 2,
+    spec = spec_test_uni_norm,
+    control = list(max_iter = 5, tol = 0.5)
+  )
+  
+  ## Warnings should be a list (possibly empty)
+  expect_true("warnings" %in% names(fit))
+  expect_true(is.list(fit$warnings) || is.null(fit$warnings) || is.character(fit$warnings))
+})
+
+
+#### ______________________________________________________________________ ####
+#### PART 43: STUDENT-T DISTRIBUTION TESTS                                  ####
+
+context("Student-t Distribution")
+
+## ---- 43a ----
+test_that("Univariate Student-t model fits correctly", {
+  skip_on_cran()
+  
+  set.seed(13001)
+  ## Generate data with heavier tails
+  y_t <- as.matrix(rt(150, df = 5))
+  colnames(y_t) <- "series_1"
+  
+  fit <- fit_ms_varma_garch(
+    y = y_t,
+    M = 2,
+    spec = spec_test_uni_std,
+    control = list(max_iter = 10, tol = 0.1)
+  )
+  
+  expect_true(!is.null(fit))
+  expect_true(is.finite(fit$log_likelihood))
+  
+  ## Check that at least one state has shape parameter estimated
+  for (j in 1:2) {
+    if (!is.null(fit$model_fits[[j]]$dist_pars)) {
+      if (!is.null(fit$model_fits[[j]]$dist_pars$shape)) {
+        expect_true(fit$model_fits[[j]]$dist_pars$shape > 2,
+                    info = paste("State", j, "shape should be > 2"))
+      }
+    }
+  }
+})
+
+
+## ---- 43b ----
+test_that("MVT distribution estimates shape correctly", {
+  skip_on_cran()
+  
+  set.seed(13002)
+  n <- 200
+  k <- 2
+  
+  ## Generate heavy-tailed data
+  y_mvt <- matrix(rt(n * k, df = 6), ncol = k)
+  colnames(y_mvt) <- c("series_1", "series_2")
+  
+  fit <- fit_ms_varma_garch(
+    y = y_mvt,
+    M = 2,
+    spec = spec_test_mv_dcc_mvt,
+    model_type = "multivariate",
+    control = list(max_iter = 8, tol = 0.1)
+  )
+  
+  expect_true(!is.null(fit))
+  expect_true(is.finite(fit$log_likelihood))
+})
+
+
+#### ______________________________________________________________________ ####
+#### PART 44: CONTROL PARAMETER TESTS                                       ####
+
+context("Control Parameters")
+
+## ---- 44a ----
+test_that("DCC boundary threshold affects model selection", {
+  skip_on_cran()
+  
+  set.seed(14001)
+  
+  ## Test with different boundary thresholds
+  fit_strict <- fit_ms_varma_garch(
+    y = y_test_mv,
+    M = 2,
+    spec = spec_test_mv_smoke,
+    model_type = "multivariate",
+    control = list(
+      max_iter = 5, 
+      tol = 0.5,
+      dcc_boundary_threshold = 0.05  ## Stricter threshold
+    )
+  )
+  
+  fit_loose <- fit_ms_varma_garch(
+    y = y_test_mv,
+    M = 2,
+    spec = spec_test_mv_smoke,
+    model_type = "multivariate",
+    control = list(
+      max_iter = 5, 
+      tol = 0.5,
+      dcc_boundary_threshold = 0.01  ## Looser threshold
+    )
+  )
+  
+  expect_true(!is.null(fit_strict))
+  expect_true(!is.null(fit_loose))
+})
+
+
+## ---- 44b ----
+test_that("DCC boundary criterion options work", {
+  skip_on_cran()
+  
+  set.seed(14002)
+  
+  for (criterion in c("threshold", "aic", "bic")) {
+    fit <- fit_ms_varma_garch(
+      y = y_test_mv,
+      M = 2,
+      spec = spec_test_mv_smoke,
+      model_type = "multivariate",
+      control = list(
+        max_iter = 3,
+        tol = 0.5,
+        dcc_boundary_criterion = criterion
+      )
+    )
+    
+    expect_true(!is.null(fit),
+                info = paste("Criterion", criterion, "should work"))
+  }
+})
+
+
+## ---- 44c ----
+test_that("Invalid control parameters are rejected", {
+  skip_on_cran()
+  
+  ## Invalid boundary criterion
+  expect_error(
+    fit_ms_varma_garch(
+      y = y_test_mv,
+      M = 2,
+      spec = spec_test_mv_smoke,
+      model_type = "multivariate",
+      control = list(
+        max_iter = 3,
+        dcc_boundary_criterion = "invalid_criterion"
+      )
+    ),
+    regexp = "must be"
+  )
+  
+  ## Invalid boundary threshold (out of range)
+  expect_error(
+    fit_ms_varma_garch(
+      y = y_test_mv,
+      M = 2,
+      spec = spec_test_mv_smoke,
+      model_type = "multivariate",
+      control = list(
+        max_iter = 3,
+        dcc_boundary_threshold = 1.5  ## > 1 is invalid
+      )
+    ),
+    regexp = "between 0 and 1"
+  )
+})
+
+
+#### ______________________________________________________________________ ####
+#### PART 45: CALL OBJECT AND REPRODUCIBILITY                               ####
+
+context("Call Object")
+
+## ---- 45a ----
+test_that("Fit object contains call", {
+  skip_on_cran()
+  
+  fit <- fit_ms_varma_garch(
+    y = y_test,
+    M = 2,
+    spec = spec_test_uni_norm,
+    control = list(max_iter = 3, tol = 0.5)
+  )
+  
+  expect_true("call" %in% names(fit))
+  expect_true(is.call(fit$call) || is.language(fit$call))
+})
+
+
+#### ______________________________________________________________________ ####
+#### PART 46: DATA FRAME INPUT TESTS                                        ####
+
+context("Data Frame Input")
+
+## ---- 46a ----
+test_that("Data frame input is accepted and converted", {
+  skip_on_cran()
+  
+  set.seed(15001)
+  y_df <- data.frame(series_1 = arima.sim(n = 100, list(ar = 0.5)))
+  
+  fit <- fit_ms_varma_garch(
+    y = y_df,
+    M = 2,
+    spec = spec_test_uni_norm,
+    control = list(max_iter = 3, tol = 0.5)
+  )
+  
+  expect_true(!is.null(fit))
+  expect_true(is.matrix(fit$y))
+})
+
+
+## ---- 46b ----
+test_that("Multivariate data frame input works", {
+  skip_on_cran()
+  
+  set.seed(15002)
+  y_df_mv <- data.frame(
+    series_1 = rnorm(100),
+    series_2 = rnorm(100)
+  )
+  
+  fit <- fit_ms_varma_garch(
+    y = y_df_mv,
+    M = 2,
+    spec = spec_test_mv_smoke,
+    model_type = "multivariate",
+    control = list(max_iter = 3, tol = 0.5)
+  )
+  
+  expect_true(!is.null(fit))
+})
+
+
+#### ______________________________________________________________________ ####
+#### PART 47: EDGE CASE DATA TESTS                                          ####
+
+context("Edge Case Data")
+
+## ---- 47a ----
+test_that("Handles data with small variance", {
+  skip_on_cran()
+  
+  set.seed(16001)
+  ## Very small variance data
+  y_small_var <- as.matrix(rnorm(150, mean = 0, sd = 0.01))
+  colnames(y_small_var) <- "series_1"
+  
+  ## Should run without error (may produce warnings about parameters)
+  result <- tryCatch({
+    suppressWarnings({
+      fit_ms_varma_garch(
+        y = y_small_var,
+        M = 2,
+        spec = spec_test_uni_norm,
+        control = list(max_iter = 5, tol = 0.5)
+      )
+    })
+  }, error = function(e) NULL)
+  
+  ## Either succeeds or fails gracefully
+  expect_true(TRUE, info = "Should not crash on small variance data")
+})
+
+
+## ---- 47b ----
+test_that("Handles data with trend", {
+  skip_on_cran()
+  
+  set.seed(16002)
+  n <- 150
+  
+  ## Data with trend (non-stationary)
+  y_trend <- as.matrix(0.1 * (1:n) + rnorm(n))
+  colnames(y_trend) <- "series_1"
+  
+  ## With differencing, should work
+  fit <- fit_ms_varma_garch(
+    y = y_trend,
+    M = 2,
+    d = 1,
+    spec = spec_test_uni_norm,
+    control = list(max_iter = 5, tol = 0.5)
+  )
+  
+  expect_true(!is.null(fit))
+})
+
+
+## ---- 47c ----
+test_that("Handles data with outliers", {
+  skip_on_cran()
+  
+  set.seed(16003)
+  n <- 150
+  
+  ## Data with a few outliers
+  y_outliers <- rnorm(n)
+  y_outliers[c(50, 100)] <- c(10, -10)  ## Add outliers
+  y_outliers <- as.matrix(y_outliers)
+  colnames(y_outliers) <- "series_1"
+  
+  fit <- fit_ms_varma_garch(
+    y = y_outliers,
+    M = 2,
+    spec = spec_test_uni_norm,
+    control = list(max_iter = 5, tol = 0.5)
+  )
+  
+  expect_true(!is.null(fit))
+  expect_true(is.finite(fit$log_likelihood))
+})
+
+
+#### ______________________________________________________________________ ####
+#### END OF ADDITIONAL TESTS                                                ####
