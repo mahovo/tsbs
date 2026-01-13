@@ -19,7 +19,6 @@ numerical_hessian(fn, params, eps = 1e-05, ...)
 Square matrix of second derivatives
 }
 \description{
-Compute the Hessian matrix using central finite differences.
-Uses Richardson extrapolation for improved accuracy when available.
+Compute Numerical Hessian via Finite Differences
 }
 \keyword{internal}

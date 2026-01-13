@@ -34,5 +34,6 @@ Observed information matrix (positive semi-definite if at MLE)
 }
 \description{
 Compute the observed Fisher information matrix, which is the
-negative Hessian of the log-likelihood evaluated at the MLE.
+Hessian of the negative log-likelihood evaluated at the MLE.
+This is a convenience wrapper around numerical_hessian_richardson().
 }

@@ -7,7 +7,7 @@
 dcc11_confint(se_result, level = 0.95)
 }
 \arguments{
-\item{se_result}{Result from dcc11_standard_errors() or dcc11_sandwich_se()}
+\item{se_result}{Result from dcc11_standard_errors() or dcc11_hessian()}
 
 \item{level}{Confidence level (default 0.95)}
 }
@@ -15,5 +15,5 @@ dcc11_confint(se_result, level = 0.95)
 Matrix with columns: estimate, se, lower, upper
 }
 \description{
-Compute asymptotic confidence intervals based on standard errors.
+Compute Confidence Intervals for DCC(1,1) Parameters
 }

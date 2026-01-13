@@ -10,10 +10,8 @@ output:
   html_document:
     toc: true
     toc_depth: 3
-    keep_md: yes
-  pdf_document:
-    toc: true
-    toc_depth: 3
+    toc_float: true
+    code_folding: show
 #fontsize: 10pt # for pdf. Limited to 10pt, 11pt and 12pt. Else use scrextend.
 date: "`r format(Sys.time(), '%H:%M %d %B %Y')`"
 ---
@@ -37,7 +35,7 @@ This demo demonstrates:
   - Minimum Variance  
   - Maximum Sharpe Ratio  
   - Risk Parity  
-  - Black-Litterman\  
+  - Black-Litterman  
   - Shrinkage (Ledoit-Wolf)  
 2. Real market data  
 3. Out-of-sample backtesting with quarterly rebalancing  
@@ -52,7 +50,7 @@ The MS-VARMA-GARCH bootstrap provides:
   - Dynamic correlation structure preservation  
   - Regime-switching capability for changing market conditions  
 
-Key takeaways:
+Key takeaways:  
 - Optimal weights have substantial estimation uncertainty  
 - Bootstrap CIs help set realistic expectations  
 - Regularized methods (Risk Parity, Shrinkage) often perform well OOS  

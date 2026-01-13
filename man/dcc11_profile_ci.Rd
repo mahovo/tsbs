@@ -27,18 +27,17 @@ dcc11_profile_ci(
 
 \item{distribution}{"mvn" or "mvt"}
 
-\item{use_reparam}{Logical: use reparameterized space?}
+\item{use_reparam}{Logical}
 
-\item{param_idx}{Index of parameter for which to compute CI}
+\item{param_idx}{Index of parameter for CI}
 
 \item{level}{Confidence level (default 0.95)}
 
-\item{n_grid}{Number of grid points for profile (default 50)}
+\item{n_grid}{Grid points (default 50)}
 }
 \value{
 Named vector c(lower, upper)
 }
 \description{
-Compute confidence intervals by inverting the likelihood ratio
-test. More accurate than Wald intervals, especially for bounded parameters.
+Compute Profile Likelihood Confidence Intervals
 }

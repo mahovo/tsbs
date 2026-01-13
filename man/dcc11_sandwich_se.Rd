@@ -27,10 +27,17 @@ dcc11_sandwich_se(
 \item{use_reparam}{Logical: parameters in (psi, phi) space?}
 }
 \value{
-List with se, vcov, bread (I_inv), meat (J), sandwich
+List with:
+\item{se}{Standard errors}
+\item{vcov}{Variance-covariance matrix (inverse of info)}
+\item{bread}{Bread}
+\item{meatinfo}{Meat}
+\item{vcov}{Variance-covariance matrix (inverse of info)}
+\item{params}{Parameters}
+\item{param_names}{Parameter names}
+\item{method}{"sandwich"}
 }
 \description{
-Compute heteroskedasticity-robust standard errors using the
-sandwich estimator: Var(theta) = I^{-1} J I^{-1} where J is the outer
-product of gradients.
+Heteroskedasticity-robust SEs using sandwich estimator:
+Var(theta) = I^{-1} J I^{-1}
 }

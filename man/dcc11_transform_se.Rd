@@ -7,14 +7,13 @@
 dcc11_transform_se(se_result, to_reparam = FALSE)
 }
 \arguments{
-\item{se_result}{Result from dcc11_standard_errors()}
+\item{se_result}{Result from dcc11_standard_errors() or dcc11_hessian()}
 
-\item{to_reparam}{Logical: transform TO (psi, phi)? If FALSE, transform to (alpha, beta)}
+\item{to_reparam}{Logical: transform TO (psi, phi)?}
 }
 \value{
-Updated se_result with transformed standard errors
+Updated se_result with transformed SEs
 }
 \description{
-Transform standard errors from (psi, phi) to (alpha, beta) or
-vice versa using the delta method.
+Transform Standard Errors Between Parameterizations
 }

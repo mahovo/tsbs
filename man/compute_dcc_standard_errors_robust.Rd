@@ -2,7 +2,7 @@
 % Please edit documentation in R/dcc_hessian.R
 \name{compute_dcc_standard_errors_robust}
 \alias{compute_dcc_standard_errors_robust}
-\title{Compute DCC Standard Errors with Robust Handling}
+\title{Compute DCC Standard Errors with Robust Edge Case Handling}
 \usage{
 compute_dcc_standard_errors_robust(
   dcc_result,
@@ -11,7 +11,7 @@ compute_dcc_standard_errors_robust(
   Qbar,
   distribution = "mvn",
   boundary_threshold = 1e-04,
-  method = "hessian"
+  method = c("hessian", "sandwich")
 )
 }
 \arguments{
@@ -25,20 +25,21 @@ compute_dcc_standard_errors_robust(
 
 \item{distribution}{"mvn" or "mvt"}
 
-\item{boundary_threshold}{Threshold for detecting boundary estimates (default 1e-4)}
+\item{boundary_threshold}{Threshold for boundary detection (default 1e-4)}
 
 \item{method}{"hessian" or "sandwich"}
 }
 \value{
 List with:
-\item{se}{Named vector of standard errors (NA for invalid/boundary)}
-\item{vcov}{Variance-covariance matrix}
-\item{valid}{Logical: are the SEs valid/reliable?}
-\item{reason}{Character: reason if SEs are invalid}
-\item{correlation_type}{"dynamic" or "constant"}
+\item{se}{se}
+\item{vcov}{vcov}
+\item{valid}{valid}
+\item{reason}{reason}
+\item{correlation_type}{correlation_type}
+\item{info}{info}
+\item{info_eigenvalues}{info_eigenvalues}
 }
 \description{
-High-level wrapper that computes standard errors for DCC parameters
-with appropriate handling of edge cases (boundary estimates, constant correlation,
-non-positive-definite Hessians).
+High-level wrapper with handling for boundary estimates,
+constant correlation, and non-positive-definite Hessians.
 }

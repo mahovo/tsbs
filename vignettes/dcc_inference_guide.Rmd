@@ -55,9 +55,13 @@ The likelihood contours are elongated in the beta direction:
 
 ```{r eval=FALSE}
 # Compute and visualize likelihood surface
-surface <- compute_nll_surface(std_resid, weights, Qbar,
-                                alpha_range = c(0.01, 0.15),
-                                beta_range = c(0.75, 0.99))
+surface <- compute_nll_surface(
+  std_resid,
+  weights, 
+  Qbar,
+  alpha_range = c(0.01, 0.15),
+  beta_range = c(0.75, 0.99)
+)
 plot_nll_contours(surface, mle_params = c(alpha, beta))
 ```
 
