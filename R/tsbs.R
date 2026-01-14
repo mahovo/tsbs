@@ -378,6 +378,116 @@
 #'   \item `vignette("Diagnostics", package = "tsbs")` for diagnostic system
 #' }
 #' 
+#' **GOGARCH-specific `garch_spec_args`:**
+#' \itemize{
+#'   \item `model`: Character. GARCH model type for components. Default `"garch"`.
+#'   \item `order`: Integer vector c(p, q) for GARCH order. Default `c(1, 1)`.
+#'   \item `ica`: Character. ICA algorithm:
+#'     \itemize{
+#'       \item `"radical"`: RADICAL algorithm (recommended, robust to outliers)
+#'       \item `"fastica"`: FastICA algorithm (currently not supported by tsbs, 
+#'       waiting for tsmarch v1.0.1 to appear on CRAN...)
+#'     }
+#'   \item `components`: Integer. Number of ICA components to extract.
+#'     Default equals number of series. Set lower for dimension reduction.
+#'   \item `lambda_range`: Numeric vector c(min, max) for GH lambda parameter.
+#'   \item `shape_range`: Numeric vector c(min, max) for GH shape parameter.
+#' }
+#'
+#' **GOGARCH Distributions:**
+#' \itemize{
+#'   \item `"norm"`: Normal distribution (simplest, fastest)
+#'   \item `"nig"`: Normal Inverse Gaussian (captures skewness and kurtosis)
+#'   \item `"gh"`: Generalized Hyperbolic (most flexible, includes NIG as 
+#'   special case)
+#' }
+#'
+#' **Example GOGARCH specification (Normal):**
+#' ```
+#' spec_gogarch <- list(
+#'   list(
+#'     var_order = 0,
+#'     garch_spec_fun = "gogarch_modelspec",
+#'     distribution = "norm",
+#'     garch_spec_args = list(
+#'       model = "garch",
+#'       order = c(1, 1),
+#'       ica = "radical",
+#'       components = 2
+#'     ),
+#'     start_pars = list(
+#'       var_pars = NULL,
+#'       garch_pars = list(
+#'         list(omega = 0.1, alpha1 = 0.1, beta1 = 0.8),
+#'         list(omega = 0.1, alpha1 = 0.1, beta1 = 0.8)
+#'       ),
+#'       dist_pars = NULL
+#'     )
+#'   )
+#' )
+#' ```
+#'
+#' **Example GOGARCH specification (NIG distribution):**
+#' ```
+#' spec_gogarch_nig <- list(
+#'   list(
+#'     var_order = 0,
+#'     garch_spec_fun = "gogarch_modelspec",
+#'     distribution = "nig",
+#'     garch_spec_args = list(
+#'       model = "garch",
+#'       order = c(1, 1),
+#'       ica = "radical",
+#'       components = 2
+#'     ),
+#'     start_pars = list(
+#'       var_pars = NULL,
+#'       garch_pars = list(
+#'         list(omega = 0.1, alpha1 = 0.1, beta1 = 0.8),
+#'         list(omega = 0.1, alpha1 = 0.1, beta1 = 0.8)
+#'       ),
+#'       dist_pars = list(skew = 0, shape = 1)
+#'     )
+#'   )
+#' )
+#' ```
+#'
+#' **Example GOGARCH specification (GH distribution):**
+#' ```
+#' spec_gogarch_gh <- list(
+#'   list(
+#'     var_order = 0,
+#'     garch_spec_fun = "gogarch_modelspec",
+#'     distribution = "gh",
+#'     garch_spec_args = list(
+#'       model = "garch",
+#'       order = c(1, 1),
+#'       ica = "radical",
+#'       components = 2,
+#'       lambda_range = c(-5, 5),
+#'       shape_range = c(0.1, 25)
+#'     ),
+#'     start_pars = list(
+#'       var_pars = NULL,
+#'       garch_pars = list(
+#'         list(omega = 0.1, alpha1 = 0.1, beta1 = 0.8),
+#'         list(omega = 0.1, alpha1 = 0.1, beta1 = 0.8)
+#'       ),
+#'       dist_pars = list(skew = 0, shape = 1, lambda = -0.5)
+#'     )
+#'   )
+#' )
+#' ```
+#'
+#' @seealso
+#' \itemize{
+#'   \item [gogarch_modelspec()] for creating GOGARCH specifications
+#'   \item [estimate_garch_weighted_gogarch()] for GOGARCH weighted estimation
+#'   \item [radical()] for the RADICAL ICA algorithm
+#'   \item [compute_gogarch_loglik_ms()] for GOGARCH log-likelihood computation
+#'   \item `vignette("cgarch_vs_dcc", package = "tsbs")` for model comparison
+#' }
+#' 
 #' ### Diagnostics for MS VARMA GARCH 
 #' Diagnostic System: A comprehensive diagnostic system monitors
 #' convergence and numerical stability during estimation.

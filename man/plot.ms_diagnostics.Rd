@@ -24,14 +24,15 @@
 \item{\code{"sigma"}}{Plot conditional volatility (sigma) evolution.}
 }}
 
-\item{parameters}{Optional character vector of parameter names to include in the
-parameter evolution plot. If \code{NULL} (default), all parameters are plotted.
-Supports regex patterns when a single string containing regex metacharacters
-(\code{^}, \code{$}, \code{.}, \code{*}, \code{[}) is provided.}
+\item{parameters}{Optional character vector of parameter names to include in
+the parameter evolution plot. If \code{NULL} (default), all parameters are
+plotted. Supports regex patterns when a single string containing regex
+metacharacters (\code{^}, \code{$}, \code{.}, \code{*}, \code{[}) is
+provided.}
 
-\item{normalize}{Logical. If \code{TRUE}, normalize parameter values to \link{0, 1}
-within each parameter for easier comparison across different scales.
-Default is \code{FALSE}.}
+\item{normalize}{Logical. If \code{TRUE}, normalize parameter values to
+[0, 1] within each parameter for easier comparison across different
+scales. Default is \code{FALSE}.}
 
 \item{quiet}{Logical. If \code{TRUE}, suppress warnings from numeric coercion
 during parameter extraction. Default is \code{FALSE}.}

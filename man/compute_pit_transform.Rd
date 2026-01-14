@@ -27,6 +27,6 @@ compute_pit_transform(
 Matrix of uniform margins (T x k)
 }
 \description{
-Transforms standardized residuals to uniform \link{0,1} margins
+Transforms standardized residuals to uniform [0,1] margins
 }
 \keyword{internal}

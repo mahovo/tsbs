@@ -199,13 +199,14 @@ summary.ms_diagnostics <- function(object, ...) {
 #'     \item{\code{"parameters"}}{Plot parameter evolution across EM iterations.}
 #'     \item{\code{"sigma"}}{Plot conditional volatility (sigma) evolution.}
 #'   }
-#' @param parameters Optional character vector of parameter names to include in the 
-#'   parameter evolution plot. If \code{NULL} (default), all parameters are plotted.
-#'   Supports regex patterns when a single string containing regex metacharacters
-#'   (\code{^}, \code{$}, \code{.}, \code{*}, \code{[}) is provided.
-#' @param normalize Logical. If \code{TRUE}, normalize parameter values to [0, 1] 
-#'   within each parameter for easier comparison across different scales. 
-#'   Default is \code{FALSE}.
+#' @param parameters Optional character vector of parameter names to include in
+#'   the parameter evolution plot. If \code{NULL} (default), all parameters are
+#'   plotted. Supports regex patterns when a single string containing regex
+#'   metacharacters (\code{^}, \code{$}, \code{.}, \code{*}, \code{[}) is
+#'   provided.
+#' @param normalize Logical. If \code{TRUE}, normalize parameter values to
+#'   \[0, 1\] within each parameter for easier comparison across different
+#'   scales. Default is \code{FALSE}.
 #' @param quiet Logical. If \code{TRUE}, suppress warnings from numeric coercion
 #'   during parameter extraction. Default is \code{FALSE}.
 #' @param ... Additional arguments (currently unused).

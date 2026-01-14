@@ -117,7 +117,7 @@
 #' structure:
 #' 
 #' 1. **Marginal Transformation**: Standardized residuals are transformed to 
-#'    uniform [0,1] margins via probability integral transform (PIT). The 
+#'    uniform \[0,1\] margins via probability integral transform (PIT). The 
 #'    transformation can be:
 #'    - "parametric": Uses the estimated univariate distribution's CDF
 #'    - "empirical": Uses the empirical CDF
@@ -934,7 +934,7 @@ estimate_copula_parameters_weighted <- function(
 
 
 #' @title Compute Probability Integral Transform (PIT)
-#' @description Transforms standardized residuals to uniform [0,1] margins
+#' @description Transforms standardized residuals to uniform \[0,1\] margins
 #' @param std_residuals Matrix of standardized residuals (T x k)
 #' @param uni_fit_list List of fitted univariate GARCH models
 #' @param transformation Type: "parametric", "empirical", or "spd"
@@ -1676,7 +1676,7 @@ estimate_adcc_copula <- function(
 #' @description Computes the analytical gradient of copula NLL w.r.t. (psi, phi)
 #'   or (alpha, beta) depending on use_reparam flag.
 #' @param params Parameter vector: (psi, phi) if use_reparam=TRUE, (alpha, beta) otherwise.
-#'   For MVT copula, params[3] is the shape parameter.
+#'   For MVT copula, params\[3\] is the shape parameter.
 #' @param z_matrix T x k matrix of copula residuals
 #' @param weights T-vector of observation weights
 #' @param Qbar k x k unconditional covariance matrix

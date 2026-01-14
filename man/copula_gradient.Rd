@@ -15,7 +15,7 @@ copula_gradient(
 }
 \arguments{
 \item{params}{Parameter vector: (psi, phi) if use_reparam=TRUE, (alpha, beta) otherwise.
-For MVT copula, params\link{3} is the shape parameter.}
+For MVT copula, params[3] is the shape parameter.}
 
 \item{z_matrix}{T x k matrix of copula residuals}
 

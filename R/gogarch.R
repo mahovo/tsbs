@@ -3,33 +3,151 @@
 ## GOGARCH-specific functions for MS-VARMA-GARCH framework
 ## ============================================================================
 
-#' @title Weighted GARCH Estimation for GOGARCH Models
-#' 
-#' @description
-#' Implements weighted maximum likelihood estimation for GOGARCH models in the
-#' context of Markov-Switching frameworks. GOGARCH differs from DCC/CGARCH in
-#' that the correlation structure comes from the ICA mixing matrix, not from
-#' estimated correlation parameters.
-#' 
-#' The estimation proceeds as follows:
-#' 1. Perform ICA decomposition on the residuals to obtain independent components
-#' 2. Estimate univariate GARCH models on each ICA component using weighted MLE
-#' 
-#' Unlike DCC/CGARCH, there are no correlation dynamics parameters to estimate.
-#' The time-varying correlation comes from the time-varying component volatilities
-#' transformed through the fixed ICA mixing matrix.
+#' Weighted GARCH Estimation for GOGARCH Models
 #'
-#' @param residuals Matrix of residuals (T x k)
-#' @param weights Vector of state probabilities/weights (length T)
-#' @param spec Model specification list containing garch_spec_args and start_pars
-#' @param diagnostics Optional diagnostics object for logging
-#' @param verbose Logical; print progress information
-#' 
-#' @return A list containing:
-#'   \item{coefficients}{List with garch_pars (one per ICA component) and ica_info}
-#'   \item{warnings}{List of any warnings generated during estimation}
-#'   \item{diagnostics}{Updated diagnostics object}
-#'   
+#' @description
+#' Implements weighted maximum likelihood estimation for Generalized Orthogonal
+#' GARCH (GOGARCH) models in the context of Markov-Switching frameworks.
+#'
+#' GOGARCH differs fundamentally from DCC and Copula GARCH in how it models
+#' dynamic correlations:
+#' \itemize{
+#'   \item \strong{DCC/CGARCH}: Estimate explicit correlation dynamics parameters
+#'     (alpha, beta) that govern how correlations evolve over time.
+#'   \item \strong{GOGARCH}: Assume observations arise from independent latent
+#'     factors. Time-varying correlations emerge from the time-varying volatilities
+#'     of these factors, transformed through a fixed mixing matrix.
+#' }
+#'
+#' @details
+#' The estimation proceeds in two stages:
+#'
+#' \strong{Stage 1: ICA Decomposition}
+#'
+#' Independent Component Analysis extracts statistically independent components
+#' from the multivariate residuals:
+#' \deqn{S = Y \cdot W}
+#' where \eqn{Y} is the T x k residual matrix, \eqn{W} is the unmixing matrix,
+#' and \eqn{S} contains the independent components.
+#'
+#' Two ICA algorithms are supported:
+#' \itemize{
+#'   \item \code{"radical"}: RADICAL algorithm (Learned-Miller, 2003) - recommended
+#'     for robustness to outliers
+#'   \item \code{"fastica"}: FastICA algorithm - faster but may be sensitive to
+#'     initialization
+#' }
+#'
+#' \strong{Stage 2: Component GARCH Estimation}
+#'
+#' Univariate GARCH models are fitted to each independent component using
+#' weighted MLE. The weights come from the state probabilities in the
+#' Markov-Switching framework.
+#'
+#' \strong{Covariance Reconstruction}
+#'
+#' The time-varying covariance matrix is reconstructed as:
+#' \deqn{H_t = A \cdot D_t \cdot A'}
+#' where \eqn{A} is the mixing matrix from ICA and \eqn{D_t = diag(\sigma^2_{1,t},
+#' \ldots, \sigma^2_{k,t})} contains the component GARCH variances.
+#'
+#' \strong{Log-Likelihood}
+#'
+#' The GOGARCH log-likelihood includes a Jacobian adjustment for the ICA
+#' transformation:
+#' \deqn{LL = \sum_i LL_{component,i} + \log|det(K)|}
+#' where \eqn{K} is the pre-whitening matrix. See \code{\link{compute_gogarch_loglik_ms}}.
+#'
+#' @param residuals Numeric matrix of residuals with dimensions T x k, where T is
+#'   the number of observations and k is the number of series.
+#' @param weights Numeric vector of state probabilities/weights with length T.
+#'   These weights come from the E-step of the EM algorithm in the MS-VARMA-GARCH
+#'   framework.
+#' @param spec List containing the model specification with the following elements:
+#'   \describe{
+#'     \item{\code{garch_spec_args}}{List with:
+#'       \itemize{
+#'         \item \code{model}: GARCH model type (default: \code{"garch"})
+#'         \item \code{order}: GARCH order as c(p, q) (default: \code{c(1, 1)})
+#'         \item \code{ica}: ICA algorithm, \code{"radical"} or \code{"fastica"}
+#'         \item \code{components}: Number of ICA components to extract
+#'       }
+#'     }
+#'     \item{\code{distribution}}{Component distribution: \code{"norm"},
+#'       \code{"nig"}, or \code{"gh"}}
+#'     \item{\code{start_pars}}{List with:
+#'       \itemize{
+#'         \item \code{garch_pars}: List of starting GARCH parameters for each
+#'           component (e.g., \code{list(list(omega=0.1, alpha1=0.1, beta1=0.8), ...)})
+#'         \item \code{dist_pars}: Distribution parameters (e.g.,
+#'           \code{list(shape=1, skew=0)} for NIG)
+#'       }
+#'     }
+#'   }
+#' @param diagnostics Optional diagnostics collector object for logging
+#'   estimation progress and issues.
+#' @param verbose Logical; if \code{TRUE}, print progress information during
+#'   ICA decomposition and GARCH estimation. Default is \code{FALSE}.
+#'
+#' @return A list with the following components:
+#'   \describe{
+#'     \item{\code{coefficients}}{List containing:
+#'       \itemize{
+#'         \item \code{garch_pars}: List of estimated GARCH parameters for each
+#'           ICA component
+#'         \item \code{ica_info}: List with ICA results:
+#'           \itemize{
+#'             \item \code{A}: Mixing matrix (k x n_components)
+#'             \item \code{W}: Unmixing matrix (n_components x k)
+#'             \item \code{K}: Pre-whitening matrix (for Jacobian)
+#'             \item \code{S}: Independent components matrix (T x n_components)
+#'             \item \code{method}: ICA algorithm used
+#'             \item \code{n_components}: Number of components extracted
+#'           }
+#'         \item \code{dist_pars}: Distribution parameters
+#'         \item \code{correlation_type}: Always \code{"gogarch"}
+#'       }
+#'     }
+#'     \item{\code{warnings}}{List of warning messages generated during estimation}
+#'     \item{\code{diagnostics}}{Updated diagnostics object}
+#'   }
+#'
+#' @section Comparison with DCC and CGARCH:
+#' \tabular{llll}{
+#'   \strong{Aspect} \tab \strong{DCC} \tab \strong{CGARCH} \tab \strong{GOGARCH} \cr
+#'   Correlation source \tab alpha, beta params \tab DCC on copula \tab ICA mixing matrix \cr
+#'   Dynamics \tab DCC recursion \tab DCC/ADCC \tab Component volatilities \cr
+#'   Marginal treatment \tab Assumed Normal \tab Flexible (PIT) \tab ICA components \cr
+#'   Key strength \tab Interpretable \tab Tail dependence \tab Non-Gaussian dependence \cr
+#' }
+#'
+#' @section When to Use GOGARCH:
+#' GOGARCH is particularly suitable when:
+#' \itemize{
+#'   \item The dependence structure arises from independent underlying factors
+#'   \item Heavy-tailed distributions (NIG, GH) are needed for the components
+#'   \item Dimension reduction is desired (fewer components than series)
+#'   \item Non-linear dependence structures are suspected
+#' }
+#'
+#' @seealso
+#' \itemize{
+#'   \item \code{\link{tsbs}}: Main bootstrap function
+#'     (use \code{garch_spec_fun = "gogarch_modelspec"})
+#'   \item \code{\link{estimate_garch_weighted_univariate_gogarch}}: Component
+#'     GARCH estimation
+#'   \item \code{\link{compute_gogarch_loglik_ms}}: Log-likelihood computation
+#'   \item \code{\link{estimate_garch_weighted_dcc}}: Alternative DCC estimator
+#'   \item \code{\link{estimate_garch_weighted_cgarch}}: Alternative CGARCH estimator
+#' }
+#'
+#' @references
+#' van der Weide, R. (2002). GO-GARCH: A multivariate generalized orthogonal
+#' GARCH model. \emph{Journal of Applied Econometrics}, 17(5), 549-564.
+#'
+#' Learned-Miller, E. G. (2003). ICA using spacings estimates of entropy.
+#' \emph{Journal of Machine Learning Research}, 4, 1271-1295.
+#'
 #' @keywords internal
 estimate_garch_weighted_gogarch <- function(
     residuals, 
@@ -167,19 +285,61 @@ estimate_garch_weighted_gogarch <- function(
 }
 
 
-#' @title Weighted Univariate GARCH Estimation for GOGARCH Components
-#' 
+#' Weighted Univariate GARCH Estimation for GOGARCH Components
+#'
 #' @description
 #' Estimates univariate GARCH parameters for a single ICA component using
-#' weighted maximum likelihood. This is a simplified version of
-#' estimate_garch_weighted_univariate that works with ICA component data.
+#' weighted maximum likelihood. This function is called by
+#' \code{\link{estimate_garch_weighted_gogarch}} for each independent component
+#' extracted by ICA.
 #'
-#' @param residuals Vector of ICA component values
-#' @param weights Vector of weights (state probabilities)
-#' @param spec Component specification with garch_model, garch_order, distribution
-#' @param verbose Logical; print progress
-#' 
-#' @return List with coefficients and warnings
+#' @details
+#' The function implements weighted MLE for GARCH(p,q) models on ICA components.
+#' The weighted log-likelihood is:
+#' \deqn{LL_w = \sum_t w_t \cdot \log f(s_t | \sigma_t)}
+#' where \eqn{w_t} are the state probabilities, \eqn{s_t} is the ICA component
+#' value, and \eqn{\sigma_t} is the GARCH conditional volatility.
+#'
+#' \strong{GARCH Recursion}
+#'
+#' The variance recursion for GARCH(p,q) is:
+#' \deqn{\sigma^2_t = \omega + \sum_{i=1}^{p} \alpha_i s^2_{t-i} +
+#'   \sum_{j=1}^{q} \beta_j \sigma^2_{t-j}}
+#'
+#' \strong{Supported Distributions}
+#'
+#' \tabular{lll}{
+#'   \strong{Distribution} \tab \strong{Parameters} \tab \strong{Description} \cr
+#'   \code{"norm"} \tab none \tab Normal (Gaussian) \cr
+#'   \code{"std"} \tab shape \tab Student-t \cr
+#'   \code{"sstd"} \tab shape, skew \tab Skewed Student-t \cr
+#'   \code{"nig"} \tab shape, skew \tab Normal Inverse Gaussian \cr
+#'   \code{"gh"} \tab shape, skew, lambda \tab Generalized Hyperbolic \cr
+#' }
+#'
+#' @param residuals Numeric vector of ICA component values with length T.
+#' @param weights Numeric vector of weights (state probabilities) with length T.
+#' @param spec List containing the component specification:
+#'   \describe{
+#'     \item{\code{garch_model}}{GARCH model type (default: \code{"garch"})}
+#'     \item{\code{garch_order}}{GARCH order as c(p, q) (default: \code{c(1, 1)})}
+#'     \item{\code{distribution}}{Component distribution}
+#'     \item{\code{start_pars}}{List with \code{garch_pars} and \code{dist_pars}}
+#'   }
+#' @param verbose Logical; if \code{TRUE}, print progress information.
+#'
+#' @return A list with:
+#'   \describe{
+#'     \item{\code{coefficients}}{Named list of estimated parameters}
+#'     \item{\code{warnings}}{List of any warnings from optimization}
+#'   }
+#'
+#' @seealso
+#' \itemize{
+#'   \item \code{\link{estimate_garch_weighted_gogarch}}: Main GOGARCH estimator
+#'   \item \code{\link{compute_gogarch_loglik_ms}}: Log-likelihood computation
+#' }
+#'
 #' @keywords internal
 estimate_garch_weighted_univariate_gogarch <- function(
     residuals,
@@ -335,19 +495,46 @@ estimate_garch_weighted_univariate_gogarch <- function(
 }
 
 
-#' @title Compute GOGARCH Log-Likelihood for MS Framework
-#' 
-#' @description
-#' Computes the GOGARCH log-likelihood given estimated parameters and ICA info.
-#' Used in the E-step of the EM algorithm.
+#' Compute GOGARCH Log-Likelihood for MS Framework
 #'
-#' @param residuals Matrix of residuals
-#' @param garch_pars List of GARCH parameters for each component
-#' @param ica_info List with ICA matrices (A, W, K)
-#' @param distribution Distribution name
-#' @param return_vector If TRUE, return vector of per-observation log-likelihoods
-#' 
-#' @return Scalar log-likelihood or vector of per-observation values
+#' @description
+#' Computes the GOGARCH log-likelihood given estimated GARCH parameters and
+#' ICA transformation matrices. This function is used in the E-step of the
+#' EM algorithm for Markov-Switching GOGARCH models.
+#'
+#' @details
+#' The GOGARCH log-likelihood consists of two parts:
+#'
+#' \strong{1. Component Log-Likelihoods}
+#'
+#' For each independent component \eqn{i} and time \eqn{t}:
+#' \deqn{LL_{i,t} = \log f(s_{i,t} | \sigma_{i,t})}
+#'
+#' \strong{2. Jacobian Adjustment}
+#'
+#' The ICA transformation introduces a Jacobian term:
+#' \deqn{LL_{jacobian} = \log |det(K)|}
+#' where \eqn{K} is the pre-whitening matrix from ICA.
+#'
+#' \strong{Total Log-Likelihood}
+#' \deqn{LL = \sum_t \sum_i LL_{i,t} + \log |det(K)|}
+#'
+#' @param residuals Numeric matrix of residuals with dimensions T x k.
+#' @param garch_pars List of GARCH parameters for each component.
+#' @param ica_info List containing ICA transformation matrices (A, W, K).
+#' @param distribution Character string specifying the component distribution.
+#' @param return_vector Logical; if \code{TRUE}, return per-observation
+#'   log-likelihoods. Default is \code{FALSE}.
+#'
+#' @return Scalar total log-likelihood, or vector of per-observation values
+#'   if \code{return_vector = TRUE}.
+#'
+#' @seealso
+#' \itemize{
+#'   \item \code{\link{estimate_garch_weighted_gogarch}}: Estimation function
+#'   \item \code{\link{estimate_garch_weighted_univariate_gogarch}}: Component estimation
+#' }
+#'
 #' @keywords internal
 compute_gogarch_loglik_ms <- function(
     residuals,

@@ -63,7 +63,7 @@ The Copula GARCH model differs from DCC in how it handles the dependence
 structure:
 \enumerate{
 \item \strong{Marginal Transformation}: Standardized residuals are transformed to
-uniform \link{0,1} margins via probability integral transform (PIT). The
+uniform [0,1] margins via probability integral transform (PIT). The
 transformation can be:
 \itemize{
 \item "parametric": Uses the estimated univariate distribution's CDF

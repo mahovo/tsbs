@@ -28,16 +28,22 @@ dcc11_sandwich_se(
 }
 \value{
 List with:
-\item{se}{Standard errors}
-\item{vcov}{Variance-covariance matrix (inverse of info)}
-\item{bread}{Bread}
-\item{meatinfo}{Meat}
-\item{vcov}{Variance-covariance matrix (inverse of info)}
-\item{params}{Parameters}
-\item{param_names}{Parameter names}
+\item{se}{Standard errors (square root of diagonal of vcov)}
+\item{vcov}{Sandwich variance-covariance matrix: (\eqn{H^{-1} J H^{-1}}}
+\item{bread}{\eqn{H^{−1}}, inverse Hessian of the negative log-likelihood}
+\item{meat}{J, outer product of score vectors: \eqn{sum_t (grad_t)(grad_t)'}}
+\item{params}{Parameter values at which SEs were computed}
+\item{param_names}{Names of parameters}
 \item{method}{"sandwich"}
 }
 \description{
 Heteroskedasticity-robust SEs using sandwich estimator:
 Var(theta) = I^{-1} J I^{-1}
+}
+\details{
+The sandwich (robust) variance estimator is:
+\deqn{Var(\hat{\theta}) = H^{-1} J H^{-1}}
+where H is the Hessian and J is the outer product of score contributions.
+This is consistent under heteroskedasticity when the standard Hessian-based
+estimator may not be.
 }
