@@ -4,8 +4,8 @@
 #' model. It handles data validation, pre-processing, calls the C++ estimation
 #' engine, and formats the results into a well-structured object.
 #'
-#' @param y A numeric matrix or data frame where rows are observations and
-#'   columns are the time series variables.
+#' @param y A numeric matrix where rows are observations and columns are the
+#'   time series variables.
 #' @param M An integer >1 specifying the number of states in the Markov chain.
 #' @param d An integer specifying the order of differencing to be applied to
 #'   the series before fitting. This order is constant across all states.
@@ -54,18 +54,20 @@
 #'   fits for each state, the transition matrix, smoothed probabilities, and
 #'   information criteria:
 #'   \itemize{
-#'     \item{model_fits}
-#'     \item{P}
-#'     \item{log_likelihood}
-#'     \item{smoothed_probabilities}
-#'     \item{aic}
-#'     \item{bic}
-#'     \item{d}
-#'     \item{y}
-#'     \item{call}
-#'     \item{convergence}
-#'     \item{warnings}
-#'     \item{diagnostics}
+#'     \item{model_fits}{Model fits}
+#'     \item{P}{P}
+#'     \item{log_likelihood}{Log-likelihood}
+#'     \item{smoothed_probabilities}{Smoothed probabilities}
+#'     \item{aic}{AIC}
+#'     \item{bic}{BIC}
+#'     \item{num_params}{Number of parameters (used for AIC/BIC)}
+#'     \item{d}{Order of differencing}
+#'     \item{y}{Data matrix}
+#'     \item{call}{Return the exact call to fit_ms_varma_garch()}
+#'     \item{convergence}{Convergence}
+#'     \item{dcc_boundary_criterion}{DCC boundary criterion used}
+#'     \item{warnings}{Warnings}
+#'     \item{diagnostics}{Diagnostics}
 #'   }
 #'
 #' @export
@@ -274,73 +276,59 @@ fit_ms_varma_garch <- function(
   }
   
   if (verbose) message("Model fitting complete.")
+
+  ## Calculate AIC/BIC
+  ## Count number of estimated parameters
+  T_eff <- nrow(y_diff)
   
-  # ## --- 6. Extract diagnostics from C++ results (if collected) ---
-  # if (collect_diagnostics) {
-  #   diagnostics <- cpp_results$diagnostics
-  # }
-  # 
-  # ## --- 7. Post-processing and Formatting Results ---
-  # ## Align smoothed probabilities with the original time series
-  # smoothed_probs_aligned <- matrix(NA_real_, nrow = T_orig, ncol = M)
-  # colnames(smoothed_probs_aligned) <- paste0("State", 1:M)
-  # 
-  # ## The C++ output is aligned with the effective (differenced) data.
-  # ## We need to pad it to match the original data's length.
-  # padding <- T_orig - T_eff
-  # if (padding > 0) {
-  #   smoothed_probs_aligned[(padding + 1):T_orig, ] <- cpp_results$smoothed_probabilities[1:T_eff, ]
-  # } else {
-  #   smoothed_probs_aligned <- cpp_results$smoothed_probabilities
-  # }
-  # 
-  # ## Calculate AIC/BIC
-  # ## Count number of estimated parameters
-  # num_mean_pars <- sum(unlist(lapply(cpp_results$model_fits, function(fit) length(fit$arma_pars %||% fit$var_pars))))
-  # num_garch_pars <- sum(unlist(lapply(cpp_results$model_fits, function(fit) length(fit$garch_pars))))
-  # num_trans_pars <- M * (M - 1) ## M*(M-1) free parameters in transition matrix
-  # num_params <- num_mean_pars + num_garch_pars + num_trans_pars
-  # 
-  # aic <- -2 * cpp_results$log_likelihood + 2 * num_params
-  # bic <- -2 * cpp_results$log_likelihood + log(T_eff) * num_params
-  # 
-  # ## --- Final message to verbose output ---
-  # if (verbose && !is.null(verbose_file)) {
-  #   cat("\n=== Fitting Complete ===\n")
-  #   cat("Finished:", format(Sys.time()), "\n")
-  #   cat("Final log-likelihood:", cpp_results$log_likelihood, "\n")
-  # }
-  # 
-  # ## Assemble the final, user-friendly object
-  # result <- list(
-  #   model_fits = cpp_results$model_fits,
-  #   P = cpp_results$P,
-  #   log_likelihood = cpp_results$log_likelihood,
-  #   smoothed_probabilities = smoothed_probs_aligned,
-  #   aic = aic,
-  #   bic = bic,
-  #   d = d,
-  #   y = y_orig,
-  #   call = match.call(),
-  #   convergence = cpp_results$convergence,
-  #   warnings = cpp_results$warnings,
-  #   diagnostics = diagnostics  ## ADD diagnostics to result
-  # )
-  # 
-  # class(result) <- "msm.fit"
-  # return(result)
+  ## Count mean parameters
+  num_mean_pars <- sum(unlist(lapply(fit_result$model_fits, function(fit) {
+    length(fit$arma_pars %||% fit$var_pars)
+  })))
+  
+  ## Count GARCH parameters
+  num_garch_pars <- sum(unlist(lapply(fit_result$model_fits, function(fit) {
+    length(fit$garch_pars)
+  })))
+  
+  ## Count DCC parameters (alpha, beta for dynamic; 0 for constant)
+  num_dcc_pars <- count_dcc_parameters(fit_result$model_fits)
+  
+  ## Count transition matrix parameters: M*(M-1) free parameters
+  num_trans_pars <- M * (M - 1)
+  
+  num_params <- num_mean_pars + num_garch_pars + num_dcc_pars + num_trans_pars
+  
+  aic <- -2 * fit_result$log_likelihood + 2 * num_params
+  bic <- -2 * fit_result$log_likelihood + log(T_eff) * num_params
+  
+  ## Align smoothed probabilities with the original time series
+  ## The C++ output is aligned with the effective (differenced) data.
+  ## We need to pad it to match the original data's length.
+  T_orig <- nrow(y)
+  smoothed_probs_aligned <- matrix(NA_real_, nrow = T_orig, ncol = M)
+  colnames(smoothed_probs_aligned) <- paste0("State", 1:M)
+  
+  padding <- T_orig - T_eff
+  if (padding > 0) {
+    smoothed_probs_aligned[(padding + 1):T_orig, ] <- fit_result$smoothed_probabilities[1:T_eff, ]
+  } else {
+    smoothed_probs_aligned <- fit_result$smoothed_probabilities
+  }
   
   ## Prepare output
   result <- list(
     model_fits = fit_result$model_fits,
     P = fit_result$P,
     log_likelihood = fit_result$log_likelihood,
-    smoothed_probabilities = fit_result$smoothed_probabilities,
-    aic = fit_result$aic,
-    bic = fit_result$bic,
+    smoothed_probabilities = smoothed_probs_aligned,
+    aic = aic,
+    bic = bic,
+    num_params = num_params,
     d = d,
     y = y,
     call = match.call(),
+    dcc_boundary_criterion = control$dcc_boundary_criterion,
     convergence = fit_result$convergence,
     warnings = fit_result$warnings
   )

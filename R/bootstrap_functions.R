@@ -467,8 +467,8 @@ msvar_bootstrap <- function(
 #' block bootstrap. This generates resampled time series that preserve the 
 #' state-dependent properties of the original data.
 #'
-#' @param x A numeric matrix or data frame where rows are observations and
-#'   columns are the time series variables.
+#' @param x A numeric matrix where rows are observations and columns are the time
+#'   series variables.
 #' @param n_boot An integer specifying the length of each bootstrapped series.
 #'   If NULL (the default), the length of the original series is used.
 #' @param num_blocks An integer specifying the number of blocks to sample for

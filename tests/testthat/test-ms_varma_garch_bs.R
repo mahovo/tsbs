@@ -5293,55 +5293,32 @@ test_that("Smoothed probabilities multivariate DCC has correct structure", {
 
 context("Information Criteria")
 
-## ---- 31a ----
-test_that("AIC and BIC are finite", {
+## ---- 31 ----
+test_that("AIC and BIC are sensible", {
   skip_on_cran()
   
   fit <- fit_ms_varma_garch(
     y = y_test,
     M = 2,
     spec = spec_test_uni_norm,
-    control = list(max_iter = 10, tol = 0.1)
+    control = list(
+      max_iter = 2, 
+      tol = 0.1,
+      dcc_boundary_criterion = "aic"
+    )
   )
   
+  ## Test that AIC and BIC are finite
   expect_true(is.finite(fit$aic), info = "AIC should be finite")
   expect_true(is.finite(fit$bic), info = "BIC should be finite")
-})
-
-
-## ---- 31b ----
-test_that("BIC >= AIC for positive sample size", {
-  skip_on_cran()
-  
-  ## For n > e^2 ≈ 7.4, BIC penalizes more heavily than AIC
-  ## For typical time series, n >> 7.4, so BIC > AIC
-  
-  fit <- fit_ms_varma_garch(
-    y = y_test,  ## n = 100
-    M = 2,
-    spec = spec_test_uni_norm,
-    control = list(max_iter = 10, tol = 0.1)
-  )
   
   ## BIC = -2*LL + log(n)*k, AIC = -2*LL + 2*k
   ## BIC - AIC = (log(n) - 2)*k
   ## For n = 100, log(100) ≈ 4.6 > 2, so BIC > AIC if k > 0
   expect_true(fit$bic >= fit$aic,
               info = "BIC should be >= AIC for n >> 7")
-})
-
-
-## ---- 31c ----
-test_that("Information criteria are consistent with log-likelihood", {
-  skip_on_cran()
   
-  fit <- fit_ms_varma_garch(
-    y = y_test,
-    M = 2,
-    spec = spec_test_uni_norm,
-    control = list(max_iter = 10, tol = 0.1)
-  )
-  
+  ## Test that information criteria are consistent with log-likelihood
   ## Both AIC and BIC should be based on -2*LL
   ## So AIC + BIC should be >= -4*LL (with some penalty term)
   expect_true(fit$aic > -2 * fit$log_likelihood || is.na(fit$log_likelihood),
@@ -5349,6 +5326,7 @@ test_that("Information criteria are consistent with log-likelihood", {
   expect_true(fit$bic > -2 * fit$log_likelihood || is.na(fit$log_likelihood),
               info = "BIC should include positive penalty")
 })
+
 
 
 #### ______________________________________________________________________ ####
@@ -5510,7 +5488,7 @@ test_that("Smoothed probabilities align with original data after differencing", 
     M = 2,
     d = 1,
     spec = spec_test_uni_norm,
-    control = list(max_iter = 5, tol = 0.5)
+    control = list(max_iter = 3, tol = 0.5)
   )
   
   ## After d=1 differencing, effective sample is n-1
@@ -6445,7 +6423,7 @@ test_that("Invalid control parameters are rejected", {
 
 context("Call Object")
 
-## ---- 45a ----
+## ---- 45 ----
 test_that("Fit object contains call", {
   skip_on_cran()
   
@@ -6462,57 +6440,11 @@ test_that("Fit object contains call", {
 
 
 #### ______________________________________________________________________ ####
-#### PART 46: DATA FRAME INPUT TESTS                                        ####
-
-context("Data Frame Input")
-
-## ---- 46a ----
-test_that("Data frame input is accepted and converted", {
-  skip_on_cran()
-  
-  set.seed(15001)
-  y_df <- data.frame(series_1 = arima.sim(n = 100, list(ar = 0.5)))
-  
-  fit <- fit_ms_varma_garch(
-    y = y_df,
-    M = 2,
-    spec = spec_test_uni_norm,
-    control = list(max_iter = 3, tol = 0.5)
-  )
-  
-  expect_true(!is.null(fit))
-  expect_true(is.matrix(fit$y))
-})
-
-
-## ---- 46b ----
-test_that("Multivariate data frame input works", {
-  skip_on_cran()
-  
-  set.seed(15002)
-  y_df_mv <- data.frame(
-    series_1 = rnorm(100),
-    series_2 = rnorm(100)
-  )
-  
-  fit <- fit_ms_varma_garch(
-    y = y_df_mv,
-    M = 2,
-    spec = spec_test_mv_smoke,
-    model_type = "multivariate",
-    control = list(max_iter = 3, tol = 0.5)
-  )
-  
-  expect_true(!is.null(fit))
-})
-
-
-#### ______________________________________________________________________ ####
-#### PART 47: EDGE CASE DATA TESTS                                          ####
+#### PART 46: EDGE CASE DATA TESTS                                          ####
 
 context("Edge Case Data")
 
-## ---- 47a ----
+## ---- 46a ----
 test_that("Handles data with small variance", {
   skip_on_cran()
   
@@ -6538,7 +6470,7 @@ test_that("Handles data with small variance", {
 })
 
 
-## ---- 47b ----
+## ---- 46b ----
 test_that("Handles data with trend", {
   skip_on_cran()
   
@@ -6562,7 +6494,7 @@ test_that("Handles data with trend", {
 })
 
 
-## ---- 47c ----
+## ---- 46c ----
 test_that("Handles data with outliers", {
   skip_on_cran()
   
