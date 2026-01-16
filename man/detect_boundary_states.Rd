@@ -2,11 +2,29 @@
 % Please edit documentation in R/fit_ms_varma_garch.R
 \name{detect_boundary_states}
 \alias{detect_boundary_states}
-\title{Detect States at DCC Parameter Boundary}
+\title{Detect States at Correlation Parameter Boundary}
 \usage{
-detect_boundary_states(fit_result, threshold, criterion)
+detect_boundary_states(
+  fit_result,
+  threshold,
+  criterion,
+  model_type = "dcc_modelspec"
+)
+}
+\arguments{
+\item{fit_result}{Result from fit_ms_varma_garch_cpp}
+
+\item{threshold}{Numeric threshold for boundary detection}
+
+\item{criterion}{Selection criterion ("threshold", "aic", or "bic")}
+
+\item{model_type}{Multivariate model type ("dcc_modelspec", "cgarch_modelspec", or "gogarch_modelspec")}
+}
+\value{
+Integer vector of state indices that hit the boundary
 }
 \description{
-Detect States at DCC Parameter Boundary
+Identifies states where correlation dynamics parameters (alpha in DCC/CGARCH)
+are at or near the lower boundary, indicating potential degeneracy.
 }
 \keyword{internal}

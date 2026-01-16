@@ -486,7 +486,8 @@ start_pars = list(
 \item \code{ica}: Character. ICA algorithm:
 \itemize{
 \item \code{"radical"}: RADICAL algorithm (recommended, robust to outliers)
-\item \code{"fastica"}: FastICA algorithm
+\item \code{"fastica"}: FastICA algorithm (currently not supported by tsbs,
+waiting for tsmarch v1.0.1 to appear on CRAN...)
 }
 \item \code{components}: Integer. Number of ICA components to extract.
 Default equals number of series. Set lower for dimension reduction.
@@ -498,7 +499,8 @@ Default equals number of series. Set lower for dimension reduction.
 \itemize{
 \item \code{"norm"}: Normal distribution (simplest, fastest)
 \item \code{"nig"}: Normal Inverse Gaussian (captures skewness and kurtosis)
-\item \code{"gh"}: Generalized Hyperbolic (most flexible, includes NIG as special case)
+\item \code{"gh"}: Generalized Hyperbolic (most flexible, includes NIG as
+special case)
 }
 
 \strong{Example GOGARCH specification (Normal):}

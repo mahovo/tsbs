@@ -23,8 +23,8 @@ ms_varma_garch_bs(
 )
 }
 \arguments{
-\item{x}{A numeric matrix or data frame where rows are observations and
-columns are the time series variables.}
+\item{x}{A numeric matrix where rows are observations and columns are the time
+series variables.}
 
 \item{n_boot}{An integer specifying the length of each bootstrapped series.
 If NULL (the default), the length of the original series is used.}

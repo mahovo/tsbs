@@ -619,15 +619,29 @@ calculate_loglik_vector_r <- function(
           }
         }
       }
-      
     } else if (spec_fun_name == "gogarch_modelspec") {
       ## ==== GOGARCH ====
-      garch_model_fit <- suppressWarnings(estimate(garch_spec_obj, trace = FALSE))
-      ll_vector <- compute_loglik_fixed(
-        object = garch_model_fit,
-        params = list(),
-        ll_vec = TRUE
-      )
+      ## Use the existing ICA decomposition and GARCH parameters from current_pars
+      ## instead of re-estimating from scratch
+      
+      if (!is.null(current_pars$ica_info) && !is.null(current_pars$garch_pars)) {
+        ## Use existing parameters for likelihood computation
+        ll_vector <- compute_gogarch_loglik_ms(
+          residuals = model_residuals,
+          garch_pars = current_pars$garch_pars,
+          ica_info = current_pars$ica_info,
+          distribution = spec$distribution %||% "norm",
+          return_vector = TRUE
+        )
+      } else {
+        ## Fallback: estimate from scratch (first iteration or missing params)
+        garch_model_fit <- suppressWarnings(estimate(garch_spec_obj, trace = FALSE))
+        ll_vector <- compute_loglik_fixed(
+          object = garch_model_fit,
+          params = list(),
+          ll_vec = TRUE
+        )
+      }
     } else {
       stop("Unsupported multivariate model type: ", spec_fun_name)
     }
@@ -1192,16 +1206,24 @@ perform_m_step_r <- function(
           result[[par_name]] <- variance_coeffs$dcc_pars[[par_name]]
         }
         result$correlation_type <- "dynamic"
+      } else if (!is.null(variance_coeffs$correlation_type)) {
+        ## Preserve correlation_type if already set (e.g., by GOGARCH or constant)
+        result$correlation_type <- variance_coeffs$correlation_type
       } else {
-        ## Constant correlation: no DCC parameters
+        ## Default to constant correlation if no DCC parameters
         result$correlation_type <- "constant"
       }
       
-      ## Handle copula/GOGARCH parameters (future)
+      ## Handle copula parameters
       if (!is.null(variance_coeffs$copula_pars)) {
         for (par_name in names(variance_coeffs$copula_pars)) {
           result[[par_name]] <- variance_coeffs$copula_pars[[par_name]]
         }
+      }
+      
+      # Handle GOGARCH ICA information
+      if (!is.null(variance_coeffs$ica_info)) {
+        result$ica_info <- variance_coeffs$ica_info
       }
       
       if (!is.null(variance_coeffs$rotation_pars)) {

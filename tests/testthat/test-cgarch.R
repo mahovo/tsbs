@@ -19,13 +19,13 @@
 #### TEST SETUP                                                             ####
 
 ## Required packages
-library(testthat)
-library(tsmarch)
-library(tsgarch)
-library(tsmethods)
-library(tsdistributions)
-library(xts)
-library(data.table)
+# library(testthat)
+# library(tsmarch)
+# library(tsgarch)
+# library(tsmethods)
+# library(tsdistributions)
+# library(xts)
+# library(data.table)
 
 
 ## ---- Test Data Setups ----
@@ -587,7 +587,7 @@ test_that("copula_nll returns large values for invalid parameters", {
     weights = weights,
     Qbar = Qbar,
     copula_dist = "mvn",
-    use_reparam = TRUE
+    use_reparam = FALSE
   )
   
   expect_true(nll >= 1e10 || is.infinite(nll))

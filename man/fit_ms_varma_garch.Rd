@@ -19,8 +19,8 @@ fit_ms_varma_garch(
 )
 }
 \arguments{
-\item{y}{A numeric matrix or data frame where rows are observations and
-columns are the time series variables.}
+\item{y}{A numeric matrix where rows are observations and columns are the
+time series variables.}
 
 \item{M}{An integer >1 specifying the number of states in the Markov chain.}
 
@@ -36,9 +36,16 @@ Defaults to "univariate".}
 
 \item{control}{A list of control parameters for the EM algorithm, including:
 \itemize{
-\item{max_iter}{An integer specifying the maximum number of EM iterations. Defaults to 100.}
+\item{max_iter}{An integer specifying the maximum number of EM iterations.
+Defaults to 100.}
 \item{tol}{A numeric value specifying the convergence tolerance for the
 log-likelihood. Defaults to 1e-6.}
+\item{dcc_boundary_threshold}{Threshold for detecting boundary DCC
+parameters (default 0.02).}
+\item{dcc_boundary_criterion}{Selection criterion: "threshold", "aic", or
+"bic" (default "bic").}
+\item{dcc_allow_refitting}{Logical; if TRUE, allow refitting with constant
+correlation when boundary parameters are detected (default TRUE).}
 }}
 
 \item{parallel}{Logical.}
@@ -59,18 +66,20 @@ A list containing the full results of the estimation, including model
 fits for each state, the transition matrix, smoothed probabilities, and
 information criteria:
 \itemize{
-\item{model_fits}
-\item{P}
-\item{log_likelihood}
-\item{smoothed_probabilities}
-\item{aic}
-\item{bic}
-\item{d}
-\item{y}
-\item{call}
-\item{convergence}
-\item{warnings}
-\item{diagnostics}
+\item{model_fits}{Model fits}
+\item{P}{P}
+\item{log_likelihood}{Log-likelihood}
+\item{smoothed_probabilities}{Smoothed probabilities}
+\item{aic}{AIC}
+\item{bic}{BIC}
+\item{num_params}{Number of parameters (used for AIC/BIC)}
+\item{d}{Order of differencing}
+\item{y}{Data matrix}
+\item{call}{Return the exact call to fit_ms_varma_garch()}
+\item{convergence}{Convergence}
+\item{dcc_boundary_criterion}{DCC boundary criterion used}
+\item{warnings}{Warnings}
+\item{diagnostics}{Diagnostics}
 }
 }
 \description{
@@ -84,18 +93,54 @@ defines the model for state \code{j}. This state-specific list must contain:
 \itemize{
 \item{For the mean model: \code{arma_order} (univariate) or \code{var_order} (multivariate).}
 \item{For the variance model: \code{garch_model} (e.g., "garch"), \code{garch_order},
-\code{distribution}, and for multivariate models, \code{garch_spec_fun} (e.g., "dcc_modelspec")
-and \code{garch_spec_args}.}
+\code{distribution}, and for multivariate models, \code{garch_spec_fun} ("dcc_modelspec",
+"cgarch_modelspec", or "gogarch_modelspec") and \code{garch_spec_args}.}
 \item{Starting parameters: \code{start_pars}, a list containing \code{arma_pars} (or \code{var_pars})
 and \code{garch_pars}.}
 }
 
+\strong{Multivariate Model Types:}
+\itemize{
+\item{\code{dcc_modelspec}: Dynamic Conditional Correlation model. Estimates time-varying
+correlations using the DCC recursion of Engle (2002).}
+\item{\code{cgarch_modelspec}: Copula GARCH model. Separates marginal distributions from
+dependence structure using copula theory. Supports MVN and MVT copulas with
+parametric, empirical, or SPD PIT transformations.}
+\item{\code{gogarch_modelspec}: Generalized Orthogonal GARCH model. Uses ICA to extract
+independent components, then estimates univariate GARCH on each component.
+Time-varying covariance arises from the fixed mixing matrix.}
+}
+
 For mathematical expression of the model see \code{\link[=ms_varma_garch_bs]{ms_varma_garch_bs()}}.
 
-Note: For single-regime data, since M > 1, and assuming we set M = 2:
+\strong{Parameter Counting for Information Criteria:}
+
+The AIC and BIC are computed using the total number of estimated parameters,
+which includes: mean model parameters (VAR coefficients), univariate GARCH
+parameters, correlation dynamics parameters (for DCC/CGARCH), and transition
+matrix parameters.
+
+For GOGARCH models, the ICA mixing matrix is treated as a data transformation
+rather than as estimated parameters for information criteria purposes. This is
+consistent with the view that ICA extracts a fixed orthogonal rotation of the
+data, analogous to principal components, rather than optimizing a likelihood
+contribution. Consequently, GOGARCH models will have fewer counted parameters
+than DCC/CGARCH models with the same number of series, which should be
+considered when comparing models across different multivariate specifications.
+
+\strong{Note}
+For single-regime data, since M > 1, and assuming we set M = 2:
 \itemize{
 \item{both states should converge to similar parameters,}
 \item{or one state should have nearly zero probability.}
 }
 Check: \code{fit$smoothed_probabilities} - is one state dominant?
+}
+\seealso{
+\itemize{
+\item \code{\link{ms_varma_garch_bs}}: Bootstrap inference for MS-VARMA-GARCH models
+\item \code{\link{estimate_garch_weighted_dcc}}: DCC estimation details
+\item \code{\link{estimate_garch_weighted_cgarch}}: Copula GARCH estimation details
+\item \code{\link{estimate_garch_weighted_gogarch}}: GOGARCH estimation details
+}
 }

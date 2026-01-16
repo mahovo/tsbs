@@ -16,9 +16,16 @@
 #'   Defaults to "univariate".
 #' @param control A list of control parameters for the EM algorithm, including:
 #' \itemize{
-#'   \item{max_iter}{An integer specifying the maximum number of EM iterations. Defaults to 100.}
+#'   \item{max_iter}{An integer specifying the maximum number of EM iterations. 
+#'     Defaults to 100.}
 #'   \item{tol}{A numeric value specifying the convergence tolerance for the
 #'     log-likelihood. Defaults to 1e-6.}
+#'   \item{dcc_boundary_threshold}{Threshold for detecting boundary DCC 
+#'     parameters (default 0.02).}
+#'   \item{dcc_boundary_criterion}{Selection criterion: "threshold", "aic", or 
+#'     "bic" (default "bic").}
+#'   \item{dcc_allow_refitting}{Logical; if TRUE, allow refitting with constant 
+#'     correlation when boundary parameters are detected (default TRUE).}
 #' }
 #' @param parallel Logical.
 #' @param num_cores Number of cores.
@@ -35,15 +42,43 @@
 #' \itemize{
 #'   \item{For the mean model: `arma_order` (univariate) or `var_order` (multivariate).}
 #'   \item{For the variance model: `garch_model` (e.g., "garch"), `garch_order`,
-#'     `distribution`, and for multivariate models, `garch_spec_fun` (e.g., "dcc_modelspec")
-#'     and `garch_spec_args`.}
+#'     `distribution`, and for multivariate models, `garch_spec_fun` ("dcc_modelspec",
+#'     "cgarch_modelspec", or "gogarch_modelspec") and `garch_spec_args`.}
 #'   \item{Starting parameters: `start_pars`, a list containing `arma_pars` (or `var_pars`)
 #'     and `garch_pars`.}
 #' }
 #' 
+#' **Multivariate Model Types:**
+#' \itemize{
+#'   \item{`dcc_modelspec`: Dynamic Conditional Correlation model. Estimates time-varying
+#'     correlations using the DCC recursion of Engle (2002).}
+#'   \item{`cgarch_modelspec`: Copula GARCH model. Separates marginal distributions from 
+#'     dependence structure using copula theory. Supports MVN and MVT copulas with
+#'     parametric, empirical, or SPD PIT transformations.}
+#'   \item{`gogarch_modelspec`: Generalized Orthogonal GARCH model. Uses ICA to extract
+#'     independent components, then estimates univariate GARCH on each component.
+#'     Time-varying covariance arises from the fixed mixing matrix.}
+#' }
+#' 
 #' For mathematical expression of the model see [ms_varma_garch_bs()].
 #' 
-#' Note: For single-regime data, since M > 1, and assuming we set M = 2:
+#' **Parameter Counting for Information Criteria:**
+#' 
+#' The AIC and BIC are computed using the total number of estimated parameters,
+#' which includes: mean model parameters (VAR coefficients), univariate GARCH 
+#' parameters, correlation dynamics parameters (for DCC/CGARCH), and transition 
+#' matrix parameters. 
+#' 
+#' For GOGARCH models, the ICA mixing matrix is treated as a data transformation
+#' rather than as estimated parameters for information criteria purposes. This is
+#' consistent with the view that ICA extracts a fixed orthogonal rotation of the
+#' data, analogous to principal components, rather than optimizing a likelihood
+#' contribution. Consequently, GOGARCH models will have fewer counted parameters
+#' than DCC/CGARCH models with the same number of series, which should be 
+#' considered when comparing models across different multivariate specifications.
+#' 
+#' **Note**
+#' For single-regime data, since M > 1, and assuming we set M = 2:
 #' \itemize{
 #'   \item{both states should converge to similar parameters,}
 #'   \item{or one state should have nearly zero probability.}
@@ -69,6 +104,14 @@
 #'     \item{warnings}{Warnings}
 #'     \item{diagnostics}{Diagnostics}
 #'   }
+#'
+#' @seealso 
+#' \itemize{
+#'   \item \code{\link{ms_varma_garch_bs}}: Bootstrap inference for MS-VARMA-GARCH models
+#'   \item \code{\link{estimate_garch_weighted_dcc}}: DCC estimation details
+#'   \item \code{\link{estimate_garch_weighted_cgarch}}: Copula GARCH estimation details
+#'   \item \code{\link{estimate_garch_weighted_gogarch}}: GOGARCH estimation details
+#' }
 #'
 #' @export
 fit_ms_varma_garch <- function(
@@ -152,9 +195,29 @@ fit_ms_varma_garch <- function(
     stop("control$dcc_boundary_threshold must be between 0 and 1")
   }
   
-  ## --- 2b. Validate DCC orders against tsmarch version ---
-  ## tsmarch v1.0.0 has a bug with DCC(p,q) where p != q
+  ## --- 2b. Detect multivariate model types ---
+  multivariate_model_types <- if (model_type == "multivariate") {
+    sapply(spec, function(s) s$garch_spec_fun %||% "dcc_modelspec")
+  } else {
+    rep("univariate", M)
+  }
+  
+  ## Check that all states use the same multivariate model type
+  ## (mixing DCC/CGARCH/GOGARCH across states is not currently supported)
   if (model_type == "multivariate") {
+    unique_mv_types <- unique(multivariate_model_types)
+    if (length(unique_mv_types) > 1) {
+      stop("All states must use the same multivariate model type. Found: ",
+           paste(unique_mv_types, collapse = ", "))
+    }
+    mv_model_type <- unique_mv_types[1]
+  } else {
+    mv_model_type <- NULL
+  }
+  
+  ## --- 2c. Validate DCC/CGARCH orders against tsmarch version ---
+  ## tsmarch v1.0.0 has a bug with DCC(p,q) where p != q
+  if (model_type == "multivariate" && mv_model_type %in% c("dcc_modelspec", "cgarch_modelspec")) {
     spec <- validate_spec_dcc_orders(spec, action = "error")
   }
   
@@ -176,19 +239,23 @@ fit_ms_varma_garch <- function(
   }
   
   ## --- 5. Call the C++ Backend ---
-  #if (verbose) message("Fitting the MS-ARMA-GARCH model via C++ EM algorithm...")
   if (verbose) {
     cat("\n=== MS-VARMA-GARCH Model Fitting ===\n")
     cat("Model type:", model_type, "\n")
+    if (!is.null(mv_model_type)) {
+      cat("Multivariate model:", mv_model_type, "\n")
+    }
     cat("Number of states:", M, "\n")
     cat("Sample size:", nrow(y_diff), "\n")
     cat("Control parameters:\n")
     cat("  max_iter:", control$max_iter, "\n")
     cat("  tol:", control$tol, "\n")
-    cat("  dcc_boundary_threshold:", control$dcc_boundary_threshold, "\n")
-    cat("  dcc_boundary_criterion:", control$dcc_boundary_criterion, "\n")
-    cat("  dcc_allow_refitting:", control$dcc_allow_refitting, "\n\n")
-    cat("Fitting the MS-ARMA-GARCH model via C++ EM algorithm...\n")
+    if (mv_model_type %in% c("dcc_modelspec", "cgarch_modelspec")) {
+      cat("  dcc_boundary_threshold:", control$dcc_boundary_threshold, "\n")
+      cat("  dcc_boundary_criterion:", control$dcc_boundary_criterion, "\n")
+      cat("  dcc_allow_refitting:", control$dcc_allow_refitting, "\n")
+    }
+    cat("\nFitting the MS-ARMA-GARCH model via C++ EM algorithm...\n")
   }
 
   ## === INITIAL FIT: Dynamic correlation for all states ===
@@ -202,18 +269,25 @@ fit_ms_varma_garch <- function(
     verbose = verbose
   )
   
-  ## === SHORT-CIRCUIT: Check if any states hit boundary ===
-  if (control$dcc_allow_refitting && model_type == "multivariate") {
+  ## === BOUNDARY REFITTING ===
+  ## SHORT-CIRCUIT: Check if any states hit boundary 
+  ## (DCC and CGARCH only. GOGARCH doesn't have correlation dynamics parameters 
+  ## that can hit boundaries.)
+  if (control$dcc_allow_refitting && 
+      model_type == "multivariate" &&
+      mv_model_type %in% c("dcc_modelspec", "cgarch_modelspec")) {
     
     boundary_states <- detect_boundary_states(
       fit_result, 
       threshold = control$dcc_boundary_threshold,
-      criterion = control$dcc_boundary_criterion
+      criterion = control$dcc_boundary_criterion,
+      model_type = mv_model_type
     )
     
     if (length(boundary_states) > 0) {
       if (verbose) {
         cat("\n=== BOUNDARY DETECTION ===\n")
+        cat("Model type:", mv_model_type, "\n")
         cat("States", paste(boundary_states, collapse = ", "), 
             "hit DCC parameter boundary.\n")
         cat("Refitting with constant correlation for these states...\n\n")
@@ -239,8 +313,8 @@ fit_ms_varma_garch <- function(
       ## Compare models using appropriate criterion
       if (control$dcc_boundary_criterion %in% c("aic", "bic")) {
         # Count DCC parameters in each model
-        k_original <- count_dcc_parameters(fit_result$model_fits)
-        k_refit <- count_dcc_parameters(fit_refit$model_fits)
+        k_original <- count_correlation_parameters(fit_result$model_fits, mv_model_type)
+        k_refit <- count_correlation_parameters(fit_refit$model_fits, mv_model_type)
         
         n <- nrow(y_diff)
         
@@ -256,11 +330,11 @@ fit_ms_varma_garch <- function(
           cat("\n=== MODEL COMPARISON ===\n")
           cat("Original (all dynamic):\n")
           cat("  Log-likelihood:", fit_result$log_likelihood, "\n")
-          cat("  DCC parameters:", k_original, "\n")
+          cat("  Correlation parameters:", k_original, "\n")
           cat(" ", toupper(control$dcc_boundary_criterion), ":", ic_original, "\n")
           cat("Refit (mixed constant/dynamic):\n")
           cat("  Log-likelihood:", fit_refit$log_likelihood, "\n")
-          cat("  DCC parameters:", k_refit, "\n")
+          cat("  Correlation parameters:", k_refit, "\n")
           cat(" ", toupper(control$dcc_boundary_criterion), ":", ic_refit, "\n")
           cat("Winner:", ifelse(ic_refit < ic_original, "REFIT", "ORIGINAL"), "\n\n")
         }
@@ -294,10 +368,17 @@ fit_ms_varma_garch <- function(
   ## Count DCC parameters (alpha, beta for dynamic; 0 for constant)
   num_dcc_pars <- count_dcc_parameters(fit_result$model_fits)
   
+  ## Count correlation dynamics parameters (alpha, beta for DCC/CGARCH; 
+  ## 0 for GOGARCH/constant)
+  num_corr_pars <- count_correlation_parameters(
+    fit_result$model_fits, 
+    mv_model_type %||% "dcc_modelspec"
+  )
+  
   ## Count transition matrix parameters: M*(M-1) free parameters
   num_trans_pars <- M * (M - 1)
   
-  num_params <- num_mean_pars + num_garch_pars + num_dcc_pars + num_trans_pars
+  num_params <- num_mean_pars + num_garch_pars + num_corr_pars + num_trans_pars
   
   aic <- -2 * fit_result$log_likelihood + 2 * num_params
   bic <- -2 * fit_result$log_likelihood + log(T_eff) * num_params
@@ -329,6 +410,7 @@ fit_ms_varma_garch <- function(
     y = y,
     call = match.call(),
     dcc_boundary_criterion = control$dcc_boundary_criterion,
+    multivariate_model_type = mv_model_type,
     convergence = fit_result$convergence,
     warnings = fit_result$warnings
   )
@@ -344,9 +426,21 @@ fit_ms_varma_garch <- function(
 }
 
 
-#' @title Detect States at DCC Parameter Boundary
+#' @title Detect States at Correlation Parameter Boundary
+#' @description Identifies states where correlation dynamics parameters (alpha in DCC/CGARCH)
+#'   are at or near the lower boundary, indicating potential degeneracy.
+#' @param fit_result Result from fit_ms_varma_garch_cpp
+#' @param threshold Numeric threshold for boundary detection
+#' @param criterion Selection criterion ("threshold", "aic", or "bic")
+#' @param model_type Multivariate model type ("dcc_modelspec", "cgarch_modelspec", or "gogarch_modelspec")
+#' @return Integer vector of state indices that hit the boundary
 #' @keywords internal
-detect_boundary_states <- function(fit_result, threshold, criterion) {
+detect_boundary_states <- function(fit_result, threshold, criterion, model_type = "dcc_modelspec") {
+  
+  ## GOGARCH doesn't have correlation dynamics parameters - no boundary detection needed
+  if (model_type == "gogarch_modelspec") {
+    return(integer(0))
+  }
   
   boundary_states <- integer(0)
   
@@ -359,7 +453,13 @@ detect_boundary_states <- function(fit_result, threshold, criterion) {
       next
     }
     
-    # Check alpha parameters
+    # Skip GOGARCH states (they don't have alpha/beta)
+    if (!is.null(state_fit$correlation_type) && 
+        state_fit$correlation_type == "gogarch") {
+      next
+    }
+    
+    # Check alpha parameters (same for both DCC and CGARCH)
     alpha_names <- grep("^alpha_[0-9]+$", names(state_fit), value = TRUE)
     
     if (length(alpha_names) > 0) {
@@ -384,29 +484,50 @@ detect_boundary_states <- function(fit_result, threshold, criterion) {
 }
 
 
-#' @title Count DCC Parameters in Model
+#' @title Count Correlation Dynamics Parameters in Model
+#' @description Counts the number of correlation dynamics parameters (alpha, beta, gamma)
+#'   across all states. Used for AIC/BIC comparison when refitting with constant correlation.
+#' @param model_fits List of state-specific model fits
+#' @param model_type Multivariate model type ("dcc_modelspec", "cgarch_modelspec", or "gogarch_modelspec")
+#' @return Integer count of correlation parameters
 #' @keywords internal
-count_dcc_parameters <- function(model_fits) {
+count_correlation_parameters <- function(model_fits, model_type = "dcc_modelspec") {
+  
+  ## GOGARCH doesn't have separate correlation dynamics parameters
+  ## (correlation comes from ICA mixing matrix + component volatilities)
+  if (model_type == "gogarch_modelspec") {
+    return(0L)
+  }
   
   k <- 0
   
   for (j in seq_along(model_fits)) {
     state_fit <- model_fits[[j]]
     
-    # Count dynamic correlation parameters
+    # Count dynamic correlation parameters (DCC and CGARCH)
     if (is.null(state_fit$correlation_type) || 
         state_fit$correlation_type == "dynamic") {
-      # Count alpha and beta parameters
+      # Count alpha, beta, and gamma (for ADCC) parameters
       alpha_names <- grep("^alpha_[0-9]+$", names(state_fit), value = TRUE)
       beta_names <- grep("^beta_[0-9]+$", names(state_fit), value = TRUE)
-      k <- k + length(alpha_names) + length(beta_names)
+      gamma_names <- grep("^gamma_[0-9]+$", names(state_fit), value = TRUE)
+      k <- k + length(alpha_names) + length(beta_names) + length(gamma_names)
     }
-    # Constant correlation adds 0 parameters
+    # Constant correlation and GOGARCH add 0 correlation parameters
   }
   
   return(k)
 }
 
+
+#' @title Count DCC Parameters in Model (Deprecated)
+#' @description Legacy function - use count_correlation_parameters instead.
+#' @param model_fits List of state-specific model fits
+#' @return Integer count of DCC parameters
+#' @keywords internal
+count_dcc_parameters <- function(model_fits) {
+  count_correlation_parameters(model_fits, model_type = "dcc_modelspec")
+}
 
 # Helper function for parameter counting
 `%||%` <- function(a, b) {

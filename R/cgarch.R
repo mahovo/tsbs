@@ -1573,12 +1573,26 @@ adcc_copula_gradient <- function(
   n_params <- length(params)
   grad <- numeric(n_params)
   
-  f0 <- adcc_copula_nll(params, z_matrix, weights, Qbar, Nbar, copula_dist)
+  f0 <- adcc_copula_nll(
+    params = params, 
+    z_matrix = z_matrix, 
+    weights = weights, 
+    Qbar = Qbar, 
+    Nbar = Nbar, 
+    copula_dist = copula_dist
+  )
   
   for (i in 1:n_params) {
     params_plus <- params
     params_plus[i] <- params_plus[i] + eps
-    f_plus <- adcc_copula_nll(params_plus, z_matrix, weights, Qbar, Nbar, copula_dist)
+    f_plus <- adcc_copula_nll(
+      params = params, 
+      z_matrix = z_matrix, 
+      weights = weights, 
+      Qbar = Qbar, 
+      Nbar = Nbar, 
+      copula_dist = copula_dist
+    )
     grad[i] <- (f_plus - f0) / eps
   }
   
@@ -1619,12 +1633,26 @@ estimate_adcc_copula <- function(
   
   ## Objective function
   obj_fn <- function(params) {
-    adcc_copula_nll(params, z_matrix, weights, Qbar, Nbar, copula_dist)
+    adcc_copula_nll(
+      params = params, 
+      z_matrix = z_matrix, 
+      weights = weights, 
+      Qbar = Qbar, 
+      Nbar = Nbar, 
+      copula_dist = copula_dist
+    )
   }
   
   ## Gradient function
   grad_fn <- function(params) {
-    adcc_copula_gradient(params, z_matrix, weights, Qbar, Nbar, copula_dist)
+    adcc_copula_gradient(
+      params = params, 
+      z_matrix = z_matrix, 
+      weights = weights, 
+      Qbar = Qbar, 
+      Nbar = Nbar, 
+      copula_dist = copula_dist
+    )
   }
   
   ## Set bounds

@@ -458,79 +458,81 @@ dcc11_recursion_with_grad <- function(z, alpha, beta, Qbar) {
 }
 
 
-#' @title General DCC(p,q) Recursion (No Gradient)
-#' @description Compute Q and R matrices for arbitrary DCC order.
-#' @param std_resid Matrix of standardized residuals (T x k)
-#' @param Qbar Unconditional covariance matrix (k x k)
-#' @param alphas Numeric vector of alpha parameters (length q)
-#' @param betas Numeric vector of beta parameters (length p)
-#' @return List with success, Q, R, maxpq, and error info if failed
-#' @keywords internal
-dcc_recursion <- function(std_resid, Qbar, alphas, betas) {
-  T_obs <- nrow(std_resid)
-  k <- ncol(std_resid)
-  
-  q_order <- length(alphas)
-  p_order <- length(betas)
-  maxpq <- max(p_order, q_order, 1)
-  
-  persistence <- sum(alphas) + sum(betas)
-  
-  ## Initialize arrays
-  Q <- array(0, dim = c(k, k, T_obs))
-  R <- array(0, dim = c(k, k, T_obs))
-  
-  ## Initialize first maxpq observations with Qbar
-  for (t in 1:min(maxpq, T_obs)) {
-    Q[,,t] <- Qbar
-    Qbar_diag <- diag(Qbar)
-    if (any(Qbar_diag <= 0)) {
-      return(list(success = FALSE, error_type = "non_positive_Qbar_diagonal",
-                  error_time = 0, Q = Q, R = R, maxpq = maxpq))
-    }
-    Qbar_diag_inv_sqrt <- diag(1/sqrt(Qbar_diag), k)
-    R[,,t] <- Qbar_diag_inv_sqrt %*% Qbar %*% Qbar_diag_inv_sqrt
-  }
-  
-  if (T_obs <= maxpq) {
-    return(list(success = TRUE, Q = Q, R = R, maxpq = maxpq))
-  }
-  
-  ## Main recursion
-  for (t in (maxpq + 1):T_obs) {
-    Q_t <- Qbar * (1 - persistence)
-    
-    for (j in seq_along(alphas)) {
-      if (t - j >= 1) {
-        z_lag <- std_resid[t - j, , drop = FALSE]
-        Q_t <- Q_t + alphas[j] * (t(z_lag) %*% z_lag)
-      }
-    }
-    
-    for (j in seq_along(betas)) {
-      if (t - j >= 1) {
-        Q_t <- Q_t + betas[j] * Q[,,t - j]
-      }
-    }
-    
-    if (any(!is.finite(Q_t))) {
-      return(list(success = FALSE, error_type = "non_finite_Q",
-                  error_time = t, Q = Q, R = R, maxpq = maxpq))
-    }
-    
-    Q_diag <- diag(Q_t)
-    if (any(Q_diag <= 0)) {
-      return(list(success = FALSE, error_type = "non_positive_Q_diagonal",
-                  error_time = t, Q = Q, R = R, maxpq = maxpq))
-    }
-    
-    Q[,,t] <- Q_t
-    Q_diag_inv_sqrt <- diag(1/sqrt(Q_diag), k)
-    R[,,t] <- Q_diag_inv_sqrt %*% Q_t %*% Q_diag_inv_sqrt
-  }
-  
-  return(list(success = TRUE, Q = Q, R = R, maxpq = maxpq))
-}
+# See dcc_recursion() in dcc.R
+#
+# #' @title General DCC(p,q) Recursion (No Gradient)
+# #' @description Compute Q and R matrices for arbitrary DCC order.
+# #' @param std_resid Matrix of standardized residuals (T x k)
+# #' @param Qbar Unconditional covariance matrix (k x k)
+# #' @param alphas Numeric vector of alpha parameters (length q)
+# #' @param betas Numeric vector of beta parameters (length p)
+# #' @return List with success, Q, R, maxpq, and error info if failed
+# #' @keywords internal
+# dcc_recursion <- function(std_resid, Qbar, alphas, betas) {
+#   T_obs <- nrow(std_resid)
+#   k <- ncol(std_resid)
+#   
+#   q_order <- length(alphas)
+#   p_order <- length(betas)
+#   maxpq <- max(p_order, q_order, 1)
+#   
+#   persistence <- sum(alphas) + sum(betas)
+#   
+#   ## Initialize arrays
+#   Q <- array(0, dim = c(k, k, T_obs))
+#   R <- array(0, dim = c(k, k, T_obs))
+#   
+#   ## Initialize first maxpq observations with Qbar
+#   for (t in 1:min(maxpq, T_obs)) {
+#     Q[,,t] <- Qbar
+#     Qbar_diag <- diag(Qbar)
+#     if (any(Qbar_diag <= 0)) {
+#       return(list(success = FALSE, error_type = "non_positive_Qbar_diagonal",
+#                   error_time = 0, Q = Q, R = R, maxpq = maxpq))
+#     }
+#     Qbar_diag_inv_sqrt <- diag(1/sqrt(Qbar_diag), k)
+#     R[,,t] <- Qbar_diag_inv_sqrt %*% Qbar %*% Qbar_diag_inv_sqrt
+#   }
+#   
+#   if (T_obs <= maxpq) {
+#     return(list(success = TRUE, Q = Q, R = R, maxpq = maxpq))
+#   }
+#   
+#   ## Main recursion
+#   for (t in (maxpq + 1):T_obs) {
+#     Q_t <- Qbar * (1 - persistence)
+#     
+#     for (j in seq_along(alphas)) {
+#       if (t - j >= 1) {
+#         z_lag <- std_resid[t - j, , drop = FALSE]
+#         Q_t <- Q_t + alphas[j] * (t(z_lag) %*% z_lag)
+#       }
+#     }
+#     
+#     for (j in seq_along(betas)) {
+#       if (t - j >= 1) {
+#         Q_t <- Q_t + betas[j] * Q[,,t - j]
+#       }
+#     }
+#     
+#     if (any(!is.finite(Q_t))) {
+#       return(list(success = FALSE, error_type = "non_finite_Q",
+#                   error_time = t, Q = Q, R = R, maxpq = maxpq))
+#     }
+#     
+#     Q_diag <- diag(Q_t)
+#     if (any(Q_diag <= 0)) {
+#       return(list(success = FALSE, error_type = "non_positive_Q_diagonal",
+#                   error_time = t, Q = Q, R = R, maxpq = maxpq))
+#     }
+#     
+#     Q[,,t] <- Q_t
+#     Q_diag_inv_sqrt <- diag(1/sqrt(Q_diag), k)
+#     R[,,t] <- Q_diag_inv_sqrt %*% Q_t %*% Q_diag_inv_sqrt
+#   }
+#   
+#   return(list(success = TRUE, Q = Q, R = R, maxpq = maxpq))
+# }
 
 
 ## SECTION 4: Gradient Computation =============================================
