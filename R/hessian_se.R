@@ -67,7 +67,7 @@ numerical_hessian <- function(fn, params, eps = 1e-5, ...) {
     for (j in i:n) {
       if (i == j) {
         ## Diagonal: use standard second derivative formula
-        ## f''(x) ≈ [f(x+h) - 2f(x) + f(x-h)] / h^2
+        ## f''(x) â‰ˆ [f(x+h) - 2f(x) + f(x-h)] / h^2
         params_plus <- params_minus <- params
         params_plus[i] <- params[i] + eps
         params_minus[i] <- params[i] - eps
@@ -76,7 +76,7 @@ numerical_hessian <- function(fn, params, eps = 1e-5, ...) {
         H[i, i] <- (f_plus - 2 * f0 + f_minus) / (eps^2)
       } else {
         # Off-diagonal: use mixed partial derivative formula
-        ## f_xy ≈ [f(x+h,y+h) - f(x+h,y-h) - f(x-h,y+h) + f(x-h,y-h)] / (4h^2)
+        ## f_xy â‰ˆ [f(x+h,y+h) - f(x+h,y-h) - f(x-h,y+h) + f(x-h,y-h)] / (4h^2)
         params_pp <- params_pm <- params_mp <- params_mm <- params
         params_pp[i] <- params[i] + eps; params_pp[j] <- params[j] + eps
         params_pm[i] <- params[i] + eps; params_pm[j] <- params[j] - eps
@@ -188,8 +188,9 @@ dcc11_observed_information <- function(
 #' @param weights T-vector of observation weights (typically all 1s)
 #' @param Qbar k x k unconditional correlation matrix (sample correlation of
 #'   std_resid)
-#' @param distribution "mvn" (multivariate normal) - mvt not yet supported
-#'   analytically
+#' @param distribution "mvn" (multivariate normal). For "mvt", use 
+#'   numerical_hessian_richardson() instead as analytical MVT Hessian
+#'   is not yet implemented.
 #'   
 #' @return 2 x 2 Hessian matrix of the NLL with respect to (alpha, beta)
 #'
@@ -230,9 +231,9 @@ dcc11_analytical_hessian <- function(
   d2Q_dalphadbeta <- matrix(0, k, k)
   
   ## Accumulators for Hessian elements (of the LOG-LIKELIHOOD, not NLL)
-  H11 <- 0  # d²ℓ/dα²
-  H22 <- 0  # d²ℓ/dβ²
-  H12 <- 0  # d²ℓ/dαdβ
+  H11 <- 0  # dÂ²â„“/dÎ±Â²
+  H22 <- 0  # dÂ²â„“/dÎ²Â²
+  H12 <- 0  # dÂ²â„“/dÎ±dÎ²
   
   
   ## Main forward recursion ====================================================
@@ -266,7 +267,7 @@ dcc11_analytical_hessian <- function(
     
     ## *** Step 2: Compute derivatives of R_t w.r.t. parameters ***
     
-    ## These use the chain rule: dR/dθ = (dR/dQ)(dQ/dθ)
+    ## These use the chain rule: dR/dÎ¸ = (dR/dQ)(dQ/dÎ¸)
     ## The helper functions handle the Q -> R transformation derivatives.
     
     ## First derivatives of R w.r.t. alpha and beta (through Q)
@@ -282,13 +283,13 @@ dcc11_analytical_hessian <- function(
     ## *** Step 3: Accumulate Hessian contributions from time t ***
     
     ## The log-likelihood contribution at t is:
-    ##   ℓ_t = -0.5 * [log|R_t| + z_t' R_t^{-1} z_t - z_t' z_t]
+    ##   â„“_t = -0.5 * [log|R_t| + z_t' R_t^{-1} z_t - z_t' z_t]
     ##
-    ## The Hessian of ℓ_t w.r.t. θ_i, θ_j involves:
-    ##   d²ℓ_t/dθ_i dθ_j = 0.5 * tr(R^{-1} dR/dθ_i R^{-1} dR/dθ_j)
-    ##                   - 0.5 * tr(R^{-1} d²R/dθ_i dθ_j)
-    ##                   - z' (dR/dθ_i) R^{-1} (dR/dθ_j) R^{-1} z
-    ##                   + 0.5 * z' (d²R/dθ_i dθ_j) R^{-1} z
+    ## The Hessian of â„“_t w.r.t. Î¸_i, Î¸_j involves:
+    ##   dÂ²â„“_t/dÎ¸_i dÎ¸_j = 0.5 * tr(R^{-1} dR/dÎ¸_i R^{-1} dR/dÎ¸_j)
+    ##                   - 0.5 * tr(R^{-1} dÂ²R/dÎ¸_i dÎ¸_j)
+    ##                   - z' (dR/dÎ¸_i) R^{-1} (dR/dÎ¸_j) R^{-1} z
+    ##                   + 0.5 * z' (dÂ²R/dÎ¸_i dÎ¸_j) R^{-1} z
     ##                   + [additional terms from R^{-1} derivatives]
     ##
     ## We precompute common quantities for efficiency.
@@ -297,7 +298,7 @@ dcc11_analytical_hessian <- function(
     Rz <- R_inv %*% z_vec  ## R^{-1} z
     
     ## --- Alpha-alpha (H11) ---
-    ## d²NLL/dα²
+    ## dÂ²NLL/dÎ±Â²
     RdRa <- R_inv %*% dR_dalpha
     RdRaRz <- RdRa %*% Rz
     
@@ -309,7 +310,7 @@ dcc11_analytical_hessian <- function(
     )
     
     ## --- Beta-beta (H22) ---
-    ## d²NLL/dβ²
+    ## dÂ²NLL/dÎ²Â²
     RdRb <- R_inv %*% dR_dbeta
     RdRbRz <- RdRb %*% Rz
     
@@ -321,7 +322,7 @@ dcc11_analytical_hessian <- function(
     )
     
     ## --- Alpha-beta (H12) ---
-    ## d²NLL/dαdβ
+    ## dÂ²NLL/dÎ±dÎ²
     term1_ab <- 0.5 * sum(diag(RdRa %*% RdRb))
     term2_ab <- -0.5 * sum(diag(R_inv %*% d2R_dalphadbeta))
     term3_ab <- -as.numeric(t(Rz) %*% dR_dalpha %*% RdRbRz)
@@ -333,23 +334,23 @@ dcc11_analytical_hessian <- function(
     ## *** Step 4: Update Q_t and its derivatives for next iteration ***
     
     ## The DCC recursion is:
-    ##   Q_{t+1} = (1 - α - β) Q̄ + α z_t z_t' + β Q_t
+    ##   Q_{t+1} = (1 - Î± - Î²) QÌ„ + Î± z_t z_t' + Î² Q_t
     ##
-    ## Differentiating w.r.t. α:
-    ##   dQ_{t+1}/dα = -Q̄ + z_t z_t' + β (dQ_t/dα)
+    ## Differentiating w.r.t. Î±:
+    ##   dQ_{t+1}/dÎ± = -QÌ„ + z_t z_t' + Î² (dQ_t/dÎ±)
     ##
-    ## Differentiating w.r.t. β:
-    ##   dQ_{t+1}/dβ = -Q̄ + Q_t + β (dQ_t/dβ)
+    ## Differentiating w.r.t. Î²:
+    ##   dQ_{t+1}/dÎ² = -QÌ„ + Q_t + Î² (dQ_t/dÎ²)
     ##
     ## Second derivatives (note the order of operations matters!):
-    ##   d²Q_{t+1}/dα² = β (d²Q_t/dα²)
+    ##   dÂ²Q_{t+1}/dÎ±Â² = Î² (dÂ²Q_t/dÎ±Â²)
     ##
-    ##   d²Q_{t+1}/dβ² = d/dβ[-Q̄ + Q_t + β(dQ_t/dβ)]
-    ##                 = dQ_t/dβ + (dQ_t/dβ) + β(d²Q_t/dβ²)
-    ##                 = 2(dQ_t/dβ) + β(d²Q_t/dβ²)
+    ##   dÂ²Q_{t+1}/dÎ²Â² = d/dÎ²[-QÌ„ + Q_t + Î²(dQ_t/dÎ²)]
+    ##                 = dQ_t/dÎ² + (dQ_t/dÎ²) + Î²(dÂ²Q_t/dÎ²Â²)
+    ##                 = 2(dQ_t/dÎ²) + Î²(dÂ²Q_t/dÎ²Â²)
     ##
-    ##   d²Q_{t+1}/dαdβ = d/dβ[-Q̄ + z_t z_t' + β(dQ_t/dα)]
-    ##                  = dQ_t/dα + β(d²Q_t/dαdβ)
+    ##   dÂ²Q_{t+1}/dÎ±dÎ² = d/dÎ²[-QÌ„ + z_t z_t' + Î²(dQ_t/dÎ±)]
+    ##                  = dQ_t/dÎ± + Î²(dÂ²Q_t/dÎ±dÎ²)
     ##
     ## IMPORTANT: We must update second derivatives BEFORE first derivatives,
     ## and first derivatives BEFORE Q, because each update uses the current
@@ -373,8 +374,8 @@ dcc11_analytical_hessian <- function(
   
   ## Construct and return the Hessian matrix
   
-  ## The loop above accumulated the Hessian of the LOG-LIKELIHOOD (ℓ).
-  ## Since we want the Hessian of the NEGATIVE log-likelihood (NLL = -ℓ),
+  ## The loop above accumulated the Hessian of the LOG-LIKELIHOOD (â„“).
+  ## Since we want the Hessian of the NEGATIVE log-likelihood (NLL = -â„“),
   ## we negate the result. This ensures the Hessian is positive definite
   ## at the MLE (since we're minimizing NLL).
   
@@ -423,10 +424,10 @@ dcc11_analytical_hessian <- function(
 
 ## Helper: Second derivative of R w.r.t. Q (for mixed partials)
 ##
-## This computes d²R/(dθ_i dθ_j) given dQ/dθ_i, dQ/dθ_j, and d²Q/(dθ_i dθ_j).
+## This computes dÂ²R/(dÎ¸_i dÎ¸_j) given dQ/dÎ¸_i, dQ/dÎ¸_j, and dÂ²Q/(dÎ¸_i dÎ¸_j).
 ##
 ## The calculation involves second derivatives of D^{-1}:
-##   d²(q^{-1/2})/(dq)² = 0.75 * q^{-5/2}
+##   dÂ²(q^{-1/2})/(dq)Â² = 0.75 * q^{-5/2}
 ##
 ## and the full product rule expansion for R = D^{-1} Q D^{-1}.
 ##
@@ -445,8 +446,8 @@ dcc11_analytical_hessian <- function(
   dd2 <- -0.5 * d_inv^3 * dq2
   
   ## Second derivative of D^{-1} diagonal:
-  ## d²(q^{-1/2})/dθ_i dθ_j = 0.75 * q^{-5/2} * (dq/dθ_i)(dq/dθ_j)
-  ##                        - 0.5 * q^{-3/2} * (d²q/dθ_i dθ_j)
+  ## dÂ²(q^{-1/2})/dÎ¸_i dÎ¸_j = 0.75 * q^{-5/2} * (dq/dÎ¸_i)(dq/dÎ¸_j)
+  ##                        - 0.5 * q^{-3/2} * (dÂ²q/dÎ¸_i dÎ¸_j)
   d2d <- 0.75 * d_inv^5 * dq1 * dq2 - 0.5 * d_inv^3 * d2q
   
   ## Build diagonal matrices
@@ -455,17 +456,17 @@ dcc11_analytical_hessian <- function(
   dD2 <- diag(dd2, k)
   d2D <- diag(d2d, k)
   
-  ## Full product rule expansion for d²(D^{-1} Q D^{-1})
+  ## Full product rule expansion for dÂ²(D^{-1} Q D^{-1})
   ## There are 9 terms from differentiating each of the 3 factors twice
-  d2R <- d2D %*% Q %*% D +      # d²D * Q * D
+  d2R <- d2D %*% Q %*% D +      # dÂ²D * Q * D
     dD1 %*% dQ2 %*% D +    # dD_1 * dQ_2 * D
     dD1 %*% Q %*% dD2 +    # dD_1 * Q * dD_2
     dD2 %*% dQ1 %*% D +    # dD_2 * dQ_1 * D
-    D %*% d2Q %*% D +      # D * d²Q * D
+    D %*% d2Q %*% D +      # D * dÂ²Q * D
     D %*% dQ1 %*% dD2 +    # D * dQ_1 * dD_2
     dD2 %*% Q %*% dD1 +    # dD_2 * Q * dD_1
     D %*% dQ2 %*% dD1 +    # D * dQ_2 * dD_1
-    D %*% Q %*% d2D        # D * Q * d²D
+    D %*% Q %*% d2D        # D * Q * dÂ²D
   
   ## Enforce correlation matrix structure
   diag(d2R) <- 0
@@ -588,7 +589,7 @@ dcc11_hessian <- function(
 #' @return List with: 
 #'   \item{se}{Standard errors (square root of diagonal of vcov)}
 #'   \item{vcov}{Sandwich variance-covariance matrix: (\eqn{H^{-1} J H^{-1}}}
-#'   \item{bread}{\eqn{H^{−1}}, inverse Hessian of the negative log-likelihood}
+#'   \item{bread}{\eqn{H^{âˆ’1}}, inverse Hessian of the negative log-likelihood}
 #'   \item{meat}{J, outer product of score vectors: \eqn{sum_t (grad_t)(grad_t)'}}
 #'   \item{params}{Parameter values at which SEs were computed}
 #'   \item{param_names}{Names of parameters}
@@ -1132,5 +1133,927 @@ print.dcc11_summary <- function(x, digits = 4, ...) {
     if (ratio > 10) cat("  WARNING: High eigenvalue ratio - consider bootstrap SE for beta.\n")
   }
   cat("\n")
+  invisible(x)
+}
+
+
+## SECTION 7: CGARCH Standard Error Computation ================================
+##
+## CGARCH uses copula-based dependence, where the log-likelihood has a different
+## structure than DCC. The copula likelihood subtracts marginal t densities.
+##
+
+#' @title Compute Standard Errors for CGARCH Models
+#'
+#' @description Computes standard errors for Copula GARCH DCC parameters using
+#'   numerical differentiation of the copula log-likelihood. Supports both
+#'   Gaussian (MVN) and Student-t (MVT) copulas.
+#'
+#' @param params Parameter vector:
+#'   - For MVN copula: c(alpha, beta)
+#'   - For MVT copula: c(alpha, beta, shape)
+#' @param z_matrix T x k matrix of copula residuals (transformed standardized
+#'   residuals). These are the result of the PIT transformation followed by
+#'   inverse normal/t quantile transform.
+#' @param weights T-vector of observation weights
+#' @param Qbar k x k unconditional covariance matrix of z_matrix
+#' @param copula_dist Copula distribution: "mvn" or "mvt"
+#' @param use_reparam Logical: parameters in (psi, phi) space?
+#' @param method SE method: "hessian" (default) or "sandwich"
+#'
+#' @return List with:
+#'   \item{se}{Standard errors}
+#'   \item{vcov}{Variance-covariance matrix}
+#'   \item{params}{Parameter values}
+#'   \item{param_names}{Parameter names}
+#'   \item{method}{Method used}
+#'   \item{hessian}{Hessian matrix (if method = "hessian")}
+#'   \item{eigenvalues}{Hessian eigenvalues (if method = "hessian")}
+#'
+#' @details
+#' The copula log-likelihood differs from DCC in that it subtracts the marginal
+#' log-densities. For MVN copula:
+#' \deqn{\ell_t = -0.5[\log|R_t| + z_t'R_t^{-1}z_t - z_t'z_t]}
+#'
+#' For MVT copula:
+
+#' \deqn{\ell_t = c(\nu) - 0.5\log|R_t| - \frac{\nu+k}{2}\log(1 + q_t/(\nu-2)) - \sum_j \log f_t(z_{jt})}
+#' where \eqn{f_t} is the marginal Student-t density.
+#'
+#' @seealso \code{\link{estimate_garch_weighted_cgarch}}, \code{\link{copula_nll}}
+#'
+#' @export
+cgarch_standard_errors <- function(
+    params,
+    z_matrix,
+    weights,
+    Qbar,
+    copula_dist = "mvn",
+    use_reparam = FALSE,
+    method = c("hessian", "sandwich")
+) {
+  method <- match.arg(method)
+  
+  n_params <- length(params)
+  param_names <- if (n_params == 2) {
+    if (use_reparam) c("psi", "phi") else c("alpha", "beta")
+  } else if (n_params == 3) {
+    if (use_reparam) c("psi", "phi", "shape") else c("alpha", "beta", "shape")
+  } else {
+    paste0("param", 1:n_params)
+  }
+  
+  if (method == "sandwich") {
+    return(cgarch_sandwich_se(params, z_matrix, weights, Qbar, copula_dist, use_reparam))
+  }
+  
+  ## Compute numerical Hessian of the copula NLL
+  H <- numerical_hessian_richardson(
+    fn = cgarch_nll_for_hessian,
+    params = params,
+    eps = 1e-5,
+    z_matrix = z_matrix,
+    weights = weights,
+    Qbar = Qbar,
+    copula_dist = copula_dist,
+    use_reparam = use_reparam
+  )
+  rownames(H) <- colnames(H) <- param_names
+  
+  ## Compute eigendecomposition and inverse
+  eig <- eigen(H, symmetric = TRUE)
+  vcov <- tryCatch({
+    if (all(eig$values > 1e-10)) {
+      solve(H)
+    } else {
+      warning("CGARCH Hessian is near-singular, using pseudo-inverse")
+      eig$vectors %*% diag(1 / pmax(eig$values, 1e-10)) %*% t(eig$vectors)
+    }
+  }, error = function(e) matrix(NA_real_, n_params, n_params))
+  rownames(vcov) <- colnames(vcov) <- param_names
+  
+  se <- sqrt(pmax(0, diag(vcov)))
+  names(se) <- param_names
+  
+  list(
+    hessian = H,
+    info = H,
+    vcov = vcov,
+    se = se,
+    eigenvalues = eig$values,
+    eigenvectors = eig$vectors,
+    condition_number = max(eig$values) / max(min(eig$values), 1e-16),
+    params = params,
+    param_names = param_names,
+    method = "hessian"
+  )
+}
+
+
+#' @title CGARCH Negative Log-Likelihood for Hessian Computation
+#' @description Wrapper around copula NLL for use with numerical_hessian.
+#' @keywords internal
+cgarch_nll_for_hessian <- function(
+    params,
+    z_matrix,
+    weights,
+    Qbar,
+    copula_dist = "mvn",
+    use_reparam = FALSE
+) {
+  T_obs <- nrow(z_matrix)
+  k <- ncol(z_matrix)
+  
+  ## Extract alpha, beta
+  if (use_reparam) {
+    psi <- as.numeric(params[1])
+    phi <- as.numeric(params[2])
+    orig <- dcc11_from_unconstrained(psi, phi)
+    alpha <- as.numeric(orig["alpha"])
+    beta <- as.numeric(orig["beta"])
+  } else {
+    alpha <- as.numeric(params[1])
+    beta <- as.numeric(params[2])
+  }
+  
+  shape <- if (copula_dist == "mvt" && length(params) >= 3) {
+    as.numeric(params[3])
+  } else {
+    NULL
+  }
+  
+  ## Check constraints
+  if (!is.finite(alpha) || !is.finite(beta) ||
+      alpha + beta >= 1 || alpha < 0 || beta < 0) {
+    return(1e10)
+  }
+  
+  if (copula_dist == "mvt" && (!is.null(shape) && shape <= 2)) {
+    return(1e10)
+  }
+  
+  ## Run DCC recursion (CGARCH uses same Q dynamics as DCC)
+  fwd <- dcc11_recursion_with_grad(z_matrix, alpha, beta, Qbar)
+  
+  if (!isTRUE(fwd$success)) {
+    return(1e10)
+  }
+  
+  ## Compute copula log-likelihood
+  nll <- 0
+  
+  for (t in 1:T_obs) {
+    z_t <- z_matrix[t, ]
+    R_inv_t <- fwd$R_inv[,,t]
+    log_det_R_t <- fwd$log_det_R[t]
+    
+    q_t <- as.numeric(t(z_t) %*% R_inv_t %*% z_t)
+    
+    if (copula_dist == "mvn") {
+      ## Gaussian copula: -0.5 * (log|R| + z'R^-1 z - z'z)
+      ll_t <- -0.5 * (log_det_R_t + q_t - sum(z_t^2))
+    } else {
+      ## Student-t copula
+      const_term <- lgamma((shape + k) / 2) - lgamma(shape / 2) -
+        (k / 2) * log(pi * (shape - 2))
+      
+      ll_t <- const_term - 0.5 * log_det_R_t -
+        ((shape + k) / 2) * log(1 + q_t / (shape - 2))
+      
+      ## Subtract marginal t log-densities
+      scale <- sqrt(shape / (shape - 2))
+      for (j in 1:k) {
+        ll_t <- ll_t - (dt(z_t[j] * scale, df = shape, log = TRUE) + log(scale))
+      }
+    }
+    
+    nll <- nll - weights[t] * ll_t
+  }
+  
+  nll
+}
+
+
+#' @title CGARCH Sandwich (Robust) Standard Errors
+#' @description Computes sandwich estimator for CGARCH parameters.
+#' @param params Parameter vector
+#' @param z_matrix Copula residuals
+#' @param weights Observation weights
+#' @param Qbar Unconditional covariance
+#' @param copula_dist "mvn" or "mvt"
+#' @param use_reparam Use reparameterization?
+#' @return List with SE results
+#' @keywords internal
+cgarch_sandwich_se <- function(
+    params,
+    z_matrix,
+    weights,
+    Qbar,
+    copula_dist = "mvn",
+    use_reparam = FALSE
+) {
+  T_obs <- nrow(z_matrix)
+  n_params <- length(params)
+  
+  ## First get Hessian-based result
+  hess_result <- cgarch_standard_errors(
+    params, z_matrix, weights, Qbar, copula_dist, use_reparam, method = "hessian"
+  )
+  
+  if (is.null(hess_result$vcov) || any(is.na(hess_result$vcov))) {
+    warning("Cannot compute CGARCH sandwich SE: information matrix is singular")
+    hess_result$method <- "sandwich"
+    return(hess_result)
+  }
+  
+  ## Compute meat matrix (outer product of score contributions)
+  J <- matrix(0, n_params, n_params)
+  
+  for (t in 1:T_obs) {
+    grad_t <- .cgarch_gradient_single_obs(
+      params, z_matrix, weights, Qbar, t, copula_dist, use_reparam, eps = 1e-6
+    )
+    J <- J + weights[t]^2 * outer(grad_t, grad_t)
+  }
+  
+  ## Sandwich: bread %*% meat %*% bread
+  bread <- hess_result$vcov
+  sandwich <- bread %*% J %*% bread
+  var_diag <- diag(sandwich)
+  var_diag[var_diag < 0] <- NA_real_
+  se_sandwich <- sqrt(var_diag)
+  names(se_sandwich) <- hess_result$param_names
+  rownames(sandwich) <- colnames(sandwich) <- hess_result$param_names
+  
+  list(
+    se = se_sandwich,
+    vcov = sandwich,
+    bread = bread,
+    meat = J,
+    info = hess_result$info,
+    params = params,
+    param_names = hess_result$param_names,
+    method = "sandwich"
+  )
+}
+
+
+#' @keywords internal
+.cgarch_gradient_single_obs <- function(
+    params,
+    z_matrix,
+    weights,
+    Qbar,
+    t,
+    copula_dist,
+    use_reparam,
+    eps = 1e-6
+) {
+  n_params <- length(params)
+  grad <- numeric(n_params)
+  
+  for (i in 1:n_params) {
+    p_plus <- p_minus <- params
+    p_plus[i] <- params[i] + eps
+    p_minus[i] <- params[i] - eps
+    
+    grad[i] <- (
+      .cgarch_nll_single_obs(p_plus, z_matrix, weights, Qbar, t, copula_dist, use_reparam) -
+        .cgarch_nll_single_obs(p_minus, z_matrix, weights, Qbar, t, copula_dist, use_reparam)
+    ) / (2 * eps)
+  }
+  
+  grad
+}
+
+
+#' @keywords internal
+.cgarch_nll_single_obs <- function(
+    params,
+    z_matrix,
+    weights,
+    Qbar,
+    t,
+    copula_dist,
+    use_reparam
+) {
+  k <- ncol(z_matrix)
+  
+  ## Extract parameters
+  if (use_reparam) {
+    orig <- dcc11_from_unconstrained(params[1], params[2])
+    alpha <- as.numeric(orig["alpha"])
+    beta <- as.numeric(orig["beta"])
+  } else {
+    alpha <- as.numeric(params[1])
+    beta <- as.numeric(params[2])
+  }
+  
+  shape <- if (copula_dist == "mvt" && length(params) >= 3) {
+    as.numeric(params[3])
+  } else {
+    NULL
+  }
+  
+  if (!is.finite(alpha) || !is.finite(beta) ||
+      alpha + beta >= 1 || alpha < 0 || beta < 0) {
+    return(1e10)
+  }
+  
+  ## Run recursion
+  fwd <- dcc11_recursion_with_grad(z_matrix, alpha, beta, Qbar)
+  if (!isTRUE(fwd$success)) return(1e10)
+  
+  z_t <- z_matrix[t, ]
+  R_inv_t <- fwd$R_inv[,,t]
+  log_det_R_t <- fwd$log_det_R[t]
+  q_t <- as.numeric(t(z_t) %*% R_inv_t %*% z_t)
+  
+  if (copula_dist == "mvn") {
+    ll_t <- -0.5 * (log_det_R_t + q_t - sum(z_t^2))
+  } else {
+    const_term <- lgamma((shape + k) / 2) - lgamma(shape / 2) -
+      (k / 2) * log(pi * (shape - 2))
+    ll_t <- const_term - 0.5 * log_det_R_t -
+      ((shape + k) / 2) * log(1 + q_t / (shape - 2))
+    
+    scale <- sqrt(shape / (shape - 2))
+    for (j in 1:k) {
+      ll_t <- ll_t - (dt(z_t[j] * scale, df = shape, log = TRUE) + log(scale))
+    }
+  }
+  
+  -weights[t] * ll_t
+}
+
+
+#' @title Robust CGARCH Standard Errors with Edge Case Handling
+#'
+#' @description High-level wrapper for CGARCH SE computation with handling for
+#'   boundary estimates and degenerate cases.
+#'
+#' @param cgarch_result Result from estimate_garch_weighted_cgarch() or similar
+#' @param z_matrix Copula residuals (T x k)
+#' @param weights Observation weights
+#' @param Qbar Unconditional covariance
+#' @param copula_dist "mvn" or "mvt"
+#' @param boundary_threshold Threshold for boundary detection
+#' @param method "hessian" or "sandwich"
+#'
+#' @return List with SE results and validity flags
+#'
+#' @export
+compute_cgarch_standard_errors_robust <- function(
+    cgarch_result,
+    z_matrix,
+    weights,
+    Qbar,
+    copula_dist = "mvn",
+    boundary_threshold = 1e-4,
+    method = c("hessian", "sandwich")
+) {
+  method <- match.arg(method)
+  result <- list(se = NULL, vcov = NULL, valid = FALSE, reason = NULL,
+                 correlation_type = NULL, info = NULL, info_eigenvalues = NULL)
+  
+  correlation_type <- cgarch_result$correlation_type %||%
+    cgarch_result$coefficients$correlation_type %||% "dynamic"
+  result$correlation_type <- correlation_type
+  
+  if (correlation_type == "constant") {
+    result$reason <- "constant_correlation"
+    result$valid <- TRUE
+    return(result)
+  }
+  
+  dcc_pars <- cgarch_result$dcc_pars %||% cgarch_result$coefficients$dcc_pars
+  if (is.null(dcc_pars) || length(dcc_pars) == 0) {
+    result$reason <- "no_dcc_parameters"
+    return(result)
+  }
+  
+  alpha <- dcc_pars$alpha_1 %||% dcc_pars[["alpha_1"]]
+  beta <- dcc_pars$beta_1 %||% dcc_pars[["beta_1"]]
+  if (is.null(alpha) || is.null(beta)) {
+    result$reason <- "missing_alpha_or_beta"
+    return(result)
+  }
+  
+  ## Check boundaries
+  if (alpha < boundary_threshold || beta < boundary_threshold) {
+    result$reason <- sprintf("boundary_lower (alpha=%.2e, beta=%.2e)", alpha, beta)
+    result$se <- c(alpha = NA_real_, beta = NA_real_)
+    if (copula_dist == "mvt") result$se <- c(result$se, shape = NA_real_)
+    return(result)
+  }
+  if ((alpha + beta) > (1 - boundary_threshold)) {
+    result$reason <- sprintf("boundary_upper (persistence=%.6f)", alpha + beta)
+    result$se <- c(alpha = NA_real_, beta = NA_real_)
+    if (copula_dist == "mvt") result$se <- c(result$se, shape = NA_real_)
+    return(result)
+  }
+  
+  ## Build parameter vector
+  params <- c(alpha = alpha, beta = beta)
+  if (copula_dist == "mvt") {
+    shape <- cgarch_result$dist_pars$shape %||%
+      cgarch_result$coefficients$dist_pars$shape %||% 8.0
+    params <- c(params, shape = shape)
+  }
+  
+  ## Compute SE
+  se_result <- tryCatch(
+    cgarch_standard_errors(params, z_matrix, weights, Qbar, copula_dist, FALSE, method),
+    error = function(e) list(se = NULL, vcov = NULL, info = NULL, error = e$message)
+  )
+  
+  if (!is.null(se_result$error)) {
+    result$reason <- paste("computation_error:", se_result$error)
+    result$se <- c(alpha = NA_real_, beta = NA_real_)
+    if (copula_dist == "mvt") result$se <- c(result$se, shape = NA_real_)
+    return(result)
+  }
+  
+  result$se <- se_result$se
+  result$vcov <- se_result$vcov
+  result$info <- se_result$info
+  
+  if (!is.null(se_result$info)) {
+    eig <- eigen(se_result$info, symmetric = TRUE, only.values = TRUE)$values
+    result$info_eigenvalues <- eig
+    if (any(eig <= 0)) {
+      result$reason <- sprintf("non_pd_information (min_eig=%.2e)", min(eig))
+      return(result)
+    }
+  }
+  
+  if (any(is.na(se_result$se))) {
+    result$reason <- "na_standard_errors"
+    return(result)
+  }
+  if (any(se_result$se <= 0)) {
+    result$reason <- "non_positive_standard_errors"
+    return(result)
+  }
+  
+  result$valid <- TRUE
+  result$reason <- "ok"
+  result
+}
+
+
+## SECTION 8: GOGARCH Standard Error Computation ===============================
+##
+## GOGARCH uses ICA decomposition followed by univariate GARCH on components.
+## Standard errors are computed for the component GARCH parameters.
+## The ICA mixing matrix is typically treated as fixed after estimation.
+##
+
+#' @title Compute Standard Errors for GOGARCH Models
+#'
+#' @description Computes standard errors for GOGARCH component GARCH parameters.
+#'   GOGARCH differs from DCC/CGARCH in that it uses ICA decomposition followed
+#'   by univariate GARCH on independent components. SE computation focuses on
+#'   the component-level GARCH parameters.
+#'
+#' @param garch_pars List of GARCH parameters for each component:
+#'   Each element is a list with omega, alpha1, beta1, etc.
+#' @param ica_info ICA decomposition results (A, W, K matrices, S components)
+#' @param residuals Original residuals matrix (T x k)
+#' @param weights Observation weights (length T)
+#' @param distribution Component distribution: "norm", "std", "nig", "gh"
+#' @param method SE method: "hessian" (default) or "sandwich"
+#'
+#' @return List with:
+#'   \item{component_se}{List of SE for each component}
+#'   \item{vcov_blocks}{Block-diagonal vcov matrix (component-wise)}
+#'   \item{valid}{Logical: all SEs computed successfully}
+#'   \item{n_components}{Number of components}
+#'   \item{method}{Method used}
+#'
+#' @details
+#' GOGARCH models the observation vector as: Y = A * S, where S contains
+#' independent components each following univariate GARCH. The log-likelihood
+#' decomposes as:
+#' \deqn{LL = \sum_i LL_i(S_i; \theta_i) + \log|det(K)|}
+#'
+#' Standard errors are computed independently for each component's GARCH
+#' parameters using the component-wise Hessian. This is justified by the
+#' independence assumption of ICA.
+#'
+#' Note: SEs for the ICA mixing matrix A are not provided as A is typically
+#' treated as a fixed transformation after ICA estimation.
+#'
+#' @seealso \code{\link{estimate_garch_weighted_gogarch}}, 
+#'   \code{\link{compute_gogarch_loglik_ms}}
+#'
+#' @export
+gogarch_standard_errors <- function(
+    garch_pars,
+    ica_info,
+    residuals,
+    weights,
+    distribution = "norm",
+    method = c("hessian", "sandwich")
+) {
+  method <- match.arg(method)
+  
+  n_components <- length(garch_pars)
+  T_obs <- nrow(residuals)
+  
+  ## Transform residuals to independent components
+  S <- residuals %*% t(ica_info$W)
+  
+  ## Compute SE for each component independently
+  component_se_list <- list()
+  vcov_list <- list()
+  all_valid <- TRUE
+  
+  for (i in 1:n_components) {
+    pars_i <- garch_pars[[i]]
+    component_i <- S[, i]
+    
+    se_i <- tryCatch({
+      gogarch_component_se(
+        pars = pars_i,
+        component = component_i,
+        weights = weights,
+        distribution = distribution,
+        method = method
+      )
+    }, error = function(e) {
+      list(se = NULL, vcov = NULL, valid = FALSE, error = e$message)
+    })
+    
+    component_se_list[[i]] <- se_i
+    
+    if (!is.null(se_i$vcov)) {
+      vcov_list[[i]] <- se_i$vcov
+    }
+    
+    if (!isTRUE(se_i$valid)) {
+      all_valid <- FALSE
+    }
+  }
+  
+  list(
+    component_se = component_se_list,
+    vcov_blocks = vcov_list,
+    valid = all_valid,
+    n_components = n_components,
+    method = method
+  )
+}
+
+
+#' @title Compute SE for Single GOGARCH Component
+#' @description Computes SE for univariate GARCH parameters on one ICA component.
+#' @param pars GARCH parameters (omega, alpha1, beta1, possibly shape, skew)
+#' @param component Vector of ICA component values
+#' @param weights Observation weights
+#' @param distribution Component distribution
+#' @param method "hessian" or "sandwich"
+#' @return List with se, vcov, valid flag
+#' @keywords internal
+gogarch_component_se <- function(
+    pars,
+    component,
+    weights,
+    distribution = "norm",
+    method = "hessian"
+) {
+  ## Convert list pars to named vector
+  if (is.list(pars)) {
+    param_vec <- unlist(pars)
+  } else {
+    param_vec <- pars
+  }
+  
+  n_params <- length(param_vec)
+  param_names <- names(param_vec)
+  if (is.null(param_names)) {
+    param_names <- paste0("param", 1:n_params)
+  }
+  
+  ## Define component NLL function
+  component_nll <- function(params, resid, w, dist) {
+    if (length(params) < 3) {
+      return(1e10)
+    }
+    
+    omega <- params[1]
+    
+    ## Find alpha and beta parameters (may be indexed)
+    alpha_idx <- grep("alpha", names(params))
+    beta_idx <- grep("beta", names(params))
+    
+    if (length(alpha_idx) == 0) {
+      alpha <- params[2]
+      alpha_idx <- 2
+    } else {
+      alpha <- params[alpha_idx]
+    }
+    
+    if (length(beta_idx) == 0) {
+      beta <- params[3]
+      beta_idx <- 3
+    } else {
+      beta <- params[beta_idx]
+    }
+    
+    ## Check constraints
+    if (omega <= 0 || any(alpha < 0) || any(beta < 0)) {
+      return(1e10)
+    }
+    if (sum(alpha) + sum(beta) >= 1) {
+      return(1e10)
+    }
+    
+    ## Compute GARCH variance path
+    n <- length(resid)
+    sigma2 <- rep(var(resid), n)
+    p <- length(alpha)
+    q <- length(beta)
+    maxpq <- max(p, q, 1)
+    
+    for (t in (maxpq + 1):n) {
+      sigma2[t] <- omega
+      for (j in 1:p) {
+        sigma2[t] <- sigma2[t] + alpha[j] * resid[t - j]^2
+      }
+      for (j in 1:q) {
+        sigma2[t] <- sigma2[t] + beta[j] * sigma2[t - j]
+      }
+      if (sigma2[t] <= 0) sigma2[t] <- 1e-10
+    }
+    
+    sig <- sqrt(sigma2)
+    
+    ## Compute log-likelihood
+    if (dist == "norm") {
+      ll <- dnorm(resid, mean = 0, sd = sig, log = TRUE)
+    } else if (dist == "std") {
+      shape <- if (length(params) > 3) params["shape"] else 4
+      if (is.na(shape) || shape <= 2) shape <- 4
+      ll <- tryCatch(
+        tsdistributions::dstd(resid, mu = 0, sigma = sig, shape = shape, log = TRUE),
+        error = function(e) dnorm(resid, mean = 0, sd = sig, log = TRUE)
+      )
+    } else {
+      ll <- dnorm(resid, mean = 0, sd = sig, log = TRUE)
+    }
+    
+    ll[!is.finite(ll)] <- -1e10
+    -sum(w * ll, na.rm = TRUE)
+  }
+  
+  ## Compute numerical Hessian
+  H <- tryCatch({
+    numerical_hessian_richardson(
+      fn = component_nll,
+      params = param_vec,
+      eps = 1e-5,
+      resid = component,
+      w = weights,
+      dist = distribution
+    )
+  }, error = function(e) {
+    matrix(NA_real_, n_params, n_params)
+  })
+  
+  if (any(is.na(H))) {
+    return(list(
+      se = rep(NA_real_, n_params),
+      vcov = H,
+      valid = FALSE,
+      reason = "hessian_computation_failed"
+    ))
+  }
+  
+  rownames(H) <- colnames(H) <- param_names
+  
+  ## Invert Hessian
+  eig <- eigen(H, symmetric = TRUE)
+  vcov <- tryCatch({
+    if (all(eig$values > 1e-10)) {
+      solve(H)
+    } else {
+      eig$vectors %*% diag(1 / pmax(eig$values, 1e-10)) %*% t(eig$vectors)
+    }
+  }, error = function(e) matrix(NA_real_, n_params, n_params))
+  
+  rownames(vcov) <- colnames(vcov) <- param_names
+  
+  se <- sqrt(pmax(0, diag(vcov)))
+  names(se) <- param_names
+  
+  ## Validate
+  valid <- !any(is.na(se)) && all(se > 0) && all(eig$values > 0)
+  
+  list(
+    se = se,
+    vcov = vcov,
+    hessian = H,
+    eigenvalues = eig$values,
+    valid = valid,
+    reason = if (valid) "ok" else "numerical_issues",
+    method = method
+  )
+}
+
+
+#' @title Robust GOGARCH Standard Errors with Edge Case Handling
+#'
+#' @description High-level wrapper for GOGARCH SE computation with validation
+#'   and error handling.
+#'
+#' @param gogarch_result Result from estimate_garch_weighted_gogarch()
+#' @param residuals Original residuals (T x k)
+#' @param weights Observation weights
+#' @param distribution Component distribution
+#' @param method "hessian" or "sandwich"
+#'
+#' @return List with SE results and validity information
+#'
+#' @export
+compute_gogarch_standard_errors_robust <- function(
+    gogarch_result,
+    residuals,
+    weights,
+    distribution = "norm",
+    method = c("hessian", "sandwich")
+) {
+  method <- match.arg(method)
+  
+  result <- list(
+    component_se = NULL,
+    valid = FALSE,
+    reason = NULL,
+    n_components = NULL
+  )
+  
+  ## Extract coefficients
+  coeffs <- gogarch_result$coefficients %||% gogarch_result
+  
+  garch_pars <- coeffs$garch_pars
+  if (is.null(garch_pars) || length(garch_pars) == 0) {
+    result$reason <- "no_garch_parameters"
+    return(result)
+  }
+  
+  ica_info <- coeffs$ica_info
+  if (is.null(ica_info)) {
+    result$reason <- "no_ica_info"
+    return(result)
+  }
+  
+  ## Compute SE
+  se_result <- tryCatch(
+    gogarch_standard_errors(
+      garch_pars = garch_pars,
+      ica_info = ica_info,
+      residuals = residuals,
+      weights = weights,
+      distribution = distribution,
+      method = method
+    ),
+    error = function(e) {
+      list(component_se = NULL, valid = FALSE, error = e$message)
+    }
+  )
+  
+  if (!is.null(se_result$error)) {
+    result$reason <- paste("computation_error:", se_result$error)
+    return(result)
+  }
+  
+  result$component_se <- se_result$component_se
+  result$vcov_blocks <- se_result$vcov_blocks
+  result$n_components <- se_result$n_components
+  result$valid <- se_result$valid
+  result$reason <- if (se_result$valid) "ok" else "some_components_failed"
+  result$method <- method
+  
+  result
+}
+
+
+#' @title GOGARCH Estimation Summary
+#'
+#' @description Provides a summary of GOGARCH estimation including parameter
+#'   estimates and standard errors for all components.
+#'
+#' @param gogarch_result Result from estimate_garch_weighted_gogarch()
+#' @param residuals Original residuals
+#' @param weights Observation weights
+#' @param distribution Component distribution
+#' @param level Confidence level
+#' @param method SE method
+#'
+#' @return Object of class "gogarch_summary"
+#'
+#' @export
+gogarch_estimation_summary <- function(
+    gogarch_result,
+    residuals,
+    weights,
+    distribution = "norm",
+    level = 0.95,
+    method = c("hessian", "sandwich")
+) {
+  method <- match.arg(method)
+  
+  coeffs <- gogarch_result$coefficients %||% gogarch_result
+  garch_pars <- coeffs$garch_pars
+  ica_info <- coeffs$ica_info
+  n_components <- length(garch_pars)
+  
+  ## Compute SE
+  se_result <- compute_gogarch_standard_errors_robust(
+    gogarch_result, residuals, weights, distribution, method
+  )
+  
+  ## Build summary for each component
+  z <- qnorm(1 - (1 - level) / 2)
+  component_summaries <- list()
+  
+  for (i in 1:n_components) {
+    pars_i <- garch_pars[[i]]
+    se_i <- se_result$component_se[[i]]
+    
+    if (!is.null(se_i) && isTRUE(se_i$valid)) {
+      param_names <- names(se_i$se)
+      estimates <- unlist(pars_i)[param_names]
+      ci <- cbind(
+        estimate = estimates,
+        se = se_i$se,
+        lower = estimates - z * se_i$se,
+        upper = estimates + z * se_i$se
+      )
+      rownames(ci) <- param_names
+    } else {
+      estimates <- unlist(pars_i)
+      ci <- cbind(
+        estimate = estimates,
+        se = NA,
+        lower = NA,
+        upper = NA
+      )
+    }
+    
+    component_summaries[[i]] <- list(
+      params = pars_i,
+      ci = ci,
+      valid = isTRUE(se_i$valid)
+    )
+  }
+  
+  result <- list(
+    n_obs = nrow(residuals),
+    n_series = ncol(residuals),
+    n_components = n_components,
+    distribution = distribution,
+    ica_method = ica_info$method %||% "unknown",
+    component_summaries = component_summaries,
+    se_method = method,
+    ci_level = level,
+    overall_valid = se_result$valid
+  )
+  
+  class(result) <- "gogarch_summary"
+  result
+}
+
+
+#' @export
+print.gogarch_summary <- function(x, digits = 4, ...) {
+  cat("\n===== GOGARCH Estimation Summary =====\n\n")
+  cat("Data:\n")
+  cat(sprintf("  Observations: %d\n  Series: %d\n  Components: %d\n",
+              x$n_obs, x$n_series, x$n_components))
+  cat(sprintf("  Distribution: %s\n  ICA method: %s\n\n",
+              x$distribution, x$ica_method))
+  
+  cat(sprintf("Component Parameter Estimates (SE method: %s):\n", x$se_method))
+  cat(sprintf("%.0f%% Confidence Intervals:\n\n", x$ci_level * 100))
+  
+  for (i in seq_along(x$component_summaries)) {
+    cat(sprintf("--- Component %d ---\n", i))
+    comp <- x$component_summaries[[i]]
+    
+    if (comp$valid) {
+      print(round(comp$ci, digits))
+    } else {
+      cat("  SE computation failed\n")
+      cat("  Estimates:", paste(names(comp$params), "=",
+                                round(unlist(comp$params), digits), collapse = ", "), "\n")
+    }
+    cat("\n")
+  }
+  
+  if (!x$overall_valid) {
+    cat("WARNING: SE computation failed for some components.\n\n")
+  }
+  
   invisible(x)
 }
