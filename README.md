@@ -159,7 +159,9 @@ The package includes two vignettes for specialized topics:
 |----------|-------------|
 | `vignette("Diagnostics", package = "tsbs")` | Diagnostic system for monitoring EM convergence, parameter evolution, and numerical stability |
 | `vignette("dcc_inference_guide", package = "tsbs")` | Statistical inference for DCC parameters including standard errors and hypothesis testing |
-| `vignette("cgarch_vs_dcc_vignette", package = "tsbs")` | Diagnostic vignette comparing DCC and CGARCH models |
+| `vignette("ms-varma-garch_inference_guide", package = "tsbs")` | Statistical inference for DCC, CGARCH and GOGARCH parameters | 
+| `vignette("cgarch_vs_dcc", package = "tsbs")` | Diagnostic vignette comparing DCC and CGARCH models |
+| `vignette("multivariate_garch_comparison", package = "tsbs")` | Diagnostic vignette comparing DCC, CGARCH and GOGARCH models |
 
 ### Learning from Test Files
 
@@ -171,8 +173,12 @@ system.file("tests", package = "tsbs")
 ```
 
 Key test files include:
-- `test-ms_varma_garch_bs.R` — Comprehensive examples of MS-VARMA-GARCH specifications
-- `test-dcc_gradient.R` — DCC gradient and inference testing
+- `test-ms_varma_garch_bs.R` — Comprehensive examples of MS-VARMA-GARCH specifications  
+- `test-cgarch.R` — Testing the CGARCH integration  
+- `test-gogarch.R` — Testing the GOGARCH integration  
+- `test-blockBootstrap`  
+- `test-hmm_bootstrap`  
+- `test-wild_bootstrap`  
 
 ### Other resources
 
