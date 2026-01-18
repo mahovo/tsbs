@@ -1196,7 +1196,7 @@ compute_copula_residuals <- function(
 #' @param copula_dist Copula distribution ("mvn" or "mvt")
 #' @param use_reparam Logical; if TRUE, params are in reparameterized space
 #' @return Scalar negative log-likelihood
-#' @keywords internal
+#' @export
 copula_nll <- function(
     params,
     z_matrix,
@@ -1432,7 +1432,7 @@ adcc_stationarity <- function(alpha, gamma, beta, delta = 0.5) {
 #' @param Nbar Unconditional covariance of negative shocks (computed if NULL)
 #' @param copula_dist Copula distribution ("mvn" or "mvt")
 #' @return Scalar negative log-likelihood
-#' @keywords internal
+#' @export
 adcc_copula_nll <- function(
     params,
     z_matrix,
@@ -1608,7 +1608,7 @@ adcc_copula_gradient <- function(
 #' @param copula_dist Copula distribution ("mvn" or "mvt")
 #' @param start_pars Optional starting values
 #' @return List with alpha, gamma, beta, shape (if MVT), nll, convergence
-#' @keywords internal
+#' @export
 estimate_adcc_copula <- function(
     z_matrix,
     weights,

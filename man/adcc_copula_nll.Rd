@@ -32,4 +32,3 @@ Scalar negative log-likelihood
 \description{
 Computes the weighted copula NLL for ADCC model.
 }
-\keyword{internal}

@@ -1032,6 +1032,7 @@ estimate_dcc_parameters_weighted <- function(
 #' Extract DCC order (p, q) from parameter names
 #' 
 #' @param dcc_params Named list of DCC parameters (e.g., alpha_1, alpha_2, beta_1)
+#' @description Determines (p, q) order from parameter naming convention.
 #' @return Named vector c(p = ..., q = ...) where q is ARCH order (number of 
 #'   alpha parameters) and p is GARCH order (number of beta parameters)
 #' @keywords internal
@@ -1143,7 +1144,7 @@ compute_dcc_persistence <- function(dcc_params) {
 #' @return List with components:
 #'   \item{is_stationary}{Logical indicating if constraints are satisfied}
 #'   \item{persistence}{Total persistence value}
-#'   \item{reason}{Character description if not stationary, NULL otherwise
+#'   \item{reason}{Character description if not stationary, NULL otherwise}
 #'   \item{details}{Output from compute_dcc_persistence()}
 #' @keywords internal
 check_dcc_stationarity <- function(dcc_params, verbose = FALSE) {

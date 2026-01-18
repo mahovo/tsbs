@@ -25,6 +25,7 @@
 #' @importFrom stats acf ar
 #' @importFrom tsmethods tsfilter
 #' @importFrom Rcpp sourceCpp
+#' @importFrom JADE FOBI
 #' @keywords internal
 "_PACKAGE"
 

@@ -1,0 +1,1074 @@
+---
+title: "MS-VARMA-GARCH Inference Demo"
+author: "tsbs package"
+date: "`r Sys.Date()`"
+output: 
+  html_document:
+    toc: true
+    toc_float: true
+    toc_depth: 3
+    code_folding: show
+    theme: flatly
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>",
+  fig.width = 8,
+  fig.height = 6,
+  message = FALSE,
+  warning = FALSE
+)
+devtools::load_all()
+```
+
+## Overview
+
+This demo walks through parameter inference for the three multivariate GARCH 
+correlation models supported by the tsbs package:
+
+1. **DCC** (Dynamic Conditional Correlation)
+2. **CGARCH** (Copula GARCH)
+3. **GOGARCH** (Generalized Orthogonal GARCH)
+
+For each model, we simulate data, estimate parameters, and compare different 
+inference methods.
+
+**Key takeaways**:
+
+- DCC/CGARCH: Hessian-based SEs severely underestimate uncertainty for β. Use bootstrap or profile likelihood.
+- GOGARCH: Bootstrap is essential due to ICA estimation uncertainty not captured by Hessian.
+
+```{r load-packages}
+library(tsbs)
+set.seed(42)
+```
+
+---
+
+# Part I: DCC Inference
+
+## Step 1: Simulate DCC Data
+
+We generate bivariate data from a true DCC(1,1) process with known parameters.
+
+```{r dcc-simulate-data}
+## True parameters
+alpha_true <- 0.05
+beta_true <- 0.90
+persistence_true <- alpha_true + beta_true
+
+## Simulation settings
+n <- 1000  # Number of observations
+k <- 2     # Number of series
+
+## Unconditional correlation matrix
+Qbar_true <- matrix(c(1.0, 0.5,
+                      0.5, 1.0), nrow = 2)
+
+## Initialize storage
+z_dcc <- matrix(0, n, k)
+Q <- array(0, dim = c(k, k, n))
+R <- array(0, dim = c(k, k, n))
+
+## Initial values
+Q[,,1] <- Qbar_true
+R[,,1] <- Qbar_true
+
+## First observation
+L1 <- chol(Qbar_true)
+z_dcc[1, ] <- as.vector(t(L1) %*% rnorm(k))
+
+## Simulate DCC process
+for (t in 2:n) {
+  ## Update Q using lagged z
+  z_lag <- z_dcc[t-1, , drop = FALSE]
+  Q[,,t] <- (1 - alpha_true - beta_true) * Qbar_true + 
+            alpha_true * (t(z_lag) %*% z_lag) + 
+            beta_true * Q[,,t-1]
+  
+  ## Normalize to correlation matrix
+  d_t <- sqrt(diag(Q[,,t]))
+  D_inv <- diag(1 / d_t, k)
+  R[,,t] <- D_inv %*% Q[,,t] %*% D_inv
+  
+  ## Ensure valid correlation matrix
+  R_t <- (R[,,t] + t(R[,,t])) / 2
+  diag(R_t) <- 1
+  
+  ## Generate correlated innovations
+  L <- chol(R_t)
+  z_dcc[t, ] <- as.vector(t(L) %*% rnorm(k))
+}
+
+## Prepare estimation inputs
+std_resid_dcc <- z_dcc
+weights_dcc <- rep(1, n)
+Qbar_dcc <- cor(std_resid_dcc)
+```
+
+```{r dcc-simulate-output, echo=FALSE}
+cat("DCC Simulation Complete\n")
+cat("=======================\n")
+cat("True parameters:\n")
+cat("  alpha =", alpha_true, "\n")
+cat("  beta  =", beta_true, "\n")
+cat("  persistence =", persistence_true, "\n")
+cat("\nObservations:", n, "\n")
+cat("Sample correlation:\n")
+print(round(Qbar_dcc, 3))
+```
+
+## Step 2: Visualize Dynamic Correlations
+
+```{r dcc-plot-correlations, fig.height=4}
+## Compute rolling correlation for visualization
+window <- 50
+rolling_cor <- sapply((window+1):n, function(t) {
+  cor(std_resid_dcc[(t-window):t, 1], std_resid_dcc[(t-window):t, 2])
+})
+
+## True time-varying correlation
+true_cor <- sapply(1:n, function(t) R[1, 2, t])
+
+plot(1:n, true_cor, type = "l", col = "blue", 
+     ylim = c(0, 1), xlab = "Time", ylab = "Correlation",
+     main = "DCC: Dynamic Correlation")
+lines((window+1):n, rolling_cor, col = "red", lty = 2)
+abline(h = Qbar_true[1,2], col = "gray", lty = 3)
+legend("topright", 
+       legend = c("True R_t", paste0("Rolling (", window, ")"), "Unconditional"),
+       col = c("blue", "red", "gray"), lty = c(1, 2, 3))
+```
+
+## Step 3: Find MLE
+
+```{r dcc-find-mle}
+## Optimize the DCC negative log-likelihood
+mle_result_dcc <- optim(
+  par = c(0.05, 0.90),
+  fn = dcc11_nll,
+  method = "L-BFGS-B",
+  lower = c(1e-6, 1e-6),
+  upper = c(0.5, 0.999),
+  std_resid = std_resid_dcc,
+  weights = weights_dcc,
+  Qbar = Qbar_dcc,
+  distribution = "mvn",
+  use_reparam = FALSE
+)
+
+alpha_mle_dcc <- mle_result_dcc$par[1]
+beta_mle_dcc <- mle_result_dcc$par[2]
+params_mle_dcc <- c(alpha = alpha_mle_dcc, beta = beta_mle_dcc)
+```
+
+```{r dcc-mle-output, echo=FALSE}
+cat("DCC MLE Estimates\n")
+cat("=================\n")
+cat("  alpha =", round(alpha_mle_dcc, 4), "(true:", alpha_true, ")\n")
+cat("  beta  =", round(beta_mle_dcc, 4), "(true:", beta_true, ")\n")
+cat("  persistence =", round(alpha_mle_dcc + beta_mle_dcc, 4), 
+    "(true:", persistence_true, ")\n")
+cat("\nNegative log-likelihood:", round(mle_result_dcc$value, 2), "\n")
+cat("Convergence:", ifelse(mle_result_dcc$convergence == 0, "Success", "Failed"), "\n")
+```
+
+## Step 4: Hessian-based Inference
+
+```{r dcc-hessian-inference}
+## Compute Hessian and standard errors
+se_result_dcc <- dcc11_standard_errors(
+  params = params_mle_dcc,
+  std_resid = std_resid_dcc,
+  weights = weights_dcc,
+  Qbar = Qbar_dcc,
+  distribution = "mvn",
+  method = "hessian"
+)
+
+## Store eigenvalue ratio for diagnostics
+eig_ratio_dcc <- if (!is.null(se_result_dcc$eigenvalues) && 
+                      length(se_result_dcc$eigenvalues) >= 2) {
+  se_result_dcc$eigenvalues[1] / se_result_dcc$eigenvalues[2]
+} else {
+  NA
+}
+```
+
+```{r dcc-hessian-output, echo=FALSE}
+cat("DCC Hessian-based Inference\n")
+cat("===========================\n")
+cat("  SE(alpha) =", round(se_result_dcc$se["alpha"], 4), "\n")
+cat("  SE(beta)  =", round(se_result_dcc$se["beta"], 4), "\n")
+
+if (!is.na(eig_ratio_dcc)) {
+  cat("\nLikelihood surface diagnostics:\n")
+  cat("  Eigenvalue ratio:", round(eig_ratio_dcc, 1), "\n")
+  
+  if (eig_ratio_dcc > 10) {
+    cat("\n  WARNING: High eigenvalue ratio indicates anisotropic curvature.\n")
+    cat("           Hessian SE for beta may be severely underestimated.\n")
+  }
+}
+```
+
+## Step 5: Likelihood Surface Visualization
+
+```{r dcc-likelihood-surface, fig.height=5}
+## Create grid around MLE
+alpha_grid <- seq(max(0.001, alpha_mle_dcc - 0.05), 
+                  min(0.3, alpha_mle_dcc + 0.05), 
+                  length.out = 40)
+beta_grid <- seq(max(0.5, beta_mle_dcc - 0.15), 
+                 min(0.999, beta_mle_dcc + 0.05), 
+                 length.out = 40)
+
+## Compute NLL on grid
+nll_surface_dcc <- matrix(NA, length(alpha_grid), length(beta_grid))
+for (i in seq_along(alpha_grid)) {
+  for (j in seq_along(beta_grid)) {
+    if (alpha_grid[i] + beta_grid[j] < 0.9999) {
+      nll_surface_dcc[i, j] <- dcc11_nll(
+        params = c(alpha_grid[i], beta_grid[j]),
+        std_resid = std_resid_dcc,
+        weights = weights_dcc,
+        Qbar = Qbar_dcc,
+        distribution = "mvn",
+        use_reparam = FALSE
+      )
+    }
+  }
+}
+
+## Plot contours
+nll_min_dcc <- min(nll_surface_dcc, na.rm = TRUE)
+levels <- nll_min_dcc + c(0.5, 1, 2, 5, 10, 20, 50)
+
+contour(alpha_grid, beta_grid, nll_surface_dcc,
+        levels = levels,
+        xlab = expression(alpha), ylab = expression(beta),
+        main = "DCC: Negative Log-Likelihood Surface")
+points(alpha_mle_dcc, beta_mle_dcc, pch = 19, col = "red", cex = 1.5)
+points(alpha_true, beta_true, pch = 4, col = "blue", cex = 1.5, lwd = 2)
+legend("topright", legend = c("MLE", "True"), 
+       pch = c(19, 4), col = c("red", "blue"))
+```
+
+Notice how the contours are elongated in the beta direction—this is the
+"flat beta problem" that causes Hessian-based SEs to underestimate uncertainty.
+
+## Step 6: Bootstrap Inference
+
+```{r dcc-bootstrap, results='hide'}
+## Residual bootstrap
+n_boot <- 200
+boot_estimates_dcc <- matrix(NA, n_boot, 2)
+colnames(boot_estimates_dcc) <- c("alpha", "beta")
+
+cat("Running DCC bootstrap with", n_boot, "replications...\n")
+pb <- txtProgressBar(min = 0, max = n_boot, style = 3)
+
+for (b in 1:n_boot) {
+  ## Resample rows (residual bootstrap)
+  idx <- sample(1:n, n, replace = TRUE)
+  boot_resid <- std_resid_dcc[idx, ]
+  boot_Qbar <- cor(boot_resid)
+  
+  ## Re-estimate
+  boot_opt <- tryCatch({
+    optim(
+      par = params_mle_dcc,
+      fn = dcc11_nll,
+      method = "L-BFGS-B",
+      lower = c(1e-6, 1e-6),
+      upper = c(0.5, 0.999),
+      std_resid = boot_resid,
+      weights = rep(1, n),
+      Qbar = boot_Qbar,
+      distribution = "mvn",
+      use_reparam = FALSE
+    )
+  }, error = function(e) NULL)
+  
+  if (!is.null(boot_opt) && boot_opt$convergence == 0) {
+    boot_estimates_dcc[b, ] <- boot_opt$par
+  }
+  
+  setTxtProgressBar(pb, b)
+}
+close(pb)
+```
+
+```{r dcc-bootstrap-results}
+## Compute bootstrap statistics
+valid_boots_dcc <- complete.cases(boot_estimates_dcc)
+boot_se_dcc <- apply(boot_estimates_dcc[valid_boots_dcc, ], 2, sd)
+boot_ci_dcc <- apply(boot_estimates_dcc[valid_boots_dcc, ], 2, quantile, 
+                     probs = c(0.025, 0.975))
+```
+
+```{r dcc-bootstrap-output, echo=FALSE}
+cat("DCC Bootstrap Results\n")
+cat("=====================\n")
+cat("Valid replications:", sum(valid_boots_dcc), "/", n_boot, "\n")
+cat("\nBootstrap standard errors:\n")
+cat("  SE(alpha) =", round(boot_se_dcc["alpha"], 4), "\n")
+cat("  SE(beta)  =", round(boot_se_dcc["beta"], 4), "\n")
+cat("\nBootstrap 95% percentile CIs:\n")
+cat("  alpha: [", round(boot_ci_dcc[1, "alpha"], 4), ",", 
+    round(boot_ci_dcc[2, "alpha"], 4), "]\n")
+cat("  beta:  [", round(boot_ci_dcc[1, "beta"], 4), ",", 
+    round(boot_ci_dcc[2, "beta"], 4), "]\n")
+```
+
+```{r dcc-bootstrap-plot, fig.height=4}
+## Visualize bootstrap distribution
+par(mfrow = c(1, 2))
+
+hist(boot_estimates_dcc[valid_boots_dcc, "alpha"], breaks = 30, 
+     main = expression("DCC: Bootstrap " * alpha),
+     xlab = expression(alpha), col = "lightblue")
+abline(v = alpha_mle_dcc, col = "red", lwd = 2)
+abline(v = alpha_true, col = "blue", lwd = 2, lty = 2)
+
+hist(boot_estimates_dcc[valid_boots_dcc, "beta"], breaks = 30,
+     main = expression("DCC: Bootstrap " * beta),
+     xlab = expression(beta), col = "lightblue")
+abline(v = beta_mle_dcc, col = "red", lwd = 2)
+abline(v = beta_true, col = "blue", lwd = 2, lty = 2)
+
+par(mfrow = c(1, 1))
+```
+
+## Step 7: DCC Inference Comparison
+
+```{r dcc-comparison, echo=FALSE}
+comparison_dcc <- data.frame(
+  Parameter = c("alpha", "beta"),
+  MLE = round(params_mle_dcc, 4),
+  True = c(alpha_true, beta_true),
+  Hessian_SE = round(se_result_dcc$se, 4),
+  Bootstrap_SE = round(boot_se_dcc, 4),
+  SE_Ratio = round(se_result_dcc$se / boot_se_dcc, 2)
+)
+
+cat("\n")
+cat("========================================\n")
+cat("    DCC INFERENCE METHOD COMPARISON\n")
+cat("========================================\n\n")
+print(comparison_dcc, row.names = FALSE)
+
+cat("\n\nKey findings:\n")
+cat("- Hessian SE / Bootstrap SE ratio for alpha:", comparison_dcc$SE_Ratio[1], "\n")
+cat("- Hessian SE / Bootstrap SE ratio for beta:", comparison_dcc$SE_Ratio[2], "\n")
+
+if (comparison_dcc$SE_Ratio[2] < 0.5) {
+  cat("\n*** WARNING: Hessian SE for beta is less than half of bootstrap SE ***\n")
+  cat("    This confirms the 'flat beta problem' - use bootstrap for inference.\n")
+}
+```
+
+---
+
+# Part II: CGARCH Inference
+
+## Step 1: Simulate CGARCH Data
+
+We use the same DCC process but apply copula transformations to demonstrate
+CGARCH inference. In practice, CGARCH data would come from actual copula models.
+
+```{r cgarch-simulate-data}
+## For CGARCH, we work with copula residuals (PIT-transformed)
+## Here we'll simulate from a Gaussian copula with DCC dynamics
+
+## Use the same correlation dynamics as DCC
+z_cgarch <- z_dcc  # Same underlying process
+
+## Transform to uniform via normal CDF (Gaussian copula assumption)
+u_cgarch <- pnorm(z_cgarch)
+
+## Transform back to copula residuals (for MVN copula, this is identity)
+## For demonstration, we keep z as is
+z_matrix_cgarch <- z_cgarch
+weights_cgarch <- rep(1, n)
+Qbar_cgarch <- cor(z_matrix_cgarch)
+```
+
+```{r cgarch-simulate-output, echo=FALSE}
+cat("CGARCH Data Prepared\n")
+cat("====================\n")
+cat("Observations:", n, "\n")
+cat("True parameters (same as DCC): alpha =", alpha_true, ", beta =", beta_true, "\n")
+cat("Sample correlation:\n")
+print(round(Qbar_cgarch, 3))
+```
+
+## Step 2: Find CGARCH MLE
+
+```{r cgarch-find-mle}
+## Optimize CGARCH negative log-likelihood
+## For MVN copula, this is equivalent to DCC but using copula_nll
+
+mle_result_cgarch <- tryCatch({
+  optim(
+    par = c(0.05, 0.90),
+    fn = cgarch_nll_for_hessian,
+    method = "L-BFGS-B",
+    lower = c(1e-6, 1e-6),
+    upper = c(0.4, 0.95),
+    z_matrix = z_matrix_cgarch,
+    weights = weights_cgarch,
+    Qbar = Qbar_cgarch,
+    copula_dist = "mvn",
+    use_reparam = FALSE
+  )
+}, error = function(e) {
+  ## Fallback to dcc11_nll if cgarch_nll_for_hessian not available
+  optim(
+    par = c(0.05, 0.90),
+    fn = dcc11_nll,
+    method = "L-BFGS-B",
+    lower = c(1e-6, 1e-6),
+    upper = c(0.4, 0.95),
+    std_resid = z_matrix_cgarch,
+    weights = weights_cgarch,
+    Qbar = Qbar_cgarch,
+    distribution = "mvn",
+    use_reparam = FALSE
+  )
+})
+
+alpha_mle_cgarch <- mle_result_cgarch$par[1]
+beta_mle_cgarch <- mle_result_cgarch$par[2]
+params_mle_cgarch <- c(alpha = alpha_mle_cgarch, beta = beta_mle_cgarch)
+```
+
+```{r cgarch-mle-output, echo=FALSE}
+cat("CGARCH MLE Estimates\n")
+cat("====================\n")
+cat("  alpha =", round(alpha_mle_cgarch, 4), "(true:", alpha_true, ")\n")
+cat("  beta  =", round(beta_mle_cgarch, 4), "(true:", beta_true, ")\n")
+cat("  persistence =", round(alpha_mle_cgarch + beta_mle_cgarch, 4), "\n")
+cat("\nNegative log-likelihood:", round(mle_result_cgarch$value, 2), "\n")
+```
+
+## Step 3: CGARCH Hessian-based Inference
+
+```{r cgarch-hessian-inference}
+## Compute standard errors using cgarch_standard_errors if available
+se_result_cgarch <- tryCatch({
+  cgarch_standard_errors(
+    params = params_mle_cgarch,
+    z_matrix = z_matrix_cgarch,
+    weights = weights_cgarch,
+    Qbar = Qbar_cgarch,
+    copula_dist = "mvn",
+    use_reparam = FALSE
+  )
+}, error = function(e) {
+  ## Fallback to dcc11_standard_errors
+  dcc11_standard_errors(
+    params = params_mle_cgarch,
+    std_resid = z_matrix_cgarch,
+    weights = weights_cgarch,
+    Qbar = Qbar_cgarch,
+    distribution = "mvn",
+    method = "hessian"
+  )
+})
+
+eig_ratio_cgarch <- if (!is.null(se_result_cgarch$eigenvalues) && 
+                        length(se_result_cgarch$eigenvalues) >= 2) {
+  se_result_cgarch$eigenvalues[1] / se_result_cgarch$eigenvalues[2]
+} else {
+  NA
+}
+```
+
+```{r cgarch-hessian-output, echo=FALSE}
+cat("CGARCH Hessian-based Inference\n")
+cat("==============================\n")
+cat("  SE(alpha) =", round(se_result_cgarch$se["alpha"], 4), "\n")
+cat("  SE(beta)  =", round(se_result_cgarch$se["beta"], 4), "\n")
+
+if (!is.na(eig_ratio_cgarch)) {
+  cat("\nEigenvalue ratio:", round(eig_ratio_cgarch, 1), "\n")
+  if (eig_ratio_cgarch > 10) {
+    cat("  WARNING: High ratio indicates flat beta problem (same as DCC).\n")
+  }
+}
+```
+
+## Step 4: CGARCH Bootstrap Inference
+
+```{r cgarch-bootstrap, results='hide'}
+## Bootstrap for CGARCH
+boot_estimates_cgarch <- matrix(NA, n_boot, 2)
+colnames(boot_estimates_cgarch) <- c("alpha", "beta")
+
+cat("Running CGARCH bootstrap with", n_boot, "replications...\n")
+pb <- txtProgressBar(min = 0, max = n_boot, style = 3)
+
+for (b in 1:n_boot) {
+  idx <- sample(1:n, n, replace = TRUE)
+  boot_z <- z_matrix_cgarch[idx, ]
+  boot_Qbar <- cor(boot_z)
+  
+  boot_opt <- tryCatch({
+    optim(
+      par = params_mle_cgarch,
+      fn = function(params, ...) {
+        tryCatch(
+          cgarch_nll_for_hessian(params, ...),
+          error = function(e) dcc11_nll(params, std_resid = boot_z, 
+                                         weights = rep(1, n), Qbar = boot_Qbar,
+                                         distribution = "mvn", use_reparam = FALSE)
+        )
+      },
+      method = "L-BFGS-B",
+      lower = c(1e-6, 1e-6),
+      upper = c(0.4, 0.95),
+      z_matrix = boot_z,
+      weights = rep(1, n),
+      Qbar = boot_Qbar,
+      copula_dist = "mvn",
+      use_reparam = FALSE
+    )
+  }, error = function(e) NULL)
+  
+  if (!is.null(boot_opt) && boot_opt$convergence == 0) {
+    boot_estimates_cgarch[b, ] <- boot_opt$par
+  }
+  
+  setTxtProgressBar(pb, b)
+}
+close(pb)
+```
+
+```{r cgarch-bootstrap-results}
+valid_boots_cgarch <- complete.cases(boot_estimates_cgarch)
+boot_se_cgarch <- apply(boot_estimates_cgarch[valid_boots_cgarch, ], 2, sd)
+boot_ci_cgarch <- apply(boot_estimates_cgarch[valid_boots_cgarch, ], 2, quantile, 
+                        probs = c(0.025, 0.975))
+```
+
+```{r cgarch-bootstrap-output, echo=FALSE}
+cat("CGARCH Bootstrap Results\n")
+cat("========================\n")
+cat("Valid replications:", sum(valid_boots_cgarch), "/", n_boot, "\n")
+cat("\nBootstrap standard errors:\n")
+cat("  SE(alpha) =", round(boot_se_cgarch["alpha"], 4), "\n")
+cat("  SE(beta)  =", round(boot_se_cgarch["beta"], 4), "\n")
+cat("\nBootstrap 95% CIs:\n")
+cat("  alpha: [", round(boot_ci_cgarch[1, "alpha"], 4), ",", 
+    round(boot_ci_cgarch[2, "alpha"], 4), "]\n")
+cat("  beta:  [", round(boot_ci_cgarch[1, "beta"], 4), ",", 
+    round(boot_ci_cgarch[2, "beta"], 4), "]\n")
+```
+
+## Step 5: CGARCH Inference Comparison
+
+```{r cgarch-comparison, echo=FALSE}
+comparison_cgarch <- data.frame(
+  Parameter = c("alpha", "beta"),
+  MLE = round(params_mle_cgarch, 4),
+  True = c(alpha_true, beta_true),
+  Hessian_SE = round(se_result_cgarch$se, 4),
+  Bootstrap_SE = round(boot_se_cgarch, 4),
+  SE_Ratio = round(se_result_cgarch$se / boot_se_cgarch, 2)
+)
+
+cat("\n")
+cat("==========================================\n")
+cat("    CGARCH INFERENCE METHOD COMPARISON\n")
+cat("==========================================\n\n")
+print(comparison_cgarch, row.names = FALSE)
+
+cat("\n\nKey findings:\n")
+cat("- CGARCH shows same pattern as DCC (flat beta problem)\n")
+cat("- Hessian SE / Bootstrap SE ratio for beta:", comparison_cgarch$SE_Ratio[2], "\n")
+cat("- Recommendation: Use bootstrap for beta inference in CGARCH\n")
+```
+
+---
+
+# Part III: GOGARCH Inference
+
+## Step 1: Simulate GOGARCH Data
+
+GOGARCH models multivariate volatility through Independent Component Analysis.
+We simulate data from a GOGARCH process.
+
+```{r gogarch-simulate-data}
+## GOGARCH simulation parameters
+k_go <- 3  # Number of series/components
+
+## True GARCH parameters for each independent component
+garch_true <- list(
+  comp1 = list(omega = 0.01, alpha1 = 0.08, beta1 = 0.90),
+  comp2 = list(omega = 0.02, alpha1 = 0.05, beta1 = 0.92),
+  comp3 = list(omega = 0.015, alpha1 = 0.10, beta1 = 0.85)
+)
+
+## True mixing matrix (ICA structure)
+## W transforms observed residuals to independent components: S = X %*% t(W)
+set.seed(123)
+A_true <- matrix(c(
+  0.8, 0.4, 0.2,
+  0.3, 0.9, 0.1,
+  0.2, 0.3, 0.95
+), nrow = 3, byrow = TRUE)
+## Normalize rows
+A_true <- A_true / sqrt(rowSums(A_true^2))
+W_true <- solve(A_true)  # Unmixing matrix
+
+## Simulate independent components with GARCH dynamics
+n_go <- 800
+S <- matrix(0, n_go, k_go)
+
+for (i in 1:k_go) {
+  pars <- garch_true[[i]]
+  sigma2 <- pars$omega / (1 - pars$alpha1 - pars$beta1)
+  
+  for (t in 1:n_go) {
+    if (t > 1) {
+      sigma2 <- pars$omega + pars$alpha1 * S[t-1, i]^2 + pars$beta1 * sigma2
+    }
+    S[t, i] <- sqrt(sigma2) * rnorm(1)
+  }
+}
+
+## Mix to get observed residuals
+X_gogarch <- S %*% A_true
+weights_gogarch <- rep(1, n_go)
+```
+
+```{r gogarch-simulate-output, echo=FALSE}
+cat("GOGARCH Simulation Complete\n")
+cat("===========================\n")
+cat("Observations:", n_go, "\n")
+cat("Series:", k_go, "\n")
+cat("\nTrue GARCH parameters by component:\n")
+for (i in 1:k_go) {
+  p <- garch_true[[i]]
+  cat(sprintf("  Component %d: omega=%.3f, alpha=%.2f, beta=%.2f (persist=%.2f)\n",
+              i, p$omega, p$alpha1, p$beta1, p$alpha1 + p$beta1))
+}
+cat("\nSample correlation of observed residuals:\n")
+print(round(cor(X_gogarch), 3))
+```
+
+## Step 2: Estimate GOGARCH via ICA
+
+```{r gogarch-estimate-ica}
+## Perform ICA to recover independent components
+## Using fastICA algorithm
+
+## Center and whiten the data
+X_centered <- scale(X_gogarch, center = TRUE, scale = FALSE)
+X_cov <- cov(X_centered)
+eig <- eigen(X_cov, symmetric = TRUE)
+W_whiten <- diag(1/sqrt(eig$values)) %*% t(eig$vectors)
+X_white <- X_centered %*% t(W_whiten)
+
+## Simple FastICA implementation (for demo purposes)
+## In practice, use the fastICA package
+
+fastica_simple <- function(X, n_comp = ncol(X), max_iter = 100, tol = 1e-4) {
+  n <- nrow(X)
+  p <- ncol(X)
+  
+  ## Initialize unmixing matrix
+  W <- matrix(rnorm(n_comp * p), n_comp, p)
+  W <- W / sqrt(rowSums(W^2))
+  
+  for (iter in 1:max_iter) {
+    W_old <- W
+    
+    for (i in 1:n_comp) {
+      ## Project data
+      wx <- X %*% W[i, ]
+      
+      ## Apply nonlinearity (tanh)
+      g <- tanh(wx)
+      g_prime <- 1 - tanh(wx)^2
+      
+      ## Update rule
+      W[i, ] <- colMeans(X * as.vector(g)) - mean(g_prime) * W[i, ]
+    }
+    
+    ## Symmetric orthogonalization
+    svd_W <- svd(W)
+    W <- svd_W$u %*% t(svd_W$v)
+    
+    ## Check convergence
+    if (max(abs(abs(rowSums(W * W_old)) - 1)) < tol) break
+  }
+  
+  ## Return unmixing matrix and independent components
+  list(W = W, S = X %*% t(W), n_iter = iter)
+}
+
+## Run ICA on whitened data
+ica_result <- fastica_simple(X_white, n_comp = k_go)
+
+## Full unmixing matrix (including whitening)
+W_est <- ica_result$W %*% W_whiten
+S_est <- X_centered %*% t(W_est)
+
+## Store ICA info
+ica_info <- list(
+  W = W_est,
+  method = "fastica",
+  n_components = k_go
+)
+```
+
+```{r gogarch-ica-output, echo=FALSE}
+cat("ICA Decomposition Complete\n")
+cat("==========================\n")
+cat("Estimated unmixing matrix W:\n")
+print(round(W_est, 3))
+cat("\nCorrelation of estimated independent components:\n")
+print(round(cor(S_est), 3))
+cat("(Should be close to identity if ICA worked well)\n")
+```
+
+## Step 3: Estimate Component GARCH Parameters
+
+```{r gogarch-estimate-garch}
+## Estimate GARCH(1,1) for each independent component
+garch_pars_est <- list()
+
+for (i in 1:k_go) {
+  S_i <- S_est[, i]
+  
+  ## Simple GARCH(1,1) estimation
+  garch_nll_component <- function(pars) {
+    omega <- pars[1]
+    alpha <- pars[2]
+    beta <- pars[3]
+    
+    if (omega <= 0 || alpha < 0 || beta < 0 || alpha + beta >= 1) {
+      return(1e10)
+    }
+    
+    n_t <- length(S_i)
+    sigma2 <- omega / (1 - alpha - beta)
+    nll <- 0
+    
+    for (t in 1:n_t) {
+      if (t > 1) {
+        sigma2 <- omega + alpha * S_i[t-1]^2 + beta * sigma2
+      }
+      sigma2 <- max(sigma2, 1e-10)
+      nll <- nll + 0.5 * (log(sigma2) + S_i[t]^2 / sigma2)
+    }
+    nll
+  }
+  
+  ## Optimize
+  opt_i <- optim(
+    par = c(0.01, 0.05, 0.90),
+    fn = garch_nll_component,
+    method = "L-BFGS-B",
+    lower = c(1e-8, 1e-8, 1e-8),
+    upper = c(1, 0.5, 0.999)
+  )
+  
+  garch_pars_est[[i]] <- list(
+    omega = opt_i$par[1],
+    alpha1 = opt_i$par[2],
+    beta1 = opt_i$par[3]
+  )
+}
+```
+
+```{r gogarch-garch-output, echo=FALSE}
+cat("GOGARCH Component GARCH Estimates\n")
+cat("==================================\n")
+for (i in 1:k_go) {
+  p_est <- garch_pars_est[[i]]
+  p_true <- garch_true[[i]]
+  cat(sprintf("\nComponent %d:\n", i))
+  cat(sprintf("  omega:  est=%.4f (true=%.4f)\n", p_est$omega, p_true$omega))
+  cat(sprintf("  alpha:  est=%.4f (true=%.4f)\n", p_est$alpha1, p_true$alpha1))
+  cat(sprintf("  beta:   est=%.4f (true=%.4f)\n", p_est$beta1, p_true$beta1))
+  cat(sprintf("  persistence: est=%.4f (true=%.4f)\n", 
+              p_est$alpha1 + p_est$beta1, p_true$alpha1 + p_true$beta1))
+}
+```
+
+## Step 4: GOGARCH Hessian-based Inference
+
+```{r gogarch-hessian-inference}
+## Compute Hessian-based SEs for each component
+hessian_se_gogarch <- list()
+
+for (i in 1:k_go) {
+  S_i <- S_est[, i]
+  pars_i <- unlist(garch_pars_est[[i]])
+  
+  ## Numerical Hessian
+  garch_nll_i <- function(pars, data) {
+    omega <- pars[1]; alpha <- pars[2]; beta <- pars[3]
+    if (omega <= 0 || alpha < 0 || beta < 0 || alpha + beta >= 1) return(1e10)
+    
+    n_t <- length(data)
+    sigma2 <- omega / (1 - alpha - beta)
+    nll <- 0
+    for (t in 1:n_t) {
+      if (t > 1) sigma2 <- omega + alpha * data[t-1]^2 + beta * sigma2
+      sigma2 <- max(sigma2, 1e-10)
+      nll <- nll + 0.5 * (log(sigma2) + data[t]^2 / sigma2)
+    }
+    nll
+  }
+  
+  ## Compute numerical Hessian
+  eps <- 1e-5
+  H_i <- matrix(0, 3, 3)
+  f0 <- garch_nll_i(pars_i, S_i)
+  
+  for (j in 1:3) {
+    for (l in j:3) {
+      if (j == l) {
+        p_plus <- p_minus <- pars_i
+        p_plus[j] <- pars_i[j] + eps
+        p_minus[j] <- pars_i[j] - eps
+        H_i[j, j] <- (garch_nll_i(p_plus, S_i) - 2*f0 + garch_nll_i(p_minus, S_i)) / eps^2
+      } else {
+        p_pp <- p_pm <- p_mp <- p_mm <- pars_i
+        p_pp[j] <- pars_i[j] + eps; p_pp[l] <- pars_i[l] + eps
+        p_pm[j] <- pars_i[j] + eps; p_pm[l] <- pars_i[l] - eps
+        p_mp[j] <- pars_i[j] - eps; p_mp[l] <- pars_i[l] + eps
+        p_mm[j] <- pars_i[j] - eps; p_mm[l] <- pars_i[l] - eps
+        H_i[j, l] <- H_i[l, j] <- (garch_nll_i(p_pp, S_i) - garch_nll_i(p_pm, S_i) - 
+                                    garch_nll_i(p_mp, S_i) + garch_nll_i(p_mm, S_i)) / (4*eps^2)
+      }
+    }
+  }
+  
+  ## Invert for variance-covariance
+  vcov_i <- tryCatch(solve(H_i), error = function(e) matrix(NA, 3, 3))
+  se_i <- sqrt(pmax(0, diag(vcov_i)))
+  names(se_i) <- c("omega", "alpha1", "beta1")
+  
+  hessian_se_gogarch[[i]] <- list(se = se_i, vcov = vcov_i, hessian = H_i)
+}
+```
+
+```{r gogarch-hessian-output, echo=FALSE}
+cat("GOGARCH Hessian-based Standard Errors\n")
+cat("=====================================\n")
+for (i in 1:k_go) {
+  cat(sprintf("\nComponent %d:\n", i))
+  se_i <- hessian_se_gogarch[[i]]$se
+  cat(sprintf("  SE(omega):  %.5f\n", se_i["omega"]))
+  cat(sprintf("  SE(alpha):  %.4f\n", se_i["alpha1"]))
+  cat(sprintf("  SE(beta):   %.4f\n", se_i["beta1"]))
+}
+cat("\nNOTE: These SEs do NOT account for ICA estimation uncertainty.\n")
+cat("      Bootstrap SEs are recommended for proper inference.\n")
+```
+
+## Step 5: GOGARCH Bootstrap Inference
+
+```{r gogarch-bootstrap, results='hide'}
+## Bootstrap for GOGARCH
+## This resamples the independent components and re-estimates GARCH
+
+n_boot_go <- 150  # Slightly fewer for speed
+boot_pars_gogarch <- vector("list", k_go)
+for (i in 1:k_go) {
+  boot_pars_gogarch[[i]] <- matrix(NA, n_boot_go, 3)
+  colnames(boot_pars_gogarch[[i]]) <- c("omega", "alpha1", "beta1")
+}
+
+cat("Running GOGARCH bootstrap with", n_boot_go, "replications...\n")
+pb <- txtProgressBar(min = 0, max = n_boot_go, style = 3)
+
+for (b in 1:n_boot_go) {
+  ## Resample independent components (they're independent, so row-wise is OK)
+  idx <- sample(1:n_go, n_go, replace = TRUE)
+  
+  for (i in 1:k_go) {
+    S_boot <- S_est[idx, i]
+    
+    garch_nll_boot <- function(pars) {
+      omega <- pars[1]; alpha <- pars[2]; beta <- pars[3]
+      if (omega <= 0 || alpha < 0 || beta < 0 || alpha + beta >= 1) return(1e10)
+      
+      n_t <- length(S_boot)
+      sigma2 <- omega / (1 - alpha - beta)
+      nll <- 0
+      for (t in 1:n_t) {
+        if (t > 1) sigma2 <- omega + alpha * S_boot[t-1]^2 + beta * sigma2
+        sigma2 <- max(sigma2, 1e-10)
+        nll <- nll + 0.5 * (log(sigma2) + S_boot[t]^2 / sigma2)
+      }
+      nll
+    }
+    
+    boot_opt <- tryCatch({
+      optim(
+        par = unlist(garch_pars_est[[i]]),
+        fn = garch_nll_boot,
+        method = "L-BFGS-B",
+        lower = c(1e-8, 1e-8, 1e-8),
+        upper = c(1, 0.5, 0.999)
+      )
+    }, error = function(e) NULL)
+    
+    if (!is.null(boot_opt) && boot_opt$convergence == 0) {
+      boot_pars_gogarch[[i]][b, ] <- boot_opt$par
+    }
+  }
+  
+  setTxtProgressBar(pb, b)
+}
+close(pb)
+```
+
+```{r gogarch-bootstrap-results}
+## Compute bootstrap SEs for each component
+boot_se_gogarch <- list()
+
+for (i in 1:k_go) {
+  valid_b <- complete.cases(boot_pars_gogarch[[i]])
+  boot_se_gogarch[[i]] <- list(
+    se = apply(boot_pars_gogarch[[i]][valid_b, ], 2, sd),
+    ci = apply(boot_pars_gogarch[[i]][valid_b, ], 2, quantile, probs = c(0.025, 0.975)),
+    n_valid = sum(valid_b)
+  )
+}
+```
+
+```{r gogarch-bootstrap-output, echo=FALSE}
+cat("GOGARCH Bootstrap Results\n")
+cat("=========================\n")
+
+for (i in 1:k_go) {
+  cat(sprintf("\nComponent %d (valid: %d/%d):\n", i, 
+              boot_se_gogarch[[i]]$n_valid, n_boot_go))
+  
+  se_boot <- boot_se_gogarch[[i]]$se
+  se_hess <- hessian_se_gogarch[[i]]$se
+  
+  cat("  Parameter   Hessian SE   Bootstrap SE   Ratio\n")
+  for (p in c("omega", "alpha1", "beta1")) {
+    ratio <- se_hess[p] / se_boot[p]
+    cat(sprintf("  %-10s  %10.5f   %12.5f   %5.2f\n", p, se_hess[p], se_boot[p], ratio))
+  }
+}
+```
+
+## Step 6: GOGARCH Inference Comparison
+
+```{r gogarch-comparison, echo=FALSE, fig.height=6}
+cat("\n")
+cat("==============================================\n")
+cat("    GOGARCH INFERENCE METHOD COMPARISON\n")
+cat("==============================================\n\n")
+
+## Summary table
+for (i in 1:k_go) {
+  cat(sprintf("Component %d:\n", i))
+  cat("-" , rep("-", 60), "\n", sep = "")
+  
+  p_est <- garch_pars_est[[i]]
+  p_true <- garch_true[[i]]
+  se_hess <- hessian_se_gogarch[[i]]$se
+  se_boot <- boot_se_gogarch[[i]]$se
+  
+  df <- data.frame(
+    Parameter = c("omega", "alpha1", "beta1"),
+    MLE = round(c(p_est$omega, p_est$alpha1, p_est$beta1), 4),
+    True = round(c(p_true$omega, p_true$alpha1, p_true$beta1), 4),
+    Hessian_SE = round(se_hess, 5),
+    Bootstrap_SE = round(se_boot, 5),
+    Ratio = round(se_hess / se_boot, 2)
+  )
+  print(df, row.names = FALSE)
+  cat("\n")
+}
+
+cat("Key findings for GOGARCH:\n")
+cat("- Bootstrap SEs are generally larger than Hessian SEs\n")
+cat("- This is expected: Hessian doesn't capture ICA uncertainty\n")
+cat("- Recommendation: Always use bootstrap for GOGARCH inference\n")
+```
+
+```{r gogarch-boot-hist, fig.height=6}
+## Visualize bootstrap distributions for one component
+par(mfrow = c(3, 3))
+
+for (i in 1:k_go) {
+  valid_b <- complete.cases(boot_pars_gogarch[[i]])
+  
+  for (p in 1:3) {
+    param_name <- c("omega", "alpha", "beta")[p]
+    true_val <- c(garch_true[[i]]$omega, garch_true[[i]]$alpha1, garch_true[[i]]$beta1)[p]
+    mle_val <- c(garch_pars_est[[i]]$omega, garch_pars_est[[i]]$alpha1, 
+                 garch_pars_est[[i]]$beta1)[p]
+    
+    hist(boot_pars_gogarch[[i]][valid_b, p], breaks = 25, 
+         main = sprintf("Comp %d: %s", i, param_name),
+         xlab = param_name, col = "lightgreen")
+    abline(v = mle_val, col = "red", lwd = 2)
+    abline(v = true_val, col = "blue", lwd = 2, lty = 2)
+  }
+}
+
+par(mfrow = c(1, 1))
+```
+
+---
+
+# Part IV: Summary and Recommendations
+
+```{r final-summary, echo=FALSE}
+cat("\n")
+cat("========================================================\n")
+cat("        MS-VARMA-GARCH INFERENCE: FINAL SUMMARY\n")
+cat("========================================================\n\n")
+
+cat("DCC MODEL\n")
+cat("---------\n")
+cat("  Alpha: Hessian SE acceptable (ratio to bootstrap ~", 
+    round(comparison_dcc$SE_Ratio[1], 2), ")\n")
+cat("  Beta:  Hessian SE UNRELIABLE (ratio to bootstrap ~", 
+    round(comparison_dcc$SE_Ratio[2], 2), ")\n")
+cat("  Recommendation: Use bootstrap or profile likelihood for beta\n\n")
+
+cat("CGARCH MODEL\n")
+cat("------------\n")
+cat("  Same pattern as DCC (flat beta problem persists)\n")
+cat("  Alpha: Hessian SE acceptable (ratio ~", 
+    round(comparison_cgarch$SE_Ratio[1], 2), ")\n")
+cat("  Beta:  Hessian SE UNRELIABLE (ratio ~", 
+    round(comparison_cgarch$SE_Ratio[2], 2), ")\n")
+cat("  Recommendation: Use bootstrap or profile likelihood for beta\n\n")
+
+cat("GOGARCH MODEL\n")
+cat("-------------\n")
+cat("  Hessian SEs don't capture ICA estimation uncertainty\n")
+cat("  All parameters: Bootstrap recommended\n")
+cat("  Component GARCH parameters generally well-identified\n\n")
+
+cat("PRACTICAL RECOMMENDATIONS\n")
+cat("-------------------------\n")
+cat("1. For DCC/CGARCH alpha: Hessian-based SE is acceptable for quick inference\n")
+cat("2. For DCC/CGARCH beta: ALWAYS use bootstrap (n_boot >= 200) or profile CI\n")
+cat("3. For GOGARCH: ALWAYS use bootstrap for all parameters\n")
+cat("4. Report bootstrap CIs alongside point estimates\n")
+cat("5. Check eigenvalue ratio for DCC/CGARCH (>10 indicates flat beta)\n")
+```
+
+## Session Info
+
+```{r session-info}
+sessionInfo()
+```

@@ -25,37 +25,37 @@
 
 ## SECTION 1: DCC Order Detection and Persistence Computation ==================
 
-#' @title Extract DCC Order from Parameter Names
-#' @description Determines (p, q) order from parameter naming convention.
-#' @param dcc_params Named list of DCC parameters (e.g., list(alpha_1 = 0.05, beta_1 = 0.9))
-#' @return Named vector c(p = ..., q = ...) where p is GARCH order (beta count)
-#'   and q is ARCH order (alpha count)
-#' @keywords internal
-get_dcc_order <- function(dcc_params) {
-  if (is.null(dcc_params) || length(dcc_params) == 0) {
-    return(c(p = 0, q = 0))
-  }
-  
-  param_names <- names(dcc_params)
-  
-  alpha_names <- param_names[grepl("^alpha_[0-9]+$", param_names)]
-  if (length(alpha_names) > 0) {
-    alpha_indices <- as.integer(gsub("^alpha_", "", alpha_names))
-    q_order <- max(alpha_indices, na.rm = TRUE)
-  } else {
-    q_order <- 0
-  }
-  
-  beta_names <- param_names[grepl("^beta_[0-9]+$", param_names)]
-  if (length(beta_names) > 0) {
-    beta_indices <- as.integer(gsub("^beta_", "", beta_names))
-    p_order <- max(beta_indices, na.rm = TRUE)
-  } else {
-    p_order <- 0
-  }
-  
-  return(c(p = p_order, q = q_order))
-}
+# #' @title Extract DCC Order from Parameter Names
+# #' @description Determines (p, q) order from parameter naming convention.
+# #' @param dcc_params Named list of DCC parameters (e.g., list(alpha_1 = 0.05, beta_1 = 0.9))
+# #' @return Named vector c(p = ..., q = ...) where p is GARCH order (beta count)
+# #'   and q is ARCH order (alpha count)
+# #' @keywords internal
+# get_dcc_order <- function(dcc_params) {
+#   if (is.null(dcc_params) || length(dcc_params) == 0) {
+#     return(c(p = 0, q = 0))
+#   }
+#   
+#   param_names <- names(dcc_params)
+#   
+#   alpha_names <- param_names[grepl("^alpha_[0-9]+$", param_names)]
+#   if (length(alpha_names) > 0) {
+#     alpha_indices <- as.integer(gsub("^alpha_", "", alpha_names))
+#     q_order <- max(alpha_indices, na.rm = TRUE)
+#   } else {
+#     q_order <- 0
+#   }
+#   
+#   beta_names <- param_names[grepl("^beta_[0-9]+$", param_names)]
+#   if (length(beta_names) > 0) {
+#     beta_indices <- as.integer(gsub("^beta_", "", beta_names))
+#     p_order <- max(beta_indices, na.rm = TRUE)
+#   } else {
+#     p_order <- 0
+#   }
+#   
+#   return(c(p = p_order, q = q_order))
+# }
 
 
 #' @title Check if DCC Order is (1,1)
@@ -128,53 +128,53 @@ compute_dcc_persistence <- function(dcc_params) {
 }
 
 
-#' @title Check DCC Stationarity Constraints
-#' @description Verifies that DCC parameters satisfy stationarity conditions.
-#' @param dcc_params Named list of DCC parameters
-#' @param verbose Logical; if TRUE, print diagnostic messages
-#' @return List with components:
-#'   \item{is_stationary}{Logical}
-#'   \item{persistence}{Total persistence value}
-#'   \item{reason}{Character description if not stationary, NULL otherwise}
-#'   \item{details}{Output from compute_dcc_persistence()}
-#' @keywords internal
-check_dcc_stationarity <- function(dcc_params, verbose = FALSE) {
-  pers <- compute_dcc_persistence(dcc_params)
-  
-  ## Check alpha positivity
-  if (length(pers$alphas) > 0 && any(pers$alphas < 0)) {
-    neg_idx <- which(pers$alphas < 0)
-    reason <- sprintf("negative alpha at index %s (values: %s)",
-                      paste(neg_idx, collapse = ", "),
-                      paste(round(pers$alphas[neg_idx], 6), collapse = ", "))
-    if (verbose) cat("*** Stationarity violation:", reason, "***\n")
-    return(list(is_stationary = FALSE, persistence = pers$persistence,
-                reason = reason, details = pers))
-  }
-  
-  ## Check beta positivity
-  if (length(pers$betas) > 0 && any(pers$betas < 0)) {
-    neg_idx <- which(pers$betas < 0)
-    reason <- sprintf("negative beta at index %s (values: %s)",
-                      paste(neg_idx, collapse = ", "),
-                      paste(round(pers$betas[neg_idx], 6), collapse = ", "))
-    if (verbose) cat("*** Stationarity violation:", reason, "***\n")
-    return(list(is_stationary = FALSE, persistence = pers$persistence,
-                reason = reason, details = pers))
-  }
-  
-  ## Check persistence < 1
-  if (pers$persistence >= 1) {
-    reason <- sprintf("non-stationary (persistence = %.6f >= 1)",
-                      pers$persistence)
-    if (verbose) cat("*** Stationarity violation:", reason, "***\n")
-    return(list(is_stationary = FALSE, persistence = pers$persistence,
-                reason = reason, details = pers))
-  }
-  
-  return(list(is_stationary = TRUE, persistence = pers$persistence,
-              reason = NULL, details = pers))
-}
+# #' @title Check DCC Stationarity Constraints
+# #' @description Verifies that DCC parameters satisfy stationarity conditions.
+# #' @param dcc_params Named list of DCC parameters
+# #' @param verbose Logical; if TRUE, print diagnostic messages
+# #' @return List with components:
+# #'   \item{is_stationary}{Logical}
+# #'   \item{persistence}{Total persistence value}
+# #'   \item{reason}{Character description if not stationary, NULL otherwise}
+# #'   \item{details}{Output from compute_dcc_persistence()}
+# #' @keywords internal
+# check_dcc_stationarity <- function(dcc_params, verbose = FALSE) {
+#   pers <- compute_dcc_persistence(dcc_params)
+#   
+#   ## Check alpha positivity
+#   if (length(pers$alphas) > 0 && any(pers$alphas < 0)) {
+#     neg_idx <- which(pers$alphas < 0)
+#     reason <- sprintf("negative alpha at index %s (values: %s)",
+#                       paste(neg_idx, collapse = ", "),
+#                       paste(round(pers$alphas[neg_idx], 6), collapse = ", "))
+#     if (verbose) cat("*** Stationarity violation:", reason, "***\n")
+#     return(list(is_stationary = FALSE, persistence = pers$persistence,
+#                 reason = reason, details = pers))
+#   }
+#   
+#   ## Check beta positivity
+#   if (length(pers$betas) > 0 && any(pers$betas < 0)) {
+#     neg_idx <- which(pers$betas < 0)
+#     reason <- sprintf("negative beta at index %s (values: %s)",
+#                       paste(neg_idx, collapse = ", "),
+#                       paste(round(pers$betas[neg_idx], 6), collapse = ", "))
+#     if (verbose) cat("*** Stationarity violation:", reason, "***\n")
+#     return(list(is_stationary = FALSE, persistence = pers$persistence,
+#                 reason = reason, details = pers))
+#   }
+#   
+#   ## Check persistence < 1
+#   if (pers$persistence >= 1) {
+#     reason <- sprintf("non-stationary (persistence = %.6f >= 1)",
+#                       pers$persistence)
+#     if (verbose) cat("*** Stationarity violation:", reason, "***\n")
+#     return(list(is_stationary = FALSE, persistence = pers$persistence,
+#                 reason = reason, details = pers))
+#   }
+#   
+#   return(list(is_stationary = TRUE, persistence = pers$persistence,
+#               reason = NULL, details = pers))
+# }
 
 
 ## SECTION 2: DCC(1,1) Reparameterization ======================================

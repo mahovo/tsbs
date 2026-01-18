@@ -26,6 +26,7 @@ Imports:
     future.apply,
     mvtnorm,
     ggplot2,
+    JADE
 Suggests: 
     knitr,
     rmarkdown

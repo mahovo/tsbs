@@ -4,32 +4,63 @@
 \alias{extract_param_trajectory}
 \title{Extract Parameter Trajectory}
 \usage{
-extract_param_trajectory(diagnostics, state, param_name, series = NULL)
+extract_param_trajectory(
+  diagnostics,
+  state,
+  param_name,
+  series = NULL,
+  component = NULL,
+  model_type = c("auto", "dcc", "cgarch", "gogarch")
+)
 }
 \arguments{
 \item{diagnostics}{An object of class \code{ms_diagnostics}}
 
 \item{state}{Integer state index}
 
-\item{param_name}{Character string specifying parameter name (e.g., "alpha_1", "omega")}
+\item{param_name}{Character string specifying parameter name. For single parameter
+extraction use names like "alpha_1", "beta_1", "gamma_1", "shape", "omega".
+Use "all" to extract all relevant correlation parameters based on model type.}
 
-\item{series}{Optional integer for series-specific parameters (for multivariate models)}
+\item{series}{Optional integer for series-specific GARCH parameters (omega, alpha1, beta1)}
+
+\item{component}{Optional integer for GOGARCH component-specific parameters}
+
+\item{model_type}{Character: model type override. One of "auto" (default), "dcc",
+"cgarch", or "gogarch". When "auto", attempts to detect from diagnostics.}
 }
 \value{
-A data.frame with columns \code{iteration} and \code{value}, or NULL if not found
+For single parameter: a data.frame with columns \code{iteration} and \code{value}.
+For "all": a data.frame with iteration and all relevant parameters as columns.
+Returns NULL if parameter not found.
 }
 \description{
-Extract the evolution of a specific parameter across EM iterations for a given state.
+Extract the evolution of parameters across EM iterations for a given state.
+Supports DCC, CGARCH, and GOGARCH model types with automatic detection.
+}
+\details{
+The function extracts different parameters depending on model type:
+\itemize{
+\item \strong{DCC}: alpha_1, beta_1 (correlation dynamics), shape (if MVT)
+\item \strong{CGARCH}: alpha_1, beta_1, gamma_1 (if ADCC), shape (if MVT copula)
+\item \strong{GOGARCH}: component GARCH parameters (omega, alpha1, beta1 per component)
+}
 }
 \examples{
 \dontrun{
-# Extract DCC alpha for state 1
+# Extract single DCC parameter
 alpha_traj <- extract_param_trajectory(diag, state = 1, param_name = "alpha_1")
 plot(alpha_traj$iteration, alpha_traj$value, type = "b")
 
-# Extract omega for state 2, series 1
-omega_traj <- extract_param_trajectory(diag, state = 2, 
-                                        param_name = "omega", series = 1)
+# Extract all correlation parameters (auto-detects model type)
+all_traj <- extract_param_trajectory(diag, state = 1, param_name = "all")
+
+# Extract GOGARCH component parameter
+comp1_alpha <- extract_param_trajectory(diag, state = 1, param_name = "alpha1", 
+                                         component = 1, model_type = "gogarch")
+
+# Extract series-specific GARCH omega
+omega_traj <- extract_param_trajectory(diag, state = 2, param_name = "omega", series = 1)
 }
 
 }
