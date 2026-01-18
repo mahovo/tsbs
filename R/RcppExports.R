@@ -13,6 +13,7 @@ bartlett_weights <- function(block_length) {
     .Call(`_tsbs_bartlett_weights`, block_length)
 }
 
+#' @export
 tukey_weights <- function(block_length, alpha = 0.5) {
     .Call(`_tsbs_tukey_weights`, block_length, alpha)
 }

@@ -25,6 +25,7 @@
 ## = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = =
 
 
+#### ______________________________________________________________________ ####
 ## SECTION 1: Helper Functions =================================================
 
 #' @title Compute Standardized Residuals from Simulated DCC-GARCH Data
@@ -65,6 +66,7 @@ compute_std_residuals <- function(y, omega, alpha_garch, beta_garch) {
 }
 
 
+#### ______________________________________________________________________ ####
 ## SECTION 2: Monte Carlo Simulation Study =====================================
 
 #' @title Run Monte Carlo Study for DCC(1,1) Estimation
@@ -343,6 +345,7 @@ print_mc_results <- function(mc_result) {
 }
 
 
+#### ______________________________________________________________________ ####
 ## SECTION 3: Likelihood Surface Visualization =================================
 
 #' @title Compute NLL Surface for DCC(1,1)
@@ -579,6 +582,7 @@ plot_nll_surface_3d <- function(
 }
 
 
+#### ______________________________________________________________________ ####
 ## SECTION 4: Monte Carlo Visualization ========================================
 
 #' @title Plot Monte Carlo Estimate Distribution
@@ -754,6 +758,7 @@ plot_coverage_diagnostic <- function(mc_result, param = "alpha", max_show = 50) 
 }
 
 
+#### ______________________________________________________________________ ####
 ## SECTION 5: Parameter Trace Visualization (for EM/optimization) ==============
 
 #' @title Extract DCC Parameter Trajectory from MS Diagnostics
@@ -1129,7 +1134,7 @@ visualize_standalone_optimization <- function(
   )
 }
 
-
+#### ______________________________________________________________________ ####
 ## SECTION 6: Statistical Tests ================================================
 
 #' @title Test Normality of Standardized Estimates
@@ -1315,8 +1320,6 @@ run_complete_diagnostics <- function(
 
 #### ______________________________________________________________________ ####
 #### SECTION 1: CGARCH Helper Functions                                     ####
-## = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = =
-
 
 #' @title Compute Copula Residuals from Simulated CGARCH Data
 #' @description Given simulated returns and known GARCH parameters, compute

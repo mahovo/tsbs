@@ -29,4 +29,3 @@ List with alpha, gamma, beta, shape (if MVT), nll, convergence
 \description{
 Estimates ADCC parameters (alpha, gamma, beta) for copula model.
 }
-\keyword{internal}

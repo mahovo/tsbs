@@ -365,7 +365,7 @@ Both DCC and CGARCH share the same correlation dynamics, leading to:
 
 - Likelihood surface ~8x flatter in β direction than α
 - Hessian-based SEs underestimate β uncertainty by ~5-6x
-- **Recommendation**: Use bootstrap for β inference
+- **Suggestion**: Use bootstrap for β inference
 
 ### GOGARCH Inference
 
@@ -373,7 +373,7 @@ GOGARCH has different challenges:
 
 - ICA estimation uncertainty not captured by Hessian
 - Two-stage estimation (ICA then GARCH)
-- **Recommendation**: Always use bootstrap for all parameters
+- **Suggestion**: Always use bootstrap for all parameters
 
 ### Summary Table
 

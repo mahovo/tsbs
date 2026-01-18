@@ -18,13 +18,13 @@ knitr::opts_chunk$set(
 
 ## Overview
 
-This vignette provides guidance on inference for DCC(1,1) parameters in the tsbs package. Based on extensive validation studies, we document the statistical properties of DCC estimation and recommend appropriate inference methods.
+This vignette provides guidance on inference for DCC(1,1) parameters in the tsbs package. Based on extensive validation studies, we document the statistical properties of DCC estimation and suggest appropriate inference methods.
 
 **Key Finding**: The DCC likelihood surface is highly anisotropic—approximately 8x flatter in the beta direction than the alpha direction. This causes Hessian-based standard errors to severely underestimate uncertainty for beta. Bootstrap and profile likelihood methods provide more reliable inference.
 
 ## Executive Summary
 
-| Parameter | Recommended Method | Reason |
+| Parameter | Suggested Method | Reason |
 |-----------|-------------------|--------|
 | Alpha (α) | Hessian-based SE | Well-calibrated (ratio ~0.8) |
 | Beta (β) | Bootstrap or Profile Likelihood | Hessian underestimates by ~5-6x |
@@ -238,7 +238,7 @@ plot_nll_contours(surface, mle_params = c(alpha, beta))
 
 When persistence is high, the likelihood becomes increasingly flat. This is fundamental to DCC, not a bug.
 
-**Recommendations**:
+**Suggestions**:
 
 - Always use bootstrap or profile likelihood for beta
 - Consider reporting persistence rather than individual parameters
@@ -248,7 +248,7 @@ When persistence is high, the likelihood becomes increasingly flat. This is fund
 
 With limited data, the flat likelihood becomes even more problematic.
 
-**Recommendations**:
+**Suggestions**:
 
 - Increase bootstrap replications (n_boot ≥ 500)
 - Consider imposing priors or using Bayesian methods
@@ -266,9 +266,7 @@ When α → 0, β → 0, or α + β → 1, standard asymptotic theory fails.
 
 ## Reporting Results
 
-### Recommended Format
-
-For publication, we recommend:
+### Suggested Format for Publication
 
 > The DCC parameters were estimated as α̂ = 0.05 (SE = 0.02) and β̂ = 0.90 
 > (bootstrap 95% CI: [0.55, 0.96]). Hessian-based standard errors for β 

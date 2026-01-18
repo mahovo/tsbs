@@ -1,5 +1,5 @@
 ---
-title: "DCC demo"
+title: "Portfolio Optimization Demo"
 author: Martin Hoshi Vognsen
 header-includes:
    - \usepackage[default]{sourcesanspro}

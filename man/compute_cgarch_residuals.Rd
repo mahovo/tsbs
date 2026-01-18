@@ -40,4 +40,3 @@ Given simulated returns and known GARCH parameters, compute
 the standardized residuals, apply PIT transformation, and convert to
 copula residuals needed for CGARCH estimation.
 }
-\keyword{internal}

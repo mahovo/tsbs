@@ -2,15 +2,15 @@
 title: "DCC Reparameterization"
 author: "Martin Hoshi Vognsen"
 date: "`r Sys.Date()`"
-output: 
-  rmarkdown::html_vignette:
+output:
+  html_document:
     toc: true
+    toc_float: true
     toc_depth: 3
-    number_sections: true
-vignette: >
-  %\VignetteIndexEntry{Diagnostic System for MS-VARMA-GARCH Estimation}
-  %\VignetteEngine{knitr::rmarkdown}
-  %\VignetteEncoding{UTF-8}
+    code_folding: show
+    theme: flatly
+    fig_width: 10
+    fig_height: 7
 ---
 
 ```{r setup, include = FALSE}

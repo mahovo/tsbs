@@ -576,7 +576,7 @@ cat("  DCC mean of means:", mean(boot_dcc$func_out_means), "\n")
 cat("  CGARCH mean of means:", mean(boot_cgarch$func_out_means), "\n")
 ```
 
-# Summary and Recommendations
+# Summary and Suggestions
 
 ## Model Selection Guidelines
 

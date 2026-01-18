@@ -15,6 +15,10 @@ library(kableExtra)
 ```
 
 
+# Investigate Test 12b 
+
+This examines the diagnostics of Test 12 "EM algorithm achieves tolerance-based convergence" in test-ms_varma_garch_bs.R
+
 ## Unmodified ndeps
 ```{r}
 set.seed(42)
