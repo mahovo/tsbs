@@ -1432,63 +1432,6 @@ dcc11_nll_reparam <- function(reparam_pars, std_resid, weights, Qbar,
 }
 
 
-#' Estimate DCC parameters with appropriate method
-#' 
-#' For DCC(1,1), uses reparameterized optimization to avoid boundary
-#' instabilities. For higher-order DCC(p,q), uses penalty-based optimization.
-#' 
-#' @param std_resid Matrix of standardized residuals (T x k)
-#' @param weights Observation weights (length T)
-#' @param dcc_start_pars Named list of starting DCC parameters
-#' @param Qbar Unconditional covariance matrix (k x k)
-#' @param distribution Character; "mvn" or "mvt"
-#' @param dist_pars Distribution parameters
-#' @param verbose Logical; if TRUE, print diagnostic messages
-#' @return List with estimated parameters and diagnostics
-#' @keywords internal
-estimate_dcc_params <- function(std_resid, weights, dcc_start_pars, Qbar,
-                                distribution = "mvn", dist_pars = NULL,
-                                verbose = FALSE) {
-  
-  ## Determine DCC order
-  order <- get_dcc_order(dcc_start_pars)
-  
-  if (verbose) {
-    cat(sprintf("DCC order: p=%d, q=%d\n", order["p"], order["q"]))
-  }
-  
-  ## Choose estimation method based on order
-  if (order["p"] == 1 && order["q"] == 1) {
-    ## DCC(1,1): Use reparameterized optimization
-    result <- estimate_dcc11_reparam(
-      std_resid = std_resid,
-      weights = weights,
-      dcc_start_pars = dcc_start_pars,
-      Qbar = Qbar,
-      distribution = distribution,
-      dist_pars = dist_pars,
-      verbose = verbose
-    )
-    result$method <- "reparameterized"
-    
-  } else {
-    ## Higher order: Use penalty-based optimization
-    result <- estimate_dcc_pq_penalty(
-      std_resid = std_resid,
-      weights = weights,
-      dcc_start_pars = dcc_start_pars,
-      Qbar = Qbar,
-      distribution = distribution,
-      dist_pars = dist_pars,
-      verbose = verbose
-    )
-    result$method <- "penalty"
-  }
-  
-  return(result)
-}
-
-
 #' Estimate DCC(1,1) using reparameterized optimization
 #' @keywords internal
 estimate_dcc11_reparam <- function(std_resid, weights, dcc_start_pars, Qbar,
@@ -1547,28 +1490,5 @@ estimate_dcc11_reparam <- function(std_resid, weights, dcc_start_pars, Qbar,
     nll = opt_result$value,
     convergence = opt_result$convergence,
     n_penalty_triggers = 0  # Reparameterization eliminates penalties
-  ))
-}
-
-
-#' Estimate DCC(p,q) using penalty-based optimization
-#' @keywords internal
-estimate_dcc_pq_penalty <- function(std_resid, weights, dcc_start_pars, Qbar,
-                                    distribution = "mvn", dist_pars = NULL,
-                                    verbose = FALSE) {
-  
-  ## This would contain the corrected penalty-based optimization
-  ## using compute_dcc_persistence() and dcc_recursion()
-  ## 
-  ## For now, return a placeholder indicating this needs integration
-  ## with the existing weighted_dcc_loglik infrastructure
-  
-  warning("\nHigher-order DCC estimation requires integration with existing code.\n")
-  
-  return(list(
-    dcc_pars = dcc_start_pars,
-    nll = NA,
-    convergence = -1,
-    n_penalty_triggers = NA
   ))
 }
