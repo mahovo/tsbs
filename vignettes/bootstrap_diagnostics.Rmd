@@ -1,0 +1,520 @@
+---
+title: "Bootstrap Diagnostics Guide"
+subtitle: "Understanding and Analyzing Bootstrap Output in tsbs"
+author: "tsbs Package"
+date: "`r Sys.Date()`"
+output: 
+  rmarkdown::html_vignette:
+    toc: true
+    toc_depth: 3
+vignette: >
+  %\VignetteIndexEntry{Bootstrap Diagnostics Guide}
+
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r setup, include = FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>",
+  fig.width = 7,
+  fig.height = 5,
+  warning = FALSE,
+  message = FALSE
+)
+```
+
+## Introduction
+The tsbs package provides a comprehensive diagnostics system for analyzing bootstrap output. When you run `tsbs()` with `return_diagnostics = TRUE`, you receive detailed information about:
+
+- **Block composition**: How bootstrap series are constructed from blocks of the original data
+- **Block statistics**: Distribution of block lengths and starting positions
+- **Quality metrics**: Comparison of original vs. bootstrap series statistics
+- **Method-specific information**: Parameters and settings specific to each bootstrap type
+
+This vignette demonstrates how to use these diagnostics to understand and validate your bootstrap analysis.
+
+## Quick Start
+
+```{r quick-start}
+library(tsbs)
+
+# Generate sample data: AR(1) process
+set.seed(42)
+n <- 300
+x <- arima.sim(n = n, list(ar = 0.7))
+
+# Run bootstrap with diagnostics enabled
+result <- tsbs(
+
+x = as.matrix(x),
+  block_length = 10,
+  bs_type = "moving",
+  n_boot = 300,
+  num_boots = 100,
+  func = mean,
+  return_diagnostics = TRUE
+)
+
+# View diagnostics summary
+summary(result$diagnostics)
+```
+
+## The Diagnostics Object
+When `return_diagnostics = TRUE`, the result contains a `diagnostics` element of class `tsbs_diagnostics`. This object stores all diagnostic information and supports `print()`, `summary()`, and `plot()` methods.
+
+```{r diagnostics-structure}
+# Basic info
+print(result$diagnostics)
+
+# Check class
+class(result$diagnostics)
+
+# View internal structure
+names(result$diagnostics)
+```
+
+### Structure Overview
+
+The diagnostics object contains:
+
+| Component | Description |
+|-----------|-------------|
+| `meta` | Metadata: bootstrap type, dimensions, timestamp |
+| `blocks` | Block composition data for each replicate |
+| `series_stats` | Per-replicate statistics (means, SDs, autocorrelations) |
+| `original_stats` | Reference statistics from original series |
+| `method_specific` | Bootstrap method-specific diagnostics |
+| `config` | Configuration parameters used |
+
+## Diagnostic Summary
+The `summary()` method provides a comprehensive text report covering all aspects of the bootstrap analysis.
+
+```{r summary-demo}
+summary(result$diagnostics)
+```
+
+### Interpreting the Summary
+
+**Bootstrap Configuration**: Shows the bootstrap type, series dimensions, and number of replicates.
+
+**Configuration Parameters**: Lists all parameters used, including auto-computed values.
+
+**Bootstrap Series Lengths**: For methods that can produce variable-length series, shows the distribution of lengths.
+
+**Block Length Statistics**: For block-based methods (moving, stationary, HMM, MSVAR), shows:
+
+- Total number of blocks sampled across all replicates
+- Mean, SD, min, max, and median block lengths
+- Quartiles (25th and 75th percentiles)
+- Average blocks per replicate
+
+**Original vs Bootstrap Statistics**: Compares key statistics between the original series and bootstrap replicates:
+
+- Means: Original value, bootstrap average, bootstrap SD, and bias
+- Lag-1 Autocorrelation: How well the bootstrap preserves temporal dependence
+
+## Visualizations
+The `plot()` method generates diagnostic visualizations. You can request specific plot types or generate all applicable plots.
+
+### Available Plot Types
+
+```{r plot-types, eval=FALSE}
+# All applicable plots
+plot(result$diagnostics, type = "all")
+
+# Specific plots
+plot(result$diagnostics, type = "block_lengths")
+plot(result$diagnostics, type = "start_positions")
+plot(result$diagnostics, type = "means_comparison")
+plot(result$diagnostics, type = "acf_comparison")
+plot(result$diagnostics, type = "length_distribution")
+```
+
+### Block Length Distribution
+Shows how block lengths are distributed across all bootstrap replicates. For moving block bootstrap, this should be constant; for stationary bootstrap, it follows a geometric distribution.
+
+```{r plot-block-lengths}
+plot(result$diagnostics, type = "block_lengths")
+```
+
+### Starting Position Distribution
+Shows where blocks are sampled from in the original series. A uniform distribution indicates good coverage of the original data.
+
+```{r plot-start-positions}
+plot(result$diagnostics, type = "start_positions")
+```
+
+### Means Comparison
+Compares the distribution of bootstrap means against the original series mean. The red dashed line shows the original value.
+
+```{r plot-means}
+plot(result$diagnostics, type = "means_comparison")
+```
+
+### Autocorrelation Comparison
+Shows how well the bootstrap preserves the lag-1 autocorrelation structure of the original series.
+
+```{r plot-acf}
+plot(result$diagnostics, type = "acf_comparison")
+```
+
+## Extracting Diagnostic Data
+For custom analysis, you can extract diagnostic data in various formats.
+
+### Block Information
+
+```{r extract-blocks}
+# Get all block information
+blocks_df <- extract_blocks(result$diagnostics)
+head(blocks_df)
+
+# Get blocks for a specific replicate
+blocks_rep1 <- extract_blocks(result$diagnostics, replicate = 1)
+blocks_rep1
+```
+
+### Summary Statistics
+
+```{r extract-stats}
+# Get comprehensive summary statistics
+stats <- extract_summary_stats(result$diagnostics)
+
+# Original series statistics
+stats$original
+
+# Bootstrap statistics with quantiles
+stats$bootstrap$means
+
+# Block length statistics
+stats$block_lengths
+```
+### Converting to Data Frame
+For integration with other analysis workflows, convert diagnostics to a data frame.
+
+```{r as-dataframe}
+# Per-replicate statistics
+stats_df <- as.data.frame(result$diagnostics, what = "stats")
+head(stats_df)
+
+# Block-level data
+blocks_df <- as.data.frame(result$diagnostics, what = "blocks")
+head(blocks_df)
+```
+
+## Bootstrap Type Examples
+Different bootstrap methods provide different diagnostic information. This section demonstrates diagnostics for each supported method.
+
+### Moving Block Bootstrap
+The moving block bootstrap samples fixed-length, overlapping blocks from the original series.
+
+```{r moving-block}
+set.seed(123)
+x_ar <- as.matrix(arima.sim(n = 200, list(ar = 0.6)))
+
+result_mbb <- tsbs(
+  x = x_ar,
+  block_length = 12,
+  bs_type = "moving",
+  block_type = "overlapping",
+  n_boot = 200,
+  num_boots = 100,
+  return_diagnostics = TRUE
+)
+
+summary(result_mbb$diagnostics)
+```
+
+**Key diagnostics for moving block bootstrap:**
+
+- Block lengths should all equal the specified `block_length`
+- Starting positions should be roughly uniformly distributed
+- Autocorrelation preservation depends on block length relative to data persistence
+
+### Stationary Bootstrap
+The stationary bootstrap uses geometrically distributed block lengths, providing a stationary resampling scheme.
+
+```{r stationary}
+set.seed(456)
+
+result_sb <- tsbs(
+  x = x_ar,
+  bs_type = "stationary",
+  p_method = "plugin",  # Auto-select p based on autocorrelation
+  n_boot = 200,
+  num_boots = 100,
+  return_diagnostics = TRUE
+)
+
+summary(result_sb$diagnostics)
+```
+
+```{r stationary-plot}
+# Block lengths follow geometric distribution
+plot(result_sb$diagnostics, type = "block_lengths")
+```
+
+**Key diagnostics for stationary bootstrap:**
+
+- Block lengths follow a geometric distribution
+- `p_estimated` shows the geometric parameter used
+- `expected_block_length` = 1/p gives the theoretical mean block length
+- Actual mean block length may differ due to truncation at series boundaries
+
+### Tapered Block Bootstrap
+Tapered blocks apply window functions to smooth transitions between blocks.
+
+```{r tapered}
+set.seed(789)
+
+result_tapered <- tsbs(
+  x = x_ar,
+  block_length = 15,
+  bs_type = "moving",
+  block_type = "tapered",
+  taper_type = "tukey",
+  tukey_alpha = 0.5,
+  n_boot = 200,
+  num_boots = 50,
+  return_diagnostics = TRUE
+)
+
+summary(result_tapered$diagnostics)
+```
+
+**Note**: Tapered blocks modify values at block boundaries, which affects the block length estimation heuristic. The estimated block lengths may not perfectly match the actual blocks used.
+
+### Wild Bootstrap
+The wild bootstrap multiplies observations by random signs (±1), preserving heteroskedasticity patterns. It does not use blocks.
+
+```{r wild}
+set.seed(321)
+
+# Generate heteroskedastic data
+n <- 150
+sigma_t <- 1 + 0.5 * sin(2 * pi * (1:n) / 50)
+residuals <- as.matrix(rnorm(n) * sigma_t)
+
+result_wild <- tsbs(
+  x = residuals,
+  bs_type = "wild",
+  num_boots = 200,
+  return_diagnostics = TRUE
+)
+
+summary(result_wild$diagnostics)
+```
+
+**Key diagnostics for wild bootstrap:**
+
+- No block statistics (wild bootstrap doesn't use blocks)
+- Series length always equals original length
+- Mean should be approximately zero (signs are randomized)
+- Variance structure is preserved
+
+```{r wild-plot}
+plot(result_wild$diagnostics, type = "means_comparison")
+```
+
+## Multivariate Series
+The diagnostics system fully supports multivariate time series, providing per-variable statistics.
+
+```{r multivariate}
+set.seed(555)
+
+# Generate correlated bivariate series
+n <- 200
+Sigma <- matrix(c(1, 0.6, 0.6, 1), nrow = 2)
+L <- t(chol(Sigma))
+innovations <- matrix(rnorm(n * 2), ncol = 2)
+x_mv <- innovations %*% t(L)
+
+# Add persistence
+for (i in 2:n) {
+  x_mv[i, ] <- 0.4 * x_mv[i-1, ] + 0.6 * x_mv[i, ]
+}
+
+result_mv <- tsbs(
+  x = x_mv,
+  block_length = 10,
+  bs_type = "moving",
+  n_boot = 200,
+  num_boots = 100,
+  return_diagnostics = TRUE
+)
+
+summary(result_mv$diagnostics)
+```
+
+```{r multivariate-plots}
+# Means comparison shows both variables
+plot(result_mv$diagnostics, type = "means_comparison")
+
+# ACF comparison for each variable
+plot(result_mv$diagnostics, type = "acf_comparison")
+```
+
+## Custom Analysis Examples
+The extracted diagnostic data enables custom analyses beyond the built-in summaries.
+
+### Bootstrap Confidence Intervals
+
+```{r confidence-intervals}
+# Extract bootstrap means
+stats_df <- as.data.frame(result$diagnostics, what = "stats")
+
+# Compute percentile confidence interval
+ci_95 <- quantile(stats_df$mean_V1, probs = c(0.025, 0.975))
+cat("95% Bootstrap CI for mean:", round(ci_95, 4), "\n")
+
+# Compare to original
+cat("Original mean:", round(result$diagnostics$original_stats$means, 4), "\n")
+```
+
+### Assessing Autocorrelation Preservation
+
+```{r acf-preservation}
+# How well does the bootstrap preserve autocorrelation?
+orig_ac1 <- result$diagnostics$original_stats$ac1
+boot_ac1 <- do.call(rbind, result$diagnostics$series_stats$replicate_ac1)
+
+# Bias in autocorrelation
+ac1_bias <- mean(boot_ac1, na.rm = TRUE) - orig_ac1
+cat("Original AC(1):", round(orig_ac1, 4), "\n")
+cat("Bootstrap AC(1) mean:", round(mean(boot_ac1, na.rm = TRUE), 4), "\n
+")
+cat("AC(1) bias:", round(ac1_bias, 4), "\n")
+
+# What fraction of bootstrap replicates have AC(1) within 0.1 of original?
+within_tolerance <- mean(abs(boot_ac1 - orig_ac1) < 0.1, na.rm = TRUE)
+cat("Fraction within ±0.1 of original:", round(within_tolerance, 3), "\n")
+```
+
+### Block Coverage Analysis
+
+```{r block-coverage}
+# Analyze how well the bootstrap covers the original series
+blocks_df <- extract_blocks(result$diagnostics)
+
+# Distribution of starting positions
+start_positions <- blocks_df$start_pos
+
+# Divide original series into deciles and count block starts
+n_orig <- result$diagnostics$meta$n_original
+decile_breaks <- seq(1, n_orig, length.out = 11)
+decile_counts <- hist(start_positions, breaks = decile_breaks, plot = FALSE)$counts
+
+# Check for uniform coverage (chi-square test)
+expected <- length(start_positions) / 10
+chi_sq <- sum((decile_counts - expected)^2 / expected)
+p_value <- pchisq(chi_sq, df = 9, lower.tail = FALSE)
+
+cat("Chi-square test for uniform block coverage:\n")
+cat("  Chi-square statistic:", round(chi_sq, 2), "\n")
+cat("  p-value:", round(p_value, 4), "\n")
+cat("  Interpretation:", ifelse(p_value > 0.05, 
+                                 "Coverage appears uniform", 
+                                 "Coverage may be non-uniform"), "\n")
+```
+
+### Comparing Bootstrap Methods
+
+```{r compare-methods}
+# Compare moving vs stationary bootstrap
+set.seed(999)
+x_compare <- as.matrix(arima.sim(n = 200, list(ar = 0.8)))
+
+result_moving <- tsbs(
+  x = x_compare,
+  block_length = 10,
+  bs_type = "moving",
+  n_boot = 200,
+  num_boots = 200,
+  return_diagnostics = TRUE
+)
+
+result_stationary <- tsbs(
+  x = x_compare,
+  bs_type = "stationary",
+  block_length = 10,  # Expected block length
+  n_boot = 200,
+  num_boots = 200,
+  return_diagnostics = TRUE
+)
+
+# Compare AC(1) preservation
+ac1_orig <- acf(x_compare, lag.max = 1, plot = FALSE)$acf[2, 1, 1]
+
+ac1_moving <- do.call(rbind, result_moving$diagnostics$series_stats$replicate_ac1)
+ac1_stationary <- do.call(rbind, result_stationary$diagnostics$series_stats$replicate_ac1)
+
+comparison <- data.frame(
+  Method = c("Original", "Moving Block", "Stationary"),
+  `AC(1) Mean` = c(ac1_orig, mean(ac1_moving), mean(ac1_stationary)),
+  `AC(1) SD` = c(NA, sd(ac1_moving), sd(ac1_stationary)),
+  check.names = FALSE
+)
+
+knitr::kable(comparison, digits = 4, 
+             caption = "Autocorrelation Preservation by Bootstrap Method")
+```
+
+## Best Practices
+
+### Choosing Block Length
+The block length is a critical parameter for block bootstrap methods. Use diagnostics to assess your choice:
+```{r best-practices-block, eval=FALSE}
+# Try different block lengths and compare AC(1) preservation
+block_lengths <- c(5, 10, 15, 20, 25)
+ac1_results <- sapply(block_lengths, function(bl) {
+  res <- tsbs(x = x_ar, block_length = bl, bs_type = "moving",
+              n_boot = 200, num_boots = 100, return_diagnostics = TRUE)
+  boot_ac1 <- do.call(rbind, res$diagnostics$series_stats$replicate_ac1)
+  c(mean = mean(boot_ac1), bias = mean(boot_ac1) - res$diagnostics$original_stats$ac1)
+})
+```
+
+### Assessing Bootstrap Quality
+Key indicators of bootstrap quality:
+
+1. **Low bias**: Bootstrap means close to original
+2. **Good AC preservation**: Bootstrap autocorrelation close to original
+3. **Uniform coverage**: Blocks sampled evenly across original series
+4. **Appropriate variability**: Bootstrap SD reflects sampling uncertainty
+
+### Number of Replicates
+More replicates provide more stable estimates but increase computation time. Use diagnostics to assess convergence:
+
+```{r best-practices-reps, eval=FALSE}
+# Check if bootstrap mean has stabilized
+stats_df <- as.data.frame(result$diagnostics, what = "stats")
+running_mean <- cumsum(stats_df$mean_V1) / seq_along(stats_df$mean_V1)
+plot(running_mean, type = "l", xlab = "Replicate", ylab = "Running Mean",
+     main = "Bootstrap Mean Convergence")
+```
+
+## Summary
+The tsbs diagnostics system provides comprehensive tools for understanding and validating bootstrap analyses:
+
+| Function | Purpose |
+|----------|---------|
+| `summary()` | Comprehensive text report |
+| `plot()` | Diagnostic visualizations |
+| `extract_blocks()` | Block composition data |
+| `extract_summary_stats()` | Statistical summaries |
+| `as.data.frame()` | Convert to data frame for custom analysis |
+
+By examining these diagnostics, you can:
+
+- Verify bootstrap configuration
+- Assess how well temporal dependence is preserved
+- Identify potential issues with block selection
+- Compare different bootstrap methods
+- Build confidence in your bootstrap inference
+
+## Session Info
+
+```{r session-info}
+sessionInfo()
+```

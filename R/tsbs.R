@@ -80,6 +80,11 @@
 #' @param score_func Scoring function for cross-validation.
 #' @param stationary_max_percentile Stationary max percentile.
 #' @param stationary_max_fraction_of_n Stationary max fraction of n.
+#' @param return_diagnostics If `TRUE`, returns bootstrap diagnostics including
+#'   block composition, length statistics, and quality metrics. Diagnostics are
+#'   returned in `result$diagnostics` as a `tsbs_diagnostics` object. Use 
+#'   `summary()` and `plot()` methods on the diagnostics for detailed analysis.
+#'   Default is `FALSE`.
 #' @param return_fit If `TRUE`, `tsbs()` will return model fit. Default is
 #'   `return_fit = FALSE`. If `return_fit = TRUE` and 
 #'   `bs_type = "ms_varma_garch"`, diagnostics can be extracted from 
@@ -552,6 +557,9 @@
 #'   \item{func_outs}{List of computed function outputs for each replicate.}
 #'   \item{func_out_means}{Mean of the computed outputs across replicates.}
 #'   \item{fit}{If `return_fit = TRUE`, a list containing model fit.}
+#'   \item{diagnostics}{If `return_diagnostics = TRUE`, a `tsbs_diagnostics` 
+#'     object containing block composition, statistics, and quality metrics. 
+#'     See \code{\link{compute_bootstrap_diagnostics}}.}
 #' }
 #' 
 #' @references
@@ -604,6 +612,7 @@ tsbs <- function(
     stationary_max_percentile = 0.99,
     stationary_max_fraction_of_n = 0.10,
     return_fit = FALSE,
+    return_diagnostics = FALSE,
     fail_mode = c("predictably", "gracefully"),
     ...
     #collect_diagnostics = FALSE,
@@ -787,6 +796,56 @@ tsbs <- function(
   } else {
     func_out_means <- Reduce(`+`, func_outs) / length(func_outs)
   }
+  
+  ## ---- Diagnostics Collection ----
+  diagnostics_object <- NULL
+  if (return_diagnostics) {
+    
+    # Build configuration list
+    config <- list(
+      bs_type = bs_type,
+      block_type = block_type,
+      taper_type = if (block_type == "tapered") taper_type else NA,
+      tukey_alpha = if (block_type == "tapered" && taper_type == "tukey") tukey_alpha else NA,
+      block_length = block_length,
+      n_boot = n_boot,
+      num_blocks = num_blocks,
+      num_boots = num_boots,
+      p = p,
+      p_method = if (bs_type == "stationary") p_method else NA,
+      num_states = if (bs_type %in% c("hmm", "msvar", "ms_varma_garch")) num_states else NA
+    )
+    
+    # Compute diagnostics from bootstrap series
+    diagnostics_object <- compute_bootstrap_diagnostics(
+      bootstrap_series = bootstrap_series,
+      original_data = x,
+      bs_type = bs_type,
+      config = config
+    )
+    
+    # Add method-specific diagnostics
+    if (bs_type == "stationary") {
+      diagnostics_object <- record_method_specific(
+        diagnostics_object,
+        p_estimated = p,
+        expected_block_length = if (!is.null(p)) 1/p else NA
+      )
+    }
+    
+    if (bs_type %in% c("hmm", "msvar", "ms_varma_garch") && !is.null(fit_object)) {
+      # Extract state sequence if available
+      if (!is.null(fit_object$smoothed_probabilities)) {
+        state_seq <- apply(fit_object$smoothed_probabilities, 1, which.max)
+        state_counts <- table(state_seq)
+        diagnostics_object <- record_method_specific(
+          diagnostics_object,
+          state_counts = as.list(state_counts),
+          transition_matrix = if (!is.null(fit_object$P)) fit_object$P else NA
+        )
+      }
+    }
+  }
 
   ## Build result
   result <- list(
@@ -797,6 +856,10 @@ tsbs <- function(
   
   if (return_fit && !is.null(fit_object)) {
     result$fit <- fit_object
+  }
+  
+  if (return_diagnostics && !is.null(diagnostics_object)) {
+    result$diagnostics <- diagnostics_object
   }
   
   result

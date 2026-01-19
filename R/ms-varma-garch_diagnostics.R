@@ -1887,7 +1887,7 @@ compute_cgarch_nll_surface <- function(
       
       nll_surface[i, j] <- tryCatch({
         if (copula == "mvn") {
-          copula_nll(
+          copula_nll_mvn(
             params = params,
             z_matrix = z_matrix,
             weights = weights,
@@ -3082,8 +3082,8 @@ plot_mc_estimates_generic <- function(mc_result, model_type = "CGARCH") {
 #' @description Wrapper for copula negative log-likelihood with MVN copula.
 #'   This references the function in tsbs_cgarch.R
 #' @keywords internal
-copula_nll <- function(params, z_matrix, weights, Qbar, copula = "mvn") {
-  ## This should call the actual copula_nll from tsbs_cgarch.R
+copula_nll_mvn <- function(params, z_matrix, weights, Qbar, copula = "mvn") {
+  ## This should call the actual copula_nll_mvn from tsbs_cgarch.R
   ## Placeholder implementation for standalone testing
   alpha <- params[1]
   beta <- params[2]

@@ -65,6 +65,10 @@
 #' @return Logical: TRUE if DCC(1,1), FALSE otherwise
 #' @keywords internal
 is_dcc11 <- function(dcc_pars) {
+  if (is.null(dcc_params) || length(dcc_params) == 0) {
+    return(FALSE)
+  }
+  
   order <- get_dcc_order(dcc_pars)
   return(order["p"] == 1 && order["q"] == 1)
 }
@@ -72,6 +76,8 @@ is_dcc11 <- function(dcc_pars) {
 
 #' @title Compute DCC Persistence and Extract Parameters
 #' @description Extracts all alpha/beta parameters and computes total persistence.
+#'   For a stationary DCC(p,q) model, we require:
+#'   P = sum(alpha_1, ..., alpha_q) + sum(beta_1, ..., beta_p) < 1
 #' @param dcc_params Named list of DCC parameters
 #' @return List with components:
 #'   \item{persistence}{Total persistence = sum(alphas) + sum(betas)}

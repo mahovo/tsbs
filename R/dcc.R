@@ -1066,72 +1066,6 @@ get_dcc_order <- function(dcc_params) {
 }
 
 
-#' Compute total persistence from DCC parameters
-#' 
-#' For a stationary DCC(p,q) model, we require:
-#'   P = sum(alpha_1, ..., alpha_q) + sum(beta_1, ..., beta_p) < 1
-#' 
-#' @param dcc_params Named list of DCC parameters
-#' @return List with components:
-#'   \item{persistence}{Total persistence P = sum(alphas) + sum(betas)}
-#'   \item{alpha_sum}{Sum of all alpha parameters}
-#'   \item{beta_sum}{Sum of all beta parameters}
-#'   \item{alphas}{Numeric vector of alpha values in order}
-#'   \item{betas}{Numeric vector of beta values in order}
-#'   \item{order}{Named vector c(p, q) giving the DCC order}
-#' @keywords internal
-compute_dcc_persistence <- function(dcc_params) {
-  
-  if (is.null(dcc_params) || length(dcc_params) == 0) {
-    return(list(
-      persistence = 0,
-      alpha_sum = 0,
-      beta_sum = 0,
-      alphas = numeric(0),
-      betas = numeric(0),
-      order = c(p = 0, q = 0)
-    ))
-  }
-  
-  param_names <- names(dcc_params)
-  
-  ## Extract all alpha values in order
-  alpha_names <- param_names[grepl("^alpha_", param_names)]
-  if (length(alpha_names) > 0) {
-    ## Sort by index to ensure correct order
-    alpha_indices <- as.integer(gsub("^alpha_", "", alpha_names))
-    alpha_order <- order(alpha_indices)
-    alphas <- unlist(dcc_params[alpha_names[alpha_order]])
-    names(alphas) <- NULL
-  } else {
-    alphas <- numeric(0)
-  }
-  
-  ## Extract all beta values in order
-  beta_names <- param_names[grepl("^beta_", param_names)]
-  if (length(beta_names) > 0) {
-    beta_indices <- as.integer(gsub("^beta_", "", beta_names))
-    beta_order <- order(beta_indices)
-    betas <- unlist(dcc_params[beta_names[beta_order]])
-    names(betas) <- NULL
-  } else {
-    betas <- numeric(0)
-  }
-  
-  alpha_sum <- sum(alphas)
-  beta_sum <- sum(betas)
-  
-  return(list(
-    persistence = alpha_sum + beta_sum,
-    alpha_sum = alpha_sum,
-    beta_sum = beta_sum,
-    alphas = alphas,
-    betas = betas,
-    order = c(p = length(betas), q = length(alphas))
-  ))
-}
-
-
 #' Check DCC stationarity constraints
 #' 
 #' Verifies that DCC parameters satisfy:
@@ -1242,21 +1176,6 @@ dcc_from_reparam <- function(persistence, ratio) {
   alpha <- persistence * ratio
   beta <- persistence * (1 - ratio)
   c(alpha = alpha, beta = beta)
-}
-
-
-#' Check if DCC specification is DCC(1,1)
-#' 
-#' @param dcc_params Named list of DCC parameters
-#' @return Logical; TRUE if this is a DCC(1,1) specification
-#' @keywords internal
-is_dcc_11 <- function(dcc_params) {
-  if (is.null(dcc_params) || length(dcc_params) == 0) {
-    return(FALSE)
-  }
-  
-  order <- get_dcc_order(dcc_params)
-  return(order["p"] == 1 && order["q"] == 1)
 }
 
 

@@ -157,11 +157,11 @@ The package includes two vignettes for specialized topics:
 
 | Vignette | Description |
 |----------|-------------|
-| `vignette("Diagnostics", package = "tsbs")` | Diagnostic system for monitoring EM convergence, parameter evolution, and numerical stability |
-| `vignette("dcc_inference_guide", package = "tsbs")` | Statistical inference for DCC parameters including standard errors and hypothesis testing |
-| `vignette("ms-varma-garch_inference_guide", package = "tsbs")` | Statistical inference for DCC, CGARCH and GOGARCH parameters | 
-| `vignette("cgarch_vs_dcc", package = "tsbs")` | Diagnostic vignette comparing DCC and CGARCH models |
+| `vignette("bootstrap_diagnostics.Rmd", package = "tsbs")` | Diagnostic system for output bootstrap series |
+| `vignette("ms-varma-garch_diagnostics.Rmd", package = "tsbs")` | Diagnostic system for monitoring EM convergence, parameter evolution, and numerical stability |
+| `vignette("ms-varma-garch_inference", package = "tsbs")` | Statistical inference for DCC, CGARCH and GOGARCH parameters | 
 | `vignette("multivariate_garch_comparison", package = "tsbs")` | Diagnostic vignette comparing DCC, CGARCH and GOGARCH models |
+
 
 ### Learning from Test Files
 
@@ -172,7 +172,8 @@ The package test files contain extensive examples of model specification and usa
 system.file("tests", package = "tsbs")
 ```
 
-Key test files include:
+Key test files include:  
+
 - `test-ms_varma_garch_bs.R` — Comprehensive examples of MS-VARMA-GARCH specifications  
 - `test-cgarch.R` — Testing the CGARCH integration  
 - `test-gogarch.R` — Testing the GOGARCH integration  
@@ -182,7 +183,11 @@ Key test files include:
 
 ### Other resources
 
-See also [https://github.com/mahovo/tsbs/tree/dev/misc](https://github.com/mahovo/tsbs/tree/dev/misc), especially "Portfolio Optimization Demo.Rmd".
+See also [https://github.com/mahovo/tsbs/tree/dev/misc](https://github.com/mahovo/tsbs/tree/dev/misc), especially: 
+
+- "Portfolio-Optimization-Demo.Rmd"  
+- "ms-varma-garch_diagnostics_report.Rmd"  
+- "ms_varma_garch_inference_demo.Rmd"  
 
 ### Related Packages
 

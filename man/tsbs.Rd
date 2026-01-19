@@ -31,6 +31,7 @@ tsbs(
   stationary_max_percentile = 0.99,
   stationary_max_fraction_of_n = 0.1,
   return_fit = FALSE,
+  return_diagnostics = FALSE,
   fail_mode = c("predictably", "gracefully"),
   ...
 )
@@ -144,6 +145,12 @@ See \link{k_fold_cv_ts}.}
 \code{bs_type = "ms_varma_garch"}, diagnostics can be extracted from
 \code{result$fit$diagnostics}. See \code{?fit_ms_varma_garch}.}
 
+\item{return_diagnostics}{If \code{TRUE}, returns bootstrap diagnostics including
+block composition, length statistics, and quality metrics. Diagnostics are
+returned in \code{result$diagnostics} as a \code{tsbs_diagnostics} object. Use
+\code{summary()} and \code{plot()} methods on the diagnostics for detailed analysis.
+Default is \code{FALSE}.}
+
 \item{fail_mode}{Character string. One of \code{"predictably"} (development/
 debugging - fail fast on any unexpected behavior) or \code{"gracefully"}
 (production/robust pipelines - continue despite validation errors).}
@@ -155,6 +162,9 @@ A list containing:
 \item{func_outs}{List of computed function outputs for each replicate.}
 \item{func_out_means}{Mean of the computed outputs across replicates.}
 \item{fit}{If \code{return_fit = TRUE}, a list containing model fit.}
+\item{diagnostics}{If \code{return_diagnostics = TRUE}, a \code{tsbs_diagnostics}
+object containing block composition, statistics, and quality metrics.
+See \code{\link{compute_bootstrap_diagnostics}}.}
 }
 }
 \description{
