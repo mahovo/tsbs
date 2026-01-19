@@ -111,16 +111,16 @@
 #'   set, `block_length` and `num_blocks` must be set, and `n_boot` will
 #'   automatically be set to `block_length * num_blocks`.
 #' 
-#' ### `bs_type="stationary"`, `bs_type="hmm"`, `bs_type="msvar"`
-#' If `n_boot` is set, the last block will be truncated when necessary to
-#'   match the length (`n_boot`) of the bootstrap series. This is the only way
-#'   to ensure equal length of all bootstrap series, as the length of each block
-#'   is random. If `n_boot` is not set, `num_blocks` must be set, and the length
-#'   of each bootstrap series will be determined by the number of blocks and the
-#'   random lengths of the individual blocks for that particular series. Note
-#'   that this typically results in bootstrap series of different lengths. For
-#'   stationary bootstrap, `block_length` is the expected block length, when
-#'   `p_method="1/n"`.
+#' ### `bs_type="stationary"`, `bs_type="hmm"`, `bs_type="msvar"` If `n_boot` is
+#' set, the last block will be truncated when necessary to match the length
+#' (`n_boot`) of the bootstrap series. This is the only way to ensure equal
+#' length of all bootstrap series, as the length of each block is random. If
+#' `n_boot` is not set, `num_blocks` must be set, and the length of each
+#' bootstrap series will be determined by the number of blocks and the lengths
+#' of the individual blocks for that particular series. Truncation ensures equal
+#' length of bootstrapped series for bootstrap types with random block length.
+#' For stationary bootstrap, `block_length` is the expected block length, when
+#' `p_method="1/n"`.
 #' 
 #' ### `bs_type="wild"`
 #' `n_boot`, `block_length` and `num_blocks` are ignored. The length of the
