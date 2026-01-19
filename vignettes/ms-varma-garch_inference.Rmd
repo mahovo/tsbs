@@ -239,18 +239,192 @@ inf_result <- correlation_comprehensive_inference(
 print_inference_comparison(inf_result)
 ```
 
-### ADCC (Asymmetric DCC) Considerations
+### ADCC (Asymmetric DCC) Inference
 
 ADCC adds a leverage parameter γ that captures asymmetric correlation responses to positive vs. negative shocks. The ADCC recursion is:
 
-$$Q_t = (1 - \alpha - \beta - \delta\bar{\gamma})\bar{Q} + \alpha z_{t-1}z_{t-1}' + \beta Q_{t-1} + \gamma n_{t-1}n_{t-1}'$$
+$$Q_t = \Omega + \alpha z_{t-1}z_{t-1}' + \gamma n_{t-1}n_{t-1}' + \beta Q_{t-1}$$
 
-where $n_t = z_t \cdot \mathbf{1}(z_t < 0)$ captures negative shocks.
+where:
+- $n_t = z_t \cdot \mathbf{1}(z_t < 0)$ captures negative shocks
+- $\bar{N} = E[n_t n_t']$ is the expected outer product of negative shocks
+- $\Omega = (1 - \alpha - \beta)\bar{Q} - \gamma\bar{N}$ ensures stationarity
+- Stationarity requires: $\alpha + \beta + \delta\gamma < 1$ where $\delta \approx 0.5$
 
-**Inference considerations for ADCC**:
-- The gamma parameter may have identification issues when asymmetric effects are weak
-- Bootstrap is strongly recommended for all three parameters
-- Profile likelihood can help assess parameter identifiability
+#### ADCC Hessian-Based Standard Errors
+
+The `adcc_standard_errors()` function computes Hessian-based SEs for the 3-parameter ADCC model:
+
+```{r eval=FALSE}
+# After fitting ADCC
+adcc_fit <- estimate_adcc_copula(
+  z_matrix = z_matrix,
+  weights = weights,
+  Qbar = Qbar,
+  copula_dist = "mvn"  # or "mvt"
+)
+
+# Compute Hessian-based SEs
+se_result <- adcc_standard_errors(
+
+  params = c(adcc_fit$alpha, adcc_fit$gamma, adcc_fit$beta),
+  z_matrix = z_matrix,
+  weights = weights,
+  Qbar = Qbar,
+  Nbar = adcc_fit$Nbar,
+  copula_dist = "mvn"
+)
+
+# Inspect results
+print(se_result$se)           # SEs for alpha, gamma, beta
+print(se_result$vcov)         # Variance-covariance matrix
+print(se_result$eigenvalues)  # Hessian eigenvalues (check for near-singularity)
+```
+
+#### ADCC with Robust Edge Case Handling
+
+For production use, the robust wrapper handles boundary estimates and numerical issues:
+
+```{r eval=FALSE}
+se_robust <- compute_adcc_standard_errors_robust(
+  adcc_result = adcc_fit,
+  z_matrix = z_matrix,
+  weights = weights,
+  Qbar = Qbar,
+  copula_dist = "mvn",
+  boundary_threshold = 1e-4
+)
+
+if (se_robust$valid) {
+  cat("SEs computed successfully:\n")
+  print(se_robust$se)
+} else {
+  cat("SE computation issue:", se_robust$reason, "\n")
+}
+```
+
+#### ADCC Bootstrap Standard Errors
+
+As with DCC/CGARCH, bootstrap is recommended for reliable inference, especially for beta:
+
+```{r eval=FALSE}
+boot_result <- adcc_bootstrap_se(
+  z_matrix = z_matrix,
+  weights = weights,
+  Qbar = Qbar,
+  mle_params = c(adcc_fit$alpha, adcc_fit$gamma, adcc_fit$beta),
+  Nbar = adcc_fit$Nbar,
+  n_boot = 200,
+  method = "residual",
+  copula_dist = "mvn",
+  verbose = TRUE
+)
+
+# Bootstrap SEs and CIs
+print(boot_result$se)
+print(boot_result$ci_percentile)
+```
+
+#### Comprehensive ADCC Inference
+
+Compare Hessian and bootstrap methods:
+
+```{r eval=FALSE}
+adcc_inf <- adcc_comprehensive_inference(
+  z_matrix = z_matrix,
+  weights = weights,
+  adcc_result = adcc_fit,
+  Qbar = Qbar,
+  copula_dist = "mvn",
+  n_boot = 200,
+  conf_level = 0.95,
+  verbose = TRUE
+)
+
+# Comparison table
+print(adcc_inf$comparison)
+```
+
+Output example:
+```
+=== ADCC Comprehensive Inference ===
+Observations: 1000, Series: 3
+MLE: alpha = 0.0450, gamma = 0.0280, beta = 0.9100
+
+=== Inference Comparison ===
+Confidence level: 95%
+
+  Parameter Estimate Hessian_SE Boot_SE  Hess_CI_lower Hess_CI_upper Boot_CI_lower Boot_CI_upper SE_Ratio
+1     alpha   0.0450     0.0180  0.0220         0.0097        0.0803        0.0089        0.0856     0.82
+2     gamma   0.0280     0.0150  0.0190         0.0014        0.0574        0.0025        0.0612     0.79
+3      beta   0.9100     0.0480  0.2100         0.8159        1.0041        0.5200        0.9650     0.23
+
+WARNING: Hessian SEs appear underestimated for some parameters (ratio < 0.7).
+         Bootstrap SEs recommended for inference.
+```
+
+#### ADCC Inference Recommendations
+
+| Parameter | Recommended Method | Notes |
+|-----------|-------------------|-------|
+| Alpha (α) | Hessian or Bootstrap | Usually well-identified |
+| Gamma (γ) | Bootstrap | May have flat regions when asymmetry is weak |
+| Beta (β)  | Bootstrap | Same flat likelihood issue as DCC |
+| Shape (ν) | Hessian | Generally well-identified (MVT copula) |
+
+**Key considerations for ADCC**:
+
+1. **Gamma identification**: When asymmetric effects are weak, γ may be poorly identified. Check the Hessian eigenvalues for near-singularity.
+
+2. **Stationarity boundary**: The constraint α + β + δγ < 1 means high-persistence models have less room for asymmetry.
+
+3. **Bootstrap coverage**: Monte Carlo studies show bootstrap provides better coverage than Hessian for all three parameters.
+
+---
+
+## Also update the Executive Summary table (around line 31)
+
+Add rows for ADCC:
+
+| Model   | Parameter      | Recommended Method       | Reason |
+|---------|----------------|--------------------------|--------|
+| DCC     | Alpha (α)      | Hessian-based SE         | Well-calibrated (~0.8 ratio) |
+| DCC     | Beta (β)       | Bootstrap or Profile LR  | Hessian underestimates by ~5-6x |
+| CGARCH  | Alpha (α)      | Hessian-based SE         | Similar to DCC |
+| CGARCH  | Beta (β)       | Bootstrap or Profile LR  | Same flat likelihood issue |
+| CGARCH  | Shape (ν)      | Hessian-based SE         | Generally well-identified |
+| **ADCC**| **Alpha (α)**  | **Hessian or Bootstrap** | **Usually well-identified** |
+| **ADCC**| **Gamma (γ)**  | **Bootstrap**            | **May have identification issues** |
+| **ADCC**| **Beta (β)**   | **Bootstrap**            | **Same flat likelihood as DCC** |
+| GOGARCH | GARCH params   | Bootstrap                | ICA uncertainty not captured |
+
+---
+
+## Also update the Summary Table in Part VII (around line 552)
+
+| Quantity | Method | Model Applicability |
+|----------|--------|---------------------|
+| Point estimates | MLE | All |
+| SE for α | Hessian | DCC, CGARCH, ADCC |
+| CI for β | Bootstrap or Profile | DCC, CGARCH, ADCC |
+| SE for γ (ADCC) | Bootstrap | ADCC |
+| Shape SE (ν) | Hessian | CGARCH (MVT), ADCC (MVT) |
+| Component GARCH SE | Bootstrap | GOGARCH |
+| Persistence | Point estimate + SE | All |
+
+---
+
+## Update the Reporting section (Part VII) to include ADCC example
+
+### Recommended Format for ADCC
+
+> The ADCC parameters were estimated as α̂ = 0.045 (SE = 0.022), 
+> γ̂ = 0.028 (bootstrap 95% CI: [0.003, 0.061]), and β̂ = 0.91 
+> (bootstrap 95% CI: [0.52, 0.97]). The asymmetric parameter γ is 
+> statistically significant, indicating stronger correlation increases 
+> following joint negative returns. Bootstrap confidence intervals are 
+> reported for γ and β due to potential identification issues with 
+> Hessian-based inference.
 
 ---
 

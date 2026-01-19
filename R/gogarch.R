@@ -30,13 +30,9 @@
 #' where \eqn{Y} is the T x k residual matrix, \eqn{W} is the unmixing matrix,
 #' and \eqn{S} contains the independent components.
 #'
-#' Two ICA algorithms are supported:
-#' \itemize{
-#'   \item \code{"radical"}: RADICAL algorithm (Learned-Miller, 2003) - recommended
-#'     for robustness to outliers
-#'   \item \code{"fastica"}: FastICA algorithm - faster but may be sensitive to
-#'     initialization
-#' }
+#' The RADICAL algorithm (Learned-Miller, 2003) is used for ICA decomposition,
+#' which is robust to outliers. For improved convergence with multiple restarts
+#' and quality diagnostics, see \code{\link{improved_ica_decomposition}}.
 #'
 #' \strong{Stage 2: Component GARCH Estimation}
 #'
@@ -69,7 +65,8 @@
 #'       \itemize{
 #'         \item \code{model}: GARCH model type (default: \code{"garch"})
 #'         \item \code{order}: GARCH order as c(p, q) (default: \code{c(1, 1)})
-#'         \item \code{ica}: ICA algorithm, \code{"radical"} or \code{"fastica"}
+#'         \item \code{ica}: ICA algorithm. Currently only \code{"radical"} is
+#'           supported (tsmarch v1.0.0)
 #'         \item \code{components}: Number of ICA components to extract
 #'       }
 #'     }
@@ -129,6 +126,20 @@
 #'   \item Dimension reduction is desired (fewer components than series)
 #'   \item Non-linear dependence structures are suspected
 #' }
+#' 
+#' @section ICA Quality Assessment:
+#' The quality of the ICA decomposition is critical for GOGARCH reliability.
+#' Key diagnostics include:
+#' \itemize{
+#'   \item \strong{Independence score}: Measures how uncorrelated the extracted
+#'     components are (target: > 0.8)
+#'   \item \strong{Reconstruction error}: How well Y = S * A' holds (target: < 1\%)
+#'   \item \strong{Negentropy}: Non-Gaussianity of components (higher = better separation
+#' }
+#'
+#' If ICA convergence is problematic, consider using \code{\link{improved_ica_decomposition}}
+#' which provides multiple restarts and automatic quality assessment. For post-estimation
+#' diagnostics, see \code{\link{gogarch_diagnostics}}.
 #'
 #' @seealso
 #' \itemize{
@@ -137,6 +148,10 @@
 #'   \item \code{\link{estimate_garch_weighted_univariate_gogarch}}: Component
 #'     GARCH estimation
 #'   \item \code{\link{compute_gogarch_loglik_ms}}: Log-likelihood computation
+#'   \item \code{\link{improved_ica_decomposition}}: Enhanced ICA with multiple
+#'     restarts and quality metrics
+#'   \item \code{\link{gogarch_diagnostics}}: Comprehensive model diagnostics
+#'     including ICA quality, component GARCH fit, and covariance reconstruction
 #'   \item \code{\link{estimate_garch_weighted_dcc}}: Alternative DCC estimator
 #'   \item \code{\link{estimate_garch_weighted_cgarch}}: Alternative CGARCH estimator
 #' }
@@ -188,24 +203,32 @@ estimate_garch_weighted_gogarch <- function(
   
   ## Perform ICA decomposition
   ## Use tsmarch's radical or fastica implementation
-  ic <- tryCatch({
-    if (ica_method == "radical") {
-      tsmarch::radical(residuals, components = n_components, demean = FALSE, trace = verbose)
-    } else if (ica_method == "fastica") {
-      tsmarch::fastica(residuals, components = n_components, demean = FALSE, trace = verbose)
-    } else {
-      stop("Unsupported ICA method: ", ica_method)
-    }
-  }, error = function(e) {
-    warning("ICA decomposition failed: ", e$message, ". Using identity transformation.")
-    ## Fallback: identity transformation (no rotation)
-    list(
-      S = residuals,
-      A = diag(k),
-      W = diag(k),
-      K = diag(k)
-    )
-  })
+  # ic <- tryCatch({
+  #   if (ica_method == "radical") {
+  #     tsmarch::radical(residuals, components = n_components, demean = FALSE, trace = verbose)
+  #   } else if (ica_method == "fastica") {
+  #     tsmarch::fastica(residuals, components = n_components, demean = FALSE, trace = verbose)
+  #   } else {
+  #     stop("Unsupported ICA method: ", ica_method)
+  #   }
+  # }, error = function(e) {
+  #   warning("ICA decomposition failed: ", e$message, ". Using identity transformation.")
+  #   ## Fallback: identity transformation (no rotation)
+  #   list(
+  #     S = residuals,
+  #     A = diag(k),
+  #     W = diag(k),
+  #     K = diag(k)
+  #   )
+  # })
+  
+  ic <- improved_ica_decomposition(
+    residuals = residuals,
+    method = ica_method,
+    n_components = n_components,
+    n_restarts = 3,  # Multiple restarts
+    verbose = verbose
+  )
   
   ## Extract independent components
   S <- ic$S  # T x n_components matrix of independent components

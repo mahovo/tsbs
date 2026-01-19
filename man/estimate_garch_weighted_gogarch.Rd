@@ -26,7 +26,8 @@ framework.}
 \itemize{
 \item \code{model}: GARCH model type (default: \code{"garch"})
 \item \code{order}: GARCH order as c(p, q) (default: \code{c(1, 1)})
-\item \code{ica}: ICA algorithm, \code{"radical"} or \code{"fastica"}
+\item \code{ica}: ICA algorithm. Currently only \code{"radical"} is
+supported (tsmarch v1.0.0)
 \item \code{components}: Number of ICA components to extract
 }
 }
@@ -97,13 +98,9 @@ from the multivariate residuals:
 where \eqn{Y} is the T x k residual matrix, \eqn{W} is the unmixing matrix,
 and \eqn{S} contains the independent components.
 
-Two ICA algorithms are supported:
-\itemize{
-\item \code{"radical"}: RADICAL algorithm (Learned-Miller, 2003) - recommended
-for robustness to outliers
-\item \code{"fastica"}: FastICA algorithm - faster but may be sensitive to
-initialization
-}
+The RADICAL algorithm (Learned-Miller, 2003) is used for ICA decomposition,
+which is robust to outliers. For improved convergence with multiple restarts
+and quality diagnostics, see \code{\link{improved_ica_decomposition}}.
 
 \strong{Stage 2: Component GARCH Estimation}
 
@@ -147,6 +144,22 @@ GOGARCH is particularly suitable when:
 }
 }
 
+\section{ICA Quality Assessment}{
+
+The quality of the ICA decomposition is critical for GOGARCH reliability.
+Key diagnostics include:
+\itemize{
+\item \strong{Independence score}: Measures how uncorrelated the extracted
+components are (target: > 0.8)
+\item \strong{Reconstruction error}: How well Y = S * A' holds (target: < 1\\%)
+\item \strong{Negentropy}: Non-Gaussianity of components (higher = better separation
+}
+
+If ICA convergence is problematic, consider using \code{\link{improved_ica_decomposition}}
+which provides multiple restarts and automatic quality assessment. For post-estimation
+diagnostics, see \code{\link{gogarch_diagnostics}}.
+}
+
 \references{
 van der Weide, R. (2002). GO-GARCH: A multivariate generalized orthogonal
 GARCH model. \emph{Journal of Applied Econometrics}, 17(5), 549-564.
@@ -161,6 +174,10 @@ Learned-Miller, E. G. (2003). ICA using spacings estimates of entropy.
 \item \code{\link{estimate_garch_weighted_univariate_gogarch}}: Component
 GARCH estimation
 \item \code{\link{compute_gogarch_loglik_ms}}: Log-likelihood computation
+\item \code{\link{improved_ica_decomposition}}: Enhanced ICA with multiple
+restarts and quality metrics
+\item \code{\link{gogarch_diagnostics}}: Comprehensive model diagnostics
+including ICA quality, component GARCH fit, and covariance reconstruction
 \item \code{\link{estimate_garch_weighted_dcc}}: Alternative DCC estimator
 \item \code{\link{estimate_garch_weighted_cgarch}}: Alternative CGARCH estimator
 }

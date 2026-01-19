@@ -191,16 +191,16 @@ set, \code{block_length} and \code{num_blocks} must be set, and \code{n_boot} wi
 automatically be set to \code{block_length * num_blocks}.
 }
 
-\subsection{\code{bs_type="stationary"}, \code{bs_type="hmm"}, \code{bs_type="msvar"}}{
+\subsection{\code{bs_type="stationary"}, \code{bs_type="hmm"}, \code{bs_type="msvar"} If \code{n_boot} is}{
 
-If \code{n_boot} is set, the last block will be truncated when necessary to
-match the length (\code{n_boot}) of the bootstrap series. This is the only way
-to ensure equal length of all bootstrap series, as the length of each block
-is random. If \code{n_boot} is not set, \code{num_blocks} must be set, and the length
-of each bootstrap series will be determined by the number of blocks and the
-random lengths of the individual blocks for that particular series. Note
-that this typically results in bootstrap series of different lengths. For
-stationary bootstrap, \code{block_length} is the expected block length, when
+set, the last block will be truncated when necessary to match the length
+(\code{n_boot}) of the bootstrap series. This is the only way to ensure equal
+length of all bootstrap series, as the length of each block is random. If
+\code{n_boot} is not set, \code{num_blocks} must be set, and the length of each
+bootstrap series will be determined by the number of blocks and the lengths
+of the individual blocks for that particular series. Truncation ensures equal
+length of bootstrapped series for bootstrap types with random block length.
+For stationary bootstrap, \code{block_length} is the expected block length, when
 \code{p_method="1/n"}.
 }
 

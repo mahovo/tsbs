@@ -1126,7 +1126,7 @@ profile_one_param_generic <- function(
 #' @return List with all inference results
 #' @export
 correlation_comprehensive_inference <- function(
-    model_type = c("dcc", "cgarch"),
+    model_type = c("dcc", "cgarch", "adcc"),
     residuals,
     weights,
     Qbar = NULL,
@@ -1141,6 +1141,10 @@ correlation_comprehensive_inference <- function(
 ) {
   
   model_type <- match.arg(model_type)
+  
+  if (model_type == "adcc") {
+    return(adcc_comprehensive_inference(...))
+  }
   
   if (!is.null(seed)) set.seed(seed)
   
@@ -1545,10 +1549,3 @@ print_gogarch_inference <- function(inf_result) {
 }
 
 
-#### ______________________________________________________________________ ####
-#### NULL-COALESCING OPERATOR (if not already defined)                      ####
-
-
-if (!exists("%||%")) {
-  `%||%` <- function(x, y) if (is.null(x)) y else x
-}

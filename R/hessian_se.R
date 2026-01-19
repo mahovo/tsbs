@@ -46,6 +46,7 @@
 ## = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = =
 
 
+#### ______________________________________________________________________ ####
 ## SECTION 1: Low-Level Numerical Hessian Computation ==========================
 
 #' @title Compute Numerical Hessian via Finite Differences
@@ -165,6 +166,7 @@ dcc11_observed_information <- function(
 }
 
 
+#### ______________________________________________________________________ ####
 ## SECTION 2: Analytical Hessian (DCC-specific) ================================
 ##
 ## This section implements the analytical Hessian of the DCC(1,1) log-likelihood.
@@ -476,6 +478,7 @@ dcc11_analytical_hessian <- function(
 }
 
 
+#### ______________________________________________________________________ ####
 ## SECTION 3: Mid-Level SE Computation Engines =================================
 
 #' Compute DCC(1,1) Hessian with Full Diagnostics
@@ -732,6 +735,7 @@ dcc11_sandwich_se <- function(
 }
 
 
+#### ______________________________________________________________________ ####
 ## SECTION 4: High-Level User-Facing Functions =================================
 
 #' @title Compute Standard Errors for DCC(1,1) Parameters
@@ -916,6 +920,7 @@ compute_dcc_standard_errors_robust <- function(
 }
 
 
+#### ______________________________________________________________________ ####
 ## SECTION 5: SE Transformation and Confidence Intervals =======================
 
 #' @title Transform Standard Errors Between Parameterizations
@@ -1038,6 +1043,7 @@ dcc11_profile_ci <- function(
 }
 
 
+#### ______________________________________________________________________ ####
 ## SECTION 6: Summary and Printing =============================================
 
 #' @title Summarize DCC(1,1) Estimation Results
@@ -1137,6 +1143,7 @@ print.dcc11_summary <- function(x, digits = 4, ...) {
 }
 
 
+#### ______________________________________________________________________ ####
 ## SECTION 7: CGARCH Standard Error Computation ================================
 ##
 ## CGARCH uses copula-based dependence, where the log-likelihood has a different
@@ -1602,6 +1609,7 @@ compute_cgarch_standard_errors_robust <- function(
 }
 
 
+#### ______________________________________________________________________ ####
 ## SECTION 8: GOGARCH Standard Error Computation ===============================
 ##
 ## GOGARCH uses ICA decomposition followed by univariate GARCH on components.
@@ -2057,3 +2065,782 @@ print.gogarch_summary <- function(x, digits = 4, ...) {
   
   invisible(x)
 }
+
+
+#### ______________________________________________________________________ ####
+## SECTION 9: ADCC Standard Errors and Inference ===============================
+
+## = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = =
+## This section implements Hessian-based standard errors for ADCC (Asymmetric DCC)
+## models. ADCC adds a gamma parameter capturing asymmetric response to negative
+## shocks, making it a 3-parameter model: (alpha, gamma, beta).
+##
+## The ADCC(1,1) model is:
+##   Q_t = (1 - α - β)Q̄ - γN̄ + α(z_{t-1}z'_{t-1}) + γ(n_{t-1}n'_{t-1}) + βQ_{t-1}
+##
+## where:
+##   - n_t = z_t * I(z_t < 0) captures negative shocks
+##   - N̄ = E[n_t n'_t] is the average outer product of negative shocks
+##   - Stationarity requires: α + β + δγ < 1 (where δ ≈ 0.5 typically)
+##
+## Dependencies:
+##   - tsbs_cgarch.R (adcc_copula_nll, adcc_recursion, estimate_adcc_copula)
+##   - hessian_se.R (numerical_hessian_richardson)
+##
+## = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = =
+
+
+## SECTION 9a: ADCC Hessian-Based Standard Errors ==============================
+
+#' @title Compute Standard Errors for ADCC Parameters
+#' @description Computes Hessian-based (or sandwich) standard errors for the
+#'   3-parameter ADCC model: (alpha, gamma, beta), optionally with shape for MVT.
+#'
+#' @param params Parameter vector: c(alpha, gamma, beta) or c(alpha, gamma, beta, shape)
+#' @param z_matrix T x k matrix of copula residuals (PIT-transformed)
+#' @param weights T-vector of observation weights
+#' @param Qbar k x k unconditional correlation matrix
+#' @param Nbar k x k average outer product of negative residuals (optional)
+#' @param copula_dist "mvn" or "mvt"
+#' @param method SE method: "hessian" (default) or "sandwich"
+#'
+#' @return List with:
+#'   \item{se}{Standard errors for each parameter}
+#'   \item{vcov}{Variance-covariance matrix}
+#'   \item{hessian}{Hessian matrix of NLL}
+#'   \item{eigenvalues}{Eigenvalues of Hessian (for diagnostics)}
+#'   \item{condition_number}{Condition number of Hessian}
+#'   \item{param_names}{Parameter names}
+#'   \item{method}{"hessian" or "sandwich"}
+#'   \item{valid}{Logical: are SEs valid?}
+#'
+#' @details
+#' For ADCC, the gamma parameter introduces asymmetric correlation dynamics.
+#' The Hessian-based SEs may underestimate uncertainty for high-persistence
+#' models (similar to standard DCC). Bootstrap SEs are recommended for
+#' publication-quality inference.
+#'
+#' @export
+adcc_standard_errors <- function(
+    params,
+    z_matrix,
+    weights,
+    Qbar,
+    Nbar = NULL,
+    copula_dist = "mvn",
+    method = c("hessian", "sandwich")
+) {
+  method <- match.arg(method)
+  
+  n_params <- length(params)
+  T_obs <- nrow(z_matrix)
+  k <- ncol(z_matrix)
+  
+  ## Determine parameter names
+  param_names <- if (n_params == 3) {
+    c("alpha", "gamma", "beta")
+  } else if (n_params == 4) {
+    c("alpha", "gamma", "beta", "shape")
+  } else {
+    paste0("param", 1:n_params)
+  }
+  
+  ## Compute Nbar if not provided
+  if (is.null(Nbar)) {
+    neg_resid <- z_matrix * (z_matrix < 0)
+    Nbar <- crossprod(neg_resid) / T_obs
+  }
+  
+  if (method == "sandwich") {
+    return(adcc_sandwich_se(params, z_matrix, weights, Qbar, Nbar, copula_dist))
+  }
+  
+  ## Compute numerical Hessian of ADCC NLL
+  H <- numerical_hessian_richardson(
+    fn = adcc_copula_nll,
+    params = params,
+    eps = 1e-5,
+    z_matrix = z_matrix,
+    weights = weights,
+    Qbar = Qbar,
+    Nbar = Nbar,
+    copula_dist = copula_dist
+  )
+  rownames(H) <- colnames(H) <- param_names
+  
+  ## Compute eigendecomposition and inverse
+  eig <- eigen(H, symmetric = TRUE)
+  
+  vcov <- tryCatch({
+    if (all(eig$values > 1e-10)) {
+      solve(H)
+    } else {
+      warning("ADCC Hessian is near-singular, using pseudo-inverse")
+      eig$vectors %*% diag(1 / pmax(eig$values, 1e-10)) %*% t(eig$vectors)
+    }
+  }, error = function(e) matrix(NA_real_, n_params, n_params))
+  rownames(vcov) <- colnames(vcov) <- param_names
+  
+  se <- sqrt(pmax(0, diag(vcov)))
+  names(se) <- param_names
+  
+  ## Validate results
+  valid <- !any(is.na(se)) && all(se > 0) && all(eig$values > 0)
+  
+  list(
+    hessian = H,
+    info = H,
+    vcov = vcov,
+    se = se,
+    eigenvalues = eig$values,
+    eigenvectors = eig$vectors,
+    condition_number = max(eig$values) / max(min(eig$values), 1e-16),
+    params = params,
+    param_names = param_names,
+    method = "hessian",
+    valid = valid,
+    reason = if (valid) "ok" else "numerical_issues"
+  )
+}
+
+
+#' @title ADCC Sandwich (Robust) Standard Errors
+#' @description Computes sandwich estimator for ADCC parameters.
+#' @param params Parameter vector
+#' @param z_matrix Copula residuals
+#' @param weights Observation weights
+#' @param Qbar Unconditional covariance
+#' @param Nbar Average outer product of negative residuals
+#' @param copula_dist "mvn" or "mvt"
+#' @return List with SE results
+#' @keywords internal
+adcc_sandwich_se <- function(
+    params,
+    z_matrix,
+    weights,
+    Qbar,
+    Nbar,
+    copula_dist = "mvn"
+) {
+  T_obs <- nrow(z_matrix)
+  n_params <- length(params)
+  
+  ## First get Hessian-based result
+  hess_result <- adcc_standard_errors(
+    params, z_matrix, weights, Qbar, Nbar, copula_dist, method = "hessian"
+  )
+  
+  if (is.null(hess_result$vcov) || any(is.na(hess_result$vcov))) {
+    warning("Cannot compute ADCC sandwich SE: information matrix is singular")
+    hess_result$method <- "sandwich"
+    return(hess_result)
+  }
+  
+  ## Compute meat matrix (outer product of score contributions)
+  J <- matrix(0, n_params, n_params)
+  
+  for (t in 1:T_obs) {
+    grad_t <- .adcc_gradient_single_obs(
+      params, z_matrix, weights, Qbar, Nbar, t, copula_dist, eps = 1e-6
+    )
+    J <- J + weights[t]^2 * outer(grad_t, grad_t)
+  }
+  
+  ## Sandwich: bread %*% meat %*% bread
+  bread <- hess_result$vcov
+  sandwich <- bread %*% J %*% bread
+  var_diag <- diag(sandwich)
+  var_diag[var_diag < 0] <- NA_real_
+  se_sandwich <- sqrt(var_diag)
+  names(se_sandwich) <- hess_result$param_names
+  rownames(sandwich) <- colnames(sandwich) <- hess_result$param_names
+  
+  list(
+    se = se_sandwich,
+    vcov = sandwich,
+    bread = bread,
+    meat = J,
+    info = hess_result$info,
+    params = params,
+    param_names = hess_result$param_names,
+    method = "sandwich",
+    valid = !any(is.na(se_sandwich)) && all(se_sandwich > 0),
+    reason = if (!any(is.na(se_sandwich)) && all(se_sandwich > 0)) "ok" else "numerical_issues"
+  )
+}
+
+
+#' @keywords internal
+.adcc_gradient_single_obs <- function(
+    params,
+    z_matrix,
+    weights,
+    Qbar,
+    Nbar,
+    t,
+    copula_dist,
+    eps = 1e-6
+) {
+  n_params <- length(params)
+  grad <- numeric(n_params)
+  
+  for (i in 1:n_params) {
+    p_plus <- p_minus <- params
+    p_plus[i] <- params[i] + eps
+    p_minus[i] <- params[i] - eps
+    
+    grad[i] <- (
+      .adcc_nll_single_obs(p_plus, z_matrix, weights, Qbar, Nbar, t, copula_dist) -
+        .adcc_nll_single_obs(p_minus, z_matrix, weights, Qbar, Nbar, t, copula_dist)
+    ) / (2 * eps)
+  }
+  
+  grad
+}
+
+
+#' @keywords internal
+.adcc_nll_single_obs <- function(
+    params,
+    z_matrix,
+    weights,
+    Qbar,
+    Nbar,
+    t,
+    copula_dist
+) {
+  k <- ncol(z_matrix)
+  
+  alpha <- as.numeric(params[1])
+  gamma <- as.numeric(params[2])
+  beta <- as.numeric(params[3])
+  shape <- if (copula_dist == "mvt" && length(params) >= 4) as.numeric(params[4]) else NULL
+  
+  ## Check constraints using ADCC stationarity
+  stationarity <- alpha + beta + 0.5 * gamma  # Approximate stationarity
+  if (!is.finite(alpha) || !is.finite(gamma) || !is.finite(beta) ||
+      stationarity >= 1 || alpha < 0 || gamma < 0 || beta < 0) {
+    return(1e10)
+  }
+  
+  if (copula_dist == "mvt" && (!is.null(shape) && shape <= 2)) {
+    return(1e10)
+  }
+  
+  ## Run ADCC recursion
+  recursion <- adcc_recursion(
+    std_resid = z_matrix,
+    Qbar = Qbar,
+    alpha = alpha,
+    gamma = gamma,
+    beta = beta,
+    Nbar = Nbar
+  )
+  
+  if (!isTRUE(recursion$success)) {
+    return(1e10)
+  }
+  
+  ## Extract R_t and its inverse for observation t
+  R_t <- recursion$R[, , t]
+  R_inv_t <- tryCatch(solve(R_t), error = function(e) {
+    eig <- eigen(R_t, symmetric = TRUE)
+    eig$vectors %*% diag(1 / pmax(eig$values, 1e-8)) %*% t(eig$vectors)
+  })
+  log_det_R_t <- log(max(det(R_t), 1e-100))
+  
+  z_t <- z_matrix[t, ]
+  q_t <- as.numeric(t(z_t) %*% R_inv_t %*% z_t)
+  
+  if (copula_dist == "mvn") {
+    ll_t <- -0.5 * (log_det_R_t + q_t - sum(z_t^2))
+  } else {
+    const_term <- lgamma((shape + k) / 2) - lgamma(shape / 2) -
+      (k / 2) * log(pi * (shape - 2))
+    
+    ll_t <- const_term - 0.5 * log_det_R_t -
+      ((shape + k) / 2) * log(1 + q_t / (shape - 2))
+    
+    ## Subtract marginal t log-densities
+    scale <- sqrt(shape / (shape - 2))
+    for (j in 1:k) {
+      ll_t <- ll_t - (dt(z_t[j] * scale, df = shape, log = TRUE) + log(scale))
+    }
+  }
+  
+  -weights[t] * ll_t
+}
+
+
+## SECTION 9b: Robust ADCC SE with Edge Case Handling ==========================
+
+#' @title Compute ADCC Standard Errors with Robust Edge Case Handling
+#' @description High-level wrapper for ADCC SE computation with validation
+#'   and edge case handling (boundary estimates, near-singular Hessians).
+#'
+#' @param adcc_result Result from estimate_adcc_copula() or similar
+#' @param z_matrix T x k matrix of copula residuals
+#' @param weights T-vector of observation weights
+#' @param Qbar k x k unconditional correlation matrix
+#' @param copula_dist "mvn" or "mvt"
+#' @param boundary_threshold Threshold for boundary detection (default 1e-4)
+#' @param method "hessian" or "sandwich"
+#'
+#' @return List with SE results and validity information
+#'
+#' @export
+compute_adcc_standard_errors_robust <- function(
+    adcc_result,
+    z_matrix,
+    weights,
+    Qbar,
+    copula_dist = "mvn",
+    boundary_threshold = 1e-4,
+    method = c("hessian", "sandwich")
+) {
+  method <- match.arg(method)
+  
+  result <- list(
+    se = NULL, vcov = NULL, valid = FALSE, reason = NULL,
+    info = NULL, info_eigenvalues = NULL
+  )
+  
+  ## Extract parameters from adcc_result
+  if (is.list(adcc_result)) {
+    alpha <- adcc_result$alpha %||% adcc_result$dcc_pars$alpha_1
+    gamma <- adcc_result$gamma %||% adcc_result$dcc_pars$gamma_1
+    beta <- adcc_result$beta %||% adcc_result$dcc_pars$beta_1
+    shape <- adcc_result$shape %||% adcc_result$dist_pars$shape
+    Nbar <- adcc_result$Nbar
+  } else {
+    result$reason <- "invalid_adcc_result"
+    return(result)
+  }
+  
+  if (is.null(alpha) || is.null(gamma) || is.null(beta)) {
+    result$reason <- "missing_adcc_parameters"
+    result$se <- c(alpha = NA_real_, gamma = NA_real_, beta = NA_real_)
+    return(result)
+  }
+  
+  ## Check boundary conditions
+  if (alpha < boundary_threshold || gamma < boundary_threshold || beta < boundary_threshold) {
+    result$reason <- sprintf("boundary_lower (alpha=%.2e, gamma=%.2e, beta=%.2e)", 
+                             alpha, gamma, beta)
+    result$se <- c(alpha = NA_real_, gamma = NA_real_, beta = NA_real_)
+    if (copula_dist == "mvt") result$se <- c(result$se, shape = NA_real_)
+    return(result)
+  }
+  
+  stationarity <- alpha + beta + 0.5 * gamma
+  if (stationarity > (1 - boundary_threshold)) {
+    result$reason <- sprintf("boundary_upper (stationarity=%.6f)", stationarity)
+    result$se <- c(alpha = NA_real_, gamma = NA_real_, beta = NA_real_)
+    if (copula_dist == "mvt") result$se <- c(result$se, shape = NA_real_)
+    return(result)
+  }
+  
+  ## Build parameter vector
+  params <- c(alpha = alpha, gamma = gamma, beta = beta)
+  if (copula_dist == "mvt" && !is.null(shape)) {
+    params <- c(params, shape = shape)
+  }
+  
+  ## Compute Nbar if not available
+  if (is.null(Nbar)) {
+    T_obs <- nrow(z_matrix)
+    neg_resid <- z_matrix * (z_matrix < 0)
+    Nbar <- crossprod(neg_resid) / T_obs
+  }
+  
+  ## Compute SEs
+  se_result <- tryCatch(
+    adcc_standard_errors(params, z_matrix, weights, Qbar, Nbar, copula_dist, method),
+    error = function(e) list(se = NULL, vcov = NULL, info = NULL, error = e$message)
+  )
+  
+  if (!is.null(se_result$error)) {
+    result$reason <- paste("computation_error:", se_result$error)
+    result$se <- c(alpha = NA_real_, gamma = NA_real_, beta = NA_real_)
+    if (copula_dist == "mvt") result$se <- c(result$se, shape = NA_real_)
+    return(result)
+  }
+  
+  result$se <- se_result$se
+  result$vcov <- se_result$vcov
+  result$info <- se_result$info
+  
+  if (!is.null(se_result$eigenvalues)) {
+    result$info_eigenvalues <- se_result$eigenvalues
+    if (any(se_result$eigenvalues <= 0)) {
+      result$reason <- sprintf("non_pd_information (min_eig=%.2e)", min(se_result$eigenvalues))
+      return(result)
+    }
+  }
+  
+  if (any(is.na(se_result$se))) {
+    result$reason <- "na_standard_errors"
+    return(result)
+  }
+  
+  if (any(se_result$se <= 0)) {
+    result$reason <- "non_positive_standard_errors"
+    return(result)
+  }
+  
+  result$valid <- TRUE
+  result$reason <- "ok"
+  result$method <- method
+  result
+}
+
+
+## SECTION 9c: ADCC Bootstrap Standard Errors ==================================
+
+#' @title Bootstrap Standard Errors for ADCC Parameters
+#' @description Compute bootstrap standard errors for ADCC correlation
+#'   parameters (alpha, gamma, beta) using residual or parametric resampling.
+#'
+#' @param z_matrix T x k matrix of copula residuals (PIT-transformed)
+#' @param weights T-vector of observation weights
+#' @param Qbar k x k unconditional correlation matrix
+#' @param mle_params MLE estimates c(alpha, gamma, beta) or with shape for MVT
+#' @param Nbar k x k average outer product of negative residuals (optional)
+#' @param n_boot Number of bootstrap replications (default 200)
+#' @param method Bootstrap method: "residual" or "parametric"
+#' @param copula_dist "mvn" or "mvt"
+#' @param verbose Print progress
+#' @param seed Random seed for reproducibility
+#'
+#' @return List with bootstrap results including SEs for alpha, gamma, beta
+#'
+#' @export
+adcc_bootstrap_se <- function(
+    z_matrix,
+    weights,
+    Qbar,
+    mle_params,
+    Nbar = NULL,
+    n_boot = 200,
+    method = c("residual", "parametric"),
+    copula_dist = "mvn",
+    verbose = TRUE,
+    seed = NULL
+) {
+  method <- match.arg(method)
+  
+  if (!is.null(seed)) set.seed(seed)
+  
+  n <- nrow(z_matrix)
+  k <- ncol(z_matrix)
+  
+  alpha_mle <- mle_params[1]
+  gamma_mle <- mle_params[2]
+  beta_mle <- mle_params[3]
+  shape_mle <- if (length(mle_params) > 3) mle_params[4] else NULL
+  
+  n_params <- if (copula_dist == "mvt" && !is.null(shape_mle)) 4 else 3
+  param_names <- if (n_params == 4) c("alpha", "gamma", "beta", "shape") else c("alpha", "gamma", "beta")
+  
+  ## Compute Nbar if not provided
+  if (is.null(Nbar)) {
+    neg_resid <- z_matrix * (z_matrix < 0)
+    Nbar <- crossprod(neg_resid) / n
+  }
+  
+  boot_estimates <- matrix(NA, n_boot, n_params)
+  colnames(boot_estimates) <- param_names
+  
+  if (verbose) {
+    cat(sprintf("Running ADCC %s bootstrap with %d replications...\n", method, n_boot))
+    pb <- txtProgressBar(min = 0, max = n_boot, style = 3)
+  }
+  
+  for (b in 1:n_boot) {
+    
+    if (method == "residual") {
+      ## Residual bootstrap: resample rows
+      boot_idx <- sample(1:n, n, replace = TRUE)
+      boot_z <- z_matrix[boot_idx, , drop = FALSE]
+      boot_weights <- weights[boot_idx]
+      boot_Qbar <- cor(boot_z)
+      
+      ## Recompute Nbar for bootstrap sample
+      neg_resid_boot <- boot_z * (boot_z < 0)
+      boot_Nbar <- crossprod(neg_resid_boot) / n
+      
+    } else {
+      ## Parametric bootstrap: simulate from fitted ADCC model
+      boot_z <- simulate_adcc_residuals(
+        n = n, k = k,
+        alpha = alpha_mle, gamma = gamma_mle, beta = beta_mle,
+        Qbar = Qbar, Nbar = Nbar,
+        copula_dist = copula_dist, shape = shape_mle
+      )
+      boot_weights <- weights
+      boot_Qbar <- Qbar
+      boot_Nbar <- Nbar
+    }
+    
+    ## Re-estimate ADCC parameters
+    start_pars <- c(alpha = alpha_mle, gamma = gamma_mle, beta = beta_mle)
+    if (copula_dist == "mvt" && !is.null(shape_mle)) {
+      start_pars <- c(start_pars, shape = shape_mle)
+    }
+    
+    opt_result <- tryCatch({
+      estimate_adcc_copula(
+        z_matrix = boot_z,
+        weights = boot_weights,
+        Qbar = boot_Qbar,
+        copula_dist = copula_dist,
+        start_pars = start_pars
+      )
+    }, error = function(e) NULL)
+    
+    if (!is.null(opt_result) && opt_result$convergence == 0) {
+      boot_estimates[b, 1] <- opt_result$alpha
+      boot_estimates[b, 2] <- opt_result$gamma
+      boot_estimates[b, 3] <- opt_result$beta
+      if (n_params == 4) boot_estimates[b, 4] <- opt_result$shape
+    }
+    
+    if (verbose) setTxtProgressBar(pb, b)
+  }
+  
+  if (verbose) {
+    close(pb)
+    cat("\n")
+  }
+  
+  ## Process results
+  boot_estimates_valid <- boot_estimates[complete.cases(boot_estimates), , drop = FALSE]
+  n_valid <- nrow(boot_estimates_valid)
+  
+  if (n_valid < 10) {
+    warning(sprintf("Only %d valid bootstrap replications. Results may be unreliable.", n_valid))
+  }
+  
+  boot_se <- apply(boot_estimates_valid, 2, sd)
+  boot_mean <- colMeans(boot_estimates_valid)
+  boot_bias <- boot_mean - mle_params[1:n_params]
+  
+  names(boot_se) <- param_names
+  names(boot_mean) <- param_names
+  names(boot_bias) <- param_names
+  
+  ## Percentile CIs
+  ci_percentile <- apply(boot_estimates_valid, 2, quantile, probs = c(0.025, 0.975))
+  colnames(ci_percentile) <- param_names
+  
+  if (verbose) {
+    cat(sprintf("Valid bootstrap replications: %d/%d\n", n_valid, n_boot))
+    cat(sprintf("Bootstrap SE: %s\n",
+                paste(param_names, "=", round(boot_se, 4), collapse = ", ")))
+  }
+  
+  list(
+    se = boot_se,
+    boot_estimates = boot_estimates,
+    boot_estimates_valid = boot_estimates_valid,
+    n_valid = n_valid,
+    mean = boot_mean,
+    bias = boot_bias,
+    ci_percentile = ci_percentile,
+    mle_params = mle_params,
+    param_names = param_names,
+    valid = n_valid >= 10,
+    reason = if (n_valid >= 10) "ok" else "insufficient_valid_replicates"
+  )
+}
+
+
+#' @title Simulate ADCC Residuals
+#' @description Simulate residuals from an ADCC model for parametric bootstrap.
+#' @keywords internal
+simulate_adcc_residuals <- function(
+    n,
+    k,
+    alpha,
+    gamma,
+    beta,
+    Qbar,
+    Nbar,
+    copula_dist = "mvn",
+    shape = NULL
+) {
+  ## Initialize Q
+  Q <- Qbar
+  z <- matrix(0, n, k)
+  
+  persistence <- alpha + beta + 0.5 * gamma
+  Omega <- (1 - persistence) * Qbar - gamma * Nbar
+  
+  for (t in 1:n) {
+    ## Normalize Q to get R
+    d <- sqrt(pmax(diag(Q), 1e-10))
+    R <- Q / outer(d, d)
+    diag(R) <- 1
+    R <- (R + t(R)) / 2
+    
+    ## Ensure R is positive definite
+    eig <- eigen(R, symmetric = TRUE)
+    if (any(eig$values < 1e-8)) {
+      eig$values <- pmax(eig$values, 1e-8)
+      R <- eig$vectors %*% diag(eig$values) %*% t(eig$vectors)
+      R <- cov2cor(R)
+    }
+    
+    ## Generate observation
+    if (copula_dist == "mvn" || is.null(shape)) {
+      z[t, ] <- MASS::mvrnorm(1, mu = rep(0, k), Sigma = R)
+    } else {
+      ## MVT
+      z[t, ] <- mvtnorm::rmvt(1, sigma = R * (shape - 2) / shape, df = shape)
+    }
+    
+    ## Update Q for next period
+    if (t < n) {
+      z_lag <- z[t, ]
+      n_lag <- z_lag * (z_lag < 0)
+      Q <- Omega + alpha * outer(z_lag, z_lag) + gamma * outer(n_lag, n_lag) + beta * Q
+    }
+  }
+  
+  z
+}
+
+
+## SECTION 9d: ADCC Comprehensive Inference ====================================
+
+#' @title Comprehensive ADCC Inference
+#' @description Compute Hessian-based and bootstrap standard errors for ADCC
+#'   parameters, with comparison and diagnostics.
+#'
+#' @param z_matrix T x k matrix of copula residuals
+#' @param weights T-vector of observation weights
+#' @param adcc_result Result from estimate_adcc_copula()
+#' @param Qbar k x k unconditional correlation matrix
+#' @param copula_dist "mvn" or "mvt"
+#' @param n_boot Number of bootstrap replications
+#' @param boot_method "residual" or "parametric"
+#' @param conf_level Confidence level
+#' @param verbose Print progress
+#' @param seed Random seed
+#'
+#' @return List with comprehensive inference results
+#'
+#' @export
+adcc_comprehensive_inference <- function(
+    z_matrix,
+    weights,
+    adcc_result,
+    Qbar = NULL,
+    copula_dist = "mvn",
+    n_boot = 200,
+    boot_method = "residual",
+    conf_level = 0.95,
+    verbose = TRUE,
+    seed = NULL
+) {
+  if (!is.null(seed)) set.seed(seed)
+  
+  n <- nrow(z_matrix)
+  k <- ncol(z_matrix)
+  
+  if (is.null(Qbar)) Qbar <- cor(z_matrix)
+  
+  ## Extract MLE parameters
+  alpha_mle <- adcc_result$alpha
+  gamma_mle <- adcc_result$gamma
+  beta_mle <- adcc_result$beta
+  shape_mle <- adcc_result$shape
+  Nbar <- adcc_result$Nbar
+  
+  mle_params <- c(alpha = alpha_mle, gamma = gamma_mle, beta = beta_mle)
+  if (copula_dist == "mvt" && !is.null(shape_mle)) {
+    mle_params <- c(mle_params, shape = shape_mle)
+  }
+  
+  if (verbose) {
+    cat("=== ADCC Comprehensive Inference ===\n")
+    cat(sprintf("Observations: %d, Series: %d\n", n, k))
+    cat(sprintf("MLE: %s\n\n", paste(names(mle_params), "=", round(mle_params, 4), collapse = ", ")))
+  }
+  
+  ## Step 1: Hessian-based SEs
+  if (verbose) cat("Computing Hessian-based SEs...\n")
+  
+  hessian_result <- compute_adcc_standard_errors_robust(
+    adcc_result = adcc_result,
+    z_matrix = z_matrix,
+    weights = weights,
+    Qbar = Qbar,
+    copula_dist = copula_dist,
+    method = "hessian"
+  )
+  
+  ## Step 2: Bootstrap SEs
+  if (verbose) cat("\nComputing bootstrap SEs...\n")
+  
+  boot_result <- adcc_bootstrap_se(
+    z_matrix = z_matrix,
+    weights = weights,
+    Qbar = Qbar,
+    mle_params = mle_params,
+    Nbar = Nbar,
+    n_boot = n_boot,
+    method = boot_method,
+    copula_dist = copula_dist,
+    verbose = verbose,
+    seed = seed
+  )
+  
+  ## Build comparison table
+  z_crit <- qnorm(1 - (1 - conf_level) / 2)
+  param_names <- names(mle_params)
+  
+  comparison <- data.frame(
+    Parameter = param_names,
+    Estimate = mle_params,
+    Hessian_SE = hessian_result$se,
+    Boot_SE = boot_result$se,
+    Hess_CI_lower = mle_params - z_crit * hessian_result$se,
+    Hess_CI_upper = mle_params + z_crit * hessian_result$se,
+    Boot_CI_lower = boot_result$ci_percentile[1, ],
+    Boot_CI_upper = boot_result$ci_percentile[2, ],
+    SE_Ratio = hessian_result$se / boot_result$se,
+    row.names = NULL
+  )
+  
+  if (verbose) {
+    cat("\n=== Inference Comparison ===\n")
+    cat(sprintf("Confidence level: %.0f%%\n\n", conf_level * 100))
+    print(comparison, digits = 4)
+    
+    ## Check for SE underestimation
+    ratio <- comparison$SE_Ratio
+    if (any(ratio < 0.7, na.rm = TRUE)) {
+      cat("\nWARNING: Hessian SEs appear underestimated for some parameters (ratio < 0.7).\n")
+      cat("         Bootstrap SEs recommended for inference.\n")
+    }
+  }
+  
+  list(
+    comparison = comparison,
+    mle = mle_params,
+    hessian = hessian_result,
+    bootstrap = boot_result,
+    conf_level = conf_level,
+    model_type = "adcc",
+    settings = list(
+      n = n,
+      k = k,
+      n_boot = n_boot,
+      boot_method = boot_method,
+      copula_dist = copula_dist
+    )
+  )
+}
+
+

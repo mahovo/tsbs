@@ -5,7 +5,7 @@
 \title{Comprehensive Correlation Model Inference}
 \usage{
 correlation_comprehensive_inference(
-  model_type = c("dcc", "cgarch"),
+  model_type = c("dcc", "cgarch", "adcc"),
   residuals,
   weights,
   Qbar = NULL,
