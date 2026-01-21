@@ -20,13 +20,14 @@
 #'   `"bartlett"`, or `"tukey"`. Default `"cosine"`.
 #' @param tukey_alpha `alpha` when `block_type = "tapered"` and  `taper_type = "tukey"`.
 #'   Default 0.5.
-#' @param num_blocks Integer or `NULL`. Number of blocks to use. If `NULL`, this is
-#'   inferred from `n_length`.
+#' @param num_blocks Integer or `NULL`. Number of blocks to use. If `NULL`, this 
+#'   is inferred from `n_length`.
 #' @param num_boots Number of bootstrap replicates to generate.
 #' @param p numeric \eqn{p \in (0, 1)}. Probability parameter for the geometric
 #'   block length (used in Stationary Bootstrap). Default is 0.1.
-#' @param stationary_max_percentile Stationary max percentile.
-#' @param stationary_max_fraction_of_n Stationary max fraction of n.
+#' @param stationary_max_percentile Stationary max percentile. Default is 0.99.
+#' @param stationary_max_fraction_of_n Stationary max fraction of n. Default is
+#'   0.10.
 #'
 #' @return A list of matrices, each one a bootstrap replicate with dimensions
 #'   approximately `n_length` × `ncol(x)`.

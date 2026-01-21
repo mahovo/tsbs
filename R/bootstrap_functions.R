@@ -604,7 +604,8 @@ ms_varma_garch_bs <- function(
     stop("num_boots must be a positive integer.", call. = FALSE)
   }
   if (is.null(n_boot) && is.null(num_blocks)) {
-    stop("Must provide a valid value for either n_boot or num_blocks", call. = FALSE)
+    #stop("Must provide a valid value for either n_boot or num_blocks", call. = FALSE)
+    n_boot <- nrow(x) ## At this point x has been coerced into a matrix by tsbs()
   }
   
   ## ---- 2. Fit the MS-VARMA-GARCH Model ----
@@ -836,7 +837,8 @@ wild_bootstrap <- function(
     }
   }
   if (is.null(n_boot) && is.null(num_blocks)) {
-    stop("Must provide a valid value for either n_boot or num_blocks")
+    #stop("Must provide a valid value for either n_boot or num_blocks")
+    n_boot <- nrow(x) ## At this point x has been coerced into a matrix by tsbs()
   }
   if (!is.null(n_boot) && !is.null(num_blocks)) {
     warning("`num_blocks` is ignored when `n_boot` is set.")

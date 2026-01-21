@@ -23,32 +23,37 @@ blockBootstrap(
 \item{x}{A numeric matrix with rows representing time points and columns
 representing variables.}
 
-\item{block_length}{Integer or \code{NA}. Length of each block. If \code{NA}, a
-heuristic is used based on the average lag-1 autocorrelation across variables.}
+\item{block_length}{Integer or \code{NULL}. Length of each block. If \code{NULL}, a
+heuristic is used based on the average lag-1 autocorrelation across
+variables.}
 
-\item{bs_type}{Bootstrap type. Character string: One of \code{"moving"},
-\code{"stationary"}, \code{"hmm"}, \code{"msar"}, \code{"ms_varma_garch"}, or \code{"wild"}.}
+\item{bs_type}{Bootstrap type. Character string: One of \code{"moving"} or
+\code{"stationary"}. Default \code{"moving"}.}
 
 \item{block_type}{Character. Block type. Either \code{"non-overlapping"},
 \code{"overlapping"} or \code{"tapered"}. Default \code{"overlapping"}.}
 
 \item{taper_type}{Tapering window function. Character. One of \code{"cosine"},
-\code{"bartlett"}, or \code{"tukey"}.}
+\code{"bartlett"}, or \code{"tukey"}. Default \code{"cosine"}.}
 
-\item{num_blocks}{Integer or \code{NA}. Number of blocks to use. If \code{NA},
-this is inferred from \code{n_length}.}
+\item{tukey_alpha}{\code{alpha} when \code{block_type = "tapered"} and  \code{taper_type = "tukey"}.
+Default 0.5.}
+
+\item{num_blocks}{Integer or \code{NULL}. Number of blocks to use. If \code{NULL}, this
+is inferred from \code{n_length}.}
 
 \item{num_boots}{Number of bootstrap replicates to generate.}
 
-\item{p}{numeric \eqn{p \in (0, 1)}. Probability parameter for the geometric block length (used in
-Stationary Bootstrap).}
+\item{p}{numeric \eqn{p \in (0, 1)}. Probability parameter for the geometric
+block length (used in Stationary Bootstrap). Default is 0.1.}
 
-\item{stationary_max_percentile}{Stationary max percentile.}
+\item{stationary_max_percentile}{Stationary max percentile. Default is 0.99.}
 
-\item{stationary_max_fraction_of_n}{Stationary max fraction of n.}
+\item{stationary_max_fraction_of_n}{Stationary max fraction of n. Default is
+0.10.}
 
-\item{n_length}{Integer or \code{NA}. Desired number of time points in the
-bootstrap sample. If \code{NA}, the original series length is used.}
+\item{n_length}{Integer or \code{NULL}. Desired number of time points in the
+bootstrap sample. If \code{NULL}, the original series length is used.}
 }
 \value{
 A list of matrices, each one a bootstrap replicate with dimensions
@@ -61,15 +66,15 @@ Not intended to be called directly by user, only to be called internally by
 tsbs().
 }
 \details{
-The Moving Block Bootstrap (MBB) resamples fixed-length overlapping blocks
-from the original time series. The Stationary Bootstrap (SB) samples
+The Moving Block Bootstrap (MBB) resamples fixed-length overlapping
+blocks from the original time series. The Stationary Bootstrap (SB) samples
 blocks with geometrically distributed lengths and can optionally enforce
 non-overlap constraints.
 
-If \code{block_length_spec} is \code{NA}, an automatic heuristic is used that depends
-on the average lag-1 autocorrelation across variables. The function
-supports flexible specifications of output length (\code{n_length}) and
-block structure (\code{num_blocks}).
+If \code{block_length} is \code{NA}, an automatic heuristic is used that depends on the
+average lag-1 autocorrelation across variables. The function supports
+flexible specifications of output length (\code{n_length}) and block structure
+(\code{num_blocks}).
 }
 \examples{
 set.seed(123)

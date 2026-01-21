@@ -46,12 +46,12 @@ DATA_SOURCE <- "package"  ## Options: "package" or "download"
 if (FULL_ANALYSIS) {
   max_num_rb <- 10      ## Number of rebalances with bootstrap
   max_iter <- 20        ## Maximum EM iterations per model
-  n_boot <- 100         ## Bootstrap replicates per rebalance
+  num_boots <- 100         ## Bootstrap replicates per rebalance
   train_window <- 504   ## ~2 years training
 } else {
   max_num_rb <- 3       ## Quick demo: 3 rebalances
   max_iter <- 3         ## Quick demo: 3 iterations
-  n_boot <- 30          ## Quick demo: 30 replicates
+  num_boots <- 30          ## Quick demo: 30 replicates
   train_window <- 252   ## Quick demo: 1 year training
 }
 
@@ -243,7 +243,7 @@ if (!is.null(spy_returns)) {
 }
 ```
 
-The bootstrap series (top panel) is not a forecast—it's a *plausible alternative history* that could have occurred given the same underlying market dynamics. By generating many such series and computing portfolio weights on each, we can quantify how uncertain our optimal allocation really is.
+The bootstrap series (bottom panel) is not a forecast—it's a *plausible alternative history* that could have occurred given the same underlying market dynamics. By generating many such series and computing portfolio weights on each, we can quantify how uncertain our optimal allocation really is.
 
 ```{r load_packages, message=FALSE}
 library(tsbs)
@@ -758,7 +758,7 @@ cat("\nBacktest setup:\n")
 cat("  Training window:", train_window, "days\n")
 cat("  Rebalance frequency:", rebalance_freq, "days (~quarterly)\n")
 cat("  Number of rebalances:", length(rebalance_dates), "\n")
-cat("  Bootstrap replicates per rebalance:", n_boot, "\n")
+cat("  Bootstrap replicates per rebalance:", num_boots, "\n")
 cat("  Max rebalances with bootstrap:", max_num_rb, "\n")
 ```
 
@@ -837,7 +837,7 @@ for (rb_idx in seq_along(rebalance_dates)) {
       boot_result <- tsbs(
         x = y_train,
         bs_type = "ms_varma_garch",
-        num_boots = n_boot,
+        num_boots = num_boots,
         num_blocks = 15,
         num_states = 2,
         spec = spec_dcc,
@@ -869,7 +869,7 @@ for (rb_idx in seq_along(rebalance_dates)) {
       boot_result <- tsbs(
         x = y_train,
         bs_type = "ms_varma_garch",
-        num_boots = n_boot,
+        num_boots = num_boots,
         num_blocks = 15,
         num_states = 2,
         spec = spec_cgarch,
@@ -901,7 +901,7 @@ for (rb_idx in seq_along(rebalance_dates)) {
       boot_result <- tsbs(
         x = y_train,
         bs_type = "ms_varma_garch",
-        num_boots = n_boot,
+        num_boots = num_boots,
         num_blocks = 15,
         num_states = 2,
         spec = spec_gogarch,
@@ -1791,6 +1791,335 @@ cat("   - Consider robust/regularized methods over naive optimization\n")
 cat("   - Report uncertainty alongside point estimates\n")
 ```
 
+# Part 14: Comparing Bootstrap Methods
+
+In the previous sections, we compared different multivariate GARCH specifications (DCC, CGARCH, GOGARCH) within the MS-VARMA-GARCH bootstrap framework. Now we step back to compare **different bootstrap methods** themselves.
+
+## The Bootstrap Averaging Approach
+
+In classical portfolio optimization, we compute weights from a single optimization on the sample covariance matrix. This gives us a point estimate, but no sense of how uncertain that estimate is.
+
+With bootstrap methods, we can instead:
+
+1. Generate many resampled versions of our return series
+2. Compute optimal weights on each resampled series
+3. Average the resulting weights across all bootstrap replicates
+
+This **bootstrap-averaged** portfolio has two advantages:
+
+- It quantifies uncertainty (via the distribution of weights)
+- The averaged weights may be more robust than the single-sample optimum
+
+## Bootstrap Methods Compared
+
+We compare six bootstrap approaches, ranging from simple to sophisticated:
+
+| Method | Description |
+|--------|-------------|
+| **Plain (iid)** | Resample individual observations (ignores time structure) |
+| **Moving Block** | Resample contiguous blocks of 5 days |
+| **Stationary Block** | Random block lengths (geometric distribution) |
+| **HMM** | Hidden Markov Model regime-based resampling |
+| **MS-VARMA-GARCH** | Full Markov-Switching GARCH with DCC correlation |
+| **Wild** | Multiply returns by random signs (preserves heteroskedasticity) |
+
+The simpler methods (Plain, Moving, Stationary) are fast but ignore complex dependence structures. The model-based methods (HMM, MS-VARMA-GARCH) capture regime dynamics but require more computation. Wild bootstrap is designed for heteroskedastic data.
+
+```{r bootstrap_comparison_header, echo=FALSE}
+cat("\n")
+cat("=", rep("=", 70), "\n", sep = "")
+cat("BOOTSTRAP METHOD COMPARISON\n")
+cat("=", rep("=", 70), "\n", sep = "")
+```
+
+```{r bootstrap_comparison_setup}
+## Use first training window for comparison
+y_compare <- y_full[1:train_window, ]
+
+## Number of bootstrap replicates for comparison
+num_boots_compare <- 30
+
+## Point estimate (classical single-optimization)
+point_weights <- risk_parity_portfolio(y_compare)
+```
+
+```{r bootstrap_comparison_run, message=FALSE, warning=FALSE}
+## Storage for results
+bootstrap_methods <- list()
+
+## -------------------------------------------------------------------------
+## 1. Plain (iid) Bootstrap - block_length = 1
+## -------------------------------------------------------------------------
+cat("Running Plain (iid) bootstrap...\n")
+plain_result <- tryCatch({
+  result <- tsbs(
+    x = y_compare,
+    bs_type = "moving",
+    num_boots = num_boots_compare,
+    block_length = 1,
+    func = risk_parity_portfolio,
+    apply_func_to = "all"
+  )
+  do.call(rbind, lapply(result$func_outs, as.vector))
+}, error = function(e) {
+  message("  Failed: ", e$message)
+  NULL
+})
+if (!is.null(plain_result)) bootstrap_methods[["Plain (iid)"]] <- plain_result
+
+## -------------------------------------------------------------------------
+## 2. Moving Block Bootstrap - block_length = 5
+## -------------------------------------------------------------------------
+cat("Running Moving Block bootstrap...\n")
+moving_result <- tryCatch({
+  result <- tsbs(
+    x = y_compare,
+    bs_type = "moving",
+    num_boots = num_boots_compare,
+    block_length = 5,
+    func = risk_parity_portfolio,
+    apply_func_to = "all"
+  )
+  do.call(rbind, lapply(result$func_outs, as.vector))
+}, error = function(e) {
+  message("  Failed: ", e$message)
+  NULL
+})
+if (!is.null(moving_result)) bootstrap_methods[["Moving Block"]] <- moving_result
+
+## -------------------------------------------------------------------------
+## 3. Stationary Block Bootstrap
+## -------------------------------------------------------------------------
+cat("Running Stationary Block bootstrap...\n")
+stationary_result <- tryCatch({
+  result <- tsbs(
+    x = y_compare,
+    bs_type = "stationary",
+    num_boots = num_boots_compare,
+    func = risk_parity_portfolio,
+    apply_func_to = "all"
+  )
+  do.call(rbind, lapply(result$func_outs, as.vector))
+}, error = function(e) {
+  message("  Failed: ", e$message)
+  NULL
+})
+if (!is.null(stationary_result)) bootstrap_methods[["Stationary"]] <- stationary_result
+
+## -------------------------------------------------------------------------
+## 4. HMM Bootstrap
+## -------------------------------------------------------------------------
+cat("Running HMM bootstrap...\n")
+hmm_result <- tryCatch({
+  result <- tsbs(
+    x = y_compare,
+    bs_type = "hmm",
+    num_boots = num_boots_compare,
+    num_states = 2,
+    func = risk_parity_portfolio,
+    apply_func_to = "all"
+  )
+  do.call(rbind, lapply(result$func_outs, as.vector))
+}, error = function(e) {
+  message("  Failed: ", e$message)
+  NULL
+})
+if (!is.null(hmm_result)) bootstrap_methods[["HMM"]] <- hmm_result
+
+## -------------------------------------------------------------------------
+## 5. MS-VARMA-GARCH Bootstrap (DCC)
+## -------------------------------------------------------------------------
+cat("Running MS-VARMA-GARCH bootstrap...\n")
+msgarch_result <- tryCatch({
+  result <- tsbs(
+    x = y_compare,
+    bs_type = "ms_varma_garch",
+    num_boots = num_boots_compare,
+    num_blocks = 15,
+    num_states = 2,
+    spec = spec_dcc,  ## Use DCC for stability
+    model_type = "multivariate",
+    func = risk_parity_portfolio,
+    apply_func_to = "all",
+    control = list(max_iter = max_iter, tol = 1e-2)
+  )
+  do.call(rbind, lapply(result$func_outs, as.vector))
+}, error = function(e) {
+  message("  Failed: ", e$message)
+  NULL
+})
+if (!is.null(msgarch_result)) bootstrap_methods[["MS-VARMA-GARCH"]] <- msgarch_result
+
+## -------------------------------------------------------------------------
+## 6. Wild Bootstrap
+## -------------------------------------------------------------------------
+cat("Running Wild bootstrap...\n")
+wild_result <- tryCatch({
+  result <- tsbs(
+    x = y_compare,
+    bs_type = "wild",
+    num_boots = num_boots_compare,
+    func = risk_parity_portfolio,
+    apply_func_to = "all"
+  )
+  do.call(rbind, lapply(result$func_outs, as.vector))
+}, error = function(e) {
+  message("  Failed: ", e$message)
+  NULL
+})
+if (!is.null(wild_result)) bootstrap_methods[["Wild"]] <- wild_result
+
+cat("\nCompleted", length(bootstrap_methods), "of 6 bootstrap methods.\n")
+```
+
+```{r bootstrap_comparison_table, echo=FALSE}
+## Build comparison table
+if (length(bootstrap_methods) > 0) {
+  
+  cat("\n")
+  cat("-", rep("-", 70), "\n", sep = "")
+  cat("BOOTSTRAP-AVERAGED WEIGHTS COMPARISON\n")
+  cat("-", rep("-", 70), "\n", sep = "")
+  
+  ## Create summary table
+  summary_list <- lapply(names(bootstrap_methods), function(method) {
+    boot_mat <- bootstrap_methods[[method]]
+    colnames(boot_mat) <- symbols
+    
+    data.frame(
+      Method = method,
+      Asset = symbols,
+      Point = round(point_weights, 3),
+      Boot_Mean = round(colMeans(boot_mat), 3),
+      Boot_SD = round(apply(boot_mat, 2, sd), 3),
+      CI_Width = round(apply(boot_mat, 2, function(x) diff(quantile(x, c(0.025, 0.975)))), 3)
+    )
+  })
+  
+  summary_df <- do.call(rbind, summary_list)
+  
+  ## Print summary for each method
+  cat("\nPoint estimate vs. bootstrap-averaged weights by method:\n")
+  cat("(Point = single optimization, Boot_Mean = average of", num_boots_compare, "optimizations)\n\n")
+  
+  for (method in unique(summary_df$Method)) {
+    cat("---", method, "---\n")
+    method_df <- summary_df[summary_df$Method == method, c("Asset", "Point", "Boot_Mean", "Boot_SD", "CI_Width")]
+    print(method_df, row.names = FALSE)
+    cat("\n")
+  }
+  
+  ## Cross-method comparison of mean weights
+  cat("-", rep("-", 70), "\n", sep = "")
+  cat("CROSS-METHOD COMPARISON (Bootstrap Mean Weights)\n")
+  cat("-", rep("-", 70), "\n", sep = "")
+  
+  cross_compare <- data.frame(Asset = symbols, Point = round(point_weights, 3))
+  for (method in names(bootstrap_methods)) {
+    boot_mat <- bootstrap_methods[[method]]
+    cross_compare[[method]] <- round(colMeans(boot_mat), 3)
+  }
+  cat("\n")
+  print(cross_compare, row.names = FALSE)
+  
+  ## Summary statistics
+  cat("\n")
+  cat("-", rep("-", 70), "\n", sep = "")
+  cat("UNCERTAINTY BY METHOD (Mean 95% CI Width)\n")
+  cat("-", rep("-", 70), "\n", sep = "")
+  cat("\n")
+  
+  uncertainty_summary <- sapply(names(bootstrap_methods), function(method) {
+    boot_mat <- bootstrap_methods[[method]]
+    mean(apply(boot_mat, 2, function(x) diff(quantile(x, c(0.025, 0.975)))))
+  })
+  
+  uncertainty_df <- data.frame(
+    Method = names(uncertainty_summary),
+    Mean_CI_Width = round(uncertainty_summary, 4)
+  )
+  uncertainty_df <- uncertainty_df[order(uncertainty_df$Mean_CI_Width), ]
+  print(uncertainty_df, row.names = FALSE)
+}
+```
+
+```{r bootstrap_comparison_plot, fig.width=12, fig.height=8}
+## Visualization: Weight distributions across all bootstrap methods
+if (length(bootstrap_methods) >= 2) {
+  
+  ## Prepare data for plotting
+  plot_list <- lapply(names(bootstrap_methods), function(method) {
+    boot_mat <- bootstrap_methods[[method]]
+    data.frame(
+      Weight = as.vector(boot_mat),
+      Asset = rep(symbols, each = nrow(boot_mat)),
+      Method = method
+    )
+  })
+  
+  plot_df <- do.call(rbind, plot_list)
+  
+  ## Set method order (simple to complex)
+  method_order <- c("Plain (iid)", "Moving Block", "Stationary", "Wild", "HMM", "MS-VARMA-GARCH")
+  method_order <- method_order[method_order %in% names(bootstrap_methods)]
+  plot_df$Method <- factor(plot_df$Method, levels = method_order)
+  
+  ## Add point estimate reference
+  point_df <- data.frame(
+    Asset = symbols,
+    Point = point_weights
+  )
+  
+  ## Create plot
+  p <- ggplot(plot_df, aes(x = Method, y = Weight, fill = Method)) +
+    geom_boxplot(alpha = 0.7, outlier.size = 0.5) +
+    geom_hline(data = point_df, aes(yintercept = Point), 
+               linetype = "dashed", color = "red", linewidth = 0.5) +
+    facet_wrap(~ Asset, scales = "free_y", nrow = 1) +
+    scale_fill_brewer(palette = "Set2") +
+    labs(
+      title = "Portfolio Weight Distributions by Bootstrap Method",
+      subtitle = "Red dashed line = point estimate (single optimization). Boxes = distribution across bootstrap replicates.",
+      x = NULL,
+      y = "Weight"
+    ) +
+    theme_minimal() +
+    theme(
+      legend.position = "none",
+      axis.text.x = element_text(angle = 45, hjust = 1, size = 8),
+      strip.text = element_text(face = "bold"),
+      plot.title = element_text(face = "bold")
+    )
+  
+  print(p)
+}
+```
+
+```{r bootstrap_comparison_interpretation, echo=FALSE}
+if (length(bootstrap_methods) >= 2) {
+  cat("\n")
+  cat("-", rep("-", 70), "\n", sep = "")
+  cat("INTERPRETATION\n")
+  cat("-", rep("-", 70), "\n", sep = "")
+  cat("\n")
+  cat("Key observations:\n\n")
+  cat("1. POINT vs BOOTSTRAP MEAN: The bootstrap-averaged weights generally differ\n")
+  cat("   from the point estimate, sometimes substantially. This reflects estimation\n")
+  cat("   uncertainty that the single-sample optimum ignores.\n\n")
+  cat("2. METHOD AGREEMENT: If different bootstrap methods produce similar averaged\n")
+  cat("   weights, this suggests the result is robust. Large disagreements indicate\n")
+  cat("   sensitivity to assumptions about the data-generating process.\n\n")
+  cat("3. UNCERTAINTY LEVELS: Simpler methods (Plain, Moving) often show different\n")
+  cat("   uncertainty than model-based methods (HMM, MS-VARMA-GARCH). Neither is\n")
+  cat("   'correct' - they reflect different assumptions about dependence structure.\n\n")
+  cat("4. PRACTICAL GUIDANCE:\n")
+  cat("   - For quick robustness checks: use Moving or Stationary block bootstrap\n")
+  cat("   - For regime-aware analysis: use HMM or MS-VARMA-GARCH\n")
+  cat("   - For heteroskedasticity: Wild bootstrap preserves variance patterns\n")
+  cat("   - Report results from multiple methods when possible\n")
+}
+```
+
 # Conclusion
 
 This vignette demonstrated:
@@ -1803,7 +2132,10 @@ This vignette demonstrated:
 
 4. **Uncertainty quantification**: Bootstrap methods reveal substantial uncertainty in optimal weights, which should inform allocation decisions.
 
+5. **Bootstrap method comparison**: Different bootstrap approaches (block, HMM, MS-VARMA-GARCH, wild) produce different uncertainty estimates, reflecting their assumptions about the data-generating process.
+
 For more details on the underlying models, see:
+- `?tsbs` for the main bootstrap interface
 - `?estimate_garch_weighted_dcc` for DCC estimation
 - `?estimate_garch_weighted_cgarch` for CGARCH estimation  
 - `?estimate_garch_weighted_gogarch` for GOGARCH estimation
