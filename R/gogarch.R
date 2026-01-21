@@ -1,7 +1,7 @@
-## ============================================================================
+## = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = =
 ## tsbs_gogarch.R
 ## GOGARCH-specific functions for MS-VARMA-GARCH framework
-## ============================================================================
+## = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = =
 
 #' Weighted GARCH Estimation for GOGARCH Models
 #'
@@ -44,7 +44,7 @@
 #'
 #' The time-varying covariance matrix is reconstructed as:
 #' \deqn{H_t = A \cdot D_t \cdot A'}
-#' where \eqn{A} is the mixing matrix from ICA and \eqn{D_t = diag(\sigma^2_{1,t},
+#' where \eqn{A} is the mixing matrix from ICA and \eqn{D_t = \text{diag}(\sigma^2_{1,t},
 #' \ldots, \sigma^2_{k,t})} contains the component GARCH variances.
 #'
 #' \strong{Log-Likelihood}
@@ -63,10 +63,14 @@
 #'   \describe{
 #'     \item{\code{garch_spec_args}}{List with:
 #'       \itemize{
-#'         \item \code{model}: GARCH model type (default: \code{"garch"})
+#'         \item \code{model}: GARCH model type (default: \code{"garch"}). Valid 
+#'           choices are “garch” for vanilla GARCH, “gjrgarch” for asymmetric 
+#'           GARCH, “egarch” for exponential GARCH, “aparch” for asymmetric 
+#'           power ARCH, “csGARCH” for the component GARCH, “igarch” for the 
+#'           integrated GARCH.
 #'         \item \code{order}: GARCH order as c(p, q) (default: \code{c(1, 1)})
 #'         \item \code{ica}: ICA algorithm. Currently only \code{"radical"} is
-#'           supported (tsmarch v1.0.0)
+#'           supported (via tsmarch v1.0.0)
 #'         \item \code{components}: Number of ICA components to extract
 #'       }
 #'     }
@@ -198,7 +202,17 @@ estimate_garch_weighted_gogarch <- function(
   colnames(residuals_xts) <- paste0("series_", 1:k)
   
   ## Get ICA parameters from spec
-  ica_method <- spec$garch_spec_args$ica %||% "radical"
+   ## Only radical" supported in tsmarch v1.0.0
+  if(spec$garch_spec_args$ica != "radical") {
+    warning("The only ICA method for GOGARCH supported by in tsbs is \"radical\".\n(Waiting for tsmarch v1.0.1 to appear on CRAN...)")
+    ica_method <- spec$garch_spec_args$ica %||% "radical"
+  } else {
+    ## Redundant as long as only only "radical" is supported, but more
+    ## future-proof
+    ica_method <- spec$garch_spec_args$ica %||% "radical"
+  }
+  
+  
   n_components <- spec$garch_spec_args$components %||% k
   
   ## Perform ICA decomposition
@@ -224,7 +238,7 @@ estimate_garch_weighted_gogarch <- function(
   
   ic <- improved_ica_decomposition(
     residuals = residuals,
-    method = ica_method,
+    method = ica_method, ## Only "radical" supported in tsmarch v1.0.0
     n_components = n_components,
     n_restarts = 3,  # Multiple restarts
     verbose = verbose

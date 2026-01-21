@@ -24,10 +24,14 @@ framework.}
 \describe{
 \item{\code{garch_spec_args}}{List with:
 \itemize{
-\item \code{model}: GARCH model type (default: \code{"garch"})
+\item \code{model}: GARCH model type (default: \code{"garch"}). Valid
+choices are “garch” for vanilla GARCH, “gjrgarch” for asymmetric
+GARCH, “egarch” for exponential GARCH, “aparch” for asymmetric
+power ARCH, “csGARCH” for the component GARCH, “igarch” for the
+integrated GARCH.
 \item \code{order}: GARCH order as c(p, q) (default: \code{c(1, 1)})
 \item \code{ica}: ICA algorithm. Currently only \code{"radical"} is
-supported (tsmarch v1.0.0)
+supported (via tsmarch v1.0.0)
 \item \code{components}: Number of ICA components to extract
 }
 }
@@ -112,7 +116,7 @@ Markov-Switching framework.
 
 The time-varying covariance matrix is reconstructed as:
 \deqn{H_t = A \cdot D_t \cdot A'}
-where \eqn{A} is the mixing matrix from ICA and \eqn{D_t = diag(\sigma^2_{1,t},
+where \eqn{A} is the mixing matrix from ICA and \eqn{D_t = \text{diag}(\sigma^2_{1,t},
 \ldots, \sigma^2_{k,t})} contains the component GARCH variances.
 
 \strong{Log-Likelihood}

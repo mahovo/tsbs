@@ -6,6 +6,7 @@
 \usage{
 improved_ica_decomposition(
   residuals,
+  method = "radical",
   n_components = NULL,
   n_restarts = 3,
   demean = FALSE,
@@ -14,6 +15,8 @@ improved_ica_decomposition(
 }
 \arguments{
 \item{residuals}{T x k matrix of residuals}
+
+\item{method}{Currently only \code{"radical"} is supported}
 
 \item{n_components}{Number of components to extract (default: k)}
 

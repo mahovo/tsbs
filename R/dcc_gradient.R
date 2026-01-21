@@ -65,7 +65,7 @@
 #' @return Logical: TRUE if DCC(1,1), FALSE otherwise
 #' @keywords internal
 is_dcc11 <- function(dcc_pars) {
-  if (is.null(dcc_params) || length(dcc_params) == 0) {
+  if (is.null(dcc_pars) || length(dcc_pars) == 0) {
     return(FALSE)
   }
   

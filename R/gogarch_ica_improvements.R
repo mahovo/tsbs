@@ -26,6 +26,7 @@
 #'   diagnostics. Uses the RADICAL algorithm from \code{tsmarch}.
 #'
 #' @param residuals T x k matrix of residuals
+#' @param method Currently only \code{"radical"} is supported
 #' @param n_components Number of components to extract (default: k)
 #' @param n_restarts Number of random restarts (default: 3)
 #' @param demean Whether to demean the data (default: FALSE)
@@ -57,17 +58,46 @@
 #' @export
 improved_ica_decomposition <- function(
     residuals,
+    method =  "radical",
     n_components = NULL,
     n_restarts = 3,
     demean = FALSE,
     verbose = FALSE
 ) {
-  method <- "radical"  # Only RADICAL supported in tsmarch v1.0.0
-  
   T_obs <- nrow(residuals)
   k <- ncol(residuals)
   
   if (is.null(n_components)) n_components <- k
+  
+  ## Input validation - check for NaN/Inf values
+  if (any(!is.finite(residuals))) {
+    n_bad <- sum(!is.finite(residuals))
+    pct_bad <- 100 * n_bad / length(residuals)
+    warning(sprintf("ICA input contains %d non-finite values (%.1f%%). Using PCA fallback.",
+                    n_bad, pct_bad))
+    
+    ## Return identity fallback
+    return(list(
+      S = residuals,
+      A = diag(k)[, 1:n_components, drop = FALSE],
+      W = diag(n_components, k),
+      K = diag(k),
+      method = "identity_fallback_nan",
+      n_components = n_components,
+      convergence_info = list(
+        method = "identity_fallback",
+        reason = "non_finite_input",
+        n_bad_values = n_bad
+      ),
+      quality = list(
+        independence_score = NA_real_,
+        total_negentropy = NA_real_,
+        reconstruction_error = NA_real_,
+        is_fallback = TRUE
+      ),
+      mu = rep(0, k)
+    ))
+  }
   
   ## Step 1: Pre-condition the data
   ## Centering (if needed) and whitening

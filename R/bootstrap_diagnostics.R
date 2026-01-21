@@ -984,3 +984,323 @@ as.data.frame.tsbs_diagnostics <- function(x, ..., what = c("stats", "blocks", "
   
   stats_df
 }
+
+
+#' Summarize Bootstrap Functional Outputs
+#'
+#' Computes summary statistics (mean, SD, confidence intervals) for bootstrap
+#' functional outputs such as portfolio weights or other derived quantities.
+#'
+#' @param func_outs List of functional outputs from \code{tsbs()}, or a matrix
+#'   where each row is a bootstrap replicate and columns are output dimensions.
+#' @param names Optional character vector of names for output dimensions.
+#' @param probs Numeric vector of probabilities for quantile calculation.
+#'   Defaults to \code{c(0.025, 0.975)} for 95% confidence intervals.
+#'
+#' @return A data frame with columns:
+#'   \item{Name}{Dimension name}
+#'   \item{Mean}{Bootstrap mean}
+#'   \item{SD}{Bootstrap standard deviation}
+#'   \item{CI_Lower}{Lower confidence bound}
+#'   \item{CI_Upper}{Upper confidence bound}
+#'   \item{CI_Width}{Width of confidence interval}
+#'
+#' @examples
+#' \dontrun{
+#' # After running tsbs() with a portfolio function
+#' result <- tsbs(x, bs_type = "ms_varma_garch", func = risk_parity_portfolio, ...)
+#' 
+#' # Summarize the bootstrap weights
+#' summary_df <- summarize_func_outs(result$func_outs, names = c("SPY", "EFA", "BND"))
+#' print(summary_df)
+#' }
+#'
+#' @export
+summarize_func_outs <- function(func_outs, names = NULL, probs = c(0.025, 0.975)) {
+  
+  
+  ## Convert list of vectors/matrices to matrix form
+  if (is.list(func_outs) && !is.data.frame(func_outs)) {
+    ## Handle various output formats from tsbs
+    boot_mat <- tryCatch({
+      do.call(rbind, lapply(func_outs, function(w) {
+        if (is.matrix(w)) as.vector(t(w)) else as.vector(w)
+      }))
+    }, error = function(e) NULL)
+    
+    if (is.null(boot_mat)) {
+      warning("Could not convert func_outs to matrix format")
+      return(NULL)
+    }
+  } else if (is.matrix(func_outs) || is.data.frame(func_outs)) {
+    boot_mat <- as.matrix(func_outs)
+  } else {
+    warning("func_outs must be a list, matrix, or data frame")
+    return(NULL)
+  }
+  
+  ## Validate
+  
+  if (nrow(boot_mat) < 2) {
+    warning("Need at least 2 bootstrap replicates for summary statistics")
+    return(NULL)
+  }
+  
+  n_dims <- ncol(boot_mat)
+  
+  ## Set names if not provided
+  if (is.null(names)) {
+    if (!is.null(colnames(boot_mat))) {
+      names <- colnames(boot_mat)
+    } else {
+      names <- paste0("V", seq_len(n_dims))
+    }
+  }
+  
+  if (length(names) != n_dims) {
+    warning("Length of 'names' does not match number of dimensions")
+    names <- paste0("V", seq_len(n_dims))
+  }
+  
+  ## Compute statistics
+  boot_mean <- colMeans(boot_mat, na.rm = TRUE)
+  boot_sd <- apply(boot_mat, 2, sd, na.rm = TRUE)
+  boot_quantiles <- apply(boot_mat, 2, quantile, probs = probs, na.rm = TRUE)
+  
+  data.frame(
+    Name = names,
+    Mean = round(boot_mean, 4),
+    SD = round(boot_sd, 4),
+    CI_Lower = round(boot_quantiles[1, ], 4),
+    CI_Upper = round(boot_quantiles[2, ], 4),
+    CI_Width = round(boot_quantiles[2, ] - boot_quantiles[1, ], 4),
+    stringsAsFactors = FALSE
+  )
+}
+
+
+#' Compute Coefficient of Variation for Bootstrap Outputs
+#'
+#' Calculates the coefficient of variation (CV) for each dimension of bootstrap
+#' functional outputs, providing a measure of estimation stability.
+#'
+#' @param func_outs List of functional outputs from \code{tsbs()}, or a matrix.
+#' @param names Optional character vector of names for output dimensions.
+#' @param cv_thresholds Named numeric vector with thresholds for stability
+#'   classification. Defaults to \code{c(Stable = 0.3, Moderate = 0.6)}.
+#'
+#' @return A data frame with columns:
+#'   \item{Name}{Dimension name}
+#'   \item{Mean}{Bootstrap mean}
+#'   \item{SD}{Bootstrap standard deviation}
+#'   \item{CV}{Coefficient of variation (SD/Mean)}
+#'   \item{Stability}{Stability classification based on CV thresholds}
+#'
+#' @details
+#' The coefficient of variation (CV) is defined as SD/Mean. Lower CV values
+#' indicate more stable estimates. Default thresholds classify estimates as:
+#' \itemize{
+#'   \item \strong{Stable}: CV < 0.3
+#'   \item \strong{Moderate}: 0.3 <= CV < 0.6
+#'   \item \strong{Unstable}: CV >= 0.6
+#' }
+#'
+#' @examples
+#' \dontrun
+#' # After running tsbs() with a portfolio function
+#' result <- tsbs(x, bs_type = "ms_varma_garch", func = risk_parity_portfolio, ...)
+#' 
+#' # Assess stability of bootstrap weights
+#' stability_df <- compute_func_out_cv(result$func_outs, names = c("SPY", "EFA", "BND"))
+#' print(stability_df)
+#'
+#' @export
+compute_func_out_cv <- function(func_outs, names = NULL, 
+                                cv_thresholds = c(Stable = 0.3, Moderate = 0.6)) {
+  
+  ## Convert to matrix (reuse logic from summarize_func_outs)
+  if (is.list(func_outs) && !is.data.frame(func_outs)) {
+    boot_mat <- tryCatch({
+      do.call(rbind, lapply(func_outs, function(w) {
+        if (is.matrix(w)) as.vector(t(w)) else as.vector(w)
+      }))
+    }, error = function(e) NULL)
+    
+    if (is.null(boot_mat)) {
+      warning("Could not convert func_outs to matrix format")
+      return(NULL)
+    }
+  } else if (is.matrix(func_outs) || is.data.frame(func_outs)) {
+    boot_mat <- as.matrix(func_outs)
+  } else {
+    warning("func_outs must be a list, matrix, or data frame")
+    return(NULL)
+  }
+  
+  if (nrow(boot_mat) < 2) {
+    warning("Need at least 2 bootstrap replicates for CV calculation")
+    return(NULL)
+  }
+  
+  n_dims <- ncol(boot_mat)
+  
+  ## Set names
+  if (is.null(names)) {
+    if (!is.null(colnames(boot_mat))) {
+      names <- colnames(boot_mat)
+    } else {
+      names <- paste0("V", seq_len(n_dims))
+    }
+  }
+  
+  ## Compute CV
+  boot_mean <- colMeans(boot_mat, na.rm = TRUE)
+  boot_sd <- apply(boot_mat, 2, sd, na.rm = TRUE)
+  cv <- boot_sd / (abs(boot_mean) + 1e-8)  # Add small constant to avoid division by zero
+  
+  ## Classify stability
+  stability <- sapply(cv, function(x) {
+    if (x < cv_thresholds["Stable"]) {
+      "Stable"
+    } else if (x < cv_thresholds["Moderate"]) {
+      "Moderate"
+    } else {
+      "Unstable"
+    }
+  })
+  
+  data.frame(
+    Name = names,
+    Mean = round(boot_mean, 4),
+    SD = round(boot_sd, 4),
+    CV = round(cv, 3),
+    Stability = stability,
+    stringsAsFactors = FALSE,
+    row.names = NULL
+  )
+}
+
+
+#' Extract Bootstrap Output Matrix
+#'
+#' Converts the list of functional outputs from \code{tsbs()} into a matrix
+#' format suitable for further analysis.
+#'
+#' @param func_outs List of functional outputs from \code{tsbs()}.
+#'
+#' @return A matrix where each row is a bootstrap replicate and each column
+#'   is an output dimension. Returns NULL if conversion fails.
+#'
+#' @export
+extract_func_out_matrix <- function(func_outs) {
+  
+  if (!is.list(func_outs)) {
+    if (is.matrix(func_outs) || is.data.frame(func_outs)) {
+      return(as.matrix(func_outs))
+    }
+    warning("func_outs must be a list, matrix, or data frame")
+    return(NULL)
+  }
+  
+  tryCatch({
+    do.call(rbind, lapply(func_outs, function(w) {
+      if (is.matrix(w)) as.vector(t(w)) else as.vector(w)
+    }))
+  }, error = function(e) {
+    warning("Could not convert func_outs to matrix: ", e$message)
+    NULL
+  })
+}
+
+
+#' Compute Robust Estimates from Bootstrap Outputs
+#'
+#' Computes various robust estimators (mean, median, winsorized mean,
+#' conservative quantile) from bootstrap functional outputs.
+#'
+#' @param func_outs List of functional outputs from \code{tsbs()}, or a matrix.
+#' @param names Optional character vector of names for output dimensions.
+#' @param point_est Optional numeric vector of point estimates to include
+#'   in the comparison.
+#' @param trim Trim proportion for winsorized mean. Defaults to 0.1.
+#' @param conservative_quantile Quantile for conservative estimate. Defaults
+#'   to 0.25.
+#'
+#' @return A data frame with columns for each robust estimator.
+#'
+#' @details
+#' This function computes:
+#' \itemize{
+#'   \item \strong{Point}: Original point estimate (if provided)
+#'   \item \strong{Boot_Mean}: Bootstrap mean
+#'   \item \strong{Boot_Median}: Bootstrap median
+#'   \item \strong{Winsorized}: Winsorized mean (trimmed mean)
+#'   \item \strong{Conservative}: Lower quantile estimate
+#' }
+#'
+#' For portfolio weights, the conservative estimate is renormalized to sum to 1.
+#'
+#' @export
+compute_robust_estimates <- function(
+    func_outs, 
+    names = NULL, 
+    point_est = NULL,
+    trim = 0.1, 
+    conservative_quantile = 0.25
+  ) {
+  
+  ## Convert to matrix
+  boot_mat <- extract_func_out_matrix(func_outs)
+  
+  if (is.null(boot_mat) || nrow(boot_mat) < 2) {
+    warning("Insufficient bootstrap data for robust estimates")
+    return(NULL)
+  }
+  
+  n_dims <- ncol(boot_mat)
+  
+  ## Set names
+  if (is.null(names)) {
+    if (!is.null(colnames(boot_mat))) {
+      names <- colnames(boot_mat)
+    } else {
+      names <- paste0("V", seq_len(n_dims))
+    }
+  }
+  
+  ## Compute estimators
+  boot_mean <- colMeans(boot_mat, na.rm = TRUE)
+  boot_median <- apply(boot_mat, 2, median, na.rm = TRUE)
+  boot_winsor <- apply(boot_mat, 2, function(x) mean(x, trim = trim, na.rm = TRUE))
+  boot_conservative <- apply(boot_mat, 2, quantile, probs = conservative_quantile, na.rm = TRUE)
+  
+  ## Renormalize conservative estimate if it looks like weights (all positive, sum ~ 1)
+  if (all(boot_conservative >= 0) && abs(sum(boot_mean) - 1) < 0.1) {
+    boot_conservative <- boot_conservative / sum(boot_conservative)
+  }
+  
+  ## Build result
+  result <- data.frame(
+    Name = names,
+    Boot_Mean = round(boot_mean, 3),
+    Boot_Median = round(boot_median, 3),
+    Winsorized = round(boot_winsor, 3),
+    Conservative = round(boot_conservative, 3),
+    stringsAsFactors = FALSE,
+    row.names = NULL
+  )
+  
+  ## Add point estimate if provided
+  if (!is.null(point_est)) {
+    if (length(point_est) == n_dims) {
+      result <- cbind(
+        data.frame(Name = names, Point = round(point_est, 3), stringsAsFactors = FALSE),
+        result[, -1]  # Remove duplicate Name column
+      )
+    } else {
+      warning("point_est length does not match number of dimensions")
+    }
+  }
+  
+  result
+}
