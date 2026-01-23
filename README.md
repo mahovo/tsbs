@@ -157,7 +157,8 @@ The package includes two vignettes for specialized topics:
 
 | Vignette | Description |
 |----------|-------------|
-| `vignette("bootstrap_diagnostics.Rmd", package = "tsbs")` | Diagnostic system for output bootstrap series |
+| `vignette("portfolio-optimization-demo", package = "tsbs")` | Comprehensive demo of portfolio optimization w/ tsbs |
+| `vignette("bootstrap_diagnostics", package = "tsbs")` | Diagnostic system for output bootstrap series |
 | `vignette("ms-varma-garch_diagnostics.Rmd", package = "tsbs")` | Diagnostic system for monitoring EM convergence, parameter evolution, and numerical stability |
 | `vignette("ms-varma-garch_inference", package = "tsbs")` | Statistical inference for DCC, CGARCH and GOGARCH parameters | 
 | `vignette("multivariate_garch_comparison", package = "tsbs")` | Diagnostic vignette comparing DCC, CGARCH and GOGARCH models |
@@ -183,11 +184,13 @@ Key test files include:
 
 ### Other resources
 
-See also [https://github.com/mahovo/tsbs/tree/dev/misc](https://github.com/mahovo/tsbs/tree/dev/misc), especially: 
+See also [https://github.com/mahovo/tsbs/tree/main/demos](https://github.com/mahovo/tsbs/tree/main/demos), especially: 
 
-- "Portfolio-Optimization-Demo.Rmd"  
+- "port_opt_demo.Rmd" (Runnable version of the vignette "portfolio-optimization-demo")  
+- "multivar_garch_comparison_demo.Rmd"  
 - "ms-varma-garch_diagnostics_report.Rmd"  
-- "ms_varma_garch_inference_demo.Rmd"  
+- "ms-varma-garch_inference_demo.Rmd"  
+- "bootstrap_diagnostics_demo.R"  
 
 ### Related Packages
 

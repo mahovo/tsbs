@@ -6,9 +6,7 @@
 NULL
 
 
-# =============================================================================
-# Diagnostic Collector Creation
-# =============================================================================
+# Diagnostic Collector Creation ================================================
 
 #' Create Bootstrap Diagnostic Collector
 #'
@@ -78,9 +76,7 @@ create_bootstrap_diagnostics <- function(
 }
 
 
-# =============================================================================
-# Recording Functions
-# =============================================================================
+# Recording Functions ==========================================================
 
 #' Record Block Information for a Bootstrap Replicate
 #'
@@ -215,9 +211,7 @@ record_method_specific <- function(diagnostics, ...) {
 }
 
 
-# =============================================================================
-# Post-Processing: Compute from Bootstrap Series
-# =============================================================================
+# Post-Processing: Compute from Bootstrap Series ===============================
 
 #' Compute Diagnostics from Bootstrap Series
 #'
@@ -353,9 +347,7 @@ estimate_block_lengths_from_series <- function(
 }
 
 
-# =============================================================================
-# Summary Method
-# =============================================================================
+# Summary Method ===============================================================
 
 #' Summary Method for Bootstrap Diagnostics
 #'
@@ -492,9 +484,7 @@ summary.tsbs_diagnostics <- function(object, ...) {
 }
 
 
-# =============================================================================
-# Print Method
-# =============================================================================
+# Print Method =================================================================
 
 #' Print Method for Bootstrap Diagnostics
 #'
@@ -514,9 +504,7 @@ print.tsbs_diagnostics <- function(x, ...) {
 }
 
 
-# =============================================================================
-# Plot Method
-# =============================================================================
+# Plot Method ==================================================================
 
 #' Plot Method for Bootstrap Diagnostics
 #'
@@ -833,9 +821,7 @@ plot_length_distribution <- function(x, use_ggplot = TRUE) {
 }
 
 
-# =============================================================================
-# Extraction Functions
-# =============================================================================
+# Extraction Functions =========================================================
 
 #' Extract Block Information from Diagnostics
 #'
@@ -1106,14 +1092,14 @@ summarize_func_outs <- function(func_outs, names = NULL, probs = c(0.025, 0.975)
 #' }
 #'
 #' @examples
-#' \dontrun
+#' \dontrun{
 #' # After running tsbs() with a portfolio function
 #' result <- tsbs(x, bs_type = "ms_varma_garch", func = risk_parity_portfolio, ...)
 #' 
 #' # Assess stability of bootstrap weights
 #' stability_df <- compute_func_out_cv(result$func_outs, names = c("SPY", "EFA", "BND"))
 #' print(stability_df)
-#'
+#' }
 #' @export
 compute_func_out_cv <- function(func_outs, names = NULL, 
                                 cv_thresholds = c(Stable = 0.3, Moderate = 0.6)) {
@@ -1303,4 +1289,360 @@ compute_robust_estimates <- function(
   }
   
   result
+}
+
+
+# Bootstrap Benchmarking Utilities =============================================
+
+#' Benchmark Bootstrap Methods
+#'
+#' Compares the runtime of different \code{tsbs()} configurations by varying
+#' a single parameter (e.g., series length, number of assets, or number of
+#' bootstrap replicates).
+#'
+#' @param x Numeric matrix of input data for bootstrapping.
+#' @param setups A named list of \code{tsbs()} argument lists. Each element
+#'   should be a list of arguments to pass to \code{tsbs()}, excluding \code{x}
+#'   and the varying parameter.
+#' @param vary Character string specifying which parameter to vary. One of:
+#'   \describe{
+#'     \item{\code{"n_boot"}}{Vary the length of bootstrap series}
+#'     \item{\code{"num_boots"}}{Vary the number of bootstrap replicates}
+#'     \item{\code{"n_assets"}}{Vary the number of assets (columns)}
+#'   }
+#' @param values Numeric vector of values for the varying parameter.
+#' @param times Integer number of times to repeat each benchmark for averaging.
+#'   Default is 3.
+#' @param verbose Logical. If TRUE, print progress messages. Default is TRUE.
+#'
+#' @return An object of class \code{tsbs_benchmark} containing:
+#'   \item{results}{Data frame with columns: Setup, Parameter, Value, Time, Rep}
+#'   \item{summary}{Data frame with mean and sd of times by Setup and Value}
+#'   \item{vary}{The parameter that was varied}
+#'   \item{setups}{The setup configurations used}
+#'
+#' @details
+#' This function is useful for:
+#' \itemize{
+#'   \item Comparing computational cost of different bootstrap methods
+#'   \item Understanding how runtime scales with data size
+#'   \item Choosing appropriate settings for production use
+#' }
+#'
+#' @examples
+#' \dontrun{
+#' # Create test data
+#' set.seed(123)
+#' x <- matrix(rnorm(500 * 3), ncol = 3)
+#'
+#' # Define setups to compare
+#' setups <- list(
+#'   "Plain" = list(bs_type = "moving", block_length = 1),
+#'   "Moving" = list(bs_type = "moving", block_length = 5),
+#'   "Stationary" = list(bs_type = "stationary")
+#' )
+#'
+#' # Benchmark varying number of replicates
+#' bench <- benchmark_tsbs(
+#'   x = x,
+#'   setups = setups,
+#'   vary = "num_boots",
+#'   values = c(10, 25, 50, 100),
+#'   times = 3
+#' )
+#'
+#' # View results
+#' print(bench)
+#' plot(bench)
+#' }
+#'
+#' @seealso \code{\link{plot.tsbs_benchmark}} for visualization.
+#' @export
+benchmark_tsbs <- function(
+    x,
+    setups,
+    vary = c("num_boots", "n_boot", "n_assets"),
+    values,
+    times = 3,
+    verbose = TRUE
+) {
+  
+  vary <- match.arg(vary)
+  
+  ## Validate inputs
+  if (!is.list(setups) || is.null(names(setups))) {
+    stop("'setups' must be a named list of tsbs() argument lists")
+  }
+  
+  if (!is.numeric(values) || length(values) < 2) {
+    stop("'values' must be a numeric vector with at least 2 elements")
+  }
+  
+  x <- as.matrix(x)
+  n_obs <- nrow(x)
+  n_vars <- ncol(x)
+  
+  ## Storage for results
+  results <- data.frame(
+    Setup = character(),
+    Parameter = character(),
+    Value = numeric(),
+    Time = numeric(),
+    Rep = integer(),
+    stringsAsFactors = FALSE
+  )
+  
+  ## Total iterations for progress
+  total_iter <- length(setups) * length(values) * times
+  current_iter <- 0
+  
+  ## Run benchmarks
+  for (setup_name in names(setups)) {
+    setup_args <- setups[[setup_name]]
+    
+    for (val in values) {
+      for (rep in seq_len(times)) {
+        current_iter <- current_iter + 1
+        
+        if (verbose) {
+          cat(sprintf("\r[%d/%d] %s: %s = %g (rep %d/%d)    ",
+                      current_iter, total_iter, setup_name, vary, val, rep, times))
+        }
+        
+        ## Prepare data and arguments based on vary parameter
+        if (vary == "n_assets") {
+          ## Subset columns
+          if (val > n_vars) {
+            warning(sprintf("Skipping n_assets = %d (only %d available)", val, n_vars))
+            next
+          }
+          x_use <- x[, 1:val, drop = FALSE]
+          args <- c(list(x = x_use), setup_args)
+        } else if (vary == "n_boot") {
+          x_use <- x
+          args <- c(list(x = x_use, n_boot = val), setup_args)
+        } else if (vary == "num_boots") {
+          x_use <- x
+          args <- c(list(x = x_use, num_boots = val), setup_args)
+        }
+        
+        ## Time the call
+        start_time <- Sys.time()
+        run_success <- tryCatch({
+          result <- do.call(tsbs, args)
+          TRUE
+        }, error = function(e) {
+          if (verbose) {
+            message("\n  Error in ", setup_name, ": ", conditionMessage(e))
+          }
+          FALSE
+        })
+        end_time <- Sys.time()
+        
+        elapsed <- if (isTRUE(run_success)) {
+          as.numeric(difftime(end_time, start_time, units = "secs"))
+        } else {
+          NA_real_
+        }
+        
+        ## Store result
+        results <- rbind(results, data.frame(
+          Setup = setup_name,
+          Parameter = vary,
+          Value = val,
+          Time = elapsed,
+          Rep = rep,
+          stringsAsFactors = FALSE
+        ))
+      }
+    }
+  }
+  
+  if (verbose) cat("\n")
+  
+  ## Compute summary statistics
+  summary_df <- aggregate(
+    Time ~ Setup + Value,
+    data = results,
+    FUN = function(x) c(Mean = mean(x, na.rm = TRUE), SD = sd(x, na.rm = TRUE))
+  )
+  summary_df <- do.call(data.frame, summary_df)
+  names(summary_df) <- c("Setup", "Value", "Mean_Time", "SD_Time")
+  
+  ## Create result object
+  result <- list(
+    results = results,
+    summary = summary_df,
+    vary = vary,
+    values = values,
+    setups = setups,
+    times = times,
+    data_dim = c(n_obs = n_obs, n_vars = n_vars)
+  )
+  
+  class(result) <- "tsbs_benchmark"
+  return(result)
+}
+
+
+#' Print Method for tsbs_benchmark
+#'
+#' @param x A \code{tsbs_benchmark} object.
+#' @param ... Additional arguments (unused).
+#'
+#' @export
+print.tsbs_benchmark <- function(x, ...) {
+  
+  cat("tsbs Benchmark Results\n")
+  cat("======================\n\n")
+  
+  cat("Varying parameter:", x$vary, "\n")
+  cat("Values tested:", paste(x$values, collapse = ", "), "\n")
+  cat("Repetitions per test:", x$times, "\n")
+  cat("Input data dimensions:", x$data_dim["n_obs"], "x", x$data_dim["n_vars"], "\n\n")
+  
+  cat("Setups compared:\n")
+  for (name in names(x$setups)) {
+    setup <- x$setups[[name]]
+    cat("  -", name, ": bs_type =", setup$bs_type)
+    if (!is.null(setup$block_length)) cat(", block_length =", setup$block_length)
+    cat("\n")
+  }
+  
+  cat("\nMean runtime (seconds) by setup and", x$vary, ":\n\n")
+  
+  ## Reshape summary for display
+  summary_wide <- reshape(
+    x$summary[, c("Setup", "Value", "Mean_Time")],
+    idvar = "Value",
+    timevar = "Setup",
+    direction = "wide"
+  )
+  names(summary_wide) <- gsub("Mean_Time\\.", "", names(summary_wide))
+  
+  print(summary_wide, row.names = FALSE, digits = 3)
+  
+  invisible(x)
+}
+
+
+#' Plot Method for tsbs_benchmark
+#'
+#' Creates a visualization of benchmark results showing how runtime scales
+#' with the varying parameter across different bootstrap setups.
+#'
+#' @param x A \code{tsbs_benchmark} object.
+#' @param log_scale Logical. If TRUE, use log scale for y-axis. Default is FALSE.
+#' @param show_points Logical. If TRUE, show individual timing points. Default is TRUE.
+#' @param show_ribbon Logical. If TRUE, show +/- 1 SD ribbon. Default is TRUE.
+#' @param ... Additional arguments passed to ggplot.
+#'
+#' @return A ggplot object (invisibly).
+#'
+#' @export
+plot.tsbs_benchmark <- function(
+    x,
+    log_scale = FALSE,
+    show_points = TRUE,
+    show_ribbon = TRUE,
+    ...
+) {
+  
+  if (!requireNamespace("ggplot2", quietly = TRUE)) {
+    stop("ggplot2 is required for plotting benchmarks")
+  }
+  
+  ## Merge individual results with summary for plotting
+  plot_data <- merge(x$results, x$summary, by = c("Setup", "Value"))
+  
+  ## Determine axis labels
+  x_label <- switch(
+    x$vary,
+    "num_boots" = "Number of Bootstrap Replicates",
+    "n_boot" = "Bootstrap Series Length",
+    "n_assets" = "Number of Assets"
+  )
+  
+  ## Build plot
+  p <- ggplot2::ggplot(x$summary, ggplot2::aes(x = Value, y = Mean_Time, color = Setup)) +
+    ggplot2::geom_line(linewidth = 1) +
+    ggplot2::geom_point(size = 3)
+  
+  ## Add ribbon for SD
+  if (show_ribbon && any(!is.na(x$summary$SD_Time))) {
+    p <- p + ggplot2::geom_ribbon(
+      ggplot2::aes(ymin = Mean_Time - SD_Time, ymax = Mean_Time + SD_Time, fill = Setup),
+      alpha = 0.2,
+      color = NA
+    )
+  }
+  
+  ## Add individual points
+  if (show_points) {
+    p <- p + ggplot2::geom_point(
+      data = x$results,
+      ggplot2::aes(x = Value, y = Time),
+      alpha = 0.3,
+      size = 1.5
+    )
+  }
+  
+  ## Styling
+  p <- p +
+    ggplot2::labs(
+      title = "Bootstrap Method Runtime Comparison",
+      subtitle = paste("Varying:", x_label),
+      x = x_label,
+      y = "Runtime (seconds)",
+      color = "Method",
+      fill = "Method"
+    ) +
+    ggplot2::theme_minimal() +
+    ggplot2::theme(
+      legend.position = "bottom",
+      plot.title = ggplot2::element_text(face = "bold")
+    )
+  
+  ## Log scale if requested
+  if (log_scale) {
+    p <- p + ggplot2::scale_y_log10()
+  }
+  
+  print(p)
+  invisible(p)
+}
+
+
+#' Summary Method for tsbs_benchmark
+#'
+#' @param object A \code{tsbs_benchmark} object.
+#' @param ... Additional arguments (unused).
+#'
+#' @return The summary data frame (invisibly).
+#' @export
+summary.tsbs_benchmark <- function(object, ...) {
+  
+  cat("Benchmark Summary: Runtime by", object$vary, "\n\n")
+  
+  ## Add relative speed column (relative to fastest)
+  summary_df <- object$summary
+  
+  for (val in unique(summary_df$Value)) {
+    idx <- summary_df$Value == val
+    min_time <- min(summary_df$Mean_Time[idx], na.rm = TRUE)
+    summary_df$Relative[idx] <- summary_df$Mean_Time[idx] / min_time
+  }
+  
+  summary_df$Mean_Time <- round(summary_df$Mean_Time, 4)
+  summary_df$SD_Time <- round(summary_df$SD_Time, 4)
+  summary_df$Relative <- round(summary_df$Relative, 2)
+  
+  print(summary_df, row.names = FALSE)
+  
+  ## Identify fastest method overall
+  avg_by_setup <- aggregate(Mean_Time ~ Setup, data = object$summary, FUN = mean, na.rm = TRUE)
+  fastest <- avg_by_setup$Setup[which.min(avg_by_setup$Mean_Time)]
+  cat("\nFastest method (on average):", fastest, "\n")
+  
+  invisible(summary_df)
 }

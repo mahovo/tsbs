@@ -31,6 +31,13 @@ knitr::opts_chunk$set(
 )
 ```
 
+```{r load_packages, message=FALSE}
+library(tsbs)
+library(quantmod)
+library(ggplot2)
+library(gridExtra)
+```
+
 ```{r global_settings}
 ## =============================================================================
 ## GLOBAL SETTINGS - Adjust these to control computation time and data source
@@ -244,13 +251,6 @@ if (!is.null(spy_returns)) {
 ```
 
 The bootstrap series (bottom panel) is not a forecast—it's a *plausible alternative history* that could have occurred given the same underlying market dynamics. By generating many such series and computing portfolio weights on each, we can quantify how uncertain our optimal allocation really is.
-
-```{r load_packages, message=FALSE}
-library(tsbs)
-library(quantmod)
-library(ggplot2)
-library(gridExtra)
-```
 
 # Part 1: Portfolio Optimization Functions
 
@@ -2117,6 +2117,215 @@ if (length(bootstrap_methods) >= 2) {
   cat("   - For regime-aware analysis: use HMM or MS-VARMA-GARCH\n")
   cat("   - For heteroskedasticity: Wild bootstrap preserves variance patterns\n")
   cat("   - Report results from multiple methods when possible\n")
+}
+```
+
+## Runtime Benchmark
+
+Different bootstrap methods have vastly different computational costs. The simpler block-based methods are fast, while model-based methods (HMM, MS-VARMA-GARCH) require fitting complex models and are correspondingly slower.
+
+The `benchmark_tsbs()` utility allows systematic comparison of runtime across methods as we vary parameters like the number of bootstrap replicates. This helps in choosing an appropriate method given time constraints.
+
+Note that the MS VARMA GARCH Bootstrap is very much slower than any of the other bootstrap methods.
+
+```{r benchmark_header, echo=FALSE}
+cat("\n")
+cat("-", rep("-", 70), "\n", sep = "")
+cat("RUNTIME BENCHMARK\n")
+cat("-", rep("-", 70), "\n", sep = "")
+```
+
+```{r benchmark_run, message=FALSE, warning=FALSE, fig.width=10, fig.height=6}
+## Define setups to benchmark (excluding slow MS-VARMA-GARCH for quick demo)
+benchmark_setups <- list(
+  "Plain (iid)" = list(bs_type = "moving", block_length = 1),
+  "Moving Block" = list(bs_type = "moving", block_length = 5),
+  "Stationary" = list(bs_type = "stationary"),
+  "HMM" = list(bs_type = "hmm", num_states = 2),
+  "Wild" = list(bs_type = "wild")
+)
+
+## Add HMM only for full analysis (it's moderately slow)
+if (FULL_ANALYSIS) {
+  ## Note: We don't pass 'func' - we're measuring bootstrap generation time only
+  benchmark_setups[["MSGARCH"]] <-  list(
+    bs_type = "ms_varma_garch", 
+    model_type = "multivariate",
+    num_states = 2,
+    spec = spec_dcc,
+    control = list(max_iter = 3)
+  )
+}
+
+## Values to test: number of bootstrap replicates
+#benchmark_values <- c(10, 25, 50)
+benchmark_values <- 2^(3:9)
+if (FULL_ANALYSIS) {
+  benchmark_values <- 2^(2:5)
+}
+
+cat("Benchmarking", length(benchmark_setups), "methods across", 
+    length(benchmark_values), "replicate counts...\n\n")
+
+## Run benchmark
+bench_result <- tryCatch({
+  benchmark_tsbs(
+    x = y_compare,
+    setups = benchmark_setups,
+    vary = "num_boots",
+    values = benchmark_values,
+    times = 3,
+    verbose = TRUE
+  )
+}, error = function(e) {
+  message("Benchmark failed: ", e$message)
+  NULL
+})
+
+## Display results
+if (!is.null(bench_result)) {
+  cat("\n")
+  print(bench_result)
+  
+  ## Plot
+  plot(bench_result, show_ribbon = FALSE, show_points = TRUE)
+}
+```
+
+```{r benchmark_run_nboot, message=FALSE, warning=FALSE, fig.width=10, fig.height=6}
+## Define setups to benchmark (excluding slow MS-VARMA-GARCH for quick demo)
+benchmark_setups <- list(
+  "Plain (iid)" = list(bs_type = "moving", block_length = 1),
+  "Moving Block" = list(bs_type = "moving", block_length = 5),
+  "Stationary" = list(bs_type = "stationary"),
+  "HMM" = list(bs_type = "hmm", num_states = 2),
+  "Wild" = list(bs_type = "wild")
+)
+
+## Add HMM only for full analysis (it's moderately slow)
+if (FULL_ANALYSIS) {
+  ## Note: We don't pass 'func' - we're measuring bootstrap generation time only
+  benchmark_setups[["MSGARCH"]] <-  list(
+    bs_type = "ms_varma_garch", 
+    model_type = "multivariate",
+    num_states = 2,
+    spec = spec_dcc,
+    control = list(max_iter = 3)
+  )
+}
+
+## Values to test: number of bootstrap replicates
+#benchmark_values <- c(10, 25, 50)
+benchmark_values <- 2^(6:10)
+if (FULL_ANALYSIS) {
+  benchmark_values <- 2^(6:9)
+}
+
+cat("Benchmarking", length(benchmark_setups), "methods across", 
+    length(benchmark_values), "replicate counts...\n\n")
+
+## Run benchmark
+bench_result <- tryCatch({
+  benchmark_tsbs(
+    x = y_compare,
+    setups = benchmark_setups,
+    vary = "n_boot",
+    values = benchmark_values,
+    times = 3,
+    verbose = TRUE
+  )
+}, error = function(e) {
+  message("Benchmark failed: ", e$message)
+  NULL
+})
+
+## Display results
+if (!is.null(bench_result)) {
+  cat("\n")
+  print(bench_result)
+  
+  ## Plot
+  plot(bench_result, show_ribbon = FALSE, show_points = TRUE)
+}
+```
+
+```{r benchmark_run_nassets, message=FALSE, warning=FALSE, fig.width=10, fig.height=6}
+## Define setups to benchmark (excluding slow MS-VARMA-GARCH for quick demo)
+benchmark_setups <- list(
+  "Plain (iid)" = list(bs_type = "moving", block_length = 1),
+  "Moving Block" = list(bs_type = "moving", block_length = 5),
+  "Stationary" = list(bs_type = "stationary"),
+  "HMM" = list(bs_type = "hmm", num_states = 2),
+  "Wild" = list(bs_type = "wild")
+)
+
+## Add HMM only for full analysis (it's moderately slow)
+if (FULL_ANALYSIS) {
+  ## Note: We don't pass 'func' - we're measuring bootstrap generation time only
+  benchmark_setups[["MSGARCH"]] <-  list(
+    bs_type = "ms_varma_garch", 
+    model_type = "multivariate",
+    num_states = 2,
+    spec = spec_dcc,
+    control = list(max_iter = 3)
+  )
+}
+
+## Values to test: number of bootstrap replicates
+#benchmark_values <- c(10, 25, 50)
+benchmark_values <- 2^(2:7)
+if (FULL_ANALYSIS) {
+  benchmark_values <- 2^(2:7)
+}
+
+cat("Benchmarking", length(benchmark_setups), "methods across", 
+    length(benchmark_values), "replicate counts...\n\n")
+
+## Run benchmark
+bench_result <- tryCatch({
+  benchmark_tsbs(
+    x = matrix(rnorm((2^7) * 252), nrow = 252),#y_compare,
+    setups = benchmark_setups,
+    vary = "n_assets",
+    values = benchmark_values,
+    times = 3,
+    verbose = TRUE
+  )
+}, error = function(e) {
+  message("Benchmark failed: ", e$message)
+  NULL
+})
+
+## Display results
+if (!is.null(bench_result)) {
+  cat("\n")
+  print(bench_result)
+  
+  ## Plot
+  plot(bench_result, show_ribbon = FALSE, show_points = TRUE)
+}
+```
+
+
+
+```{r benchmark_interpretation, echo=FALSE}
+if (!is.null(bench_result)) {
+  cat("\n")
+  cat("-", rep("-", 70), "\n", sep = "")
+  cat("BENCHMARK INTERPRETATION\n")
+  cat("-", rep("-", 70), "\n", sep = "")
+  cat("\n")
+  cat("Key takeaways:\n\n")
+  cat("1. BLOCK METHODS ARE FAST: Plain, Moving Block, and Stationary bootstrap\n")
+  cat("   have nearly identical runtime - the block structure adds minimal overhead.\n\n")
+  cat("2. WILD BOOTSTRAP: Also very fast since it only multiplies by random signs.\n\n")
+  cat("3. LINEAR SCALING: All methods scale roughly linearly with num_boots,\n")
+  cat("   making it easy to estimate runtime for larger analyses.\n\n")
+  cat("4. HMM/MS-VARMA-GARCH: Much slower due to model fitting. Use these when\
+\n")
+  cat("   regime dynamics are important, but be aware of the computational cost.\n\n")
+  cat("5. PRACTICAL TIP: For exploratory analysis, start with fast methods.\n")
+  cat("   Switch to model-based methods for final results when regime structure matters.\n")
 }
 ```
 

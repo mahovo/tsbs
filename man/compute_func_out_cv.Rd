@@ -40,12 +40,12 @@ indicate more stable estimates. Default thresholds classify estimates as:
 }
 }
 \examples{
-\dontrun
+\dontrun{
 # After running tsbs() with a portfolio function
 result <- tsbs(x, bs_type = "ms_varma_garch", func = risk_parity_portfolio, ...)
 
 # Assess stability of bootstrap weights
 stability_df <- compute_func_out_cv(result$func_outs, names = c("SPY", "EFA", "BND"))
 print(stability_df)
-
+}
 }
