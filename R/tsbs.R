@@ -656,14 +656,18 @@ tsbs <- function(
      .is_invalid_count(num_blocks, fail_mode = fail_mode)) {
     stop("Must provide either n_boot or num_blocks.")
   } 
-  if(.is_invalid_count(n_boot, fail_mode = fail_mode)) {
-    if (is.null(block_length)) {block_length <- compute_default_block_length(x)}
-    n_boot <- num_blocks * block_length
-  }
-  if(.is_invalid_count(num_blocks, fail_mode = fail_mode)) {
-    if (is.null(block_length)) {block_length <- compute_default_block_length(x)}
-    num_blocks <- n_boot / block_length
-  }
+  
+  ## Commented out section:
+  ## This is done in blockBootstrap.cpp and does not apply to bootstrap methods
+  ## which rely on .sample_blocks() or .sample_blocks_with diagnostics().
+  # if(.is_invalid_count(n_boot, fail_mode = fail_mode)) {
+  #   if (is.null(block_length)) {block_length <- compute_default_block_length(x)}
+  #   n_boot <- num_blocks * block_length
+  # }
+  # if(.is_invalid_count(num_blocks, fail_mode = fail_mode)) {
+  #   if (is.null(block_length)) {block_length <- compute_default_block_length(x)}
+  #   num_blocks <- n_boot / block_length
+  # }
   
   
   ## Fails if NULL. Value is not calculated automatically.

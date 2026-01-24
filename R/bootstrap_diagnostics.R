@@ -1646,3 +1646,766 @@ summary.tsbs_benchmark <- function(object, ...) {
   
   invisible(summary_df)
 }
+
+
+# Regime diagnostics ===========================================================
+
+#' Record Regime/State Information for Bootstrap Diagnostics
+#'
+#' Records the state sequence from the original data and the state composition
+#' of each bootstrap replicate. This is used by HMM and MS-VARMA-GARCH bootstrap
+#' methods to track how regimes are sampled.
+#'
+#' @param diagnostics A \code{tsbs_diagnostics} object.
+#' @param original_states Integer vector of states for the original series.
+#' @param num_states Integer, total number of possible states.
+#' @param state_labels Optional character vector of state labels.
+#'
+#' @return Updated diagnostics object.
+#' @keywords internal
+#' @export
+record_regime_info <- function(
+    diagnostics,
+    original_states,
+    num_states,
+    state_labels = NULL
+) {
+  
+  if (is.null(state_labels)) {
+    state_labels <- paste("State", seq_len(num_states))
+  }
+  
+  diagnostics$method_specific$regime_info <- list(
+    original_states = original_states,
+    num_states = num_states,
+    state_labels = state_labels,
+    original_state_counts = table(factor(original_states, levels = seq_len(num_states))),
+    # Per-replicate state sequences (filled in by record_replicate_regimes)
+    replicate_states = vector("list", diagnostics$meta$num_boots),
+    # Block-to-state mapping for each replicate
+    replicate_block_states = vector("list", diagnostics$meta$num_boots)
+  )
+  
+  return(diagnostics)
+}
+
+
+#' Record Regime Composition for a Bootstrap Replicate
+#'
+#' Records the state sequence and block-state mapping for a single bootstrap
+#' replicate.
+#'
+#' @param diagnostics A \code{tsbs_diagnostics} object.
+#' @param replicate_idx Integer, which bootstrap replicate (1-indexed).
+#' @param replicate_states Integer vector of states for this replicate.
+#' @param block_states Optional integer vector of states for each block used.
+#' @param block_source_indices Optional integer vector of which original block
+#'   each bootstrap block came from.
+#' @param source_indices Optional integer vector mapping each bootstrap time point
+#'   to its source index in the original series. Used for probability lookup.
+#'
+#' @return Updated diagnostics object.
+#' @keywords internal
+#' @export
+record_replicate_regimes <- function(
+    diagnostics,
+    replicate_idx,
+    replicate_states,
+    block_states = NULL,
+    block_source_indices = NULL,
+    source_indices = NULL
+) {
+  
+  if (is.null(diagnostics$method_specific$regime_info)) {
+    warning("record_regime_info() should be called before record_replicate_regimes()")
+    return(diagnostics)
+  }
+  
+  diagnostics$method_specific$regime_info$replicate_states[[replicate_idx]] <- replicate_states
+  
+  if (!is.null(block_states) || !is.null(source_indices)) {
+    diagnostics$method_specific$regime_info$replicate_block_states[[replicate_idx]] <- list(
+      states = block_states,
+      block_source_indices = block_source_indices,
+      source_indices = source_indices  # Per-observation source mapping
+    )
+  }
+  
+  return(diagnostics)
+}
+
+
+#' Plot Regime Composition of Bootstrap Series
+#'
+#' Creates a visualization comparing the original series with one or more
+#' bootstrap replicates, showing the regime structure. Can display either
+#' discrete regime bands or smoothed state probabilities.
+#'
+#' @param tsbs_result A list returned by \code{tsbs()} with 
+#'   \code{collect_diagnostics = TRUE}, or a \code{tsbs_diagnostics} object.
+#' @param original_data The original data matrix used for bootstrapping.
+#' @param replicate_idx Integer or vector of integers specifying which bootstrap
+#'   replicate(s) to plot. Default is 1 (first replicate).
+#' @param series_idx Integer specifying which column/series to plot if 
+#'   multivariate. Default is 1.
+#' @param show_prices Logical. If TRUE and data appears to be returns, convert
+#'   to cumulative prices for visualization. Default is TRUE.
+#' @param initial_price Numeric. Starting price for cumulative calculation.
+#'   Default is 100.
+#' @param show_probabilities Logical. If TRUE, overlay smoothed state 
+#'   probabilities on the plot instead of (or in addition to) discrete bands.
+#'   Requires that smoothed probabilities are available in the diagnostics.
+#'   Default is FALSE.
+#' @param probability_style Character. How to display probabilities:
+#'   \itemize{
+#'     \item \code{"ribbon"}: Stacked ribbons showing probability of each state
+#'     \item \code{"line"}: Line plot of probability for each state
+#'     \item \code{"bands_alpha"}: Regime bands with alpha proportional to probability
+#'   }
+#'   Default is "ribbon".
+#' @param show_bands Logical. If TRUE, show discrete regime bands. If 
+#'   \code{show_probabilities = TRUE} and \code{show_bands = TRUE}, both are shown.
+#'   Default is TRUE when \code{show_probabilities = FALSE}.
+#' @param state_colors Optional named vector of colors for each state.
+#' @param title Optional plot title.
+#'
+#' @return A ggplot object (invisibly).
+#'
+#' @details
+#' This function creates a faceted plot with:
+#' \itemize{
+#'   \item Top panel: Original series with regime information
+#'   \item Bottom panel(s): Bootstrap replicate(s) with their regime information
+#' }
+#'
+#' When \code{show_probabilities = TRUE}, the smoothed state probabilities from
+#' the fitted model (HMM or MS-VARMA-GARCH) are displayed. This shows the 
+#' model's uncertainty about regime membership at each time point, which is
+#' more informative than the hard Viterbi assignments.
+#'
+#' For bootstrap replicates, the "probabilities" shown are actually the 
+#' probabilities from the original series at the source time points of each
+#' resampled block. This reveals how the bootstrap combines observations from
+#' different regime-certainty periods.
+#'
+#' @examples
+#' \dontrun{
+#' # Run HMM bootstrap with diagnostics
+#' result <- tsbs(
+#'   x = returns_data,
+#'   bs_type = "hmm",
+#'   num_states = 2,
+#'   num_boots = 10,
+#'   collect_diagnostics = TRUE,
+#'   return_fit = TRUE
+#' )
+#'
+#' # Plot with discrete regime bands
+#' plot_regime_composition(result, returns_data)
+#'
+#' # Plot with smoothed probabilities as ribbons
+#' plot_regime_composition(result, returns_data, show_probabilities = TRUE)
+#'
+#' # Plot with probability lines
+#' plot_regime_composition(result, returns_data, 
+#'                         show_probabilities = TRUE, 
+#'                         probability_style = "line")
+#' }
+#'
+#' @export
+plot_regime_composition <- function(
+    tsbs_result,
+    original_data,
+    replicate_idx = 1,
+    series_idx = 1,
+    show_prices = TRUE,
+    initial_price = 100,
+    show_probabilities = FALSE,
+    probability_style = c("ribbon", "line", "bands_alpha"),
+    show_bands = NULL,
+    state_colors = NULL,
+    title = NULL
+) {
+  
+  if (!requireNamespace("ggplot2", quietly = TRUE)) {
+    stop("ggplot2 is required for plot_regime_composition()")
+  }
+  
+  probability_style <- match.arg(probability_style)
+  
+  ## Default show_bands: TRUE if not showing probabilities
+  if (is.null(show_bands)) {
+    show_bands <- !show_probabilities
+  }
+  
+  ## Extract diagnostics object and other components
+  if (inherits(tsbs_result, "tsbs_diagnostics")) {
+    diagnostics <- tsbs_result
+    bootstrap_series <- NULL
+    smoothed_probs <- NULL
+    fit_object <- NULL
+  } else if (is.list(tsbs_result)) {
+    diagnostics <- tsbs_result$diagnostics
+    bootstrap_series <- tsbs_result$bootstrap_series
+    smoothed_probs <- tsbs_result$smoothed_probabilities
+    fit_object <- tsbs_result$fit
+  } else {
+    stop("tsbs_result must be a tsbs_diagnostics object or a tsbs() result with diagnostics")
+  }
+  
+  ## Check for regime info
+  if (is.null(diagnostics) || is.null(diagnostics$method_specific$regime_info)) {
+    stop("No regime information found in diagnostics. ",
+         "This plot is only available for HMM and MS-VARMA-GARCH bootstrap types.")
+  }
+  
+  regime_info <- diagnostics$method_specific$regime_info
+  
+  ## Try to extract smoothed probabilities if requested but not directly available
+  if (show_probabilities && is.null(smoothed_probs)) {
+    smoothed_probs <- extract_smoothed_probabilities(fit_object, regime_info)
+    if (is.null(smoothed_probs)) {
+      warning("Smoothed probabilities not available. Falling back to discrete bands.")
+      show_probabilities <- FALSE
+      show_bands <- TRUE
+    }
+  }
+  
+  ## Validate replicate_idx
+  replicate_idx <- as.integer(replicate_idx)
+  if (any(replicate_idx < 1) || any(replicate_idx > diagnostics$meta$num_boots)) {
+    stop("replicate_idx must be between 1 and ", diagnostics$meta$num_boots)
+  }
+  
+  ## Prepare original data
+  original_data <- as.matrix(original_data)
+  if (series_idx > ncol(original_data)) {
+    stop("series_idx (", series_idx, ") exceeds number of columns (", ncol(original_data), ")")
+  }
+  
+  orig_values <- original_data[, series_idx]
+  orig_states <- regime_info$original_states
+  n_orig <- length(orig_values)
+  
+  ## Convert to prices if requested
+  if (show_prices) {
+    scale_factor <- if (max(abs(orig_values), na.rm = TRUE) > 1) 100 else 1
+    orig_prices <- initial_price * exp(cumsum(orig_values / scale_factor))
+  } else {
+    orig_prices <- orig_values
+  }
+  
+  ## Set up state colors
+  num_states <- regime_info$num_states
+  state_labels <- regime_info$state_labels
+  
+  if (is.null(state_colors)) {
+    default_colors <- c(
+      "lightblue", "salmon", "lightgreen", "plum", 
+      "lightyellow", "lightcyan", "peachpuff", "lavender"
+    )
+    state_colors <- setNames(default_colors[seq_len(num_states)], state_labels)
+  }
+  
+  ## Build plot data for series
+  plot_data <- data.frame(
+    Index = seq_len(n_orig),
+    Value = orig_prices,
+    Series = "Original",
+    stringsAsFactors = FALSE
+  )
+  
+  ## Build regime bands for original (if needed)
+  regime_bands <- NULL
+  if (show_bands) {
+    regime_bands <- create_regime_bands_df(orig_states, "Original")
+  }
+  
+  ## Build probability data for original (if needed)
+  prob_data <- NULL
+  if (show_probabilities && !is.null(smoothed_probs)) {
+    prob_data <- create_probability_df(smoothed_probs, "Original", state_labels)
+  }
+  
+  ## Add bootstrap replicates
+  for (rep_idx in replicate_idx) {
+    rep_states <- regime_info$replicate_states[[rep_idx]]
+    
+    if (is.null(rep_states)) {
+      warning("No regime data for replicate ", rep_idx)
+      next
+    }
+    
+    ## Get bootstrap series values
+    if (!is.null(bootstrap_series) && length(bootstrap_series) >= rep_idx) {
+      boot_mat <- as.matrix(bootstrap_series[[rep_idx]])
+      boot_values <- boot_mat[, min(series_idx, ncol(boot_mat))]
+    } else {
+      boot_values <- rep(NA, length(rep_states))
+    }
+    
+    ## Convert to prices
+    if (show_prices && !all(is.na(boot_values))) {
+      scale_factor <- if (max(abs(boot_values), na.rm = TRUE) > 1) 100 else 1
+      boot_prices <- initial_price * exp(cumsum(boot_values / scale_factor))
+    } else {
+      boot_prices <- boot_values
+    }
+    
+    series_label <- paste("Bootstrap", rep_idx)
+    
+    plot_data <- rbind(plot_data, data.frame(
+      Index = seq_along(boot_prices),
+      Value = boot_prices,
+      Series = series_label,
+      stringsAsFactors = FALSE
+    ))
+    
+    if (show_bands) {
+      regime_bands <- rbind(regime_bands, create_regime_bands_df(rep_states, series_label))
+    }
+    
+    ## For bootstrap, reconstruct probabilities from source blocks
+    if (show_probabilities && !is.null(smoothed_probs)) {
+      boot_probs <- reconstruct_bootstrap_probabilities(
+        regime_info, rep_idx, smoothed_probs
+      )
+      if (!is.null(boot_probs)) {
+        prob_data <- rbind(prob_data, 
+                           create_probability_df(boot_probs, series_label, state_labels))
+      }
+    }
+  }
+  
+  ## Map regime values to labels (for bands)
+  if (!is.null(regime_bands)) {
+    regime_bands$State_Label <- state_labels[regime_bands$State]
+  }
+  
+  ## Set factor order for Series
+  series_order <- c("Original", paste("Bootstrap", replicate_idx))
+  plot_data$Series <- factor(plot_data$Series, levels = series_order)
+  if (!is.null(regime_bands)) {
+    regime_bands$Series <- factor(regime_bands$Series, levels = series_order)
+  }
+  if (!is.null(prob_data)) {
+    prob_data$Series <- factor(prob_data$Series, levels = series_order)
+  }
+  
+  ## Build plot
+  if (is.null(title)) {
+    prob_text <- if (show_probabilities) " with Smoothed Probabilities" else ""
+    title <- paste0("Regime Composition: ", diagnostics$meta$bs_type, " Bootstrap", prob_text)
+  }
+  
+  p <- ggplot2::ggplot()
+  
+  ## Add regime bands if requested
+  if (show_bands && !is.null(regime_bands)) {
+    p <- p + ggplot2::geom_rect(
+      data = regime_bands,
+      ggplot2::aes(xmin = xmin, xmax = xmax, ymin = -Inf, ymax = Inf, fill = State_Label),
+      alpha = 0.3
+    )
+  }
+  
+  ## Add probability visualization if requested
+  if (show_probabilities && !is.null(prob_data)) {
+    p <- add_probability_layer(p, prob_data, probability_style, state_colors, plot_data)
+  }
+  
+  ## Add series lines
+  p <- p + ggplot2::geom_line(
+    data = plot_data,
+    ggplot2::aes(x = Index, y = Value),
+    color = "black",
+    linewidth = 0.5
+  )
+  
+  ## Facet by series
+  p <- p + ggplot2::facet_wrap(~ Series, ncol = 1, scales = "free_y")
+  
+  ## Colors for bands
+  if (show_bands) {
+    p <- p + ggplot2::scale_fill_manual(values = state_colors, name = "Regime")
+  }
+  
+  ## Labels and theme
+  subtitle_text <- if (show_probabilities) {
+    "Shading intensity shows regime probability; darker = higher confidence"
+  } else {
+    "Colored bands show regime membership; bootstrap resamples blocks within regimes"
+  }
+  
+  p <- p + ggplot2::labs(
+    title = title,
+    subtitle = subtitle_text,
+    x = "Time Index",
+    y = if (show_prices) "Cumulative Value" else "Value"
+  ) +
+    ggplot2::theme_minimal() +
+    ggplot2::theme(
+      legend.position = "bottom",
+      strip.text = ggplot2::element_text(face = "bold", size = 11),
+      plot.title = ggplot2::element_text(face = "bold"),
+      panel.grid.minor = ggplot2::element_blank()
+    )
+  
+  print(p)
+  invisible(p)
+}
+
+
+#' Extract Smoothed Probabilities from Fitted Model
+#'
+#' Attempts to extract smoothed state probabilities from a fitted HMM,
+#' MS-VAR, or MS-VARMA-GARCH model object.
+#'
+#' @param fit_object Fitted model object (depmixS4, ms_var, or ms_varma_garch fit).
+#' @param regime_info Regime info from diagnostics.
+#'
+#' @return Matrix of smoothed probabilities (n x num_states) or NULL.
+#' @keywords internal
+extract_smoothed_probabilities <- function(fit_object, regime_info) {
+  
+  if (is.null(fit_object)) {
+    return(NULL)
+  }
+  
+  ## Try depmixS4 (HMM)
+  if (inherits(fit_object, "depmix.fitted")) {
+    return(tryCatch({
+      post <- depmixS4::posterior(fit_object)
+      ## posterior() returns data frame with 'state' and probability columns
+      prob_cols <- grep("^S", names(post), value = TRUE)
+      as.matrix(post[, prob_cols])
+    }, error = function(e) NULL))
+  }
+  
+  ## Try MS-VARMA-GARCH (has smoothed_probabilities directly)
+  if (is.list(fit_object) && "smoothed_probabilities" %in% names(fit_object)) {
+    probs <- fit_object$smoothed_probabilities
+    if (is.matrix(probs) || is.data.frame(probs)) {
+      return(as.matrix(probs))
+    }
+  }
+  
+  ## Try MSGARCH package models
+  if (inherits(fit_object, "MSGARCH_ML_FIT") || inherits(fit_object, "MSGARCH_MCMC_FIT")) {
+    return(tryCatch({
+      ## MSGARCH uses State() function for smoothed probabilities
+      if (requireNamespace("MSGARCH", quietly = TRUE)) {
+        state_probs <- MSGARCH::State(fit_object)
+        if (is.list(state_probs) && "SmoothProb" %in% names(state_probs)) {
+          return(state_probs$SmoothProb)
+        }
+      }
+      NULL
+    }, error = function(e) NULL))
+  }
+  
+  ## Try MSwM package models
+  if (inherits(fit_object, "MSM.lm") || inherits(fit_object, "MSM.glm")) {
+    return(tryCatch({
+      ## MSwM stores smoothed probabilities in @Fit@smoProb
+      if (methods::hasMethod("slot", class(fit_object))) {
+        fit_slot <- methods::slot(fit_object, "Fit")
+        if ("smoProb" %in% slotNames(fit_slot)) {
+          return(methods::slot(fit_slot, "smoProb"))
+        }
+      }
+      NULL
+    }, error = function(e) NULL))
+  }
+  
+  NULL
+}
+
+
+#' Create Probability Data Frame for Plotting
+#'
+#' Converts a probability matrix to long format suitable for ggplot.
+#'
+#' @param probs Matrix of probabilities (n x num_states).
+#' @param series_label Character label for this series.
+#' @param state_labels Character vector of state names.
+#'
+#' @return Data frame with columns: Index, State, Probability, Series.
+#' @keywords internal
+create_probability_df <- function(probs, series_label, state_labels) {
+  
+  n <- nrow(probs)
+  num_states <- ncol(probs)
+  
+  ## Long format
+  df_list <- lapply(seq_len(num_states), function(s) {
+    data.frame(
+      Index = seq_len(n),
+      State = state_labels[s],
+      Probability = probs[, s],
+      Series = series_label,
+      stringsAsFactors = FALSE
+    )
+  })
+  
+  do.call(rbind, df_list)
+}
+
+
+#' Reconstruct Bootstrap Probabilities from Source Blocks
+#'
+#' For a bootstrap replicate, reconstruct the "probabilities" by looking up
+#' the original probabilities at the source time points of each resampled block.
+#'
+#' @param regime_info Regime info from diagnostics.
+#' @param replicate_idx Which replicate.
+#' @param original_probs Original smoothed probability matrix.
+#'
+#' @return Matrix of reconstructed probabilities or NULL.
+#' @keywords internal
+reconstruct_bootstrap_probabilities <- function(regime_info, replicate_idx, original_probs) {
+  
+  block_info <- regime_info$replicate_block_states[[replicate_idx]]
+  
+  ## Best case: we have per-observation source indices
+  if (!is.null(block_info) && !is.null(block_info$source_indices)) {
+    source_idx <- block_info$source_indices
+    
+    ## Validate indices
+    n_orig <- nrow(original_probs)
+    valid_idx <- source_idx >= 1 & source_idx <= n_orig
+    
+    if (all(valid_idx)) {
+      return(original_probs[source_idx, , drop = FALSE])
+    } else {
+      ## Some indices out of range - handle gracefully
+      n_boot <- length(source_idx)
+      num_states <- ncol(original_probs)
+      probs <- matrix(NA_real_, nrow = n_boot, ncol = num_states)
+      probs[valid_idx, ] <- original_probs[source_idx[valid_idx], , drop = FALSE]
+      return(probs)
+    }
+  }
+  
+  ## Fallback: use state assignments to create pseudo-probabilities (one-hot)
+  rep_states <- regime_info$replicate_states[[replicate_idx]]
+  if (is.null(rep_states)) return(NULL)
+  
+  n <- length(rep_states)
+  num_states <- ncol(original_probs)
+  
+  ## Create one-hot encoding from states
+  probs <- matrix(0, nrow = n, ncol = num_states)
+  for (i in seq_len(n)) {
+    if (!is.na(rep_states[i]) && rep_states[i] >= 1 && rep_states[i] <= num_states) {
+      probs[i, rep_states[i]] <- 1
+    }
+  }
+  
+  probs
+}
+
+
+#' Add Probability Visualization Layer to Plot
+#'
+#' Adds the appropriate ggplot layer for probability visualization based on style.
+#'
+#' @param p Existing ggplot object.
+#' @param prob_data Probability data frame.
+#' @param style One of "ribbon", "line", "bands_alpha".
+#' @param state_colors Named color vector.
+#' @param plot_data Series plot data (for y-axis scaling).
+#'
+#' @return Updated ggplot object.
+#' @keywords internal
+add_probability_layer <- function(p, prob_data, style, state_colors, plot_data) {
+  
+  if (style == "line") {
+    ## Line plot of probabilities (on secondary axis conceptually)
+    ## Scale probabilities to fit in plot range
+    p <- p + ggplot2::geom_line(
+      data = prob_data,
+      ggplot2::aes(x = Index, y = Probability, color = State),
+      linewidth = 0.8,
+      alpha = 0.7
+    ) +
+      ggplot2::scale_color_manual(values = state_colors, name = "State Probability")
+    
+  } else if (style == "ribbon") {
+    ## Stacked ribbon showing cumulative probabilities
+    ## Need to compute cumulative probabilities for stacking
+    prob_data <- compute_stacked_probabilities(prob_data)
+    
+    p <- p + ggplot2::geom_ribbon(
+      data = prob_data,
+      ggplot2::aes(x = Index, ymin = ymin, ymax = ymax, fill = State),
+      alpha = 0.5
+    ) +
+      ggplot2::scale_fill_manual(values = state_colors, name = "Regime")
+    
+  } else if (style == "bands_alpha") {
+    ## Regime bands with alpha proportional to probability
+    ## Convert to band format with probability-based alpha
+    bands_alpha <- create_probability_bands(prob_data)
+    
+    p <- p + ggplot2::geom_rect(
+      data = bands_alpha,
+      ggplot2::aes(xmin = xmin, xmax = xmax, ymin = -Inf, ymax = Inf, 
+                   fill = State, alpha = Probability)
+    ) +
+      ggplot2::scale_fill_manual(values = state_colors, name = "Regime") +
+      ggplot2::scale_alpha_continuous(range = c(0.1, 0.5), guide = "none")
+  }
+  
+  p
+}
+
+
+#' Compute Stacked Probabilities for Ribbon Plot
+#'
+#' Computes cumulative probabilities for stacked ribbon visualization.
+#'
+#' @param prob_data Probability data frame in long format.
+#'
+#' @return Data frame with ymin and ymax columns added.
+#' @keywords internal
+compute_stacked_probabilities <- function(prob_data) {
+  
+  ## Split by Series and Index, compute cumulative
+  prob_data <- prob_data[order(prob_data$Series, prob_data$Index, prob_data$State), ]
+  
+  result_list <- lapply(split(prob_data, list(prob_data$Series, prob_data$Index)), function(df) {
+    df <- df[order(df$State), ]
+    cum_prob <- cumsum(df$Probability)
+    df$ymax <- cum_prob
+    df$ymin <- c(0, head(cum_prob, -1))
+    df
+  })
+  
+  do.call(rbind, result_list)
+}
+
+
+#' Create Probability-Weighted Bands
+#'
+#' Creates band data with probability for alpha mapping.
+#'
+#' @param prob_data Probability data frame.
+#'
+#' @return Data frame suitable for geom_rect with alpha mapping.
+#' @keywords internal
+create_probability_bands <- function(prob_data) {
+  
+  ## For each state, create bands where probability > threshold
+  ## Simplified: just use point-wise probability
+  
+  ## Aggregate to get dominant state per time point with its probability
+  prob_wide <- reshape(
+    prob_data,
+    direction = "wide",
+    idvar = c("Index", "Series"),
+    timevar = "State",
+    v.names = "Probability"
+  )
+  
+  ## For now, return simple per-index bands
+  ## This is a simplified version - could be enhanced
+  bands <- data.frame(
+    xmin = prob_data$Index - 0.5,
+    xmax = prob_data$Index + 0.5,
+    State = prob_data$State,
+    Probability = prob_data$Probability,
+    Series = prob_data$Series,
+    stringsAsFactors = FALSE
+  )
+  
+  bands
+}
+
+
+#' Create Regime Bands Data Frame
+#'
+#' Helper function to convert a state sequence into a data frame of regime
+#' bands suitable for geom_rect().
+#'
+#' @param states Integer vector of state assignments.
+#' @param series_label Character string identifying this series.
+#'
+#' @return Data frame with columns: xmin, xmax, State, Series.
+#' @keywords internal
+create_regime_bands_df <- function(states, series_label) {
+  
+  rle_states <- rle(states)
+  ends <- cumsum(rle_states$lengths)
+  starts <- c(1, head(ends, -1) + 1)
+  
+  data.frame(
+    xmin = starts,
+    xmax = ends,
+    State = rle_states$values,
+    Series = series_label,
+    stringsAsFactors = FALSE
+  )
+}
+
+
+#' Summary of Regime Bootstrap Diagnostics
+#'
+#' Prints a summary of regime-related diagnostics including state distributions
+#' in the original data and across bootstrap replicates.
+#'
+#' @param diagnostics A \code{tsbs_diagnostics} object with regime information.
+#'
+#' @return Invisibly returns a list with summary statistics.
+#' @keywords internal
+#' @export
+summarize_regime_diagnostics <- function(diagnostics) {
+  
+  if (is.null(diagnostics$method_specific$regime_info)) {
+    cat("No regime information available.\n")
+    return(invisible(NULL))
+  }
+  
+  regime_info <- diagnostics$method_specific$regime_info
+  
+  cat("=== Regime Bootstrap Diagnostics ===\n\n")
+  
+  cat("Number of states:", regime_info$num_states, "\n")
+  cat("State labels:", paste(regime_info$state_labels, collapse = ", "), "\n\n")
+  
+  cat("Original series state distribution:\n")
+  orig_counts <- regime_info$original_state_counts
+  orig_props <- prop.table(orig_counts)
+  for (i in seq_along(orig_counts)) {
+    cat(sprintf("  %s: %d observations (%.1f%%)\n",
+                regime_info$state_labels[i],
+                orig_counts[i],
+                orig_props[i] * 100))
+  }
+  
+  ## Compute bootstrap state distribution summary
+  replicate_state_props <- lapply(regime_info$replicate_states, function(states) {
+    if (is.null(states)) return(NULL)
+    table(factor(states, levels = seq_len(regime_info$num_states))) / length(states)
+  })
+  replicate_state_props <- replicate_state_props[!sapply(replicate_state_props, is.null)]
+  
+  if (length(replicate_state_props) > 0) {
+    cat("\nBootstrap replicate state distribution (mean across replicates):\n")
+    mean_props <- Reduce(`+`, replicate_state_props) / length(replicate_state_props)
+    for (i in seq_along(mean_props)) {
+      cat(sprintf("  %s: %.1f%% (original: %.1f%%)\n",
+                  regime_info$state_labels[i],
+                  mean_props[i] * 100,
+                  orig_props[i] * 100))
+    }
+  }
+  
+  cat("\n")
+  
+  invisible(list(
+    original_counts = orig_counts,
+    original_props = orig_props,
+    bootstrap_mean_props = if (exists("mean_props")) mean_props else NULL
+  ))
+}

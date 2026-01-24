@@ -7,7 +7,7 @@
 #'
 #' @param x A numeric matrix with rows representing time points and columns
 #'   representing variables.
-#' @param n_length Integer or `NULL`. Desired number of time points in the
+#' @param n_boot Integer or `NULL`. Desired number of time points in the
 #'   bootstrap sample. If `NULL`, the original series length is used.
 #' @param block_length Integer or `NULL`. Length of each block. If `NULL`, a
 #'   heuristic is used based on the average lag-1 autocorrelation across
@@ -21,7 +21,7 @@
 #' @param tukey_alpha `alpha` when `block_type = "tapered"` and  `taper_type = "tukey"`.
 #'   Default 0.5.
 #' @param num_blocks Integer or `NULL`. Number of blocks to use. If `NULL`, this 
-#'   is inferred from `n_length`.
+#'   is inferred from `n_boot`.
 #' @param num_boots Number of bootstrap replicates to generate.
 #' @param p numeric \eqn{p \in (0, 1)}. Probability parameter for the geometric
 #'   block length (used in Stationary Bootstrap). Default is 0.1.
@@ -36,11 +36,13 @@
 #' blocks from the original time series. The Stationary Bootstrap (SB) samples
 #' blocks with geometrically distributed lengths and can optionally enforce
 #' non-overlap constraints.
-#'
-#' If `block_length` is `NA`, an automatic heuristic is used that depends on the
-#' average lag-1 autocorrelation across variables. The function supports
-#' flexible specifications of output length (`n_length`) and block structure
-#' (`num_blocks`).
+#' 
+#' If `n_boot` is set, the last block will be trimmed when necessary.
+#' If `n_boot` is not set, and `num_blocks` is set, the length of each 
+#' bootstrap series will be determined by the number of blocks and the 
+#' lengths of the individual blocks for that particular series.
+#' If neither `n_boot` nor `num_blocks` is set, `n_boot` will default to the
+#' number of rows in `x` and the last block will be trimmed when necessary.
 #' 
 #' @references 
 #' Politis, D., & Romano, J. (1994). The Stationary Bootstrap. Journal of the 
