@@ -1261,7 +1261,10 @@ compute_robust_estimates <- function(
   boot_conservative <- apply(boot_mat, 2, quantile, probs = conservative_quantile, na.rm = TRUE)
   
   ## Renormalize conservative estimate if it looks like weights (all positive, sum ~ 1)
-  if (all(boot_conservative >= 0) && abs(sum(boot_mean) - 1) < 0.1) {
+  ## Handle NA values gracefully
+  if (!any(is.na(boot_conservative)) && 
+      all(boot_conservative >= 0, na.rm = TRUE) && 
+      abs(sum(boot_mean, na.rm = TRUE) - 1) < 0.1) {
     boot_conservative <- boot_conservative / sum(boot_conservative)
   }
   
@@ -2407,5 +2410,521 @@ summarize_regime_diagnostics <- function(diagnostics) {
     original_counts = orig_counts,
     original_props = orig_props,
     bootstrap_mean_props = if (exists("mean_props")) mean_props else NULL
+  ))
+}
+
+
+# Block Bootstrap Diagnostics for Moving and Stationary Bootstrap ==============
+# These functions provide diagnostic tracking for non-regime-based bootstrap
+# methods (Moving Block Bootstrap and Stationary Bootstrap).
+#
+# Key diagnostics for block bootstrap:
+# - Block lengths (fixed for moving, random for stationary)
+# - Block starting positions (where each block was sampled from)
+# - Coverage analysis (which parts of original series are represented)
+# - Overlap patterns
+
+#' Block Bootstrap with Diagnostics
+#'
+#' Performs Moving Block Bootstrap or Stationary Bootstrap while collecting
+#' detailed diagnostic information about block composition.
+#'
+#' @param x Numeric matrix with rows as time points, columns as variables.
+#' @param n_boot Integer. Desired length of bootstrap series. If NULL, uses
+#'   length of original series.
+#' @param block_length Integer. Block length for moving bootstrap, or expected
+#'   block length for stationary bootstrap. If NULL, computed automatically.
+#' @param bs_type Character. Either "moving" or "stationary".
+#' @param block_type Character. One of "overlapping", "non-overlapping", or
+#'   "tapered".
+#' @param num_boots Integer. Number of bootstrap replicates.
+#' @param p Numeric in (0,1). Probability parameter for geometric distribution
+#'   in stationary bootstrap. Default 0.1.
+#' @param collect_diagnostics Logical. If TRUE, collect block-level diagnostics.
+#' @param taper_type Character. Taper window type if block_type = "tapered".
+#' @param tukey_alpha Numeric. Alpha parameter for Tukey window.
+#'
+#' @return If collect_diagnostics = FALSE, a list of bootstrap matrices.
+#'   If collect_diagnostics = TRUE, a list with:
+#'   \describe{
+#'     \item{bootstrap_series}{List of bootstrap matrices}
+#'     \item{diagnostics}{A tsbs_diagnostics object with block information}
+#'   }
+#'
+#' @details
+#' This function provides an R implementation of block bootstrap that tracks
+#' diagnostic information. For each bootstrap replicate, it records:
+#' \itemize{
+#'   \item Block lengths used
+#'   \item Starting positions in original series
+#'   \item Source indices mapping each bootstrap observation to original
+#' }
+#'
+#' For the **Moving Block Bootstrap**, blocks have fixed length and are sampled
+#' uniformly from all possible starting positions.
+#'
+#' For the **Stationary Bootstrap**, block lengths are drawn from a geometric
+#' distribution with parameter p, giving expected block length 1/p.
+#'
+#' @examples
+#' \dontrun{
+#' set.seed(123)
+#' x <- matrix(rnorm(500), ncol = 2)
+#'
+#' # Moving block bootstrap with diagnostics
+#' result <- blockBootstrap_with_diagnostics(
+#'   x, block_length = 10, bs_type = "moving",
+#'   num_boots = 50, collect_diagnostics = TRUE
+#' )
+#'
+#' # View block length distribution
+#' summary(result$diagnostics)
+#'
+#' # Plot coverage
+#' plot_block_coverage(result$diagnostics)
+#' }
+#'
+#' @export
+blockBootstrap_with_diagnostics <- function(
+    x,
+    n_boot = NULL,
+    block_length = NULL,
+    bs_type = c("moving", "stationary"),
+    block_type = c("overlapping", "non-overlapping"),
+    num_boots = 100L,
+    p = 0.1,
+    collect_diagnostics = TRUE,
+    taper_type = "cosine",
+    tukey_alpha = 0.5
+) {
+  
+  bs_type <- match.arg(bs_type)
+  block_type <- match.arg(block_type)
+  
+  ## ---- Data Preparation ----
+  x <- as.matrix(x)
+  n <- nrow(x)
+  k <- ncol(x)
+  
+  ## Set n_boot if not specified
+  if (is.null(n_boot)) {
+    n_boot <- n
+  }
+  
+  ## Compute default block length if not specified
+  if (is.null(block_length)) {
+    block_length <- compute_default_block_length_r(x)
+  }
+  
+  ## For stationary bootstrap, block_length is expected length (1/p)
+  if (bs_type == "stationary" && is.null(p)) {
+    p <- 1 / block_length
+  }
+  
+  ## ---- Initialize Diagnostics ----
+  diagnostics <- NULL
+  if (collect_diagnostics) {
+    diagnostics <- create_bootstrap_diagnostics(
+      bs_type = bs_type,
+      n_original = n,
+      n_vars = k,
+      num_boots = num_boots
+    )
+    
+    ## Record original series stats
+    diagnostics <- record_original_stats(diagnostics, x)
+    
+    ## Store config
+    diagnostics$config <- list(
+      block_length = block_length,
+      block_type = block_type,
+      n_boot = n_boot,
+      p = if (bs_type == "stationary") p else NULL
+    )
+    
+    ## Initialize block-specific tracking
+    diagnostics$method_specific$block_info <- list(
+      ## Per-replicate: list of block details
+      replicate_blocks = vector("list", num_boots),
+      ## Source indices for each replicate
+      replicate_source_indices = vector("list", num_boots)
+    )
+  }
+  
+  ## ---- Generate Bootstrap Samples ----
+  bootstrap_samples <- vector("list", num_boots)
+  
+  for (b in seq_len(num_boots)) {
+    
+    ## Storage for this replicate
+    sample_matrix <- matrix(0, nrow = n_boot, ncol = k)
+    pos <- 1
+    
+    ## Track blocks for diagnostics
+    block_lengths_used <- integer(0)
+    block_starts <- integer(0)
+    source_indices <- integer(0)
+    
+    while (pos <= n_boot) {
+      
+      ## Determine block length
+      if (bs_type == "moving") {
+        current_block_len <- block_length
+      } else {
+        ## Stationary: geometric distribution
+        current_block_len <- rgeom(1, p) + 1
+        ## Cap at reasonable maximum
+        max_len <- min(ceiling(qgeom(0.99, p) + 1), floor(0.1 * n))
+        current_block_len <- min(current_block_len, max(1, max_len))
+      }
+      
+      ## Determine starting position
+      if (block_type == "overlapping") {
+        max_start <- n - current_block_len + 1
+        if (max_start < 1) max_start <- 1
+        start_idx <- sample.int(max_start, 1)
+      } else {
+        ## Non-overlapping: sample from block boundaries
+        num_complete_blocks <- n %/% current_block_len
+        if (num_complete_blocks < 1) num_complete_blocks <- 1
+        block_num <- sample.int(num_complete_blocks, 1)
+        start_idx <- (block_num - 1) * current_block_len + 1
+      }
+      
+      ## How many rows to copy (might be truncated at end)
+      rows_to_copy <- min(current_block_len, n_boot - pos + 1)
+      
+      ## Copy block (with wraparound if needed)
+      for (i in seq_len(rows_to_copy)) {
+        idx <- ((start_idx - 1 + i - 1) %% n) + 1
+        sample_matrix[pos + i - 1, ] <- x[idx, ]
+        source_indices <- c(source_indices, idx)
+      }
+      
+      ## Record block info
+      block_lengths_used <- c(block_lengths_used, rows_to_copy)
+      block_starts <- c(block_starts, start_idx)
+      
+      pos <- pos + rows_to_copy
+    }
+    
+    bootstrap_samples[[b]] <- sample_matrix
+    
+    ## Record diagnostics for this replicate
+    if (collect_diagnostics) {
+      diagnostics <- record_blocks(
+        diagnostics,
+        replicate_idx = b,
+        block_lengths = block_lengths_used,
+        start_positions = block_starts,
+        block_type = block_type
+      )
+      
+      diagnostics$method_specific$block_info$replicate_source_indices[[b]] <- source_indices
+      
+      diagnostics <- record_replicate_stats(
+        diagnostics,
+        replicate_idx = b,
+        bootstrap_matrix = sample_matrix
+      )
+    }
+  }
+  
+  ## ---- Return Results ----
+  if (!collect_diagnostics) {
+    return(bootstrap_samples)
+  }
+  
+  list(
+    bootstrap_series = bootstrap_samples,
+    diagnostics = diagnostics
+  )
+}
+
+
+#' Compute Default Block Length (R version)
+#'
+#' Computes a default block length based on average lag-1 autocorrelation.
+#'
+#' @param x Numeric matrix.
+#' @return Integer block length.
+#' @keywords internal
+compute_default_block_length_r <- function(x) {
+  x <- as.matrix(x)
+  n <- nrow(x)
+  k <- ncol(x)
+  
+  ## Compute lag-1 autocorrelation for each column
+  ac1 <- numeric(k)
+  for (j in seq_len(k)) {
+    ac1[j] <- tryCatch({
+      abs(acf(x[, j], lag.max = 1, plot = FALSE)$acf[2, 1, 1])
+    }, error = function(e) 0)
+  }
+  
+  rho1 <- mean(ac1, na.rm = TRUE)
+  if (is.na(rho1) || rho1 >= 1) rho1 <- 0.5
+  
+  candidate <- floor(10 / (1 - rho1))
+  max(5L, min(candidate, as.integer(sqrt(n))))
+}
+
+
+#' Plot Block Coverage for Bootstrap Diagnostics
+#'
+#' Visualizes which parts of the original series are sampled across bootstrap
+#' replicates, showing coverage patterns and potential gaps.
+#'
+#' @param diagnostics A tsbs_diagnostics object from block bootstrap.
+#' @param type Character. Type of plot:
+#'   \itemize{
+#'     \item "heatmap": Heatmap showing coverage intensity at each time point
+#'     \item "histogram": Histogram of block starting positions
+#'     \item "blocks": Visual representation of blocks sampled per replicate
+#'   }
+#' @param max_replicates Integer. Maximum number of replicates to show in
+#'   "blocks" plot. Default 20.
+#'
+#' @return A ggplot object (invisibly).
+#'
+#' @examples
+#' \dontrun{
+#' result <- blockBootstrap_with_diagnostics(x, bs_type = "moving",
+#'                                            collect_diagnostics = TRUE)
+#' plot_block_coverage(result$diagnostics, type = "heatmap")
+#' plot_block_coverage(result$diagnostics, type = "histogram")
+#' }
+#'
+#' @export
+plot_block_coverage <- function(
+    diagnostics,
+    type = c("heatmap", "histogram", "blocks"),
+    max_replicates = 20
+) {
+  
+  if (!requireNamespace("ggplot2", quietly = TRUE)) {
+    stop("ggplot2 is required for plot_block_coverage()")
+  }
+  
+  type <- match.arg(type)
+  
+  n_original <- diagnostics$meta$n_original
+  num_boots <- diagnostics$meta$num_boots
+  bs_type <- diagnostics$meta$bs_type
+  
+  if (type == "histogram") {
+    ## Histogram of block starting positions
+    starts <- diagnostics$blocks$all_start_positions
+    
+    df <- data.frame(start_pos = starts)
+    
+    p <- ggplot2::ggplot(df, ggplot2::aes(x = start_pos)) +
+      ggplot2::geom_histogram(bins = min(50, n_original / 5),
+                              fill = "steelblue", color = "white", alpha = 0.7) +
+      ggplot2::labs(
+        title = paste("Block Starting Positions:", bs_type, "Bootstrap"),
+        subtitle = paste(length(starts), "blocks across", num_boots, "replicates"),
+        x = "Starting Position in Original Series",
+        y = "Count"
+      ) +
+      ggplot2::theme_minimal() +
+      ggplot2::geom_vline(xintercept = c(1, n_original), 
+                          linetype = "dashed", color = "red", alpha = 0.5)
+    
+  } else if (type == "heatmap") {
+    ## Coverage heatmap: how often each time point is sampled
+    source_indices <- diagnostics$method_specific$block_info$replicate_source_indices
+    
+    ## Count coverage at each position
+    coverage <- tabulate(unlist(source_indices), nbins = n_original)
+    
+    df <- data.frame(
+      position = seq_len(n_original),
+      count = coverage
+    )
+    
+    p <- ggplot2::ggplot(df, ggplot2::aes(x = position, y = 1, fill = count)) +
+      ggplot2::geom_tile() +
+      ggplot2::scale_fill_viridis_c(option = "plasma", name = "Times\nSampled") +
+      ggplot2::labs(
+        title = paste("Coverage Heatmap:", bs_type, "Bootstrap"),
+        subtitle = paste("How often each time point appears across", num_boots, "replicates"),
+        x = "Position in Original Series",
+        y = ""
+      ) +
+      ggplot2::theme_minimal() +
+      ggplot2::theme(
+        axis.text.y = ggplot2::element_blank(),
+        axis.ticks.y = ggplot2::element_blank(),
+        panel.grid = ggplot2::element_blank()
+      )
+    
+  } else if (type == "blocks") {
+    ## Visual representation of blocks per replicate
+    block_data <- diagnostics$blocks$replicate_blocks
+    
+    n_show <- min(max_replicates, num_boots)
+    
+    plot_df <- do.call(rbind, lapply(seq_len(n_show), function(rep_idx) {
+      blocks <- block_data[[rep_idx]]
+      if (is.null(blocks) || nrow(blocks) == 0) return(NULL)
+      
+      data.frame(
+        replicate = rep_idx,
+        block_num = blocks$block_num,
+        start = blocks$start_pos,
+        end = blocks$start_pos + blocks$length - 1,
+        length = blocks$length
+      )
+    }))
+    
+    if (is.null(plot_df) || nrow(plot_df) == 0) {
+      stop("No block data available for plotting")
+    }
+    
+    p <- ggplot2::ggplot(plot_df) +
+      ggplot2::geom_segment(
+        ggplot2::aes(x = start, xend = end, 
+                     y = replicate, yend = replicate,
+                     color = factor(block_num %% 5)),
+        linewidth = 2, alpha = 0.7
+      ) +
+      ggplot2::scale_y_reverse() +
+      ggplot2::scale_color_brewer(palette = "Set2", guide = "none") +
+      ggplot2::labs(
+        title = paste("Block Composition:", bs_type, "Bootstrap"),
+        subtitle = paste("First", n_show, "replicates; segments show sampled blocks"),
+        x = "Position in Original Series",
+        y = "Bootstrap Replicate"
+      ) +
+      ggplot2::theme_minimal() +
+      ggplot2::geom_vline(xintercept = c(1, n_original),
+                          linetype = "dashed", color = "gray50", alpha = 0.5)
+  }
+  
+  print(p)
+  invisible(p)
+}
+
+
+#' Plot Block Length Distribution
+#'
+#' Visualizes the distribution of block lengths used in bootstrap replicates.
+#' Particularly useful for Stationary Bootstrap where lengths are random.
+#'
+#' @param diagnostics A tsbs_diagnostics object from block bootstrap.
+#' @param show_expected Logical. If TRUE and bs_type is "stationary", show
+#'   the expected geometric distribution. Default TRUE.
+#'
+#' @return A ggplot object (invisibly).
+#'
+#' @export
+plot_block_lengths <- function(diagnostics, show_expected = TRUE) {
+  
+  if (!requireNamespace("ggplot2", quietly = TRUE)) {
+    stop("ggplot2 is required for plot_block_lengths()")
+  }
+  
+  bs_type <- diagnostics$meta$bs_type
+  block_lengths <- diagnostics$blocks$all_block_lengths
+  
+  df <- data.frame(length = block_lengths)
+  
+  p <- ggplot2::ggplot(df, ggplot2::aes(x = length)) +
+    ggplot2::geom_histogram(ggplot2::aes(y = ggplot2::after_stat(density)),
+                            bins = max(10, length(unique(block_lengths))),
+                            fill = "steelblue", color = "white", alpha = 0.7) +
+    ggplot2::labs(
+      title = paste("Block Length Distribution:", bs_type, "Bootstrap"),
+      subtitle = paste("n =", length(block_lengths), "blocks"),
+      x = "Block Length",
+      y = "Density"
+    ) +
+    ggplot2::theme_minimal()
+  
+  ## Add expected distribution for stationary bootstrap
+  if (show_expected && bs_type == "stationary" && !is.null(diagnostics$config$p)) {
+    prob <- diagnostics$config$p
+    max_len <- max(block_lengths)
+    expected_df <- data.frame(
+      length = seq_len(max_len),
+      density = dgeom(seq_len(max_len) - 1, prob)
+    )
+    
+    p <- p + ggplot2::geom_line(
+      data = expected_df,
+      ggplot2::aes(x = length, y = density),
+      color = "red", linewidth = 1, linetype = "dashed"
+    ) +
+      ggplot2::annotate("text", x = max_len * 0.7, y = max(expected_df$density) * 0.8,
+                        label = paste("Expected: Geom(p =", round(prob, 3), ")"),
+                        color = "red", size = 3.5)
+  }
+  
+  ## Add mean line
+  mean_len <- mean(block_lengths)
+  p <- p + ggplot2::geom_vline(xintercept = mean_len, 
+                               color = "darkgreen", linewidth = 1) +
+    ggplot2::annotate("text", x = mean_len, y = 0,
+                      label = paste("Mean:", round(mean_len, 1)),
+                      color = "darkgreen", vjust = -0.5, hjust = -0.1, size = 3.5)
+  
+  print(p)
+  invisible(p)
+}
+
+
+#' Summary Method for Block Bootstrap Diagnostics
+#'
+#' Prints a summary of block bootstrap diagnostics.
+#'
+#' @param diagnostics A tsbs_diagnostics object.
+#'
+#' @return Invisibly returns a list with summary statistics.
+#' @keywords internal
+#' @export
+summarize_block_diagnostics <- function(diagnostics) {
+  
+  cat("=== Block Bootstrap Diagnostics ===\n\n")
+  
+  cat("Bootstrap type:", diagnostics$meta$bs_type, "\n")
+  cat("Original series length:", diagnostics$meta$n_original, "\n")
+  cat("Number of variables:", diagnostics$meta$n_vars, "\n")
+  cat("Number of replicates:", diagnostics$meta$num_boots, "\n\n")
+  
+  if (!is.null(diagnostics$config$block_length)) {
+    cat("Configured block length:", diagnostics$config$block_length, "\n")
+  }
+  if (!is.null(diagnostics$config$p)) {
+    cat("Geometric parameter p:", diagnostics$config$p, "\n")
+    cat("Expected block length:", round(1/diagnostics$config$p, 1), "\n")
+  }
+  cat("Block type:", diagnostics$config$block_type, "\n\n")
+  
+  ## Block length statistics
+  block_lengths <- diagnostics$blocks$all_block_lengths
+  cat("Block length statistics:\n")
+  cat("  Total blocks sampled:", length(block_lengths), "\n")
+  cat("  Mean length:", round(mean(block_lengths), 2), "\n")
+  cat("  SD length:", round(sd(block_lengths), 2), "\n")
+  cat("  Min/Max:", min(block_lengths), "/", max(block_lengths), "\n\n")
+  
+  ## Coverage statistics
+  if (!is.null(diagnostics$method_specific$block_info$replicate_source_indices)) {
+    source_indices <- unlist(diagnostics$method_specific$block_info$replicate_source_indices)
+    coverage <- tabulate(source_indices, nbins = diagnostics$meta$n_original)
+    
+    cat("Coverage statistics:\n")
+    cat("  Time points never sampled:", sum(coverage == 0), "\n")
+    cat("  Mean times sampled:", round(mean(coverage), 2), "\n")
+    cat("  Max times sampled:", max(coverage), "\n")
+    cat("  Coverage uniformity (CV):", round(sd(coverage) / mean(coverage), 3), "\n")
+  }
+  
+  cat("\n")
+  
+  invisible(list(
+    block_lengths = block_lengths,
+    coverage = if (exists("coverage")) coverage else NULL
   ))
 }

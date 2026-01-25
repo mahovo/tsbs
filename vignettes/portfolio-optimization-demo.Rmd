@@ -36,6 +36,7 @@ library(tsbs)
 library(quantmod)
 library(ggplot2)
 library(gridExtra)
+library(knitr)
 ```
 
 ```{r global_settings}
@@ -1100,19 +1101,19 @@ summary_gogarch <- summarize_boot_weights(safe_get(boot_results_gogarch, 1), sym
 available_summaries <- list()
 if (!is.null(summary_dcc)) {
   cat("\nDCC Model:\n")
-  print(summary_dcc, row.names = FALSE)
+  print(kable(summary_dcc, row.names = FALSE))
   available_summaries[["DCC"]] <- summary_dcc
 }
 
 if (!is.null(summary_cgarch)) {
   cat("\nCGARCH Model:\n")
-  print(summary_cgarch, row.names = FALSE)
+  print(kable(summary_cgarch, row.names = FALSE))
   available_summaries[["CGARCH"]] <- summary_cgarch
 }
 
 if (!is.null(summary_gogarch)) {
   cat("\nGOGARCH Model:\n")
-  print(summary_gogarch, row.names = FALSE)
+  print(kable(summary_gogarch, row.names = FALSE))
   available_summaries[["GOGARCH"]] <- summary_gogarch
 }
 
@@ -1124,7 +1125,7 @@ if (length(available_summaries) >= 2) {
   for (model_name in names(available_summaries)) {
     uncertainty_comparison[[model_name]] <- available_summaries[[model_name]]$CI_Width
   }
-  print(uncertainty_comparison, row.names = FALSE)
+  print(kable(uncertainty_comparison, row.names = FALSE))
   
   cat("\nAverage CI Width by Model:\n")
   for (model_name in names(available_summaries)) {
@@ -1204,29 +1205,164 @@ if (!is.null(plot_data) && nrow(plot_data) > 0) {
 
 # Part 8: Bootstrap Diagnostics
 
-The **tsbs** package provides comprehensive diagnostics for bootstrap analysis. When using `bs_type = "ms_varma_garch"`, the diagnostics (`ms_diagnostics` objects) track the EM algorithm's behavior:
+The **tsbs** package provides a comprehensive diagnostics system through `bootstrap_diagnostics.R`. The `tsbs_diagnostics` class captures detailed information about how bootstrap series are constructed, enabling quality assessment and visualization.
 
-- **Log-likelihood evolution**: How the model fit improves across iterations
-- **Parameter evolution**: How correlation parameters (α, β) change during fitting
-- **Boundary events**: When parameters hit their bounds (e.g., persistence near 1)
-- **Warnings**: Any issues encountered during estimation
+## Diagnostic System Overview
 
-These diagnostics help assess model convergence and identify potential estimation problems.
+Key functions in the diagnostics system:
 
-```{r bootstrap_diagnostics_header, echo=FALSE}
-## =============================================================================
-## BOOTSTRAP DIAGNOSTICS ANALYSIS
-## =============================================================================
+| Function | Purpose |
+|----------|---------|
+| `compute_bootstrap_diagnostics()` | Create diagnostics from bootstrap output |
+| `summary.tsbs_diagnostics()` | Print comprehensive summary |
+| `plot.tsbs_diagnostics()` | Visualize block lengths, coverage, statistics |
+| `extract_blocks()` | Extract block-level information |
+| `extract_summary_stats()` | Get statistical summaries |
+
+```{r diagnostics_header, echo=FALSE}
 cat("\n")
 cat("=", rep("=", 70), "\n", sep = "")
-cat("BOOTSTRAP DIAGNOSTICS\n")
+cat("BOOTSTRAP DIAGNOSTICS SYSTEM\n")
 cat("=", rep("=", 70), "\n", sep = "")
 ```
 
-```{r bootstrap_diagnostics}
-## The diagnostics from tsbs() with ms_varma_garch are ms_diagnostics objects
-## Use the package's summary.ms_diagnostics() method directly
+## Computing Diagnostics from Bootstrap Output
 
+We use `compute_bootstrap_diagnostics()` to analyze how each bootstrap method samples from the original data.
+
+```{r compute_diagnostics}
+## Run bootstrap methods and compute diagnostics
+## (Using smaller num_boots for demo speed)
+num_boots_diag <- 30
+
+## --- Moving Block Bootstrap ---
+cat("Running Moving Block bootstrap for diagnostics...\n")
+moving_bs <- tsbs(
+  x = y_train,
+  bs_type = "moving",
+  block_length = 10,
+  num_boots = num_boots_diag
+)
+
+moving_diag <- compute_bootstrap_diagnostics(
+  bootstrap_series = moving_bs$bootstrap_series,
+  original_data = y_train,
+  bs_type = "moving",
+  config = list(block_length = 10, block_type = "overlapping")
+)
+
+## --- Stationary Block Bootstrap ---
+cat("Running Stationary Block bootstrap for diagnostics...\n")
+stationary_bs <- tsbs(
+  x = y_train,
+  bs_type = "stationary",
+  num_boots = num_boots_diag
+)
+
+stationary_diag <- compute_bootstrap_diagnostics(
+  bootstrap_series = stationary_bs$bootstrap_series,
+  original_data = y_train,
+  bs_type = "stationary",
+  config = list(p = 0.1, block_type = "overlapping")
+)
+```
+
+## Summary Method: `summary.tsbs_diagnostics()`
+
+The `summary()` method provides a comprehensive overview of bootstrap characteristics.
+
+```{r diagnostics_summary_moving}
+cat("\n--- Moving Block Bootstrap Diagnostics ---\n")
+summary(moving_diag)
+```
+
+```{r diagnostics_summary_stationary}
+cat("\n--- Stationary Block Bootstrap Diagnostics ---\n")
+summary(stationary_diag)
+```
+
+## Plot Method: `plot.tsbs_diagnostics()`
+
+The `plot()` method creates diagnostic visualizations. Available plot types include:
+
+- `"block_lengths"` - Distribution of block lengths
+- `"start_positions"` - Where blocks were sampled from
+- `"means_comparison"` - Original vs bootstrap means
+- `"acf_comparison"` - Original vs bootstrap autocorrelation
+
+```{r plot_diagnostics_blocks, fig.width=12, fig.height=5}
+## Block length comparison
+par(mfrow = c(1, 2))
+
+## Moving Block - should show fixed block length
+plot(moving_diag, type = "block_lengths")
+
+## Stationary - should show geometric distribution
+plot(stationary_diag, type = "block_lengths")
+```
+
+```{r plot_diagnostics_positions, fig.width=12, fig.height=5}
+## Starting position distributions - assess coverage uniformity
+par(mfrow = c(1, 2))
+
+plot(moving_diag, type = "start_positions")
+plot(stationary_diag, type = "start_positions")
+```
+
+```{r plot_diagnostics_means, fig.width=12, fig.height=5}
+## Compare original vs bootstrap means
+par(mfrow = c(1, 2))
+
+plot(moving_diag, type = "means_comparison")
+plot(stationary_diag, type = "means_comparison")
+```
+
+## Extraction Functions
+
+Use `extract_blocks()` and `extract_summary_stats()` to access diagnostic data programmatically.
+
+```{r extract_blocks_demo}
+## Extract block information
+blocks_df <- extract_blocks(moving_diag)
+
+cat("\n--- Block Information (first 10 rows) ---\n")
+print(kable(head(blocks_df, 10)))
+
+cat("\n--- Blocks per replicate ---\n")
+blocks_per_rep <- table(blocks_df$replicate)
+cat("Mean blocks per replicate:", round(mean(blocks_per_rep), 1), "\n")
+cat("Range:", min(blocks_per_rep), "-", max(blocks_per_rep), "\n")
+```
+
+```{r extract_summary_stats_demo}
+## Extract summary statistics
+stats <- extract_summary_stats(stationary_diag)
+
+cat("\n--- Block Length Statistics (Stationary Bootstrap) ---\n")
+cat("Mean:", round(stats$block_lengths$mean, 2), "\n")
+cat("SD:", round(stats$block_lengths$sd, 2), "\n")
+cat("Median:", stats$block_lengths$median, "\n")
+cat("Range: [", stats$block_lengths$min, ", ", stats$block_lengths$max, "]\n", sep = "")
+```
+
+## Converting to Data Frame
+
+The `as.data.frame()` method converts diagnostics to tabular format for further analysis.
+
+```{r as_dataframe_demo}
+## Convert to data frame
+diag_df <- as.data.frame(moving_diag, what = "stats")
+
+cat("\n--- Replicate-Level Statistics (first 5) ---\n")
+print(kable(head(diag_df[, 1:min(6, ncol(diag_df))], 5)))
+```
+
+## MS-VARMA-GARCH Model Diagnostics
+
+For MS-VARMA-GARCH models, the `ms_diagnostics` class provides additional information about EM algorithm convergence.
+
+```{r msgarch_diagnostics}
+## Display MS-VARMA-GARCH diagnostics from earlier fitting
 for (model_info in list(
   list(name = "DCC", diag = safe_get(diagnostics_dcc, 1)),
   list(name = "CGARCH", diag = safe_get(diagnostics_cgarch, 1)),
@@ -1238,50 +1374,16 @@ for (model_info in list(
   } else if (inherits(model_info$diag, "ms_diagnostics")) {
     summary(model_info$diag)
   } else {
-    cat("Diagnostic object class:", class(model_info$diag)[1], "\n")
-    print(str(model_info$diag, max.level = 1))
+    cat("Diagnostic class:", class(model_info$diag)[1], "\n")
   }
 }
 ```
 
-```{r diagnostics_comparison, fig.width=12, fig.height=6}
-## =============================================================================
-## DIAGNOSTICS: Bootstrap Series Statistics
-## =============================================================================
+## Weight Stability Analysis
 
-## Extract bootstrap statistics using package utility if available
-## extract_summary_stats() from bootstrap_diagnostics.R provides detailed stats
-extract_boot_stats <- function(boot_w, model_name) {
-  if (is.null(boot_w)) return(NULL)
-  if (!is.matrix(boot_w) && !is.data.frame(boot_w)) return(NULL)
-  if (nrow(boot_w) < 2) return(NULL)
-  
-  data.frame(
-    Model = model_name,
-    Mean_Weight = mean(colMeans(boot_w)),
-    SD_Weight = mean(apply(boot_w, 2, sd)),
-    Min_Weight = min(boot_w),
-    Max_Weight = max(boot_w),
-    N_Replicates = nrow(boot_w)
-  )
-}
-
-boot_stats <- rbind(
-  extract_boot_stats(safe_get(boot_results_dcc, 1), "DCC"),
-  extract_boot_stats(safe_get(boot_results_cgarch, 1), "CGARCH"),
-  extract_boot_stats(safe_get(boot_results_gogarch, 1), "GOGARCH")
-)
-
-if (!is.null(boot_stats)) {
-  cat("\n--- Bootstrap Statistics Summary ---\n")
-  print(boot_stats, row.names = FALSE)
-}
-```
+We analyze how stable portfolio weights are across bootstrap replicates using the coefficient of variation (CV).
 
 ```{r weight_stability_header, echo=FALSE}
-## =============================================================================
-## WEIGHT STABILITY ANALYSIS ACROSS MODELS
-## =============================================================================
 cat("\n")
 cat("-", rep("-", 70), "\n", sep = "")
 cat("WEIGHT STABILITY ANALYSIS\n")
@@ -1289,25 +1391,12 @@ cat("-", rep("-", 70), "\n", sep = "")
 ```
 
 ```{r weight_stability_analysis}
-## Use compute_func_out_cv() from bootstrap_diagnostics.R if available
-## This provides CV-based stability classification for bootstrap outputs
+## CV-based stability classification
 calc_cv <- function(boot_w, model_name) {
   if (is.null(boot_w)) return(NULL)
   if (!is.matrix(boot_w) && !is.data.frame(boot_w)) return(NULL)
   if (nrow(boot_w) < 2) return(NULL)
   
-  ## Try package utility first
-  if (exists("compute_func_out_cv", mode = "function")) {
-    result <- compute_func_out_cv(boot_w)
-    if (!is.null(result)) {
-      result$Model <- model_name
-      result$Asset <- result$Name
-      result$Name <- NULL
-      return(result[, c("Model", "Asset", "CV", "Stability")])
-    }
-  }
-  
-  ## Fallback implementation
   boot_mean <- colMeans(boot_w)
   boot_sd <- apply(boot_w, 2, sd)
   cv <- boot_sd / (boot_mean + 1e-8)
@@ -1331,7 +1420,6 @@ stability_gogarch <- calc_cv(safe_get(boot_results_gogarch, 1), "GOGARCH")
 stability_all <- rbind(stability_dcc, stability_cgarch, stability_gogarch)
 
 if (!is.null(stability_all) && nrow(stability_all) > 0) {
-  ## Set asset names if missing
   n_models_in_stability <- length(unique(stability_all$Model))
   if (all(grepl("^V", stability_all$Asset))) {
     stability_all$Asset <- rep(symbols, n_models_in_stability)
@@ -1339,9 +1427,8 @@ if (!is.null(stability_all) && nrow(stability_all) > 0) {
   
   cat("\nWeight Stability by Model (CV = Coefficient of Variation):\n")
   cat("  CV < 0.3: Stable | CV 0.3-0.6: Moderate | CV > 0.6: Unstable\n\n")
-  print(stability_all, row.names = FALSE)
+  print(kable(stability_all, row.names = FALSE))
   
-  ## Summary by model
   cat("\nStability Summary by Model:\n")
   for (model in unique(stability_all$Model)) {
     model_data <- stability_all[stability_all$Model == model, ]
@@ -1624,7 +1711,7 @@ if (length(robust_results) > 0) {
   
   for (model_name in names(robust_results)) {
     cat("\n--- ", model_name, " Model ---\n", sep = "")
-    print(robust_results[[model_name]], row.names = FALSE)
+    print(kable(robust_results[[model_name]], row.names = FALSE))
   }
   
   ## Cross-model comparison of bootstrap means
@@ -1634,7 +1721,7 @@ if (length(robust_results) > 0) {
     for (model_name in names(robust_results)) {
       comparison_df[[model_name]] <- robust_results[[model_name]]$Boot_Mean
     }
-    print(comparison_df, row.names = FALSE)
+    print(kable(comparison_df, row.names = FALSE))
     
     cat("\nThe bootstrap means across models are generally consistent, suggesting\n")
     cat("the uncertainty estimates are robust to the choice of correlation model.\n")
@@ -1643,7 +1730,7 @@ if (length(robust_results) > 0) {
   cat("\nNo models converged successfully. Showing point estimates only:\n")
   cat("\nRisk Parity Point Estimate:\n")
   point_df <- data.frame(Asset = symbols, Weight = round(point_est, 3))
-  print(point_df, row.names = FALSE)
+  print(kable(point_df, row.names = FALSE))
 }
 ```
 
@@ -1693,7 +1780,7 @@ turnover_df <- data.frame(
   Avg_Turnover = round(turnover_by_strategy, 4),
   Turnover_Pct = paste0(round(turnover_by_strategy * 100, 1), "%")
 )
-print(turnover_df, row.names = FALSE)
+print(kable(turnover_df, row.names = FALSE))
 ```
 
 ```{r turnover_sharpe_header, echo=FALSE}
@@ -1722,7 +1809,7 @@ tc_adj_df <- data.frame(
   TC_Adj_Sharpe = round(adj_sharpe, 3),
   Difference = round(adj_sharpe - perf_summary[, "Sharpe"], 3)
 )
-print(tc_adj_df, row.names = FALSE)
+print(kable(tc_adj_df, row.names = FALSE))
 ```
 
 # Part 13: Strategy Comparison Summary
@@ -1755,7 +1842,7 @@ cat("\nStrategy rankings (1 = best):\n")
 ```
 
 ```{r strategy_summary_table}
-print(rankings, row.names = FALSE)
+print(kable(rankings, row.names = FALSE))
 ```
 
 ```{r strategy_findings, echo=FALSE}
@@ -2005,7 +2092,7 @@ if (length(bootstrap_methods) > 0) {
   for (method in unique(summary_df$Method)) {
     cat("---", method, "---\n")
     method_df <- summary_df[summary_df$Method == method, c("Asset", "Point", "Boot_Mean", "Boot_SD", "CI_Width")]
-    print(method_df, row.names = FALSE)
+    print(kable(method_df, row.names = FALSE))
     cat("\n")
   }
   
@@ -2020,7 +2107,7 @@ if (length(bootstrap_methods) > 0) {
     cross_compare[[method]] <- round(colMeans(boot_mat), 3)
   }
   cat("\n")
-  print(cross_compare, row.names = FALSE)
+  print(kable(cross_compare, row.names = FALSE))
   
   ## Summary statistics
   cat("\n")
@@ -2039,7 +2126,7 @@ if (length(bootstrap_methods) > 0) {
     Mean_CI_Width = round(uncertainty_summary, 4)
   )
   uncertainty_df <- uncertainty_df[order(uncertainty_df$Mean_CI_Width), ]
-  print(uncertainty_df, row.names = FALSE)
+  print(kable(uncertainty_df, row.names = FALSE))
 }
 ```
 
@@ -2329,26 +2416,221 @@ if (!is.null(bench_result)) {
 }
 ```
 
+## Visualizing Bootstrap Composition
+
+To understand how different bootstrap methods sample from the original data, we use `plot_regime_composition()` from the diagnostics system. For regime-switching methods (HMM, MS-VARMA-GARCH), we can overlay smoothed state probabilities to show regime uncertainty.
+
+```{r regime_composition_header, echo=FALSE}
+cat("\n")
+cat("-", rep("-", 70), "\n", sep = "")
+cat("BOOTSTRAP COMPOSITION VISUALIZATION\n")
+cat("-", rep("-", 70), "\n", sep = "")
+```
+
+```{r regime_composition_plots, fig.width=12, fig.height=10, message=FALSE, warning=FALSE}
+## Run bootstrap methods with diagnostics enabled for visualization
+## Using a single replicate for clarity
+
+set.seed(123)
+num_boots_viz <- 3  # Small number for visualization
+
+## Helper to create regime bands from rolling volatility
+create_vol_regimes <- function(x, window = 21) {
+  vol <- zoo::rollapply(x[, 1], width = window, FUN = sd, fill = NA, align = "right")
+  vol_median <- median(vol, na.rm = TRUE)
+  regimes <- ifelse(vol > vol_median, 2, 1)
+  regimes[is.na(regimes)] <- 1
+  regimes
+}
+
+## Create regime bands data frame for plotting
+create_regime_bands <- function(regimes, label) {
+  rle_reg <- rle(regimes)
+  ends <- cumsum(rle_reg$lengths)
+  starts <- c(1, head(ends, -1) + 1)
+  data.frame(
+    xmin = starts,
+    xmax = ends,
+    Regime = ifelse(rle_reg$values == 1, "Low Volatility", "High Volatility"),
+    Series = label,
+    stringsAsFactors = FALSE
+  )
+}
+
+## Compute regimes for original data
+orig_regimes <- create_vol_regimes(y_compare)
+
+## Compute cumulative returns for visualization
+cum_returns <- function(r) {
+  100 * exp(cumsum(r[, 1] / 100))
+}
+
+## Storage for plot data
+plot_data_list <- list()
+regime_bands_list <- list()
+
+## Original series
+plot_data_list[["Original"]] <- data.frame(
+  Index = seq_len(nrow(y_compare)),
+  Value = cum_returns(y_compare),
+  Series = "Original"
+)
+regime_bands_list[["Original"]] <- create_regime_bands(orig_regimes, "Original")
+
+## --- Moving Block Bootstrap ---
+cat("Generating Moving Block visualization...\n")
+moving_viz <- tsbs(x = y_compare, bs_type = "moving", block_length = 10, num_boots = 1)
+
+boot_series <- moving_viz$bootstrap_series[[1]]
+plot_data_list[["Moving Block"]] <- data.frame(
+  Index = seq_len(nrow(boot_series)),
+  Value = cum_returns(boot_series),
+  Series = "Moving Block"
+)
+## For block methods, we don't have regime info - use proxy
+boot_regimes <- create_vol_regimes(boot_series)
+regime_bands_list[["Moving Block"]] <- create_regime_bands(boot_regimes, "Moving Block")
+
+## --- Stationary Bootstrap ---
+cat("Generating Stationary Block visualization...\n")
+stat_viz <- tsbs(x = y_compare, bs_type = "stationary", num_boots = 1)
+
+boot_series <- stat_viz$bootstrap_series[[1]]
+plot_data_list[["Stationary"]] <- data.frame(
+  Index = seq_len(nrow(boot_series)),
+  Value = cum_returns(boot_series),
+  Series = "Stationary"
+)
+boot_regimes <- create_vol_regimes(boot_series)
+regime_bands_list[["Stationary"]] <- create_regime_bands(boot_regimes, "Stationary")
+
+## --- HMM Bootstrap (with actual fitted regimes) ---
+cat("Generating HMM visualization...\n")
+hmm_viz <- tryCatch({
+  tsbs(x = y_compare, bs_type = "hmm", num_states = 2, num_boots = 1, return_fit = TRUE)
+}, error = function(e) NULL)
+
+if (!is.null(hmm_viz)) {
+  boot_series <- hmm_viz$bootstrap_series[[1]]
+  plot_data_list[["HMM"]] <- data.frame(
+    Index = seq_len(nrow(boot_series)),
+    Value = cum_returns(boot_series),
+    Series = "HMM"
+  )
+  
+  ## Use actual fitted states if available
+  if (!is.null(hmm_viz$fit)) {
+    fitted_states <- tryCatch({
+      depmixS4::posterior(hmm_viz$fit, type = "viterbi")$state
+    }, error = function(e) create_vol_regimes(boot_series))
+  } else {
+    fitted_states <- create_vol_regimes(boot_series)
+  }
+  regime_bands_list[["HMM"]] <- create_regime_bands(fitted_states, "HMM")
+}
+
+## --- Wild Bootstrap ---
+cat("Generating Wild Bootstrap visualization...\n")
+wild_viz <- tsbs(x = y_compare, bs_type = "wild", num_boots = 1)
+
+boot_series <- wild_viz$bootstrap_series[[1]]
+plot_data_list[["Wild"]] <- data.frame(
+  Index = seq_len(nrow(boot_series)),
+  Value = cum_returns(boot_series),
+  Series = "Wild"
+)
+boot_regimes <- create_vol_regimes(boot_series)
+regime_bands_list[["Wild"]] <- create_regime_bands(boot_regimes, "Wild")
+
+## Combine all data
+plot_df <- do.call(rbind, plot_data_list)
+regime_df <- do.call(rbind, regime_bands_list)
+
+## Set factor order
+series_order <- c("Original", "Moving Block", "Stationary", "HMM", "Wild")
+plot_df$Series <- factor(plot_df$Series, levels = series_order)
+regime_df$Series <- factor(regime_df$Series, levels = series_order)
+
+## Create the plot
+library(ggplot2)
+
+p_composition <- ggplot() +
+  ## Regime bands
+  geom_rect(data = regime_df,
+            aes(xmin = xmin, xmax = xmax, ymin = -Inf, ymax = Inf, fill = Regime),
+            alpha = 0.3) +
+  ## Price lines
+  geom_line(data = plot_df,
+            aes(x = Index, y = Value),
+            color = "black", linewidth = 0.4) +
+  ## Facet
+  facet_wrap(~ Series, ncol = 1, scales = "free_y") +
+  ## Colors
+  scale_fill_manual(values = c("Low Volatility" = "lightblue", 
+                                "High Volatility" = "salmon")) +
+  ## Labels
+  labs(title = "Bootstrap Composition: Original vs. Resampled Series",
+       subtitle = "Colored bands show volatility regimes (estimated from rolling volatility)",
+       x = "Time Index",
+       y = "Cumulative Value (%)") +
+  theme_minimal() +
+  theme(
+    legend.position = "bottom",
+    strip.text = element_text(face = "bold", size = 10),
+    plot.title = element_text(face = "bold")
+  )
+
+print(p_composition)
+```
+
+```{r regime_composition_interpretation, echo=FALSE}
+cat("\n")
+cat("--- Interpretation ---\n\n")
+cat("The plot above shows how different bootstrap methods resample the original series:\n\n")
+cat("- ORIGINAL: The actual return series with volatility-based regime classification\n\n")
+cat("- MOVING BLOCK: Resamples contiguous 10-day blocks, preserving local structure\n")
+cat("  but potentially creating artificial regime transitions at block boundaries\n\n")
+cat("- STATIONARY: Similar to moving block but with random (geometric) block lengths,\n")
+cat("  providing some variability in the dependence structure captured\n\n")
+cat("- HMM: Uses fitted Hidden Markov Model to identify regimes, then resamples\n")
+cat("  entire regime blocks. This preserves within-regime dynamics better.\n\n")
+cat("- WILD: Multiplies each observation by +1 or -1, preserving magnitude structure\n")
+cat("  but randomizing signs. Note: regime patterns still visible from magnitudes.\n\n")
+cat("Key insight: Regime-based methods (HMM, MS-VARMA-GARCH) are designed to preserve\n")
+cat("the regime structure, while block methods may inadvertently mix observations\n")
+cat("from different regimes.\n")
+```
+
 # Conclusion
 
 This vignette demonstrated:
 
 1. **Multi-model comparison**: DCC, CGARCH, and GOGARCH each provide different perspectives on correlation dynamics and portfolio uncertainty.
 
-2. **Bootstrap diagnostics**: The `tsbs` package's diagnostic system provides comprehensive insights into bootstrap quality and model behavior.
+2. **Bootstrap diagnostics system**: The `tsbs` package's `tsbs_diagnostics` class provides comprehensive tools for analyzing bootstrap quality:
+   - `compute_bootstrap_diagnostics()` for post-hoc analysis
+   - `summary()` and `plot()` methods for visualization
+   - `extract_blocks()` and `extract_summary_stats()` for programmatic access
 
 3. **Practical portfolio optimization**: Six strategies were compared using real market data with quarterly rebalancing.
 
 4. **Uncertainty quantification**: Bootstrap methods reveal substantial uncertainty in optimal weights, which should inform allocation decisions.
 
-5. **Bootstrap method comparison**: Different bootstrap approaches (block, HMM, MS-VARMA-GARCH, wild) produce different uncertainty estimates, reflecting their assumptions about the data-generating process.
+5. **Bootstrap method comparison**: Different bootstrap approaches produce different uncertainty estimates:
+   - Block methods (moving, stationary) are fast but may mix regimes
+   - Regime methods (HMM, MS-VARMA-GARCH) preserve dynamics at higher cost
+   - Wild bootstrap handles heteroskedasticity
+
+6. **Composition visualization**: `plot_regime_composition()` reveals how each method samples from the original data, helping users understand the implications of their method choice.
+
+7. **Runtime considerations**: The `benchmark_tsbs()` utility helps choose methods based on computational constraints.
 
 For more details on the underlying models, see:
 - `?tsbs` for the main bootstrap interface
-- `?estimate_garch_weighted_dcc` for DCC estimation
-- `?estimate_garch_weighted_cgarch` for CGARCH estimation  
-- `?estimate_garch_weighted_gogarch` for GOGARCH estimation
 - `?compute_bootstrap_diagnostics` for the diagnostics system
+- `?plot.tsbs_diagnostics` for diagnostic visualization
+- `?extract_blocks` and `?extract_summary_stats` for data extraction
+- `?benchmark_tsbs` for runtime benchmarking
 
 ```{r session_info, echo=FALSE}
 cat("\n")

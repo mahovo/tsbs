@@ -10,7 +10,10 @@ msvar_bootstrap(
   num_blocks = NULL,
   num_boots = 100,
   parallel = FALSE,
-  num_cores = 1L
+  num_cores = 1L,
+  return_fit = FALSE,
+  collect_diagnostics = FALSE,
+  verbose = TRUE
 )
 }
 \arguments{
@@ -31,9 +34,28 @@ for generating bootstrap samples. Defaults to FALSE.}
 
 \item{num_cores}{An integer specifying the number of cores to use for
 parallel processing. Only used if \code{parallel} is TRUE. Defaults to 1.}
+
+\item{return_fit}{Logical. If TRUE, returns the fitted MS-VAR model along with
+bootstrap samples. Default is FALSE.}
+
+\item{collect_diagnostics}{Logical. If TRUE, collects detailed diagnostic
+information including regime composition of each bootstrap replicate.
+Default is FALSE.}
+
+\item{verbose}{Logical. If TRUE, prints fitting information. Default is TRUE.}
 }
 \value{
-A list of bootstrapped time series matrices.
+If \code{return_fit = FALSE} and \code{collect_diagnostics = FALSE}:
+A list of bootstrap replicate matrices.
+
+Otherwise, a list containing:
+\describe{
+\item{bootstrap_series}{List of bootstrap replicate matrices}
+\item{fit}{(if return_fit = TRUE) The fitted MS-VAR model object}
+\item{states}{The state sequence for the original data}
+\item{smoothed_probabilities}{(if return_fit = TRUE) Matrix of smoothed state probabilities}
+\item{diagnostics}{(if collect_diagnostics = TRUE) A tsbs_diagnostics object}
+}
 }
 \description{
 This function first fits a 2-state Markov-Switching Vector Autoregressive
@@ -45,6 +67,13 @@ of the original data.
 \details{
 For a stationary bootstrap based on a more general \eqn{n}-state MS-VECTOR
 ARIMA(\eqn{p, d, q})-GARCH model see \code{\link[=ms_varma_garch_bs]{ms_varma_garch_bs()}}.
+
+This function:
+\itemize{
+\item Fits a 2-state MS-VAR(1) model using \code{fit_msvar()}
+\item Uses smoothed probabilities to determine the most likely state sequence
+\item Samples contiguous blocks of observations within each regime
+}
 \itemize{
 \item \eqn{y_t \in \mathbb{R}^K} be a \strong{$K$-dimensional multivariate response vector} at time \eqn{t}
 \item \eqn{S_t \in {1, \dots, M}} be a \strong{latent Markov chain} with \eqn{M} discrete regimes
@@ -62,10 +91,23 @@ Where:
 \item \eqn{\Sigma^{(S_t)} \in \mathbb{R}^{K \times K}} is the regime-specific error covariance matrix
 }
 
-Note: The bootstrap helper function requires the 'foreach' and 'doParallel'
-packages if \code{parallel = TRUE}.
+If \code{n_boot} is set, the last block will be trimmed when necessary.
+If \code{n_boot} is not set, and \code{num_blocks} is set, the length of each
+bootstrap series will be determined by the number of blocks and the random
+lengths of the individual blocks for that particular series.
+If neither \code{n_boot} nor \code{num_blocks} is set, \code{n_boot} will default to the
+number of rows in \code{x} and the last block will be trimmed when necessary.
+
+When \code{collect_diagnostics = TRUE}, the function records:
+\itemize{
+\item Original state sequence from smoothed probabilities
+\item State sequence for each bootstrap replicate
+\item Block information (lengths, source positions)
+\item Source indices for probability reconstruction
+}
 }
 \examples{
+\dontrun{
 # Generate sample data
 set.seed(123)
 T_obs <- 250
@@ -73,10 +115,17 @@ y1 <- arima.sim(model = list(ar = 0.7), n = T_obs)
 y2 <- 0.5 * y1 + arima.sim(model = list(ar = 0.3), n = T_obs)
 sample_data <- cbind(y1, y2)
 
-# Run the bootstrap function (assuming fit_msvar is loaded)
-# bootstrap_results <- msvar_bootstrap(sample_data, num_boots = 5)
+# Basic bootstrap
+boot_samples <- msvar_bootstrap(sample_data, num_boots = 50)
 
-# View results
-# str(bootstrap_results)
+# With diagnostics for visualization
+result <- msvar_bootstrap(
+  sample_data, 
+  num_boots = 10,
+  return_fit = TRUE,
+  collect_diagnostics = TRUE
+)
+plot_regime_composition(result, sample_data)
+}
 
 }

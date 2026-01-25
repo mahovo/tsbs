@@ -3,7 +3,7 @@
 #' Fits a Gaussian Hidden Markov Model (HMM) to a multivariate time series
 #'   and generates bootstrap replicates by resampling regime-specific blocks.
 #'
-#' @param x Numeric vector representing the time series.
+#' @param x Numeric vector or matrix representing the time series.
 #' @param n_boot Length of bootstrap series.
 #' @param num_states Integer number of hidden states for the HMM.
 #' @param num_blocks Integer number of blocks to sample for each bootstrap
@@ -225,7 +225,6 @@
 #' 
 #'   ## Plot regime composition
 #'   plot_regime_composition(result, x)
-#' }
 #' }
 #' }
 #'   
@@ -878,7 +877,6 @@ ms_varma_garch_bs <- function(
     # parallel = parallel,
     # num_cores = num_cores,
     collect_diagnostics = collect_diagnostics,
-    collect_diagnostics = collect_diagnostics,
     verbose = verbose,
     verbose_file = verbose_file
   )
@@ -1354,6 +1352,7 @@ wild_bootstrap <- function(
     doParallel::registerDoParallel(cl)
     on.exit(parallel::stopCluster(cl), add = TRUE)
     
+    `%dopar%` <- foreach::`%dopar%`
     results <- foreach::foreach(i = seq_len(num_boots)) %dopar% {
       sample_one_replicate(i)
     }

@@ -12,11 +12,13 @@ hmm_bootstrap(
   num_boots = 100,
   parallel = FALSE,
   num_cores = 1L,
+  return_fit = FALSE,
+  collect_diagnostics = FALSE,
   verbose = FALSE
 )
 }
 \arguments{
-\item{x}{Numeric vector representing the time series.}
+\item{x}{Numeric vector or matrix representing the time series.}
 
 \item{n_boot}{Length of bootstrap series.}
 
@@ -31,11 +33,28 @@ replicate.}
 
 \item{num_cores}{Number of cores.}
 
+\item{return_fit}{Logical. If TRUE, returns the fitted HMM model along with
+bootstrap samples. Default is FALSE.}
+
+\item{collect_diagnostics}{Logical. If TRUE, collects detailed diagnostic
+information including regime composition of each bootstrap replicate.
+Default is FALSE.}
+
 \item{verbose}{Logical. If TRUE, prints HMM fitting information and warnings.
 Defaults to FALSE.}
 }
 \value{
-A list of numeric vectors, each one a bootstrap replicate.
+If \code{return_fit = FALSE} and \code{collect_diagnostics = FALSE}:
+A list of bootstrap replicate matrices.
+
+If \code{return_fit = TRUE} or \code{collect_diagnostics = TRUE}:
+A list containing:
+\describe{
+\item{bootstrap_series}{List of bootstrap replicate matrices}
+\item{fit}{(if return_fit = TRUE) The fitted depmixS4 model object}
+\item{states}{The Viterbi state sequence for the original data}
+\item{diagnostics}{(if collect_diagnostics = TRUE) A tsbs_diagnostics object}
+}
 }
 \description{
 Fits a Gaussian Hidden Markov Model (HMM) to a multivariate time series
@@ -51,13 +70,12 @@ to assign each observation to a state.
 \item Samples contiguous blocks of observations belonging to each state.
 }
 
-If \code{n_boot} is set, the last block will be truncated when necessary to match
-the length (\code{n_boot}) of the bootstrap series. This is the only way to ensure
-equal length of all bootstrap series, as the length of each block is random.
-If \code{n_boot} is not set, \code{num_blocks} must be set, and the length of each
+If \code{n_boot} is set, the last block will be trimmed when necessary.
+If \code{n_boot} is not set, and \code{num_blocks} is set, the length of each
 bootstrap series will be determined by the number of blocks and the random
-lengths of the individual blocks for that particular series. This almost
-certainly results in bootstrap series of different lengths.
+lengths of the individual blocks for that particular series.
+If neither \code{n_boot} nor \code{num_blocks} is set, \code{n_boot} will default to the
+number of rows in \code{x} and the last block will be trimmed when necessary.
 
 For multivariate series (matrices or data frames), the function fits a single
 HMM where all variables are assumed to depend on the same underlying hidden
@@ -87,6 +105,15 @@ possible hidden state sequences:
 (Beware of the "double use of data" problem: The bootstrap procedure relies
 on regime classification, but the regimes themselves are estimated from the
 same data and depend on the parameters being resampled.)
+
+When \code{collect_diagnostics = TRUE}, the function records:
+\itemize{
+\item Original state sequence from Viterbi decoding
+\item State sequence for each bootstrap replicate
+\item Block information (lengths, source positions)
+}
+This information can be used with \code{plot_regime_composition()} to visualize
+how the bootstrap samples are composed from different regimes.
 }
 \examples{
 \donttest{
@@ -206,6 +233,21 @@ if (requireNamespace("depmixS4", quietly = TRUE)) {
   
   cat("95\% Bootstrap CI for mean:", ci_95[1], "to", ci_95[2], "\n")
   cat("Original mean:", mean(x_hetero), "\n")
+  
+  
+  ## Example 6: Basic usage
+  set.seed(123)
+  x <- matrix(rnorm(500), ncol = 2)
+  boot_samples <- hmm_bootstrap(x, n_boot = 400, num_states = 2, num_boots = 50)
+
+  ## With diagnostics for regime visualization
+  result <- hmm_bootstrap(
+    x, n_boot = 400, num_states = 2, num_boots = 10,
+    collect_diagnostics = TRUE, return_fit = TRUE
+  )
+
+  ## Plot regime composition
+  plot_regime_composition(result, x)
 }
 }
   

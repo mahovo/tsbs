@@ -23,6 +23,9 @@ blockBootstrap(
 \item{x}{A numeric matrix with rows representing time points and columns
 representing variables.}
 
+\item{n_boot}{Integer or \code{NULL}. Desired number of time points in the
+bootstrap sample. If \code{NULL}, the original series length is used.}
+
 \item{block_length}{Integer or \code{NULL}. Length of each block. If \code{NULL}, a
 heuristic is used based on the average lag-1 autocorrelation across
 variables.}
@@ -40,7 +43,7 @@ variables.}
 Default 0.5.}
 
 \item{num_blocks}{Integer or \code{NULL}. Number of blocks to use. If \code{NULL}, this
-is inferred from \code{n_length}.}
+is inferred from \code{n_boot}.}
 
 \item{num_boots}{Number of bootstrap replicates to generate.}
 
@@ -51,9 +54,6 @@ block length (used in Stationary Bootstrap). Default is 0.1.}
 
 \item{stationary_max_fraction_of_n}{Stationary max fraction of n. Default is
 0.10.}
-
-\item{n_length}{Integer or \code{NULL}. Desired number of time points in the
-bootstrap sample. If \code{NULL}, the original series length is used.}
 }
 \value{
 A list of matrices, each one a bootstrap replicate with dimensions
@@ -71,10 +71,12 @@ blocks from the original time series. The Stationary Bootstrap (SB) samples
 blocks with geometrically distributed lengths and can optionally enforce
 non-overlap constraints.
 
-If \code{block_length} is \code{NA}, an automatic heuristic is used that depends on the
-average lag-1 autocorrelation across variables. The function supports
-flexible specifications of output length (\code{n_length}) and block structure
-(\code{num_blocks}).
+If \code{n_boot} is set, the last block will be trimmed when necessary.
+If \code{n_boot} is not set, and \code{num_blocks} is set, the length of each
+bootstrap series will be determined by the number of blocks and the
+lengths of the individual blocks for that particular series.
+If neither \code{n_boot} nor \code{num_blocks} is set, \code{n_boot} will default to the
+number of rows in \code{x} and the last block will be trimmed when necessary.
 }
 \examples{
 set.seed(123)
