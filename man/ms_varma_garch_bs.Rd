@@ -23,16 +23,16 @@ ms_varma_garch_bs(
 )
 }
 \arguments{
-\item{x}{A numeric matrix or data frame where rows are observations and
-columns are the time series variables.}
+\item{x}{A numeric matrix where rows are observations and columns are the time
+series variables.}
 
 \item{n_boot}{An integer specifying the length of each bootstrapped series.
-If NULL (the default), the length of the original series is used.}
+Default is \code{NULL}.}
 
 \item{num_blocks}{An integer specifying the number of blocks to sample for
 the bootstrap. Defaults to 100.}
 
-\item{num_boots}{An integer specifying the total number of bootstrap samples
+\item{num_boots}{An integer specifying the total number of bootstrapped series
 to generate. Defaults to 100.}
 
 \item{M}{An integer specifying the number of states in the Markov chain.}
@@ -74,6 +74,13 @@ block bootstrap. This generates resampled time series that preserve the
 state-dependent properties of the original data.
 }
 \details{
+If \code{n_boot} is set, the last block will be trimmed when necessary.
+If \code{n_boot} is not set, and \code{num_blocks} is set, the length of each
+bootstrap series will be determined by the number of blocks and the random
+lengths of the individual blocks for that particular series.
+If neither \code{n_boot} nor \code{num_blocks} is set, \code{n_boot} will default to the
+number of rows in \code{x} and the last block will be trimmed when necessary.
+
 The fitted model is defined as:
 
 Let \eqn{y_t} be the \eqn{k \times 1} vector of observations at time \eqn{t}.

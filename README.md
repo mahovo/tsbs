@@ -1,4 +1,4 @@
-# tsbs: Time Series Bootstrap Methods
+# tsbs: Advanced Time Series Bootstrap Tools
 
 [![R Package](https://img.shields.io/badge/R-Package-blue.svg)](https://github.com/mahovo/tsbs)
 
@@ -157,8 +157,12 @@ The package includes two vignettes for specialized topics:
 
 | Vignette | Description |
 |----------|-------------|
-| `vignette("Diagnostics", package = "tsbs")` | Diagnostic system for monitoring EM convergence, parameter evolution, and numerical stability |
-| `vignette("dcc_inference_guide", package = "tsbs")` | Statistical inference for DCC parameters including standard errors and hypothesis testing |
+| `vignette("portfolio-optimization-demo", package = "tsbs")` | Comprehensive demo of portfolio optimization w/ tsbs |
+| `vignette("bootstrap_diagnostics", package = "tsbs")` | Diagnostic system for output bootstrap series |
+| `vignette("ms-varma-garch_diagnostics.Rmd", package = "tsbs")` | Diagnostic system for monitoring EM convergence, parameter evolution, and numerical stability |
+| `vignette("ms-varma-garch_inference", package = "tsbs")` | Statistical inference for DCC, CGARCH and GOGARCH parameters | 
+| `vignette("multivariate_garch_comparison", package = "tsbs")` | Diagnostic vignette comparing DCC, CGARCH and GOGARCH models |
+
 
 ### Learning from Test Files
 
@@ -169,9 +173,24 @@ The package test files contain extensive examples of model specification and usa
 system.file("tests", package = "tsbs")
 ```
 
-Key test files include:
-- `test-ms_varma_garch_bs.R` — Comprehensive examples of MS-VARMA-GARCH specifications
-- `test-dcc_gradient.R` — DCC gradient and inference testing
+Key test files include:  
+
+- `test-ms_varma_garch_bs.R` — Comprehensive examples of MS-VARMA-GARCH specifications  
+- `test-cgarch.R` — Testing the CGARCH integration  
+- `test-gogarch.R` — Testing the GOGARCH integration  
+- `test-blockBootstrap`  
+- `test-hmm_bootstrap`  
+- `test-wild_bootstrap`  
+
+### Other resources
+
+See also [https://github.com/mahovo/tsbs/tree/main/demos](https://github.com/mahovo/tsbs/tree/main/demos), especially: 
+
+- "port_opt_demo.Rmd" (Runnable version of the vignette "portfolio-optimization-demo")  
+- "multivar_garch_comparison_demo.Rmd"  
+- "ms-varma-garch_diagnostics_report.Rmd"  
+- "ms-varma-garch_inference_demo.Rmd"  
+- "bootstrap_diagnostics_demo.R"  
 
 ### Related Packages
 

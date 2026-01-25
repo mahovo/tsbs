@@ -11,8 +11,9 @@ knitr::opts_chunk$set(echo = TRUE, fig.width=7, fig.height=4)
 ```
 
 ```{r include=FALSE}
-library(Rcpp)
-library(ggplot2)
+library(tsbs)
+# library(Rcpp)
+# library(ggplot2)
 ```
 
 
@@ -29,8 +30,10 @@ Let’s test these cases.
 ```{r}
 N <- 64
 
-w_rect <- .Call(`_tsbs_tukey_weights`, N, alpha = 0)
-w_hann <- .Call(`_tsbs_tukey_weights`, N, alpha = 1)
+# w_rect <- .Call(`_tsbs_tukey_weights`, N, alpha = 0)
+# w_hann <- .Call(`_tsbs_tukey_weights`, N, alpha = 1)
+w_rect <- tukey_weights(N, alpha = 0)
+w_hann <- tukey_weights(N, alpha = 1)
 
 par(mfrow=c(1,2))
 plot(w_rect, type="l", main="Rectangular (alpha = 0)",

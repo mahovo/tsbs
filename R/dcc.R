@@ -1,0 +1,1494 @@
+## tsmarch Version Compatibility ===============================================
+
+#' Check if tsmarch supports higher-order DCC
+#' 
+#' @description tsmarch v1.0.0 has a bug in `.copula_parameters` where 
+#'   `paste0("beta_",1:order[1])` should be `paste0("beta_",1:order[2])`.
+#'   This causes DCC(p,q) with p!=q to create wrong number of parameters.
+#'   Fixed in v1.0.1.
+#'
+#' @return Logical TRUE if tsmarch >= 1.0.1, FALSE otherwise
+#' @keywords internal
+tsmarch_supports_higher_order_dcc <- function() {
+  tsmarch_version <- utils::packageVersion("tsmarch")
+  return(tsmarch_version >= "1.0.1")
+}
+
+#' Validate DCC order against tsmarch version
+#'
+#' @description Checks if requested DCC order is supported by installed tsmarch.
+#'   Issues informative error if higher-order DCC requested with buggy tsmarch.
+#'
+#' @param dcc_order Integer vector c(p, q) for DCC(p,q) order
+#' @param action Character: "error" to stop, "warn" to warn and fall back to (1,1)
+#' @return Validated/adjusted dcc_order
+#' @keywords internal
+validate_dcc_order <- function(dcc_order, action = c("error", "warn")) {
+  action <- match.arg(action)
+  
+  
+  ## Handle NULL or missing dcc_order
+  if (is.null(dcc_order)) {
+    return(c(1, 1))
+  }
+  
+  ## DCC(1,1) always works
+  if (length(dcc_order) >= 2 && all(dcc_order[1:2] == c(1, 1))) {
+    return(dcc_order)
+  }
+  
+  ## DCC(0,0) means constant correlation - always works
+  if (length(dcc_order) >= 2 && all(dcc_order[1:2] == c(0, 0))) {
+    return(dcc_order)
+  }
+  
+  ## Check if higher-order is supported
+  if (!tsmarch_supports_higher_order_dcc()) {
+    tsmarch_version <- utils::packageVersion("tsmarch")
+    
+    msg <- sprintf(
+      paste0(
+        "Higher-order DCC(%d,%d) requested but tsmarch v%s has a bug with asymmetric orders.\n",
+        "Options:\n",
+        "  1. Install tsmarch >= 1.0.1: remotes::install_github('tsmodels/tsmarch')\n",
+        "  2. Use DCC(1,1) instead"
+      ),
+      dcc_order[1], dcc_order[2], as.character(tsmarch_version)
+    )
+    
+    if (action == "error") {
+      stop(msg, call. = FALSE)
+    } else {
+      warning("\n", msg, "\nFalling back to DCC(1,1).\n", call. = FALSE)
+      return(c(1, 1))
+    }
+  }
+  
+  return(dcc_order)
+}
+
+
+#' Validate DCC orders in model specification
+#'
+#' @description Validates all DCC orders in a multi-state spec list.
+#'   Called during model fitting to ensure compatibility with installed tsmarch.
+#'
+#' @param spec List of state specifications
+#' @param action Character: "error" to stop, "warn" to warn and fall back
+#' @return Validated/adjusted spec (modified in place if needed)
+#' @keywords internal
+validate_spec_dcc_orders <- function(spec, action = c("error", "warn")) {
+  action <- match.arg(action)
+  
+  for (j in seq_along(spec)) {
+    state_spec <- spec[[j]]
+    
+    ## Check if this is a DCC model
+    if (!is.null(state_spec$garch_spec_fun) && 
+        state_spec$garch_spec_fun %in% c("dcc_modelspec", "cgarch_modelspec")) {
+      
+      dcc_order <- state_spec$garch_spec_args$dcc_order
+      
+      if (!is.null(dcc_order)) {
+        validated_order <- validate_dcc_order(dcc_order, action = action)
+        
+        ## Update spec if order was changed
+        if (!identical(dcc_order, validated_order)) {
+          spec[[j]]$garch_spec_args$dcc_order <- validated_order
+        }
+      }
+    }
+  }
+  
+  return(spec)
+}
+
+
+## DCC Boundary Warning Helper =================================================
+
+#' @title Warn About DCC Parameters Near Boundary
+#' @description Issues warnings when DCC parameters are near the lower boundary,
+#'   which may indicate poorly identified correlation dynamics. Only called when
+#'   returning dynamic correlation (not when falling back to constant).
+#' @param alpha_params Named list of DCC alpha parameters
+#' @param beta_params Named list of DCC beta parameters  
+#' @param threshold Numeric threshold for boundary warning (default 1e-4)
+#' @param state State index (for warning message)
+#' @param iteration EM iteration (for diagnostics)
+#' @param diagnostics Diagnostics collector object
+#' @return Updated diagnostics object
+#' @keywords internal
+warn_dcc_boundary_params <- function(alpha_params, beta_params, threshold,
+                                     state, iteration, diagnostics) {
+  
+  ## Check alpha parameters
+  if (length(alpha_params) > 0) {
+    for (pname in names(alpha_params)) {
+      pval <- alpha_params[[pname]]
+      if (!is.null(pval) && pval < threshold) {
+        warning(sprintf(
+          "\nState %s: DCC %s near boundary (%.2e < %.2e). Correlation dynamics may be poorly identified.\n",
+          if (!is.null(state)) state else "?", pname, pval, threshold
+        ))
+        
+        ## Log boundary event
+        if (!is.null(diagnostics) && !is.null(iteration) && !is.null(state)) {
+          diagnostics <- add_boundary_event(
+            diagnostics,
+            iteration = iteration,
+            state = state,
+            parameter_name = pname,
+            value = pval,
+            boundary_type = "lower",
+            action_taken = "warning_issued_dynamic_returned"
+          )
+        }
+      }
+    }
+  }
+  
+  ## Check beta parameters (important for higher-order DCC)
+  if (length(beta_params) > 0) {
+    for (pname in names(beta_params)) {
+      pval <- beta_params[[pname]]
+      if (!is.null(pval) && pval < threshold) {
+        warning(sprintf(
+          "\nState %s: DCC %s near boundary (%.2e < %.2e). Higher-order DCC parameters may be poorly identified.\n",
+          if (!is.null(state)) state else "?", pname, pval, threshold
+        ))
+        
+        ## Log boundary event
+        if (!is.null(diagnostics) && !is.null(iteration) && !is.null(state)) {
+          diagnostics <- add_boundary_event(
+            diagnostics,
+            iteration = iteration,
+            state = state,
+            parameter_name = pname,
+            value = pval,
+            boundary_type = "lower",
+            action_taken = "warning_issued_dynamic_returned"
+          )
+        }
+      }
+    }
+  }
+  
+  return(diagnostics)
+}
+
+
+## DCC Helper functions ========================================================
+
+#' @title Generate Correct Parameter Names for tsmarch
+#' @description Translates a nested parameter list into the flat named list
+#'              that tsmarch's parmatrix expects (e.g., "omega\[1\]").
+#' @param pars A nested parameter list.
+#' @return A flat named list.
+#' @keywords internal
+generate_tsmarch_parnames <- function(pars) {
+  ## Handle the nested GARCH parameters, adding the "[i]" suffix.
+  garch_pars_flat <- list()
+  if (!is.null(pars$garch_pars)) {
+    for (i in 1:length(pars$garch_pars)) {
+      series_pars <- pars$garch_pars[[i]]
+      if (!is.null(series_pars) && length(series_pars) > 0) {
+        names(series_pars) <- paste0(names(series_pars), "[", i, "]")
+        garch_pars_flat <- c(garch_pars_flat, series_pars)
+      }
+    }
+  }
+  
+  ## Handle all other parameters, which are assumed to be in a
+  ## flat structure already and do not need suffixing.
+  other_pars <- pars[!names(pars) %in% c("var_pars", "garch_pars")]
+  
+  return(c(garch_pars_flat, other_pars))
+}
+
+
+#' @title DCC Weighted Estimation
+#' @param residuals residuals
+#' @param weights weights
+#' @param spec spec
+#' @param diagnostics diagnostics
+#' @param iteration iteration
+#' @param state state
+#' @param verbose verbose
+#' @param dcc_threshold dcc_threshold
+#' @param dcc_criterion dcc_criterion
+#' @param force_constant force_constant
+#' @keywords internal
+estimate_garch_weighted_dcc <- function(
+    residuals, 
+    weights, 
+    spec, 
+    diagnostics = NULL, 
+    iteration = NULL, 
+    state = NULL,
+    verbose = FALSE,
+    dcc_threshold = 0.02,
+    dcc_criterion = "bic",
+    force_constant = FALSE
+) {
+  
+  k <- ncol(residuals)
+  T_obs <- nrow(residuals)
+  
+  ## Adjust weights to match residuals length
+  if (length(weights) > T_obs) {
+    n_to_remove <- length(weights) - T_obs
+    w_target <- weights[(n_to_remove + 1):length(weights)]
+  } else if (length(weights) < T_obs) {
+    stop("Weights vector is shorter than residuals - this should not happen")
+  } else {
+    w_target <- weights
+  }
+  
+  ## === STAGE 1: Estimate Univariate GARCH for Each Series ===
+  garch_pars_list <- list()
+  warnings_stage1 <- list()
+  
+  for (i in 1:k) {
+    series_residuals <- residuals[, i]
+    series_spec <- spec$garch_spec_args$garch_model$univariate[[i]]
+    
+    uni_spec <- list(
+      garch_model = series_spec$model,
+      garch_order = series_spec$garch_order,
+      distribution = series_spec$distribution,
+      start_pars = list(
+        garch_pars = spec$start_pars$garch_pars[[i]],
+        dist_pars = NULL
+      )
+    )
+    
+    uni_result <- estimate_garch_weighted_univariate(
+      residuals = series_residuals, 
+      weights = w_target, 
+      spec = uni_spec,
+      verbose = verbose
+    )
+    garch_pars_list[[i]] <- uni_result$coefficients
+    warnings_stage1 <- c(warnings_stage1, uni_result$warnings)
+  }
+  
+  ## === CHECK FOR OMEGA BOUNDARY CONDITIONS ===
+  ## tsgarch applies an omega boundary threshold of 1e-12, so 1e-8 is more
+  ## tight, serving as a kind of "early warning".
+  omega_boundary_threshold <- 1e-8
+  
+  for (i in 1:k) {
+    omega_est <- garch_pars_list[[i]]$omega
+    
+    if (!is.null(omega_est) && omega_est < omega_boundary_threshold) {
+      ## Issue warning
+      warning(sprintf(
+        "\nState %s, Series %d: GARCH omega near boundary (%.2e < %.2e). Volatility dynamics may be degenerate.\n",
+        if (!is.null(state)) state else "?", i, omega_est, omega_boundary_threshold
+      ))
+      
+      ## Log boundary event
+      if (!is.null(diagnostics) && !is.null(iteration) && !is.null(state)) {
+        diagnostics <- add_boundary_event(
+          diagnostics,
+          iteration = iteration,
+          state = state,
+          parameter_name = sprintf("omega_series_%d", i),
+          value = omega_est,
+          boundary_type = "lower",
+          action_taken = "warning_issued"
+        )
+      }
+    }
+  }
+  
+  ## === STAGE 2: DCC Parameters ===
+  
+  dcc_start_pars <- spec$start_pars$dcc_pars
+  dist_start_pars <- spec$start_pars$dist_pars
+  
+  ## === SHORT-CIRCUIT: If forced to constant, skip DCC estimation ===
+  if (force_constant) {
+    if (verbose) {
+      cat(sprintf("\n=== State %d: Forced to CONSTANT correlation ===\n", state))
+    }
+    
+    return(list(
+      coefficients = list(
+        garch_pars = garch_pars_list,
+        dcc_pars = list(),
+        dist_pars = dist_start_pars,
+        correlation_type = "constant",
+        degeneracy_reason = "forced_constant"
+      ),
+      warnings = warnings_stage1,
+      diagnostics = diagnostics
+    ))
+  }
+  
+  ## === HANDLE MISSING DCC PARAMETERS ===
+  if (is.null(dcc_start_pars) || length(dcc_start_pars) == 0) {
+    return(list(
+      coefficients = list(
+        garch_pars = garch_pars_list,
+        dcc_pars = list(),
+        dist_pars = dist_start_pars,
+        correlation_type = "constant"
+      ),
+      warnings = warnings_stage1,
+      diagnostics = diagnostics
+    ))
+  }
+  
+  ## === ESTIMATE DYNAMIC CORRELATION MODEL ===
+  dcc_result <- estimate_dcc_parameters_weighted(
+    residuals = residuals,
+    weights = w_target,
+    garch_pars = garch_pars_list,
+    dcc_start_pars = dcc_start_pars,
+    dist_start_pars = dist_start_pars,
+    spec = spec,
+    diagnostics = diagnostics,
+    iteration = iteration,
+    state = state,
+    verbose = verbose
+  )
+  
+  ## Update diagnostics from DCC estimation
+  if (!is.null(dcc_result$diagnostics)) {
+    diagnostics <- dcc_result$diagnostics
+  }
+  
+  ## Update diagnostics from DCC estimation
+  if (!is.null(dcc_result$diagnostics)) {
+    diagnostics <- dcc_result$diagnostics
+  }
+  
+  ## GET THE WEIGHTED LL
+  ll_dynamic <- dcc_result$weighted_ll
+  
+  ## Check if it exists
+  if (is.null(ll_dynamic)) {
+    stop("Internal error: weighted_ll not returned from DCC estimation")
+  }
+  
+  ## === DECIDE: Dynamic vs Constant ===
+  
+  alpha_params <- dcc_result$dcc_pars[grepl("alpha", names(dcc_result$dcc_pars))]
+  beta_params <- dcc_result$dcc_pars[grepl("beta", names(dcc_result$dcc_pars))]
+  
+  ## === CHECK FOR DCC PARAMETER BOUNDARY CONDITIONS ===
+  ## Warn when any DCC parameter is near the lower boundary (suggests optimization issues)
+  dcc_boundary_threshold <- 1e-4  ## More lenient than omega, but catches 0.0000 cases
+  
+  ## Check if parameters are near boundary (for constant correlation decision)
+  near_boundary <- !is.null(alpha_params) && 
+    length(alpha_params) > 0 && 
+    any(unlist(alpha_params) < dcc_threshold)
+  
+  if (!near_boundary) {
+    ## Parameters clearly away from boundary - use dynamic
+    ## Check for boundary warnings before returning
+    diagnostics <- warn_dcc_boundary_params(
+      alpha_params, beta_params, dcc_boundary_threshold,
+      state, iteration, diagnostics
+    )
+    
+    return(list(
+      coefficients = list(
+        garch_pars = garch_pars_list,
+        dcc_pars = dcc_result$dcc_pars,
+        dist_pars = dcc_result$dist_pars,
+        correlation_type = "dynamic"
+      ),
+      warnings = c(warnings_stage1, dcc_result$warnings),
+      diagnostics = diagnostics
+    ))
+  }
+  
+  ## === NEAR BOUNDARY: Apply selection criterion ===
+  
+  if (dcc_criterion == "threshold") {
+    ## Simple threshold - switch to constant
+    degeneracy_reason <- sprintf("threshold (alpha=%.6f < %.3f)", 
+                                 min(unlist(alpha_params)), dcc_threshold)
+    
+    if (verbose) {
+      cat(sprintf("\n=== DCC DEGENERACY (State %d, Iter %d) ===\n", state, iteration))
+      cat("Criterion: threshold\n")
+      cat("Alpha:", paste(round(unlist(alpha_params), 6), collapse = ", "), "\n")
+      cat("Decision: CONSTANT\n\n")
+    }
+    
+    ## Record boundary event
+    if (!is.null(diagnostics) && !is.null(iteration) && !is.null(state)) {
+      for (pname in names(alpha_params)) {
+        diagnostics <- add_boundary_event(
+          diagnostics,
+          iteration = iteration,
+          state = state,
+          parameter_name = pname,
+          value = alpha_params[[pname]],
+          boundary_type = "lower",
+          action_taken = paste0("constant_correlation: ", degeneracy_reason)
+        )
+      }
+    }
+    
+    return(list(
+      coefficients = list(
+        garch_pars = garch_pars_list,
+        dcc_pars = list(),
+        dist_pars = dcc_result$dist_pars,
+        correlation_type = "constant",
+        degeneracy_reason = degeneracy_reason
+      ),
+      warnings = c(warnings_stage1, dcc_result$warnings),
+      diagnostics = diagnostics
+    ))
+  }
+  
+  ## === AIC/BIC CRITERION: Compare models ===
+  
+  ## Compute constant correlation likelihood
+  const_result <- compute_constant_correlation_likelihood(
+    residuals = residuals,
+    weights = w_target,
+    garch_pars = garch_pars_list,
+    dist_pars = dist_start_pars,
+    spec = spec
+  )
+  
+  ## Get dynamic likelihood (already computed)
+  ll_dynamic <- dcc_result$weighted_ll
+  
+  ## Safety check - if weighted_ll wasn't returned, we have a problem
+  if (is.null(ll_dynamic) || !is.finite(ll_dynamic)) {
+    warning("\nCould not retrieve dynamic likelihood for comparison. Falling back to threshold criterion.\n")
+    
+    # Use threshold fallback
+    degeneracy_reason <- "comparison_failed_fallback_to_threshold"
+    use_constant <- TRUE
+    
+  } else {
+    ## Compute constant correlation likelihood
+    const_result <- compute_constant_correlation_likelihood(
+      residuals = residuals,
+      weights = w_target,
+      garch_pars = garch_pars_list,
+      dist_pars = dist_start_pars,
+      spec = spec
+    )
+    
+    ll_constant <- const_result$weighted_ll
+    
+    ## Count parameters
+    k_dyn <- length(alpha_params) + length(beta_params)
+    k_const <- 0
+    
+    ## Compute effective sample size for BIC
+    ### Use total sample size, sum(w_target^2)/sum(w_target)
+    #n_eff <- length(w_target)
+    n_eff <- (sum(w_target))^2 /sum(w_target^2)
+    
+    ## Compute information criterion
+    if (dcc_criterion == "aic") {
+      ic_dynamic <- -2 * ll_dynamic + 2 * k_dyn
+      ic_constant <- -2 * ll_constant + 2 * k_const
+    } else {  # bic
+      ic_dynamic <- -2 * ll_dynamic + log(n_eff) * k_dyn
+      ic_constant <- -2 * ll_constant + log(n_eff) * k_const
+    }
+    
+    use_constant <- (ic_constant < ic_dynamic)
+    
+    if (verbose) {
+      cat(sprintf("\n=== Model Selection (State %d, Iter %d) ===\n", state, iteration))
+      cat(sprintf("Criterion: %s (n_eff=%.1f)\n", toupper(dcc_criterion), n_eff))
+      cat(sprintf("Dynamic:  LL=%.4f, k=%d, %s=%.4f\n", 
+                  ll_dynamic, k_dyn, toupper(dcc_criterion), ic_dynamic))
+      cat(sprintf("Constant: LL=%.4f, k=%d, %s=%.4f\n", 
+                  ll_constant, k_const, toupper(dcc_criterion), ic_constant))
+      cat(sprintf("Decision: %s\n\n", ifelse(use_constant, "CONSTANT", "DYNAMIC")))
+    }
+    
+    degeneracy_reason <- sprintf("%s selection (IC_const=%.2f < IC_dyn=%.2f)",
+                                 toupper(dcc_criterion), ic_constant, ic_dynamic)
+  }
+  
+  if (use_constant) {
+    if (!is.null(diagnostics) && !is.null(iteration) && !is.null(state)) {
+      for (pname in names(alpha_params)) {
+        diagnostics <- add_boundary_event(
+          diagnostics,
+          iteration = iteration,
+          state = state,
+          parameter_name = pname,
+          value = alpha_params[[pname]],
+          boundary_type = "lower",
+          action_taken = paste0("constant_correlation: ", degeneracy_reason)
+        )
+      }
+    }
+    
+    return(list(
+      coefficients = list(
+        garch_pars = garch_pars_list,
+        dcc_pars = list(),
+        dist_pars = const_result$dist_pars,
+        correlation_type = "constant",
+        degeneracy_reason = degeneracy_reason
+      ),
+      warnings = c(warnings_stage1, const_result$warnings),
+      diagnostics = diagnostics
+    ))
+  } else {
+    ## Keep dynamic - but warn if parameters are near boundary
+    diagnostics <- warn_dcc_boundary_params(
+      alpha_params, beta_params, dcc_boundary_threshold,
+      state, iteration, diagnostics
+    )
+    
+    return(list(
+      coefficients = list(
+        garch_pars = garch_pars_list,
+        dcc_pars = dcc_result$dcc_pars,
+        dist_pars = dcc_result$dist_pars,
+        correlation_type = "dynamic"
+      ),
+      warnings = c(warnings_stage1, dcc_result$warnings),
+      diagnostics = diagnostics
+    ))
+  }
+}
+
+
+#' @title Estimate DCC Parameters with Weighted Likelihood
+#' @description 
+#' Estimates DCC parameters using weighted maximum likelihood, with specialized
+
+#' handling for DCC(1,1) models (analytical gradients) and higher-order models
+#' (finite difference with fine step size).
+#'
+#' For DCC(1,1), the optimization is performed in reparameterized space:
+#'   psi = logit(alpha + beta)  -- persistence in logit space
+#'   phi = log(alpha / beta)    -- ratio in log space
+#'
+#' This ensures stationarity by construction and provides smooth gradients.
+#'
+#' @param residuals T x k matrix of residuals
+#' @param weights T-vector of observation weights
+#' @param garch_pars List of GARCH parameters per series
+#' @param dcc_start_pars Named list of starting DCC parameters
+#' @param dist_start_pars Named list of distribution parameters
+#' @param spec Model specification list
+#' @param diagnostics Diagnostics object (optional)
+#' @param iteration Current EM iteration (optional)
+#' @param state Current regime state (optional)
+#' @param verbose Logical; print diagnostic information
+#' @return List with dcc_pars, dist_pars, weighted_ll, warnings, diagnostics
+#' @keywords internal
+estimate_dcc_parameters_weighted <- function(
+    residuals, 
+    weights, 
+    garch_pars,
+    dcc_start_pars, 
+    dist_start_pars, 
+    spec,
+    diagnostics = NULL,
+    iteration = NULL,
+    state = NULL,
+    verbose = FALSE
+) {
+  
+  k <- ncol(residuals)
+  T_obs <- nrow(residuals)
+  
+  if (length(weights) != T_obs) {
+    stop(sprintf("Dimension mismatch: residuals has %d rows but weights has %d elements", 
+                 T_obs, length(weights)))
+  }
+  
+  
+  ## 1. Get standardized residuals using Stage 1 GARCH parameters ==============
+  
+  std_residuals <- matrix(0, nrow = T_obs, ncol = k)
+  
+  for (i in 1:k) {
+    series_residuals <- residuals[, i]
+    series_spec <- spec$garch_spec_args$garch_model$univariate[[i]]
+    
+    uni_spec_obj <- tsgarch::garch_modelspec(
+      y = xts::xts(series_residuals, order.by = Sys.Date() - (T_obs:1)),
+      model = series_spec$model,
+      garch_order = series_spec$garch_order,
+      distribution = series_spec$distribution
+    )
+    
+    for (par_name in names(garch_pars[[i]])) {
+      if (par_name %in% uni_spec_obj$parmatrix$parameter) {
+        row_idx <- which(uni_spec_obj$parmatrix$parameter == par_name)
+        uni_spec_obj$parmatrix[row_idx, "value"] <- garch_pars[[i]][[par_name]]
+      }
+    }
+    
+    uni_fit <- tsmethods::tsfilter(uni_spec_obj)
+    sigma_vec <- as.numeric(uni_fit$sigma)
+    std_residuals[, i] <- series_residuals / sigma_vec
+    
+    ## DIAGNOSTIC: Collect sigma evolution
+    if (!is.null(diagnostics) && !is.null(iteration)) {
+      sigma_summary <- list(
+        mean = mean(sigma_vec, na.rm = TRUE),
+        sd = sd(sigma_vec, na.rm = TRUE),
+        min = min(sigma_vec, na.rm = TRUE),
+        max = max(sigma_vec, na.rm = TRUE),
+        first_5 = head(sigma_vec, 5),
+        last_5 = tail(sigma_vec, 5)
+      )
+      
+      diagnostics <- add_sigma_evolution(diagnostics, iteration, state, i, sigma_summary)
+    }
+  }
+  
+  
+  ## 2. Handle empty parameter case ============================================
+  
+  all_stage2_pars <- c(dcc_start_pars, dist_start_pars)
+  
+  if (length(all_stage2_pars) == 0) {
+    return(list(
+      dcc_pars = list(), 
+      dist_pars = list(), 
+      weighted_ll = 0,
+      warnings = list(),
+      diagnostics = diagnostics
+    ))
+  }
+  
+  
+  ## 3. Compute Qbar (weighted unconditional covariance) =======================
+  
+  Qbar <- tryCatch({
+    stats::cov.wt(std_residuals, wt = weights, method = "ML")$cov
+  }, error = function(e) {
+    if (verbose) cat("ERROR in cov.wt:", e$message, "\n")
+    return(NULL)
+  })
+  
+  if (is.null(Qbar)) {
+    return(list(
+      dcc_pars = dcc_start_pars,
+      dist_pars = dist_start_pars,
+      weighted_ll = -1e10,
+      warnings = list("Weighted covariance calculation failed"),
+      diagnostics = diagnostics
+    ))
+  }
+  
+  ## Ensure positive definite
+  eig <- eigen(Qbar, symmetric = TRUE)
+  if (any(eig$values < 1e-8)) {
+    Qbar <- Qbar + diag(1e-6, k)
+  }
+  
+  
+  ## 4. Determine optimization strategy based on DCC order =====================
+  
+  use_analytical_gradient <- is_dcc11(dcc_start_pars)
+  
+  if (verbose) {
+    if (use_analytical_gradient) {
+      cat("DCC(1,1) detected: Using analytical gradient with reparameterization\n")
+    } else {
+      order <- get_dcc_order(dcc_start_pars)
+      cat(sprintf("DCC(%d,%d) detected: Using finite differences with ndeps=1e-12\n",
+                  order["p"], order["q"]))
+    }
+  }
+  
+  warnings_list <- list()
+  
+  
+  ## 5A. DCC(1,1): Reparameterized optimization with analytical gradient =======
+  
+  
+  if (use_analytical_gradient) {
+    
+    ## Extract starting values
+    alpha_start <- as.numeric(dcc_start_pars$alpha_1)
+    beta_start <- as.numeric(dcc_start_pars$beta_1)
+    
+    ## Transform to unconstrained space
+    unconstrained_start <- dcc11_to_unconstrained(alpha_start, beta_start)
+    psi_start <- unconstrained_start["psi"]
+    phi_start <- unconstrained_start["phi"]
+    
+    ## Build parameter vector for optimization
+    if (spec$distribution == "mvt" && !is.null(dist_start_pars$shape)) {
+      opt_params <- c(psi = psi_start, phi = phi_start, shape = dist_start_pars$shape)
+      distribution <- "mvt"
+    } else {
+      opt_params <- c(psi = psi_start, phi = phi_start)
+      distribution <- "mvn"
+    }
+    
+    if (verbose) {
+      cat("\nStarting values (original): alpha =", alpha_start, ", beta =", beta_start, "\n")
+      cat("Starting values (reparam): psi =", psi_start, ", phi =", phi_start, "\n")
+      if (distribution == "mvt") cat("Starting shape:", dist_start_pars$shape, "\n")
+    }
+    
+    ## Define objective and gradient functions that capture diagnostics
+    objective_fn <- function(params) {
+      dcc11_nll(
+        params = params,
+        std_resid = std_residuals,
+        weights = weights,
+        Qbar = Qbar,
+        distribution = distribution,
+        use_reparam = TRUE
+      )
+    }
+    
+    gradient_fn <- function(params) {
+      dcc11_gradient(
+        params = params,
+        std_resid = std_residuals,
+        weights = weights,
+        Qbar = Qbar,
+        distribution = distribution,
+        use_reparam = TRUE
+      )
+    }
+    
+    ## Test at starting point
+    if (verbose) {
+      cat("\n=== TESTING OBJECTIVE AT START PARAMS ===\n")
+      test_nll <- objective_fn(opt_params)
+      cat("Start NLL:", test_nll, "\n")
+      test_grad <- gradient_fn(opt_params)
+      cat("Start gradient:", test_grad, "\n")
+    }
+    
+    ## Set bounds for shape parameter only (psi and phi are unconstrained)
+    if (distribution == "mvt") {
+      ## psi, phi unconstrained; shape > 2
+      lower_bounds <- c(-Inf, -Inf, 2.01)
+      upper_bounds <- c(Inf, Inf, Inf)
+    } else {
+      lower_bounds <- c(-Inf, -Inf)
+      upper_bounds <- c(Inf, Inf)
+    }
+    
+    ## Run optimization with analytical gradient
+    opt_result <- withCallingHandlers({
+      stats::optim(
+        par = opt_params,
+        fn = objective_fn,
+        gr = gradient_fn,
+        method = "L-BFGS-B",
+        lower = lower_bounds,
+        upper = upper_bounds,
+        control = list(maxit = 500)
+      )
+    }, warning = function(w) {
+      warnings_list <<- c(warnings_list, list(w))
+      invokeRestart("muffleWarning")
+    })
+    
+    ## Transform results back to original space
+    ## Note: optim() may not preserve parameter names, so use positional indexing
+    final_psi <- as.numeric(opt_result$par[1])
+    final_phi <- as.numeric(opt_result$par[2])
+    final_orig <- dcc11_from_unconstrained(final_psi, final_phi)
+    
+    dcc_pars_final <- list(
+      alpha_1 = as.numeric(final_orig["alpha"]),
+      beta_1 = as.numeric(final_orig["beta"])
+    )
+    
+    if (distribution == "mvt") {
+      dist_pars_final <- list(shape = as.numeric(opt_result$par[3]))
+    } else {
+      dist_pars_final <- dist_start_pars
+    }
+    
+    if (verbose) {
+      cat("\n=== DCC M-STEP DIAGNOSTIC (Analytical Gradient) ===\n")
+      cat("Optimized (reparam): psi =", final_psi, ", phi =", final_phi, "\n")
+      cat("Optimized (original): alpha =", dcc_pars_final$alpha_1, 
+          ", beta =", dcc_pars_final$beta_1, "\n")
+      cat("Persistence:", dcc_pars_final$alpha_1 + dcc_pars_final$beta_1, "\n")
+      cat("Optimization convergence:", opt_result$convergence, "\n")
+      cat("Final NLL:", opt_result$value, "\n")
+      cat("Function evaluations:", opt_result$counts[1], "\n")
+      cat("Gradient evaluations:", opt_result$counts[2], "\n")
+    }
+    
+  } else {
+    
+    
+    ## 5B. Higher-order DCC: Box-constrained with finite differences ===========
+    
+    ## Define objective function (existing implementation)
+    weighted_dcc_loglik <- function(params, std_resid, w, spec, k, verbose = FALSE) {
+      
+      param_list <- as.list(params)
+      names(param_list) <- names(all_stage2_pars)
+      
+      dcc_param_names <- names(dcc_start_pars)
+      dist_param_names <- names(dist_start_pars)
+      
+      dcc_params_current <- param_list[dcc_param_names]
+      dist_params_current <- param_list[dist_param_names]
+      
+      T_eff <- nrow(std_resid)
+      
+      ## Check stationarity using compute_dcc_persistence
+      pers <- compute_dcc_persistence(dcc_params_current)
+      
+      if (pers$persistence >= 1 || any(pers$alphas < 0) || any(pers$betas < 0)) {
+        return(1e10)
+      }
+      
+      ## Weighted covariance (use pre-computed Qbar)
+      Qbar_local <- Qbar
+      
+      ## DCC recursion
+      recursion <- dcc_recursion(std_resid, Qbar_local, pers$alphas, pers$betas)
+      
+      if (!recursion$success) {
+        return(1e10)
+      }
+      
+      R <- recursion$R
+      
+      ## Calculate weighted log-likelihood
+      ll_vec <- numeric(T_eff)
+      
+      if (spec$distribution == "mvn") {
+        for (t in 1:T_eff) {
+          R_t <- R[,,t]
+          R_t_pd <- make_pd_safe(R_t)
+          if (is.null(R_t_pd)) {
+            ll_vec[t] <- -1e10
+          } else {
+            ll_vec[t] <- mvtnorm::dmvnorm(
+              std_resid[t,], 
+              mean = rep(0, k),
+              sigma = R_t_pd, 
+              log = TRUE
+            )
+          }
+        }
+      } else if (spec$distribution == "mvt") {
+        shape <- dist_params_current$shape
+        
+        if (is.null(shape) || shape <= 2) {
+          return(1e10)
+        }
+        
+        for (t in 1:T_eff) {
+          R_t <- R[,,t]
+          R_t_pd <- make_pd_safe(R_t)
+          if (is.null(R_t_pd)) {
+            ll_vec[t] <- -1e10
+          } else {
+            ll_vec[t] <- mvtnorm::dmvt(
+              std_resid[t,], 
+              delta = rep(0, k), 
+              sigma = R_t_pd, 
+              df = shape, 
+              log = TRUE
+            )
+          }
+        }
+      }
+      
+      ll_vec[!is.finite(ll_vec)] <- -1e10
+      nll <- -sum(w * ll_vec, na.rm = TRUE)
+      
+      return(nll)
+    }
+    
+    ## Get bounds
+    bound_epsilon <- 1e-8
+    lower_bounds <- numeric(length(all_stage2_pars))
+    upper_bounds <- numeric(length(all_stage2_pars))
+    
+    for (i in seq_along(all_stage2_pars)) {
+      par_name <- names(all_stage2_pars)[i]
+      
+      if (grepl("^(alpha|beta|gamma)_[0-9]+$", par_name)) {
+        lower_bounds[i] <- bound_epsilon
+        upper_bounds[i] <- 1 - bound_epsilon
+      } else if (par_name == "shape") {
+        lower_bounds[i] <- 2.01
+        upper_bounds[i] <- 1e10
+      } else {
+        lower_bounds[i] <- bound_epsilon
+        upper_bounds[i] <- 1 - bound_epsilon
+      }
+    }
+    
+    ## Ensure starting values are within bounds
+    start_pars <- unlist(all_stage2_pars)
+    for (i in seq_along(start_pars)) {
+      if (start_pars[i] <= lower_bounds[i]) {
+        start_pars[i] <- lower_bounds[i] + bound_epsilon
+      }
+      if (start_pars[i] >= upper_bounds[i]) {
+        start_pars[i] <- upper_bounds[i] - bound_epsilon
+      }
+    }
+    
+    if (verbose) {
+      cat("\n=== TESTING OBJECTIVE AT START PARAMS ===\n")
+      test_nll <- weighted_dcc_loglik(
+        params = start_pars,
+        std_resid = std_residuals,
+        w = weights,
+        spec = spec,
+        k = k,
+        verbose = TRUE
+      )
+      cat("Start NLL:", test_nll, "\n")
+    }
+    
+    ## Optimize with fine finite differences
+    opt_result <- withCallingHandlers({
+      stats::optim(
+        par = start_pars,
+        fn = weighted_dcc_loglik,
+        lower = lower_bounds,
+        upper = upper_bounds,
+        method = "L-BFGS-B",
+        control = list(
+          ndeps = rep(1e-12, length(start_pars)),
+          maxit = 500
+        ),
+        std_resid = std_residuals,
+        w = weights,
+        spec = spec,
+        k = k,
+        verbose = FALSE
+      )
+    }, warning = function(w) {
+      warnings_list <<- c(warnings_list, list(w))
+      invokeRestart("muffleWarning")
+    })
+    
+    ## Extract results
+    estimated_pars <- as.list(opt_result$par)
+    names(estimated_pars) <- names(all_stage2_pars)
+    
+    dcc_param_names <- names(dcc_start_pars)
+    dist_param_names <- names(dist_start_pars)
+    
+    dcc_pars_final <- estimated_pars[dcc_param_names]
+    dist_pars_final <- estimated_pars[dist_param_names]
+    
+    if (verbose) {
+      cat("\n=== DCC M-STEP DIAGNOSTIC (Finite Differences) ===\n")
+      cat("Starting DCC params:\n")
+      print(unlist(dcc_start_pars))
+      cat("\nOptimized DCC params:\n")
+      print(opt_result$par)
+      cat("\nOptimization convergence:", opt_result$convergence, "\n")
+      cat("Final NLL:", opt_result$value, "\n")
+      cat("Function evaluations:", opt_result$counts["function"], "\n")
+    }
+  }
+  
+  
+  ## 6. Return results =========================================================
+  
+  weighted_ll <- -opt_result$value
+  
+  return(list(
+    dcc_pars = dcc_pars_final,
+    dist_pars = dist_pars_final,
+    weighted_ll = weighted_ll,
+    warnings = warnings_list,
+    diagnostics = diagnostics
+  ))
+}
+
+
+## DCC Higher-Order Support ====================================================
+##
+## 1. Computing total persistence from all alpha and beta parameters
+## 2. Implementing proper DCC(p,q) recursion
+## 3. Stationarity constraint enforcement
+##
+## The standard DCC(p,q) model is:
+##   Q_t = Qbar * (1 - sum(alpha) - sum(beta)) + 
+##         sum_{j=1}^{q} alpha_j * (z_{t-j} * z_{t-j}') +
+##         sum_{j=1}^{p} beta_j * Q_{t-j}
+##
+## Stationarity requires: sum(alpha) + sum(beta) < 1
+
+#' Extract DCC order (p, q) from parameter names
+#' 
+#' @param dcc_params Named list of DCC parameters (e.g., alpha_1, alpha_2, beta_1)
+#' @description Determines (p, q) order from parameter naming convention.
+#' @return Named vector c(p = ..., q = ...) where q is ARCH order (number of 
+#'   alpha parameters) and p is GARCH order (number of beta parameters)
+#' @keywords internal
+get_dcc_order <- function(dcc_params) {
+  
+  if (is.null(dcc_params) || length(dcc_params) == 0) {
+    return(c(p = 0, q = 0))
+  }
+  
+  param_names <- names(dcc_params)
+  
+  ## Extract alpha indices (q order - ARCH-like, controls lagged z'z terms)
+  alpha_names <- param_names[grepl("^alpha_", param_names)]
+  if (length(alpha_names) > 0) {
+    alpha_indices <- as.integer(gsub("^alpha_", "", alpha_names))
+    q_order <- max(alpha_indices, na.rm = TRUE)
+  } else {
+    q_order <- 0
+  }
+  
+  ## Extract beta indices (p order - GARCH-like, controls lagged Q terms)
+  beta_names <- param_names[grepl("^beta_", param_names)]
+  if (length(beta_names) > 0) {
+    beta_indices <- as.integer(gsub("^beta_", "", beta_names))
+    p_order <- max(beta_indices, na.rm = TRUE)
+  } else {
+    p_order <- 0
+  }
+  
+  return(c(p = p_order, q = q_order))
+}
+
+
+#' Check DCC stationarity constraints
+#' 
+#' Verifies that DCC parameters satisfy:
+#' 1. All alpha_j >= 0
+#' 2. All beta_j >= 0
+#' 3. sum(alphas) + sum(betas) < 1
+#' 
+#' @param dcc_params Named list of DCC parameters
+#' @param verbose Logical; if TRUE, print diagnostic messages
+#' @return List with components:
+#'   \item{is_stationary}{Logical indicating if constraints are satisfied}
+#'   \item{persistence}{Total persistence value}
+#'   \item{reason}{Character description if not stationary, NULL otherwise}
+#'   \item{details}{Output from compute_dcc_persistence()}
+#' @keywords internal
+check_dcc_stationarity <- function(dcc_params, verbose = FALSE) {
+  
+  pers <- compute_dcc_persistence(dcc_params)
+  
+  ## Check individual alpha positivity
+  if (length(pers$alphas) > 0 && any(pers$alphas < 0)) {
+    neg_idx <- which(pers$alphas < 0)
+    reason <- sprintf("negative alpha at index %s (values: %s)", 
+                      paste(neg_idx, collapse = ", "),
+                      paste(round(pers$alphas[neg_idx], 6), collapse = ", "))
+    if (verbose) cat("*** Stationarity violation:", reason, "***\n")
+    return(list(
+      is_stationary = FALSE,
+      persistence = pers$persistence,
+      reason = reason,
+      details = pers
+    ))
+  }
+  
+  ## Check individual beta positivity
+  if (length(pers$betas) > 0 && any(pers$betas < 0)) {
+    neg_idx <- which(pers$betas < 0)
+    reason <- sprintf("negative beta at index %s (values: %s)", 
+                      paste(neg_idx, collapse = ", "),
+                      paste(round(pers$betas[neg_idx], 6), collapse = ", "))
+    if (verbose) cat("*** Stationarity violation:", reason, "***\n")
+    return(list(
+      is_stationary = FALSE,
+      persistence = pers$persistence,
+      reason = reason,
+      details = pers
+    ))
+  }
+  
+  ## Check stationarity constraint: persistence < 1
+  if (pers$persistence >= 1) {
+    reason <- sprintf(
+      "non-stationary (persistence = %.6f >= 1; alpha_sum = %.4f, beta_sum = %.4f)",
+      pers$persistence, pers$alpha_sum, pers$beta_sum
+    )
+    if (verbose) cat("*** Stationarity violation:", reason, "***\n")
+    return(list(
+      is_stationary = FALSE,
+      persistence = pers$persistence,
+      reason = reason,
+      details = pers
+    ))
+  }
+  
+  return(list(
+    is_stationary = TRUE,
+    persistence = pers$persistence,
+    reason = NULL,
+    details = pers
+  ))
+}
+
+
+#' Transform DCC(1,1) parameters to reparameterized space
+#' 
+#' Transforms (alpha, beta) with constraint alpha + beta < 1 to 
+#' (persistence, ratio) where both are in (0, 1) with no joint constraint.
+#' 
+#' @param alpha DCC alpha parameter
+#' @param beta DCC beta parameter
+#' @return Named vector c(persistence, ratio)
+#' @keywords internal
+dcc_to_reparam <- function(alpha, beta) {
+  persistence <- alpha + beta
+  
+  ## Handle edge case where persistence is 0
+  
+  if (persistence < .Machine$double.eps) {
+    ratio <- 0.5  # Arbitrary, since both are ~0
+  } else {
+    ratio <- alpha / persistence
+  }
+  
+  c(persistence = persistence, ratio = ratio)
+}
+
+
+#' Transform reparameterized space back to DCC(1,1) parameters
+#' 
+#' Transforms (persistence, ratio) back to (alpha, beta).
+#' Stationarity (alpha + beta < 1) is guaranteed if persistence < 1.
+#' 
+#' @param persistence Total persistence (alpha + beta), must be in (0, 1)
+#' @param ratio Proportion allocated to alpha, must be in (0, 1)
+#' @return Named vector c(alpha, beta)
+#' @keywords internal
+dcc_from_reparam <- function(persistence, ratio) {
+  alpha <- persistence * ratio
+  beta <- persistence * (1 - ratio)
+  c(alpha = alpha, beta = beta)
+}
+
+
+#' Perform DCC(p,q) recursion
+#' 
+#' Computes the Q and R matrices for arbitrary DCC(p,q) order:
+#'   Q_t = Qbar * (1 - sum(alpha) - sum(beta)) + 
+#'         sum_{j=1}^{q} alpha_j * (z_{t-j} * z_{t-j}') +
+#'         sum_{j=1}^{p} beta_j * Q_{t-j}
+#'   R_t = diag(Q_t)^{-1/2} * Q_t * diag(Q_t)^{-1/2}
+#' 
+#' @param std_resid Matrix of standardized residuals (T x k)
+#' @param Qbar Unconditional covariance matrix of standardized residuals (k x k)
+#' @param alphas Numeric vector of alpha parameters (length q)
+#' @param betas Numeric vector of beta parameters (length p)
+#' @param verbose Logical; if TRUE, print diagnostic messages
+#' @return List with components:
+#'   \item{success}{Logical indicating if recursion completed without errors}
+#'   \item{Q}{Array of Q matrices (k x k x T)}
+#'   \item{R}{Array of correlation matrices (k x k x T)}
+#'   \item{maxpq}{Maximum of p and q, used for burn-in period}
+#'   \item{error_type}{Character describing error if success is FALSE}
+#'   \item{error_time}{Time index where error occurred}
+#' @keywords internal
+dcc_recursion <- function(std_resid, Qbar, alphas, betas, verbose = FALSE) {
+  
+  T_obs <- nrow(std_resid)
+  k <- ncol(std_resid)
+  
+  q_order <- length(alphas)  # Number of lagged z'z terms
+  p_order <- length(betas)   # Number of lagged Q terms
+  maxpq <- max(p_order, q_order, 1)
+  
+  ## Compute total persistence
+  alpha_sum <- sum(alphas)
+  beta_sum <- sum(betas)
+  persistence <- alpha_sum + beta_sum
+  
+  if (verbose) {
+    cat(sprintf("DCC(%d,%d) recursion: persistence = %.4f\n", 
+                p_order, q_order, persistence))
+  }
+  
+  ## Initialize arrays
+  Q <- array(0, dim = c(k, k, T_obs))
+  R <- array(0, dim = c(k, k, T_obs))
+  
+  ## Initialize first maxpq observations with Qbar
+  for (t in 1:min(maxpq, T_obs)) {
+    Q[,,t] <- Qbar
+    Qbar_diag <- diag(Qbar)
+    if (any(Qbar_diag <= 0)) {
+      return(list(
+        success = FALSE,
+        error_type = "non_positive_Qbar_diagonal",
+        error_time = 0,
+        Q = Q,
+        R = R,
+        maxpq = maxpq
+      ))
+    }
+    Qbar_diag_inv_sqrt <- diag(1/sqrt(Qbar_diag), k)
+    R[,,t] <- Qbar_diag_inv_sqrt %*% Qbar %*% Qbar_diag_inv_sqrt
+  }
+  
+  ## Handle case where T_obs <= maxpq (not enough data for recursion)
+  if (T_obs <= maxpq) {
+    return(list(
+      success = TRUE,
+      Q = Q,
+      R = R,
+      maxpq = maxpq
+    ))
+  }
+  
+  ## Main recursion starting from t = maxpq + 1
+  for (t in (maxpq + 1):T_obs) {
+    
+    ## Intercept term: Qbar * (1 - persistence)
+    Q_t <- Qbar * (1 - persistence)
+    
+    ## Add alpha terms: sum_{j=1}^{q} alpha_j * (z_{t-j} * z_{t-j}')
+    for (j in seq_along(alphas)) {
+      if (t - j >= 1) {
+        z_lag <- std_resid[t - j, , drop = FALSE]
+        Q_t <- Q_t + alphas[j] * (t(z_lag) %*% z_lag)
+      }
+    }
+    
+    ## Add beta terms: sum_{j=1}^{p} beta_j * Q_{t-j}
+    for (j in seq_along(betas)) {
+      if (t - j >= 1) {
+        Q_t <- Q_t + betas[j] * Q[,,t - j]
+      }
+    }
+    
+    ## Check for numerical issues in Q
+    if (any(!is.finite(Q_t))) {
+      return(list(
+        success = FALSE,
+        error_type = "non_finite_Q",
+        error_time = t,
+        Q = Q,
+        R = R,
+        maxpq = maxpq
+      ))
+    }
+    
+    Q_diag <- diag(Q_t)
+    if (any(Q_diag <= 0)) {
+      return(list(
+        success = FALSE,
+        error_type = "non_positive_Q_diagonal",
+        error_time = t,
+        Q_diag_min = min(Q_diag),
+        Q = Q,
+        R = R,
+        maxpq = maxpq
+      ))
+    }
+    
+    Q[,,t] <- Q_t
+    
+    ## Compute correlation matrix: R_t = diag(Q_t)^{-1/2} * Q_t * diag(Q_t)^{-1/2}
+    Q_diag_inv_sqrt <- diag(1/sqrt(Q_diag), k)
+    R[,,t] <- Q_diag_inv_sqrt %*% Q_t %*% Q_diag_inv_sqrt
+  }
+  
+  return(list(
+    success = TRUE,
+    Q = Q,
+    R = R,
+    maxpq = maxpq
+  ))
+}
+
+
+#' Reparameterized DCC(1,1) negative log-likelihood
+#' 
+#' This function computes the weighted negative log-likelihood for DCC(1,1)
+#' using the (persistence, ratio) parameterization. This eliminates the
+#' need for penalty-based stationarity enforcement since persistence < 1
+#' is guaranteed by the box constraints.
+#' 
+#' @param reparam_pars Numeric vector c(persistence, ratio) or named list
+#' @param std_resid Matrix of standardized residuals (T x k)
+#' @param weights Observation weights (length T)
+#' @param Qbar Unconditional covariance matrix (k x k)
+#' @param distribution Character; either "mvn" or "mvt"
+#' @param dist_pars Distribution parameters (e.g., shape for mvt)
+#' @param verbose Logical; if TRUE, print diagnostic messages
+#' @return Negative log-likelihood value (scalar)
+#' @keywords internal
+dcc11_nll_reparam <- function(reparam_pars, std_resid, weights, Qbar,
+                              distribution = "mvn", dist_pars = NULL,
+                              verbose = FALSE) {
+  
+  ## Extract reparameterized values
+  if (is.list(reparam_pars)) {
+    persistence <- reparam_pars$persistence
+    ratio <- reparam_pars$ratio
+  } else {
+    persistence <- reparam_pars[1]
+    ratio <- reparam_pars[2]
+  }
+  
+  ## Check box constraints (should be enforced by optimizer, but be safe)
+  eps <- 1e-10
+  if (persistence <= eps || persistence >= 1 - eps ||
+      ratio <= eps || ratio >= 1 - eps) {
+    return(1e10)
+  }
+  
+  ## Transform back to (alpha, beta)
+  ## Stationarity is GUARANTEED since persistence < 1
+  ab <- dcc_from_reparam(persistence, ratio)
+  alpha <- ab["alpha"]
+  beta <- ab["beta"]
+  
+  if (verbose) {
+    cat(sprintf("Reparam: persistence=%.4f, ratio=%.4f -> alpha=%.4f, beta=%.4f\n",
+                persistence, ratio, alpha, beta))
+  }
+  
+  ## Perform DCC recursion
+  recursion <- dcc_recursion(
+    std_resid = std_resid,
+    Qbar = Qbar,
+    alphas = alpha,
+    betas = beta,
+    verbose = verbose
+  )
+  
+  if (!recursion$success) {
+    if (verbose) {
+      cat("*** Recursion failed:", recursion$error_type, 
+          "at t =", recursion$error_time, "***\n")
+    }
+    return(1e10)
+  }
+  
+  ## Compute weighted log-likelihood
+  T_obs <- nrow(std_resid)
+  k <- ncol(std_resid)
+  R <- recursion$R
+  
+  ll_vec <- numeric(T_obs)
+  
+  if (distribution == "mvn") {
+    for (t in 1:T_obs) {
+      R_t <- R[,,t]
+      
+      ## Check for valid correlation matrix
+      if (any(!is.finite(R_t))) {
+        ll_vec[t] <- -1e10
+        next
+      }
+      
+      ## Compute MVN log-likelihood
+      ## For standardized residuals with correlation R:
+      ## ll = -0.5 * (k*log(2*pi) + log(det(R)) + z' * R^{-1} * z)
+      ## But z already has unit variance, so:
+      ## ll = -0.5 * (log(det(R)) + z' * R^{-1} * z)  [up to constant]
+      
+      det_R <- det(R_t)
+      if (det_R <= 0) {
+        ll_vec[t] <- -1e10
+        next
+      }
+      
+      R_inv <- tryCatch(solve(R_t), error = function(e) NULL)
+      if (is.null(R_inv)) {
+        ll_vec[t] <- -1e10
+        next
+      }
+      
+      z_t <- std_resid[t, ]
+      mahal <- as.numeric(t(z_t) %*% R_inv %*% z_t)
+      
+      ll_vec[t] <- -0.5 * (k * log(2 * pi) + log(det_R) + mahal)
+    }
+  } else {
+    ## MVT distribution - would need shape parameter
+    ## For now, fall back to MVN
+    warning("\nMVT distribution not yet implemented in reparameterized version.\n")
+    return(1e10)
+  }
+  
+  ## Compute weighted NLL
+  ll_vec[!is.finite(ll_vec)] <- -1e10
+  nll <- -sum(weights * ll_vec)
+  
+  return(nll)
+}
+
+
+#' Estimate DCC(1,1) using reparameterized optimization
+#' @keywords internal
+estimate_dcc11_reparam <- function(std_resid, weights, dcc_start_pars, Qbar,
+                                   distribution = "mvn", dist_pars = NULL,
+                                   verbose = FALSE) {
+  
+  ## Extract starting values
+  alpha_start <- dcc_start_pars$alpha_1
+  beta_start <- dcc_start_pars$beta_1
+  
+  ## Transform to reparameterized space
+  reparam_start <- dcc_to_reparam(alpha_start, beta_start)
+  
+  if (verbose) {
+    cat(sprintf("Starting values: alpha=%.4f, beta=%.4f\n", alpha_start, beta_start))
+    cat(sprintf("Reparameterized: persistence=%.4f, ratio=%.4f\n",
+                reparam_start["persistence"], reparam_start["ratio"]))
+  }
+  
+  ## Set up bounds for reparameterized parameters
+  ## Both persistence and ratio should be in (eps, 1-eps)
+  eps <- 1e-6
+  lower <- c(eps, eps)
+  upper <- c(1 - eps, 1 - eps)
+  
+  ## Optimize
+  opt_result <- optim(
+    par = as.numeric(reparam_start),
+    fn = dcc11_nll_reparam,
+    method = "L-BFGS-B",
+    lower = lower,
+    upper = upper,
+    control = list(ndeps = rep(1e-12, length(reparam_start))),
+    std_resid = std_resid,
+    weights = weights,
+    Qbar = Qbar,
+    distribution = distribution,
+    dist_pars = dist_pars,
+    verbose = FALSE
+  )
+  
+  ## Transform back to original parameters
+  final_ab <- dcc_from_reparam(opt_result$par[1], opt_result$par[2])
+  
+  if (verbose) {
+    cat(sprintf("Optimized: persistence=%.4f, ratio=%.4f\n",
+                opt_result$par[1], opt_result$par[2]))
+    cat(sprintf("Final: alpha=%.4f, beta=%.4f (sum=%.4f)\n",
+                final_ab["alpha"], final_ab["beta"], sum(final_ab)))
+    cat(sprintf("Convergence: %d, NLL: %.4f\n", opt_result$convergence, opt_result$value))
+  }
+  
+  return(list(
+    dcc_pars = list(alpha_1 = final_ab["alpha"], beta_1 = final_ab["beta"]),
+    reparam_pars = list(persistence = opt_result$par[1], ratio = opt_result$par[2]),
+    nll = opt_result$value,
+    convergence = opt_result$convergence,
+    n_penalty_triggers = 0  # Reparameterization eliminates penalties
+  ))
+}

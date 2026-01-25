@@ -60,7 +60,7 @@ To simulate DCC(q,p), provide alpha_dcc as vector of length q and beta_dcc
 as vector of length p.
 }
 \examples{
-\dontrun
+\dontrun{
 # Simulate 500 observations with default DCC(1,1) parameters
 y <- simulate_dcc_garch(n = 500, seed = 42)
 
@@ -82,5 +82,5 @@ y_dcc22 <- simulate_dcc_garch(
 
 # Constant correlation (set alpha_dcc = 0)
 y_const <- simulate_dcc_garch(n = 200, alpha_dcc = 0, beta_dcc = 0, seed = 789)
-
+}
 }

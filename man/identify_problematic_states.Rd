@@ -4,14 +4,70 @@
 \alias{identify_problematic_states}
 \title{Identify Problematic States}
 \usage{
-identify_problematic_states(diagnostics)
+identify_problematic_states(
+  diagnostics,
+  state = NULL,
+  model_type = c("auto", "dcc", "cgarch", "gogarch")
+)
 }
 \arguments{
 \item{diagnostics}{An object of class \code{ms_diagnostics}}
+
+\item{state}{Integer state index. If NULL (default), checks all states.}
+
+\item{model_type}{Character: model type override. One of "auto" (default), "dcc",
+"cgarch", or "gogarch". When "auto", attempts to detect from diagnostics.}
 }
 \value{
-List with problem states and issue descriptions
+List with:
+\item{has_problems}{Logical indicating if any problems were found}
+\item{n_states_affected}{Number of states with problems}
+\item{problems}{Named list with problem descriptions per state}
 }
 \description{
 Identify states with estimation problems based on diagnostic information.
+Supports DCC, CGARCH, and GOGARCH models with model-specific checks.
+}
+\details{
+The function performs different checks depending on model type:
+\describe{
+\item{DCC}{
+\itemize{
+\item High persistence (alpha + beta > 0.98)
+\item Constant correlation fallback
+\item Parameter instability in final iterations
+\item Boundary events
+}
+}
+\item{CGARCH}{
+\itemize{
+\item All DCC checks
+\item Copula shape parameter issues (MVT: df < 3 or > 100)
+\item ADCC gamma constraints
+\item PIT transformation warnings
+}
+}
+\item{GOGARCH}{
+\itemize{
+\item ICA convergence failure
+\item Mixing matrix ill-conditioning (condition number > 1000)
+\item Unmixing matrix near-singularity
+\item Component correlation (should be < 0.2)
+\item Component GARCH high persistence
+}
+}
+}
+}
+\examples{
+\dontrun{
+# Check all states with auto-detection
+problems <- identify_problematic_states(diag)
+if (problems$has_problems) {
+  print(problems$problems)
+}
+
+# Check specific state for CGARCH model
+problems <- identify_problematic_states(diag, state = 1, model_type = "cgarch")
+}
+
 }

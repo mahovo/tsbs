@@ -31,6 +31,7 @@ tsbs(
   stationary_max_percentile = 0.99,
   stationary_max_fraction_of_n = 0.1,
   return_fit = FALSE,
+  return_diagnostics = FALSE,
   fail_mode = c("predictably", "gracefully"),
   ...
 )
@@ -144,6 +145,12 @@ See \link{k_fold_cv_ts}.}
 \code{bs_type = "ms_varma_garch"}, diagnostics can be extracted from
 \code{result$fit$diagnostics}. See \code{?fit_ms_varma_garch}.}
 
+\item{return_diagnostics}{If \code{TRUE}, returns bootstrap diagnostics including
+block composition, length statistics, and quality metrics. Diagnostics are
+returned in \code{result$diagnostics} as a \code{tsbs_diagnostics} object. Use
+\code{summary()} and \code{plot()} methods on the diagnostics for detailed analysis.
+Default is \code{FALSE}.}
+
 \item{fail_mode}{Character string. One of \code{"predictably"} (development/
 debugging - fail fast on any unexpected behavior) or \code{"gracefully"}
 (production/robust pipelines - continue despite validation errors).}
@@ -155,6 +162,9 @@ A list containing:
 \item{func_outs}{List of computed function outputs for each replicate.}
 \item{func_out_means}{Mean of the computed outputs across replicates.}
 \item{fit}{If \code{return_fit = TRUE}, a list containing model fit.}
+\item{diagnostics}{If \code{return_diagnostics = TRUE}, a \code{tsbs_diagnostics}
+object containing block composition, statistics, and quality metrics.
+See \code{\link{compute_bootstrap_diagnostics}}.}
 }
 }
 \description{
@@ -181,16 +191,16 @@ set, \code{block_length} and \code{num_blocks} must be set, and \code{n_boot} wi
 automatically be set to \code{block_length * num_blocks}.
 }
 
-\subsection{\code{bs_type="stationary"}, \code{bs_type="hmm"}, \code{bs_type="msvar"}}{
+\subsection{\code{bs_type="stationary"}, \code{bs_type="hmm"}, \code{bs_type="msvar"} If \code{n_boot} is}{
 
-If \code{n_boot} is set, the last block will be truncated when necessary to
-match the length (\code{n_boot}) of the bootstrap series. This is the only way
-to ensure equal length of all bootstrap series, as the length of each block
-is random. If \code{n_boot} is not set, \code{num_blocks} must be set, and the length
-of each bootstrap series will be determined by the number of blocks and the
-random lengths of the individual blocks for that particular series. Note
-that this typically results in bootstrap series of different lengths. For
-stationary bootstrap, \code{block_length} is the expected block length, when
+set, the last block will be truncated when necessary to match the length
+(\code{n_boot}) of the bootstrap series. This is the only way to ensure equal
+length of all bootstrap series, as the length of each block is random. If
+\code{n_boot} is not set, \code{num_blocks} must be set, and the length of each
+bootstrap series will be determined by the number of blocks and the lengths
+of the individual blocks for that particular series. Truncation ensures equal
+length of bootstrapped series for bootstrap types with random block length.
+For stationary bootstrap, \code{block_length} is the expected block length, when
 \code{p_method="1/n"}.
 }
 
@@ -288,6 +298,305 @@ GARCH parameters, e.g.
 }
 }
 
+\subsection{DCC (Dynamic Conditional Correlation) Models}{
+
+DCC models capture time-varying correlations between multiple series by
+modeling the correlation dynamics directly on standardized residuals. This
+is the standard approach for multivariate GARCH modeling in the tsbs package.
+
+To use DCC, set \code{garch_spec_fun = "dcc_modelspec"} in your spec.
+See \code{\link[tsmarch:dcc_modelspec.generic]{tsmarch::dcc_modelspec()}} for the tsmarch specification function.
+
+\strong{DCC-specific \code{garch_spec_args}:}
+\itemize{
+\item \code{dcc_order}: Integer vector c(p, q) for DCC(p, q) order. Default is
+c(1, 1). Note: DCC(1,1) uses analytical gradients; higher orders use
+numerical differentiation.
+\item \code{dynamics}: Character. Correlation dynamics type:
+\itemize{
+\item \code{"constant"}: Time-invariant correlation (reduces to CCC model)
+\item \code{"dcc"}: Standard DCC dynamics
+\item \code{"adcc"}: Asymmetric DCC (negative shocks have larger impact)
+}
+\item \code{distribution}: Character. Multivariate distribution:
+\itemize{
+\item \code{"mvn"}: Multivariate Normal
+\item \code{"mvt"}: Multivariate Student-t (adds shape parameter)
+}
+}
+
+\strong{Important}: For DCC models, the univariate GARCH distributions should
+always be Normal (\code{distribution = "norm"}), regardless of whether the
+multivariate distribution is MVN or MVT. The multivariate distribution
+applies to the joint model, not the marginals.
+
+\strong{Example DCC specification:}
+
+\if{html}{\out{<div class="sourceCode">}}\preformatted{spec_dcc <- list(
+  list(
+    var_order = 1,
+    garch_spec_fun = "dcc_modelspec",
+    distribution = "mvn",
+    garch_spec_args = list(
+      dcc_order = c(1, 1),
+      dynamics = "dcc",
+      distribution = "mvn",
+      garch_model = list(univariate = list(
+        list(model = "garch", garch_order = c(1, 1), distribution = "norm"),
+        list(model = "garch", garch_order = c(1, 1), distribution = "norm")
+      ))
+    ),
+    start_pars = list(
+      var_pars = rep(0, 6),
+      garch_pars = list(
+        list(omega = 0.05, alpha1 = 0.08, beta1 = 0.85),
+        list(omega = 0.05, alpha1 = 0.08, beta1 = 0.85)
+      ),
+      dcc_pars = list(alpha_1 = 0.05, beta_1 = 0.90),
+      dist_pars = NULL
+    )
+  )
+)
+}\if{html}{\out{</div>}}
+
+For ADCC (asymmetric correlation dynamics), use \code{dynamics = "adcc"} and
+include gamma parameters in \code{dcc_pars}:
+
+\if{html}{\out{<div class="sourceCode">}}\preformatted{dcc_pars = list(alpha_1 = 0.05, gamma_1 = 0.03, beta_1 = 0.90)
+}\if{html}{\out{</div>}}
+}
+
+}
+}
+\examples{
+set.seed(123)
+x <- arima.sim(n = 100, list(ar = 0.8))
+result <- tsbs(
+  x = as.matrix(x),
+  block_length = 10,
+  bs_type = "stationary",
+  num_blocks = 5,
+  num_boots = 10,
+  func = mean,
+  apply_func_to = "cols"
+)
+print(result$func_out_means)
+
+}
+\references{
+Harris, F. J. (1978). "On the Use of Windows for
+Harmonic Analysis with the Discrete Fourier Transform." (Proceedings of the
+IEEE, 66(1), pp. 66f)
+}
+\seealso{
+\itemize{
+\item \code{\link[tsmarch:dcc_modelspec.generic]{tsmarch::dcc_modelspec()}} for creating DCC specifications
+\item \code{\link[=estimate_garch_weighted_dcc]{estimate_garch_weighted_dcc()}} for the weighted estimation method
+\item \code{vignette("cgarch_vs_dcc", package = "tsbs")} for model comparison
+}
+\subsection{Copula GARCH (CGARCH) Models}{
+
+Copula GARCH models provide an alternative to DCC for modeling dynamic
+correlations in multivariate time series. While DCC directly models
+correlation dynamics, CGARCH separates marginal distributions from the
+dependence structure using copulas.
+
+To use CGARCH instead of DCC, set \code{garch_spec_fun = "cgarch_modelspec"} in
+your spec. See \code{\link[tsmarch:cgarch_modelspec.generic]{tsmarch::cgarch_modelspec()}} for the tsmarch specification function.
+
+\strong{Key differences from DCC:}
+\itemize{
+\item Uses Probability Integral Transform (PIT) to transform standardized
+residuals to uniform margins before modeling dependence
+\item Supports multiple transformation methods: "parametric", "empirical",
+or "spd" (semi-parametric distribution)
+\item Copula distribution can be "mvn" (Gaussian) or "mvt" (Student-t)
+\item More flexible tail dependence modeling with Student-t copula
+}
+
+\strong{CGARCH-specific \code{garch_spec_args}:}
+\itemize{
+\item \code{transformation}: Character. Method for PIT transformation:
+\itemize{
+\item \code{"parametric"}: Uses fitted univariate distribution CDFs
+\item \code{"empirical"}: Uses empirical CDFs (non-parametric)
+\item \code{"spd"}: Semi-parametric distribution combining kernel density
+in the center with parametric tails
+}
+\item \code{copula}: Character. Copula distribution: \code{"mvn"} or \code{"mvt"}
+\item \code{dynamics}: Character. Correlation dynamics type:
+\itemize{
+\item \code{"constant"}: Time-invariant correlation
+\item \code{"dcc"}: Dynamic Conditional Correlation
+\item \code{"adcc"}: Asymmetric DCC (captures leverage effects where
+negative returns have larger impact on correlation)
+}
+\item \code{dcc_order}: Integer vector c(p, q) for DCC/ADCC order
+}
+
+\strong{Example CGARCH specification:}
+
+\if{html}{\out{<div class="sourceCode">}}\preformatted{spec_cgarch <- list(
+  list(
+    var_order = 1,
+    garch_spec_fun = "cgarch_modelspec",
+    distribution = "mvn",
+    garch_spec_args = list(
+      dcc_order = c(1, 1),
+      dynamics = "dcc",
+      transformation = "parametric",
+      copula = "mvn",
+      garch_model = list(univariate = list(
+        list(model = "garch", garch_order = c(1, 1), distribution = "norm"),
+        list(model = "garch", garch_order = c(1, 1), distribution = "norm")
+      ))
+    ),
+    start_pars = list(
+      var_pars = rep(0, 6),
+      garch_pars = list(
+        list(omega = 0.05, alpha1 = 0.08, beta1 = 0.85),
+        list(omega = 0.05, alpha1 = 0.08, beta1 = 0.85)
+      ),
+      dcc_pars = list(alpha_1 = 0.05, beta_1 = 0.90),
+      dist_pars = NULL
+    )
+  )
+)
+}\if{html}{\out{</div>}}
+
+For ADCC (asymmetric correlation dynamics), use \code{dynamics = "adcc"} and
+include gamma parameters:
+
+\if{html}{\out{<div class="sourceCode">}}\preformatted{garch_spec_args = list(
+  dynamics = "adcc",
+  ...
+),
+start_pars = list(
+  ...
+  dcc_pars = list(alpha_1 = 0.05, gamma_1 = 0.02, beta_1 = 0.90)
+)
+}\if{html}{\out{</div>}}
+}
+
+\itemize{
+\item \code{\link[tsmarch:dcc_modelspec.generic]{tsmarch::dcc_modelspec()}} for creating DCC specifications
+\item \code{\link[tsmarch:cgarch_modelspec.generic]{tsmarch::cgarch_modelspec()}} for creating CGARCH specifications
+\item \code{\link[=estimate_garch_weighted_dcc]{estimate_garch_weighted_dcc()}} for DCC weighted estimation
+\item \code{\link[=estimate_garch_weighted_cgarch]{estimate_garch_weighted_cgarch()}} for CGARCH weighted estimation
+\item \code{\link[=compute_pit_transform]{compute_pit_transform()}} for PIT transformation details
+\item \code{\link[=adcc_recursion]{adcc_recursion()}} for asymmetric DCC dynamics
+\item \code{vignette("cgarch_vs_dcc", package = "tsbs")} for model comparison
+\item \code{vignette("Diagnostics", package = "tsbs")} for diagnostic system
+}
+
+\strong{GOGARCH-specific \code{garch_spec_args}:}
+\itemize{
+\item \code{model}: Character. GARCH model type for components. Default \code{"garch"}.
+\item \code{order}: Integer vector c(p, q) for GARCH order. Default \code{c(1, 1)}.
+\item \code{ica}: Character. ICA algorithm:
+\itemize{
+\item \code{"radical"}: RADICAL algorithm (recommended, robust to outliers)
+\item \code{"fastica"}: FastICA algorithm (currently not supported by tsbs,
+waiting for tsmarch v1.0.1 to appear on CRAN...)
+}
+\item \code{components}: Integer. Number of ICA components to extract.
+Default equals number of series. Set lower for dimension reduction.
+\item \code{lambda_range}: Numeric vector c(min, max) for GH lambda parameter.
+\item \code{shape_range}: Numeric vector c(min, max) for GH shape parameter.
+}
+
+\strong{GOGARCH Distributions:}
+\itemize{
+\item \code{"norm"}: Normal distribution (simplest, fastest)
+\item \code{"nig"}: Normal Inverse Gaussian (captures skewness and kurtosis)
+\item \code{"gh"}: Generalized Hyperbolic (most flexible, includes NIG as
+special case)
+}
+
+\strong{Example GOGARCH specification (Normal):}
+
+\if{html}{\out{<div class="sourceCode">}}\preformatted{spec_gogarch <- list(
+  list(
+    var_order = 0,
+    garch_spec_fun = "gogarch_modelspec",
+    distribution = "norm",
+    garch_spec_args = list(
+      model = "garch",
+      order = c(1, 1),
+      ica = "radical",
+      components = 2
+    ),
+    start_pars = list(
+      var_pars = NULL,
+      garch_pars = list(
+        list(omega = 0.1, alpha1 = 0.1, beta1 = 0.8),
+        list(omega = 0.1, alpha1 = 0.1, beta1 = 0.8)
+      ),
+      dist_pars = NULL
+    )
+  )
+)
+}\if{html}{\out{</div>}}
+
+\strong{Example GOGARCH specification (NIG distribution):}
+
+\if{html}{\out{<div class="sourceCode">}}\preformatted{spec_gogarch_nig <- list(
+  list(
+    var_order = 0,
+    garch_spec_fun = "gogarch_modelspec",
+    distribution = "nig",
+    garch_spec_args = list(
+      model = "garch",
+      order = c(1, 1),
+      ica = "radical",
+      components = 2
+    ),
+    start_pars = list(
+      var_pars = NULL,
+      garch_pars = list(
+        list(omega = 0.1, alpha1 = 0.1, beta1 = 0.8),
+        list(omega = 0.1, alpha1 = 0.1, beta1 = 0.8)
+      ),
+      dist_pars = list(skew = 0, shape = 1)
+    )
+  )
+)
+}\if{html}{\out{</div>}}
+
+\strong{Example GOGARCH specification (GH distribution):}
+
+\if{html}{\out{<div class="sourceCode">}}\preformatted{spec_gogarch_gh <- list(
+  list(
+    var_order = 0,
+    garch_spec_fun = "gogarch_modelspec",
+    distribution = "gh",
+    garch_spec_args = list(
+      model = "garch",
+      order = c(1, 1),
+      ica = "radical",
+      components = 2,
+      lambda_range = c(-5, 5),
+      shape_range = c(0.1, 25)
+    ),
+    start_pars = list(
+      var_pars = NULL,
+      garch_pars = list(
+        list(omega = 0.1, alpha1 = 0.1, beta1 = 0.8),
+        list(omega = 0.1, alpha1 = 0.1, beta1 = 0.8)
+      ),
+      dist_pars = list(skew = 0, shape = 1, lambda = -0.5)
+    )
+  )
+)
+}\if{html}{\out{</div>}}
+
+\itemize{
+\item \code{\link[tsmarch:gogarch_modelspec]{tsmarch::gogarch_modelspec()}} for creating GOGARCH specifications
+\item \code{\link[=estimate_garch_weighted_gogarch]{estimate_garch_weighted_gogarch()}} for GOGARCH weighted estimation
+\item \code{\link[tsmarch:radical]{tsmarch::radical()}} for the RADICAL ICA algorithm
+\item \code{\link[=compute_gogarch_loglik_ms]{compute_gogarch_loglik_ms()}} for GOGARCH log-likelihood computation
+\item \code{vignette("cgarch_vs_dcc", package = "tsbs")} for model comparison
+}
 \subsection{Diagnostics for MS VARMA GARCH}{
 
 Diagnostic System: A comprehensive diagnostic system monitors
@@ -306,8 +615,6 @@ specified, all verbose output is written to this file instead. Only used if
 verbose = TRUE.
 }
 See details in \code{vignette("Diagnostics", package = "tsbs")}.
-}
-
 }
 
 \subsection{\code{taper_type} when \code{block_type="tapered"}}{
@@ -351,24 +658,4 @@ The window weights \eqn{w[i]} are defined piecewise as follows:
 
 (Harris, 1978)
 }
-}
-\examples{
-set.seed(123)
-x <- arima.sim(n = 100, list(ar = 0.8))
-result <- tsbs(
-  x = as.matrix(x),
-  block_length = 10,
-  bs_type = "stationary",
-  num_blocks = 5,
-  num_boots = 10,
-  func = mean,
-  apply_func_to = "cols"
-)
-print(result$func_out_means)
-
-}
-\references{
-Harris, F. J. (1978). "On the Use of Windows for
-Harmonic Analysis with the Discrete Fourier Transform." (Proceedings of the
-IEEE, 66(1), pp. 66f)
 }

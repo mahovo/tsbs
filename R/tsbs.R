@@ -80,6 +80,11 @@
 #' @param score_func Scoring function for cross-validation.
 #' @param stationary_max_percentile Stationary max percentile.
 #' @param stationary_max_fraction_of_n Stationary max fraction of n.
+#' @param return_diagnostics If `TRUE`, returns bootstrap diagnostics including
+#'   block composition, length statistics, and quality metrics. Diagnostics are
+#'   returned in `result$diagnostics` as a `tsbs_diagnostics` object. Use 
+#'   `summary()` and `plot()` methods on the diagnostics for detailed analysis.
+#'   Default is `FALSE`.
 #' @param return_fit If `TRUE`, `tsbs()` will return model fit. Default is
 #'   `return_fit = FALSE`. If `return_fit = TRUE` and 
 #'   `bs_type = "ms_varma_garch"`, diagnostics can be extracted from 
@@ -106,16 +111,16 @@
 #'   set, `block_length` and `num_blocks` must be set, and `n_boot` will
 #'   automatically be set to `block_length * num_blocks`.
 #' 
-#' ### `bs_type="stationary"`, `bs_type="hmm"`, `bs_type="msvar"`
-#' If `n_boot` is set, the last block will be truncated when necessary to
-#'   match the length (`n_boot`) of the bootstrap series. This is the only way
-#'   to ensure equal length of all bootstrap series, as the length of each block
-#'   is random. If `n_boot` is not set, `num_blocks` must be set, and the length
-#'   of each bootstrap series will be determined by the number of blocks and the
-#'   random lengths of the individual blocks for that particular series. Note
-#'   that this typically results in bootstrap series of different lengths. For
-#'   stationary bootstrap, `block_length` is the expected block length, when
-#'   `p_method="1/n"`.
+#' ### `bs_type="stationary"`, `bs_type="hmm"`, `bs_type="msvar"` If `n_boot` is
+#' set, the last block will be truncated when necessary to match the length
+#' (`n_boot`) of the bootstrap series. This is the only way to ensure equal
+#' length of all bootstrap series, as the length of each block is random. If
+#' `n_boot` is not set, `num_blocks` must be set, and the length of each
+#' bootstrap series will be determined by the number of blocks and the lengths
+#' of the individual blocks for that particular series. Truncation ensures equal
+#' length of bootstrapped series for bootstrap types with random block length.
+#' For stationary bootstrap, `block_length` is the expected block length, when
+#' `p_method="1/n"`.
 #' 
 #' ### `bs_type="wild"`
 #' `n_boot`, `block_length` and `num_blocks` are ignored. The length of the
@@ -208,6 +213,286 @@
 #'   }
 #' } 
 #' 
+#' ### DCC (Dynamic Conditional Correlation) Models
+#'
+#' DCC models capture time-varying correlations between multiple series by 
+#' modeling the correlation dynamics directly on standardized residuals. This
+#' is the standard approach for multivariate GARCH modeling in the tsbs package.
+#'
+#' To use DCC, set `garch_spec_fun = "dcc_modelspec"` in your spec.
+#' See [dcc_modelspec()] for the tsmarch specification function.
+#'
+#' **DCC-specific `garch_spec_args`:**
+#' \itemize{
+#'   \item `dcc_order`: Integer vector c(p, q) for DCC(p, q) order. Default is
+#'     c(1, 1). Note: DCC(1,1) uses analytical gradients; higher orders use
+#'     numerical differentiation.
+#'   \item `dynamics`: Character. Correlation dynamics type:
+#'     \itemize{
+#'       \item `"constant"`: Time-invariant correlation (reduces to CCC model)
+#'       \item `"dcc"`: Standard DCC dynamics
+#'       \item `"adcc"`: Asymmetric DCC (negative shocks have larger impact)
+#'     }
+#'   \item `distribution`: Character. Multivariate distribution:
+#'     \itemize{
+#'       \item `"mvn"`: Multivariate Normal
+#'       \item `"mvt"`: Multivariate Student-t (adds shape parameter)
+#'     }
+#' }
+#'
+#' **Important**: For DCC models, the univariate GARCH distributions should
+#' always be Normal (`distribution = "norm"`), regardless of whether the
+#' multivariate distribution is MVN or MVT. The multivariate distribution
+#' applies to the joint model, not the marginals.
+#'
+#' **Example DCC specification:**
+#' ```
+#' spec_dcc <- list(
+#'   list(
+#'     var_order = 1,
+#'     garch_spec_fun = "dcc_modelspec",
+#'     distribution = "mvn",
+#'     garch_spec_args = list(
+#'       dcc_order = c(1, 1),
+#'       dynamics = "dcc",
+#'       distribution = "mvn",
+#'       garch_model = list(univariate = list(
+#'         list(model = "garch", garch_order = c(1, 1), distribution = "norm"),
+#'         list(model = "garch", garch_order = c(1, 1), distribution = "norm")
+#'       ))
+#'     ),
+#'     start_pars = list(
+#'       var_pars = rep(0, 6),
+#'       garch_pars = list(
+#'         list(omega = 0.05, alpha1 = 0.08, beta1 = 0.85),
+#'         list(omega = 0.05, alpha1 = 0.08, beta1 = 0.85)
+#'       ),
+#'       dcc_pars = list(alpha_1 = 0.05, beta_1 = 0.90),
+#'       dist_pars = NULL
+#'     )
+#'   )
+#' )
+#' ```
+#'
+#' For ADCC (asymmetric correlation dynamics), use `dynamics = "adcc"` and
+#' include gamma parameters in `dcc_pars`:
+#' ```
+#' dcc_pars = list(alpha_1 = 0.05, gamma_1 = 0.03, beta_1 = 0.90)
+#' ```
+#'
+#' @seealso
+#' \itemize{
+#'   \item [dcc_modelspec()] for creating DCC specifications
+#'   \item [estimate_garch_weighted_dcc()] for the weighted estimation method
+#'   \item `vignette("cgarch_vs_dcc", package = "tsbs")` for model comparison
+#' }
+#'
+#'
+#' ### Copula GARCH (CGARCH) Models
+#'
+#' Copula GARCH models provide an alternative to DCC for modeling dynamic
+#' correlations in multivariate time series. While DCC directly models
+#' correlation dynamics, CGARCH separates marginal distributions from the
+#' dependence structure using copulas.
+#'
+#' To use CGARCH instead of DCC, set `garch_spec_fun = "cgarch_modelspec"` in
+#' your spec. See [cgarch_modelspec()] for the tsmarch specification function.
+#'
+#' **Key differences from DCC:**
+#' \itemize{
+#'   \item Uses Probability Integral Transform (PIT) to transform standardized
+#'     residuals to uniform margins before modeling dependence
+#'   \item Supports multiple transformation methods: "parametric", "empirical",
+#'     or "spd" (semi-parametric distribution)
+#'   \item Copula distribution can be "mvn" (Gaussian) or "mvt" (Student-t)
+#'   \item More flexible tail dependence modeling with Student-t copula
+#' }
+#'
+#' **CGARCH-specific `garch_spec_args`:**
+#' \itemize{
+#'   \item `transformation`: Character. Method for PIT transformation:
+#'     \itemize{
+#'       \item `"parametric"`: Uses fitted univariate distribution CDFs
+#'       \item `"empirical"`: Uses empirical CDFs (non-parametric)
+#'       \item `"spd"`: Semi-parametric distribution combining kernel density
+#'         in the center with parametric tails
+#'     }
+#'   \item `copula`: Character. Copula distribution: `"mvn"` or `"mvt"`
+#'   \item `dynamics`: Character. Correlation dynamics type:
+#'     \itemize{
+#'       \item `"constant"`: Time-invariant correlation
+#'       \item `"dcc"`: Dynamic Conditional Correlation
+#'       \item `"adcc"`: Asymmetric DCC (captures leverage effects where
+#'         negative returns have larger impact on correlation)
+#'     }
+#'   \item `dcc_order`: Integer vector c(p, q) for DCC/ADCC order
+#' }
+#'
+#' **Example CGARCH specification:**
+#' ```
+#' spec_cgarch <- list(
+#'   list(
+#'     var_order = 1,
+#'     garch_spec_fun = "cgarch_modelspec",
+#'     distribution = "mvn",
+#'     garch_spec_args = list(
+#'       dcc_order = c(1, 1),
+#'       dynamics = "dcc",
+#'       transformation = "parametric",
+#'       copula = "mvn",
+#'       garch_model = list(univariate = list(
+#'         list(model = "garch", garch_order = c(1, 1), distribution = "norm"),
+#'         list(model = "garch", garch_order = c(1, 1), distribution = "norm")
+#'       ))
+#'     ),
+#'     start_pars = list(
+#'       var_pars = rep(0, 6),
+#'       garch_pars = list(
+#'         list(omega = 0.05, alpha1 = 0.08, beta1 = 0.85),
+#'         list(omega = 0.05, alpha1 = 0.08, beta1 = 0.85)
+#'       ),
+#'       dcc_pars = list(alpha_1 = 0.05, beta_1 = 0.90),
+#'       dist_pars = NULL
+#'     )
+#'   )
+#' )
+#' ```
+#'
+#' For ADCC (asymmetric correlation dynamics), use `dynamics = "adcc"` and
+#' include gamma parameters:
+#' ```
+#' garch_spec_args = list(
+#'   dynamics = "adcc",
+#'   ...
+#' ),
+#' start_pars = list(
+#'   ...
+#'   dcc_pars = list(alpha_1 = 0.05, gamma_1 = 0.02, beta_1 = 0.90)
+#' )
+#' ```
+#'
+#' @seealso
+#' \itemize{
+#'   \item [dcc_modelspec()] for creating DCC specifications
+#'   \item [cgarch_modelspec()] for creating CGARCH specifications
+#'   \item [estimate_garch_weighted_dcc()] for DCC weighted estimation
+#'   \item [estimate_garch_weighted_cgarch()] for CGARCH weighted estimation
+#'   \item [compute_pit_transform()] for PIT transformation details
+#'   \item [adcc_recursion()] for asymmetric DCC dynamics
+#'   \item `vignette("cgarch_vs_dcc", package = "tsbs")` for model comparison
+#'   \item `vignette("Diagnostics", package = "tsbs")` for diagnostic system
+#' }
+#' 
+#' **GOGARCH-specific `garch_spec_args`:**
+#' \itemize{
+#'   \item `model`: Character. GARCH model type for components. Default `"garch"`.
+#'   \item `order`: Integer vector c(p, q) for GARCH order. Default `c(1, 1)`.
+#'   \item `ica`: Character. ICA algorithm:
+#'     \itemize{
+#'       \item `"radical"`: RADICAL algorithm (recommended, robust to outliers)
+#'       \item `"fastica"`: FastICA algorithm (currently not supported by tsbs, 
+#'       waiting for tsmarch v1.0.1 to appear on CRAN...)
+#'     }
+#'   \item `components`: Integer. Number of ICA components to extract.
+#'     Default equals number of series. Set lower for dimension reduction.
+#'   \item `lambda_range`: Numeric vector c(min, max) for GH lambda parameter.
+#'   \item `shape_range`: Numeric vector c(min, max) for GH shape parameter.
+#' }
+#'
+#' **GOGARCH Distributions:**
+#' \itemize{
+#'   \item `"norm"`: Normal distribution (simplest, fastest)
+#'   \item `"nig"`: Normal Inverse Gaussian (captures skewness and kurtosis)
+#'   \item `"gh"`: Generalized Hyperbolic (most flexible, includes NIG as 
+#'   special case)
+#' }
+#'
+#' **Example GOGARCH specification (Normal):**
+#' ```
+#' spec_gogarch <- list(
+#'   list(
+#'     var_order = 0,
+#'     garch_spec_fun = "gogarch_modelspec",
+#'     distribution = "norm",
+#'     garch_spec_args = list(
+#'       model = "garch",
+#'       order = c(1, 1),
+#'       ica = "radical",
+#'       components = 2
+#'     ),
+#'     start_pars = list(
+#'       var_pars = NULL,
+#'       garch_pars = list(
+#'         list(omega = 0.1, alpha1 = 0.1, beta1 = 0.8),
+#'         list(omega = 0.1, alpha1 = 0.1, beta1 = 0.8)
+#'       ),
+#'       dist_pars = NULL
+#'     )
+#'   )
+#' )
+#' ```
+#'
+#' **Example GOGARCH specification (NIG distribution):**
+#' ```
+#' spec_gogarch_nig <- list(
+#'   list(
+#'     var_order = 0,
+#'     garch_spec_fun = "gogarch_modelspec",
+#'     distribution = "nig",
+#'     garch_spec_args = list(
+#'       model = "garch",
+#'       order = c(1, 1),
+#'       ica = "radical",
+#'       components = 2
+#'     ),
+#'     start_pars = list(
+#'       var_pars = NULL,
+#'       garch_pars = list(
+#'         list(omega = 0.1, alpha1 = 0.1, beta1 = 0.8),
+#'         list(omega = 0.1, alpha1 = 0.1, beta1 = 0.8)
+#'       ),
+#'       dist_pars = list(skew = 0, shape = 1)
+#'     )
+#'   )
+#' )
+#' ```
+#'
+#' **Example GOGARCH specification (GH distribution):**
+#' ```
+#' spec_gogarch_gh <- list(
+#'   list(
+#'     var_order = 0,
+#'     garch_spec_fun = "gogarch_modelspec",
+#'     distribution = "gh",
+#'     garch_spec_args = list(
+#'       model = "garch",
+#'       order = c(1, 1),
+#'       ica = "radical",
+#'       components = 2,
+#'       lambda_range = c(-5, 5),
+#'       shape_range = c(0.1, 25)
+#'     ),
+#'     start_pars = list(
+#'       var_pars = NULL,
+#'       garch_pars = list(
+#'         list(omega = 0.1, alpha1 = 0.1, beta1 = 0.8),
+#'         list(omega = 0.1, alpha1 = 0.1, beta1 = 0.8)
+#'       ),
+#'       dist_pars = list(skew = 0, shape = 1, lambda = -0.5)
+#'     )
+#'   )
+#' )
+#' ```
+#'
+#' @seealso
+#' \itemize{
+#'   \item [gogarch_modelspec()] for creating GOGARCH specifications
+#'   \item [estimate_garch_weighted_gogarch()] for GOGARCH weighted estimation
+#'   \item [radical()] for the RADICAL ICA algorithm
+#'   \item [compute_gogarch_loglik_ms()] for GOGARCH log-likelihood computation
+#'   \item `vignette("cgarch_vs_dcc", package = "tsbs")` for model comparison
+#' }
+#' 
 #' ### Diagnostics for MS VARMA GARCH 
 #' Diagnostic System: A comprehensive diagnostic system monitors
 #' convergence and numerical stability during estimation.
@@ -272,6 +557,9 @@
 #'   \item{func_outs}{List of computed function outputs for each replicate.}
 #'   \item{func_out_means}{Mean of the computed outputs across replicates.}
 #'   \item{fit}{If `return_fit = TRUE`, a list containing model fit.}
+#'   \item{diagnostics}{If `return_diagnostics = TRUE`, a `tsbs_diagnostics` 
+#'     object containing block composition, statistics, and quality metrics. 
+#'     See \code{\link{compute_bootstrap_diagnostics}}.}
 #' }
 #' 
 #' @references
@@ -324,6 +612,7 @@ tsbs <- function(
     stationary_max_percentile = 0.99,
     stationary_max_fraction_of_n = 0.10,
     return_fit = FALSE,
+    return_diagnostics = FALSE,
     fail_mode = c("predictably", "gracefully"),
     ...
     #collect_diagnostics = FALSE,
@@ -367,14 +656,18 @@ tsbs <- function(
      .is_invalid_count(num_blocks, fail_mode = fail_mode)) {
     stop("Must provide either n_boot or num_blocks.")
   } 
-  if(.is_invalid_count(n_boot, fail_mode = fail_mode)) {
-    if (is.null(block_length)) {block_length <- compute_default_block_length(x)}
-    n_boot <- num_blocks * block_length
-  }
-  if(.is_invalid_count(num_blocks, fail_mode = fail_mode)) {
-    if (is.null(block_length)) {block_length <- compute_default_block_length(x)}
-    num_blocks <- n_boot / block_length
-  }
+  
+  ## Commented out section:
+  ## This is done in blockBootstrap.cpp and does not apply to bootstrap methods
+  ## which rely on .sample_blocks() or .sample_blocks_with diagnostics().
+  # if(.is_invalid_count(n_boot, fail_mode = fail_mode)) {
+  #   if (is.null(block_length)) {block_length <- compute_default_block_length(x)}
+  #   n_boot <- num_blocks * block_length
+  # }
+  # if(.is_invalid_count(num_blocks, fail_mode = fail_mode)) {
+  #   if (is.null(block_length)) {block_length <- compute_default_block_length(x)}
+  #   num_blocks <- n_boot / block_length
+  # }
   
   
   ## Fails if NULL. Value is not calculated automatically.
@@ -507,6 +800,56 @@ tsbs <- function(
   } else {
     func_out_means <- Reduce(`+`, func_outs) / length(func_outs)
   }
+  
+  ## ---- Diagnostics Collection ----
+  diagnostics_object <- NULL
+  if (return_diagnostics) {
+    
+    # Build configuration list
+    config <- list(
+      bs_type = bs_type,
+      block_type = block_type,
+      taper_type = if (block_type == "tapered") taper_type else NA,
+      tukey_alpha = if (block_type == "tapered" && taper_type == "tukey") tukey_alpha else NA,
+      block_length = block_length,
+      n_boot = n_boot,
+      num_blocks = num_blocks,
+      num_boots = num_boots,
+      p = p,
+      p_method = if (bs_type == "stationary") p_method else NA,
+      num_states = if (bs_type %in% c("hmm", "msvar", "ms_varma_garch")) num_states else NA
+    )
+    
+    # Compute diagnostics from bootstrap series
+    diagnostics_object <- compute_bootstrap_diagnostics(
+      bootstrap_series = bootstrap_series,
+      original_data = x,
+      bs_type = bs_type,
+      config = config
+    )
+    
+    # Add method-specific diagnostics
+    if (bs_type == "stationary") {
+      diagnostics_object <- record_method_specific(
+        diagnostics_object,
+        p_estimated = p,
+        expected_block_length = if (!is.null(p)) 1/p else NA
+      )
+    }
+    
+    if (bs_type %in% c("hmm", "msvar", "ms_varma_garch") && !is.null(fit_object)) {
+      # Extract state sequence if available
+      if (!is.null(fit_object$smoothed_probabilities)) {
+        state_seq <- apply(fit_object$smoothed_probabilities, 1, which.max)
+        state_counts <- table(state_seq)
+        diagnostics_object <- record_method_specific(
+          diagnostics_object,
+          state_counts = as.list(state_counts),
+          transition_matrix = if (!is.null(fit_object$P)) fit_object$P else NA
+        )
+      }
+    }
+  }
 
   ## Build result
   result <- list(
@@ -517,6 +860,10 @@ tsbs <- function(
   
   if (return_fit && !is.null(fit_object)) {
     result$fit <- fit_object
+  }
+  
+  if (return_diagnostics && !is.null(diagnostics_object)) {
+    result$diagnostics <- diagnostics_object
   }
   
   result

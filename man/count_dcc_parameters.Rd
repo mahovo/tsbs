@@ -2,11 +2,17 @@
 % Please edit documentation in R/fit_ms_varma_garch.R
 \name{count_dcc_parameters}
 \alias{count_dcc_parameters}
-\title{Count DCC Parameters in Model}
+\title{Count DCC Parameters in Model (Deprecated)}
 \usage{
 count_dcc_parameters(model_fits)
 }
+\arguments{
+\item{model_fits}{List of state-specific model fits}
+}
+\value{
+Integer count of DCC parameters
+}
 \description{
-Count DCC Parameters in Model
+Legacy function - use count_correlation_parameters instead.
 }
 \keyword{internal}

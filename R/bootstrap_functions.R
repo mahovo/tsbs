@@ -3,7 +3,7 @@
 #' Fits a Gaussian Hidden Markov Model (HMM) to a multivariate time series
 #'   and generates bootstrap replicates by resampling regime-specific blocks.
 #'
-#' @param x Numeric vector representing the time series.
+#' @param x Numeric vector or matrix representing the time series.
 #' @param n_boot Length of bootstrap series.
 #' @param num_states Integer number of hidden states for the HMM.
 #' @param num_blocks Integer number of blocks to sample for each bootstrap
@@ -11,6 +11,11 @@
 #' @param num_boots Integer number of bootstrap replicates to generate.
 #' @param parallel Parallelize computation? `TRUE` or `FALSE`.
 #' @param num_cores Number of cores.
+#' @param return_fit Logical. If TRUE, returns the fitted HMM model along with
+#'   bootstrap samples. Default is FALSE.
+#' @param collect_diagnostics Logical. If TRUE, collects detailed diagnostic
+#'   information including regime composition of each bootstrap replicate.
+#'   Default is FALSE.
 #' @param verbose Logical. If TRUE, prints HMM fitting information and warnings.
 #'   Defaults to FALSE.
 #'
@@ -24,13 +29,12 @@
 #'   \item Samples contiguous blocks of observations belonging to each state.
 #' }
 #' 
-#' If `n_boot` is set, the last block will be truncated when necessary to match 
-#' the length (`n_boot`) of the bootstrap series. This is the only way to ensure 
-#' equal length of all bootstrap series, as the length of each block is random. 
-#' If `n_boot` is not set, `num_blocks` must be set, and the length of each 
+#' If `n_boot` is set, the last block will be trimmed when necessary.
+#' If `n_boot` is not set, and `num_blocks` is set, the length of each 
 #' bootstrap series will be determined by the number of blocks and the random 
-#' lengths of the individual blocks for that particular series. This almost 
-#' certainly results in bootstrap series of different lengths.  
+#' lengths of the individual blocks for that particular series.
+#' If neither `n_boot` nor `num_blocks` is set, `n_boot` will default to the
+#' number of rows in `x` and the last block will be trimmed when necessary.
 #'   
 #' For multivariate series (matrices or data frames), the function fits a single
 #' HMM where all variables are assumed to depend on the same underlying hidden
@@ -59,8 +63,28 @@
 #' (Beware of the "double use of data" problem: The bootstrap procedure relies 
 #'  on regime classification, but the regimes themselves are estimated from the 
 #'  same data and depend on the parameters being resampled.)
-#'   
-#' @return A list of numeric vectors, each one a bootstrap replicate.
+#'  
+#' When `collect_diagnostics = TRUE`, the function records:
+#' \itemize{
+#'   \item Original state sequence from Viterbi decoding
+#'   \item State sequence for each bootstrap replicate
+#'   \item Block information (lengths, source positions)
+#' }
+#' This information can be used with `plot_regime_composition()` to visualize
+#' how the bootstrap samples are composed from different regimes.
+#' 
+#' @return 
+#' If `return_fit = FALSE` and `collect_diagnostics = FALSE`: 
+#'   A list of bootstrap replicate matrices.
+#' 
+#' If `return_fit = TRUE` or `collect_diagnostics = TRUE`:
+#'   A list containing:
+#'   \describe{
+#'     \item{bootstrap_series}{List of bootstrap replicate matrices}
+#'     \item{fit}{(if return_fit = TRUE) The fitted depmixS4 model object}
+#'     \item{states}{The Viterbi state sequence for the original data}
+#'     \item{diagnostics}{(if collect_diagnostics = TRUE) A tsbs_diagnostics object}
+#'   }
 #' 
 #' @references
 #' Holst, U., Lindgren, G., Holst, J. and Thuvesholmen, M. (1994), Recursive 
@@ -186,6 +210,21 @@
 #'   
 #'   cat("95% Bootstrap CI for mean:", ci_95[1], "to", ci_95[2], "\n")
 #'   cat("Original mean:", mean(x_hetero), "\n")
+#'   
+#'   
+#'   ## Example 6: Basic usage
+#'   set.seed(123)
+#'   x <- matrix(rnorm(500), ncol = 2)
+#'   boot_samples <- hmm_bootstrap(x, n_boot = 400, num_states = 2, num_boots = 50)
+#'
+#'   ## With diagnostics for regime visualization
+#'   result <- hmm_bootstrap(
+#'     x, n_boot = 400, num_states = 2, num_boots = 10,
+#'     collect_diagnostics = TRUE, return_fit = TRUE
+#'   )
+#' 
+#'   ## Plot regime composition
+#'   plot_regime_composition(result, x)
 #' }
 #' }
 #'   
@@ -198,6 +237,8 @@ hmm_bootstrap <- function(
     num_boots = 100,
     parallel = FALSE,
     num_cores = 1L,
+    return_fit = FALSE,
+    collect_diagnostics = FALSE,
     verbose = FALSE
 ) {
   
@@ -212,7 +253,7 @@ hmm_bootstrap <- function(
   n <- nrow(x)
   k <- ncol(x)
   
-  ## Basic sanity checks (detailed validation happens in tsbs())
+  ## Basic sanity checks
   if (n < num_states * 3) {
     warning("Series length (", n, ") is very short relative to num_states (", num_states, 
             "). HMM fitting may be unreliable.", call. = FALSE)
@@ -222,14 +263,11 @@ hmm_bootstrap <- function(
   df <- as.data.frame(x)
   colnames(df) <- paste0("V", seq_len(ncol(df)))
   
-  # Build formula based on dimensionality
   if (k == 1) {
     formula <- as.formula("V1 ~ 1")
     family_spec <- list(gaussian())
   } else {
-    # For multivariate: each variable gets its own response
     formula_list <- lapply(colnames(df), function(v) as.formula(paste(v, "~ 1")))
-    # Replicate gaussian() family for each variable
     family_spec <- replicate(k, gaussian(), simplify = FALSE)
   }
   
@@ -257,34 +295,19 @@ hmm_bootstrap <- function(
     }
   }, error = function(e) {
     stop("Failed to create HMM model specification. ",
-         "This may be due to:\n",
-         "  - Incompatible data structure for depmixS4\n",
-         "  - Issues with the formula specification\n",
-         "  - Data contains invalid values (NA, Inf, NaN)\n",
          "Original error: ", e$message, call. = FALSE)
   })
   
   fit <- tryCatch({
     depmixS4::fit(model, verbose = verbose)
   }, error = function(e) {
-    stop("HMM fitting failed. This could be due to:\n",
-         "  - Convergence issues (try different starting values or simpler model)\n",
-         "  - Data not suitable for ", num_states, "-state HMM (try reducing num_states)\n",
-         "  - Insufficient data (need more observations relative to num_states)\n",
-         "  - Data quality issues (constant values, extreme outliers, perfect multicollinearity)\n",
-         "Original error: ", e$message, call. = FALSE)
+    stop("HMM fitting failed. Original error: ", e$message, call. = FALSE)
   }, warning = function(w) {
     if (verbose) {
       warning("HMM fitting produced a warning: ", w$message, call. = FALSE)
     }
-    ## Continue with the fit despite warnings
     suppressWarnings(depmixS4::fit(model, verbose = verbose))
   })
-  
-  ## Check convergence
-  if (!is.null(fit@message) && verbose) {
-    message("HMM fitting message: ", fit@message)
-  }
   
   ## ---- Extract State Sequence ----
   states <- tryCatch({
@@ -294,18 +317,9 @@ hmm_bootstrap <- function(
          "Original error: ", e$message, call. = FALSE)
   })
   
-  ## Validate state sequence
-  if (length(states) != n) {
-    stop("State sequence length (", length(states), 
-         ") does not match data length (", n, "). ",
-         "This is an internal error.", call. = FALSE)
-  }
-  
-  if (length(unique(states)) < num_states) {
+  if (length(unique(states)) < num_states && verbose) {
     warning("Only ", length(unique(states)), " of ", num_states, 
-            " states were observed in the Viterbi sequence. ",
-            "Some states may be too rare or the model may not fit well.",
-            call. = FALSE)
+            " states were observed in the Viterbi sequence.", call. = FALSE)
   }
   
   if (verbose) {
@@ -314,38 +328,119 @@ hmm_bootstrap <- function(
             paste(names(state_counts), "=", state_counts, collapse = ", "))
   }
   
+  ## ---- Initialize Diagnostics ----
+  diagnostics <- NULL
+  if (collect_diagnostics) {
+    diagnostics <- create_bootstrap_diagnostics(
+      bs_type = "hmm",
+      n_original = n,
+      n_vars = k,
+      num_boots = num_boots
+    )
+    
+    ## Record original series stats
+    diagnostics <- record_original_stats(diagnostics, x)
+    
+    ## Record regime information
+    state_labels <- paste("State", seq_len(num_states))
+    diagnostics <- record_regime_info(
+      diagnostics,
+      original_states = states,
+      num_states = num_states,
+      state_labels = state_labels
+    )
+    
+    ## Store HMM-specific config
+    diagnostics$config <- list(
+      num_states = num_states,
+      n_boot = n_boot,
+      num_blocks = num_blocks
+    )
+  }
+  
   ## ---- Generate Bootstrap Samples ----
   if (verbose) {
     message("Generating ", num_boots, " bootstrap samples...")
   }
   
-  bootstrap_samples <- tryCatch({
-    .sample_blocks(
-      x = x, 
-      n_boot = n_boot, 
-      num_blocks = num_blocks, 
-      states = states, 
-      num_boots = num_boots,
-      parallel = parallel,
-      num_cores = num_cores
-    )
-  }, error = function(e) {
-    stop("Bootstrap sampling failed. Original error: ", e$message, call. = FALSE)
-  })
+  ## Use the enhanced sampling function that tracks regime composition
+  sample_result <- .sample_blocks_with_diagnostics(
+    x = x, 
+    n_boot = n_boot, 
+    num_blocks = num_blocks, 
+    states = states, 
+    num_boots = num_boots,
+    parallel = parallel,
+    num_cores = num_cores,
+    collect_diagnostics = collect_diagnostics
+  )
   
-  if (verbose) {
-    message("Bootstrap complete. Generated ", length(bootstrap_samples), " samples.")
-    if (!is.null(n_boot)) {
-      message("Each sample has length ", n_boot)
-    } else {
-      sample_lengths <- sapply(bootstrap_samples, nrow)
-      message("Sample lengths: min=", min(sample_lengths), 
-              ", max=", max(sample_lengths), 
-              ", mean=", round(mean(sample_lengths), 1))
+  bootstrap_samples <- sample_result$samples
+  
+  ## ---- Record Per-Replicate Diagnostics ----
+  if (collect_diagnostics && !is.null(sample_result$replicate_info)) {
+    for (i in seq_len(num_boots)) {
+      rep_info <- sample_result$replicate_info[[i]]
+      
+      ## Record block information
+      if (!is.null(rep_info$block_lengths)) {
+        diagnostics <- record_blocks(
+          diagnostics,
+          replicate_idx = i,
+          block_lengths = rep_info$block_lengths,
+          start_positions = rep_info$block_starts,
+          block_type = "regime"
+        )
+      }
+      
+      ## Record regime composition (including source indices for probability lookup)
+      if (!is.null(rep_info$states)) {
+        diagnostics <- record_replicate_regimes(
+          diagnostics,
+          replicate_idx = i,
+          replicate_states = rep_info$states,
+          block_states = rep_info$block_states,
+          source_indices = rep_info$source_indices
+        )
+      }
+      
+      ## Record series statistics
+      diagnostics <- record_replicate_stats(
+        diagnostics,
+        replicate_idx = i,
+        bootstrap_matrix = bootstrap_samples[[i]]
+      )
     }
   }
   
-  bootstrap_samples
+  if (verbose) {
+    message("Bootstrap complete. Generated ", length(bootstrap_samples), " samples.")
+  }
+  
+  ## ---- Return Results ----
+  if (!return_fit && !collect_diagnostics) {
+    return(bootstrap_samples)
+  }
+  
+  result <- list(bootstrap_series = bootstrap_samples)
+  
+  if (return_fit) {
+    result$fit <- fit
+    result$states <- states
+    
+    ## Extract and store smoothed probabilities for plotting
+    result$smoothed_probabilities <- tryCatch({
+      post <- depmixS4::posterior(fit)
+      prob_cols <- grep("^S", names(post), value = TRUE)
+      as.matrix(post[, prob_cols])
+    }, error = function(e) NULL)
+  }
+  
+  if (collect_diagnostics) {
+    result$diagnostics <- diagnostics
+  }
+  
+  return(result)
 }
 
 
@@ -373,8 +468,21 @@ hmm_bootstrap <- function(
 #'   for generating bootstrap samples. Defaults to FALSE.
 #' @param num_cores An integer specifying the number of cores to use for
 #'   parallel processing. Only used if `parallel` is TRUE. Defaults to 1.
+#' @param return_fit Logical. If TRUE, returns the fitted MS-VAR model along with
+#'   bootstrap samples. Default is FALSE.
+#' @param collect_diagnostics Logical. If TRUE, collects detailed diagnostic
+#'   information including regime composition of each bootstrap replicate.
+#'   Default is FALSE.
+#' @param verbose Logical. If TRUE, prints fitting information. Default is TRUE.
 #'   
 #' @details
+#' This function:
+#' \itemize{
+#'   \item Fits a 2-state MS-VAR(1) model using \code{fit_msvar()}
+#'   \item Uses smoothed probabilities to determine the most likely state sequence
+#'   \item Samples contiguous blocks of observations within each regime
+#' }
+#' 
 #' - \eqn{y_t \in \mathbb{R}^K} be a **$K$-dimensional multivariate response vector** at time \eqn{t}
 #' - \eqn{S_t \in {1, \dots, M}} be a **latent Markov chain** with \eqn{M} discrete regimes
 #' - \eqn{p} be the **lag order** of the VAR model
@@ -388,12 +496,36 @@ hmm_bootstrap <- function(
 #' - \eqn{A_i^{(S_t)} \in \mathbb{R}^{K \times K}} are the **regime-specific autoregressive coefficient matrices**
 #' - \eqn{\Sigma^{(S_t)} \in \mathbb{R}^{K \times K}} is the regime-specific error covariance matrix
 #' 
-#' Note: The bootstrap helper function requires the 'foreach' and 'doParallel'
-#' packages if `parallel = TRUE`.
+#' If `n_boot` is set, the last block will be trimmed when necessary.
+#' If `n_boot` is not set, and `num_blocks` is set, the length of each 
+#' bootstrap series will be determined by the number of blocks and the random 
+#' lengths of the individual blocks for that particular series.
+#' If neither `n_boot` nor `num_blocks` is set, `n_boot` will default to the
+#' number of rows in `x` and the last block will be trimmed when necessary.
+#' 
+#' When \code{collect_diagnostics = TRUE}, the function records:
+#' \itemize{
+#'   \item Original state sequence from smoothed probabilities
+#'   \item State sequence for each bootstrap replicate
+#'   \item Block information (lengths, source positions)
+#'   \item Source indices for probability reconstruction
+#' }
 #'
-#' @return A list of bootstrapped time series matrices.
+#' @return 
+#' If \code{return_fit = FALSE} and \code{collect_diagnostics = FALSE}: 
+#'   A list of bootstrap replicate matrices.
+#'   
+#' Otherwise, a list containing:
+#' \describe{
+#'   \item{bootstrap_series}{List of bootstrap replicate matrices}
+#'   \item{fit}{(if return_fit = TRUE) The fitted MS-VAR model object}
+#'   \item{states}{The state sequence for the original data}
+#'   \item{smoothed_probabilities}{(if return_fit = TRUE) Matrix of smoothed state probabilities}
+#'   \item{diagnostics}{(if collect_diagnostics = TRUE) A tsbs_diagnostics object}
+#' }
 #'
 #' @examples
+#' \dontrun{
 #' # Generate sample data
 #' set.seed(123)
 #' T_obs <- 250
@@ -401,11 +533,18 @@ hmm_bootstrap <- function(
 #' y2 <- 0.5 * y1 + arima.sim(model = list(ar = 0.3), n = T_obs)
 #' sample_data <- cbind(y1, y2)
 #'
-#' # Run the bootstrap function (assuming fit_msvar is loaded)
-#' # bootstrap_results <- msvar_bootstrap(sample_data, num_boots = 5)
+#' # Basic bootstrap
+#' boot_samples <- msvar_bootstrap(sample_data, num_boots = 50)
 #'
-#' # View results
-#' # str(bootstrap_results)
+#' # With diagnostics for visualization
+#' result <- msvar_bootstrap(
+#'   sample_data, 
+#'   num_boots = 10,
+#'   return_fit = TRUE,
+#'   collect_diagnostics = TRUE
+#' )
+#' plot_regime_composition(result, sample_data)
+#' }
 #'
 #' @export
 msvar_bootstrap <- function(
@@ -414,49 +553,138 @@ msvar_bootstrap <- function(
     num_blocks = NULL,
     num_boots = 100,
     parallel = FALSE,
-    num_cores = 1L
+    num_cores = 1L,
+    return_fit = FALSE,
+    collect_diagnostics = FALSE,
+    verbose = TRUE
 ) {
   
+  ## ---- Data Preparation ----
+  if (!is.matrix(x)) {
+    x <- as.matrix(x)
+  }
+  n <- nrow(x)
+  k <- ncol(x)
+  
   ## ---- 1. Fit the MS-VAR(1) Model ----
-  ## The fit_msvar function handles data validation (e.g., converting to matrix)
-  ## and all internal model fitting steps.
-  ## It is hardcoded for a 2-state, VAR(1) model, simplifying this wrapper.
-  message("Fitting the MS-VAR(1) model...")
+  if (verbose) {
+    message("Fitting the MS-VAR(1) model...")
+  }
   ms_model <- fit_msvar(x)
   
   ## ---- 2. Determine the Most Likely State Sequence ----
-  ## The output from fit_msvar contains the smoothed probabilities for each state.
-  ## We find the most likely state for each time point (row).
   smoothed_probs <- ms_model$smoothed_probabilities
   state_seq <- apply(smoothed_probs, 1, which.max)
   
   ## The state sequence is one observation shorter than the original series
-  ## because the VAR model requires an initial lag. We prepend the first state
-  ## to align the sequence with the original data's length.
+  ## because the VAR model requires an initial lag. Prepend the first state.
   state_seq_aligned <- c(state_seq[1], state_seq)
   
-  ## ---- 3. Generate Bootstrap Samples ----
-  ## This part calls a helper function that performs the actual stationary
-  ## block bootstrap based on the state sequence.
-  message("Generating bootstrap samples...")
+  ## Also align smoothed probabilities (prepend first row)
+  smoothed_probs_aligned <- rbind(smoothed_probs[1, , drop = FALSE], smoothed_probs)
   
-  ## Ensure x is a matrix for the helper function
-  if (!is.matrix(x)) {
-    x <- as.matrix(x)
+  num_states <- ncol(smoothed_probs)
+  
+  ## ---- 3. Initialize Diagnostics ----
+  diagnostics <- NULL
+  if (collect_diagnostics) {
+    diagnostics <- create_bootstrap_diagnostics(
+      bs_type = "msvar",
+      n_original = n,
+      n_vars = k,
+      num_boots = num_boots
+    )
+    
+    ## Record original series stats
+    diagnostics <- record_original_stats(diagnostics, x)
+    
+    ## Record regime information
+    state_labels <- paste("State", seq_len(num_states))
+    diagnostics <- record_regime_info(
+      diagnostics,
+      original_states = state_seq_aligned,
+      num_states = num_states,
+      state_labels = state_labels
+    )
+    
+    ## Store config
+    diagnostics$config <- list(
+      num_states = num_states,
+      n_boot = n_boot,
+      num_blocks = num_blocks
+    )
   }
   
-  bootstrap_samples <- .sample_blocks(
+  ## ---- 4. Generate Bootstrap Samples ----
+  if (verbose) {
+    message("Generating bootstrap samples...")
+  }
+  
+  ## Use the enhanced sampling function that tracks regime composition
+  sample_result <- .sample_blocks_with_diagnostics(
     x = x,
     n_boot = n_boot,
     num_blocks = num_blocks,
-    states = state_seq_aligned, ## Use 'states' to match the helper function's 
-                                ## parameter
+    states = state_seq_aligned,
     num_boots = num_boots,
     parallel = parallel,
-    num_cores = num_cores
+    num_cores = num_cores,
+    collect_diagnostics = collect_diagnostics
   )
   
-  return(bootstrap_samples)
+  bootstrap_samples <- sample_result$samples
+  
+  ## ---- 5. Record Per-Replicate Diagnostics ----
+  if (collect_diagnostics && !is.null(sample_result$replicate_info)) {
+    for (i in seq_len(num_boots)) {
+      rep_info <- sample_result$replicate_info[[i]]
+      
+      if (!is.null(rep_info$block_lengths)) {
+        diagnostics <- record_blocks(
+          diagnostics,
+          replicate_idx = i,
+          block_lengths = rep_info$block_lengths,
+          start_positions = rep_info$block_starts,
+          block_type = "regime"
+        )
+      }
+      
+      if (!is.null(rep_info$states)) {
+        diagnostics <- record_replicate_regimes(
+          diagnostics,
+          replicate_idx = i,
+          replicate_states = rep_info$states,
+          block_states = rep_info$block_states,
+          source_indices = rep_info$source_indices
+        )
+      }
+      
+      diagnostics <- record_replicate_stats(
+        diagnostics,
+        replicate_idx = i,
+        bootstrap_matrix = bootstrap_samples[[i]]
+      )
+    }
+  }
+  
+  ## ---- 6. Return Results ----
+  if (!return_fit && !collect_diagnostics) {
+    return(bootstrap_samples)
+  }
+  
+  result <- list(bootstrap_series = bootstrap_samples)
+  
+  if (return_fit) {
+    result$fit <- ms_model
+    result$states <- state_seq_aligned
+    result$smoothed_probabilities <- smoothed_probs_aligned
+  }
+  
+  if (collect_diagnostics) {
+    result$diagnostics <- diagnostics
+  }
+  
+  return(result)
 }
 
 
@@ -467,13 +695,13 @@ msvar_bootstrap <- function(
 #' block bootstrap. This generates resampled time series that preserve the 
 #' state-dependent properties of the original data.
 #'
-#' @param x A numeric matrix or data frame where rows are observations and
-#'   columns are the time series variables.
+#' @param x A numeric matrix where rows are observations and columns are the time
+#'   series variables.
 #' @param n_boot An integer specifying the length of each bootstrapped series.
-#'   If NULL (the default), the length of the original series is used.
+#'   Default is `NULL`.
 #' @param num_blocks An integer specifying the number of blocks to sample for
 #'   the bootstrap. Defaults to 100.
-#' @param num_boots An integer specifying the total number of bootstrap samples
+#' @param num_boots An integer specifying the total number of bootstrapped series
 #'   to generate. Defaults to 100.
 #' @param M An integer specifying the number of states in the Markov chain.
 #' @param d An integer specifying the order of differencing for the ARIMA model.
@@ -495,6 +723,14 @@ msvar_bootstrap <- function(
 #'   output is written to this file instead. Only used if verbose = TRUE.
 #' 
 #' @details
+#' 
+#' If `n_boot` is set, the last block will be trimmed when necessary.
+#' If `n_boot` is not set, and `num_blocks` is set, the length of each 
+#' bootstrap series will be determined by the number of blocks and the random 
+#' lengths of the individual blocks for that particular series.
+#' If neither `n_boot` nor `num_blocks` is set, `n_boot` will default to the
+#' number of rows in `x` and the last block will be trimmed when necessary.
+#' 
 #' The fitted model is defined as:  
 #' 
 #' Let \eqn{y_t} be the \eqn{k \times 1} vector of observations at time \eqn{t}.
@@ -599,12 +835,34 @@ ms_varma_garch_bs <- function(
 ) {
   
   ## ---- 1. Input Validation ----
+  
   model_type <- match.arg(model_type)
+  
+  ## Redundant precaution: Ensure x is a matrix.
+  ## At this point x is supposed to have been coerced into a matrix by tsbs()
+  if (!is.matrix(x)) {
+    x <- as.matrix(x)
+  }
+  
+  n <- nrow(x)
+  k <- ncol(x)
+  
+  ## Ensure number of bootstrapped series is valid
   if (is.null(num_boots) || !is.numeric(num_boots) || num_boots < 1) {
     stop("num_boots must be a positive integer.", call. = FALSE)
   }
+  
+  ## If n_boot is not set, num_blocks must be set, and the length of each 
+  ## bootstrap series will be determined by the number of blocks and the random 
+  ## lengths of the individual blocks for that particular series.
+  ## If neither of n_boot and num_blocks are set, n_boot will be set to the 
+  ## number of rows in x
   if (is.null(n_boot) && is.null(num_blocks)) {
-    stop("Must provide a valid value for either n_boot or num_blocks", call. = FALSE)
+    #stop("Must provide a valid value for either n_boot or num_blocks", call. = FALSE)
+    n_boot <- n
+  }
+  if (!is.null(n_boot) && !is.null(num_blocks)) {
+    warning("`num_blocks` is ignored when `n_boot` is set.")
   }
   
   ## ---- 2. Fit the MS-VARMA-GARCH Model ----
@@ -629,41 +887,127 @@ ms_varma_garch_bs <- function(
   smoothed_probs <- ms_model$smoothed_probabilities
   state_seq <- apply(smoothed_probs, 1, which.max)
   
-  ## Handle potential leading NAs from differencing by forward-filling the first valid state.
+  ## Handle potential leading NAs from differencing by forward-filling the first 
+  ## valid state.
   if (anyNA(state_seq)) {
     first_valid_state_idx <- min(which(!is.na(state_seq)))
     first_valid_state <- state_seq[first_valid_state_idx]
     state_seq[1:(first_valid_state_idx - 1)] <- first_valid_state
+    
+    ## Also fill NAs in smoothed_probs for consistency
+    for (i in 1:(first_valid_state_idx - 1)) {
+      smoothed_probs[i, ] <- smoothed_probs[first_valid_state_idx, ]
+    }
   }
   
-  ## ---- 4. Generate Bootstrap Samples ----
+  num_states <- M
+  
+  ## ---- 4. Initialize Diagnostics ----
+  diagnostics <- NULL
+  if (collect_diagnostics) {
+    diagnostics <- create_bootstrap_diagnostics(
+      bs_type = "ms_varma_garch",
+      n_original = n,
+      n_vars = k,
+      num_boots = num_boots
+    )
+    
+    ## Record original series stats
+    diagnostics <- record_original_stats(diagnostics, x)
+    
+    ## Record regime information
+    state_labels <- paste("State", seq_len(num_states))
+    diagnostics <- record_regime_info(
+      diagnostics,
+      original_states = state_seq,
+      num_states = num_states,
+      state_labels = state_labels
+    )
+    
+    ## Store config
+    diagnostics$config <- list(
+      num_states = num_states,
+      n_boot = n_boot,
+      num_blocks = num_blocks,
+      model_type = model_type,
+      d = d
+    )
+    
+    ## If ms_model has its own diagnostics, merge them
+    if (!is.null(ms_model$diagnostics)) {
+      diagnostics$method_specific$ms_model_diagnostics <- ms_model$diagnostics
+    }
+  }
+  
+  ## ---- 5. Generate Bootstrap Samples ----
   ## This part calls the existing helper function that performs the actual
   ## stationary block bootstrap based on the state sequence.
   message("Generating bootstrap samples...")
-  
-  ## Ensure x is a matrix for the helper function
-  if (!is.matrix(x)) {
-    x <- as.matrix(x)
-  }
-  
-  bootstrap_samples <- .sample_blocks(
+
+  sample_result <- .sample_blocks_with_diagnostics(
     x = x,
     n_boot = n_boot,
     num_blocks = num_blocks,
     states = state_seq,
     num_boots = num_boots,
     parallel = parallel,
-    num_cores = num_cores
+    num_cores = num_cores,
+    collect_diagnostics = collect_diagnostics
   )
   
-  if (return_fit) {
-    list(
-      bootstrap_series = bootstrap_samples,
-      fit = ms_model
-    )
-  } else {
-    bootstrap_samples
+  bootstrap_samples <- sample_result$samples
+  
+  ## ---- 6. Record Per-Replicate Diagnostics ----
+  if (collect_diagnostics && !is.null(sample_result$replicate_info)) {
+    for (i in seq_len(num_boots)) {
+      rep_info <- sample_result$replicate_info[[i]]
+      
+      if (!is.null(rep_info$block_lengths)) {
+        diagnostics <- record_blocks(
+          diagnostics,
+          replicate_idx = i,
+          block_lengths = rep_info$block_lengths,
+          start_positions = rep_info$block_starts,
+          block_type = "regime"
+        )
+      }
+      
+      if (!is.null(rep_info$states)) {
+        diagnostics <- record_replicate_regimes(
+          diagnostics,
+          replicate_idx = i,
+          replicate_states = rep_info$states,
+          block_states = rep_info$block_states,
+          source_indices = rep_info$source_indices
+        )
+      }
+      
+      diagnostics <- record_replicate_stats(
+        diagnostics,
+        replicate_idx = i,
+        bootstrap_matrix = bootstrap_samples[[i]]
+      )
+    }
   }
+  
+  ## ---- 7. Return Results ----
+  if (!return_fit && !collect_diagnostics) {
+    return(bootstrap_samples)
+  }
+  
+  result <- list(bootstrap_series = bootstrap_samples)
+  
+  if (return_fit) {
+    result$fit <- ms_model
+    result$states <- state_seq
+    result$smoothed_probabilities <- smoothed_probs
+  }
+  
+  if (collect_diagnostics) {
+    result$diagnostics <- diagnostics
+  }
+  
+  return(result)
 }
 
 
@@ -835,8 +1179,15 @@ wild_bootstrap <- function(
       `%dopar%` <- foreach::`%dopar%`
     }
   }
+  
+  ## If n_boot is not set, num_blocks must be set, and the length of each 
+  ## bootstrap series will be determined by the number of blocks and the random 
+  ## lengths of the individual blocks for that particular series.
+  ## If neither of n_boot and num_blocks are set, n_boot will be set to the 
+  ## number of rows in x
   if (is.null(n_boot) && is.null(num_blocks)) {
-    stop("Must provide a valid value for either n_boot or num_blocks")
+    #stop("Must provide a valid value for either n_boot or num_blocks")
+    n_boot <- nrow(x) 
   }
   if (!is.null(n_boot) && !is.null(num_blocks)) {
     warning("`num_blocks` is ignored when `n_boot` is set.")
@@ -859,4 +1210,163 @@ wild_bootstrap <- function(
   }
   
   sampled_series
+}
+
+
+#' Enhanced Block Sampling with Diagnostic Tracking
+#'
+#' Internal function that performs regime-based block sampling while optionally
+#' tracking diagnostic information about each bootstrap replicate.
+#'
+#' @param x Original data matrix.
+#' @param n_boot Target bootstrap length.
+#' @param num_blocks Number of blocks to sample.
+#' @param states State sequence for original data.
+#' @param num_boots Number of bootstrap replicates.
+#' @param parallel Use parallel processing.
+#' @param num_cores Number of cores.
+#' @param collect_diagnostics Track diagnostic info.
+#'
+#' @return List with samples and optional replicate_info.
+#' @keywords internal
+.sample_blocks_with_diagnostics <- function(
+    x,
+    n_boot,
+    num_blocks,
+    states,
+    num_boots,
+    parallel = FALSE,
+    num_cores = 1L,
+    collect_diagnostics = FALSE
+) {
+  
+  ## If n_boot is not set, num_blocks must be set, and the length of each 
+  ## bootstrap series will be determined by the number of blocks and the random 
+  ## lengths of the individual blocks for that particular series.
+  ## If neither of n_boot and num_blocks are set, n_boot will be set to the 
+  ## number of rows in x
+  if (is.null(n_boot) && is.null(num_blocks)) {
+    #stop("Must provide a valid value for either n_boot or num_blocks")
+    n_boot <- nrow(x) 
+  }
+  if (!is.null(n_boot) && !is.null(num_blocks)) {
+    warning("`num_blocks` is ignored when `n_boot` is set.")
+  }
+  
+  ## ---- Identify blocks ----
+  r <- rle(states)
+  ends <- cumsum(r$lengths)
+  n_orig <- nrow(x)
+  n_states <- length(states)
+  offset <- n_orig - n_states
+  
+  starts <- c(1, head(ends, -1) + 1)
+  block_states <- r$values
+  
+  blocks <- Map(
+    function(s, e, st) list(start = s + offset, end = e + offset, state = st),
+    starts, ends, block_states
+  )
+  
+  get_block <- function(b) {
+    x[b$start:b$end, , drop = FALSE]
+  }
+  
+  ## ---- Sampling Function ----
+  sample_one_replicate <- function(idx) {
+    if (!is.null(n_boot)) {
+      ## Fixed-length sampling
+      bootstrap_series <- x[0, , drop = FALSE]
+      sampled_block_indices <- integer(0)
+      source_row_indices <- integer(0)  # Track original row indices
+      
+      while (nrow(bootstrap_series) < n_boot) {
+        block_idx <- sample(length(blocks), 1)
+        sampled_block_indices <- c(sampled_block_indices, block_idx)
+        b <- blocks[[block_idx]]
+        source_row_indices <- c(source_row_indices, b$start:b$end)
+        bootstrap_series <- rbind(bootstrap_series, get_block(b))
+      }
+      
+      final_length <- n_boot
+      bootstrap_series <- bootstrap_series[seq_len(final_length), , drop = FALSE]
+      source_row_indices <- source_row_indices[seq_len(final_length)]
+      
+    } else {
+      ## Variable-length sampling (num_blocks determines length)
+      sampled_block_indices <- sample(length(blocks), num_blocks, replace = TRUE)
+      bootstrap_blocks <- lapply(sampled_block_indices, function(i) get_block(blocks[[i]]))
+      bootstrap_series <- do.call(rbind, bootstrap_blocks)
+      
+      ## Track source indices
+      source_row_indices <- unlist(lapply(sampled_block_indices, function(i) {
+        b <- blocks[[i]]
+        b$start:b$end
+      }))
+      
+      final_length <- nrow(bootstrap_series)
+    }
+    
+    ## Compute replicate state sequence
+    if (collect_diagnostics) {
+      rep_states <- integer(0)
+      block_lengths <- integer(0)
+      block_starts <- integer(0)
+      block_state_vec <- integer(0)
+      
+      for (bi in sampled_block_indices) {
+        b <- blocks[[bi]]
+        block_len <- b$end - b$start + 1
+        rep_states <- c(rep_states, rep(b$state, block_len))
+        block_lengths <- c(block_lengths, block_len)
+        block_starts <- c(block_starts, b$start)
+        block_state_vec <- c(block_state_vec, b$state)
+      }
+      
+      ## Trim to match series length
+      rep_states <- rep_states[seq_len(final_length)]
+      
+      list(
+        series = bootstrap_series,
+        info = list(
+          states = rep_states,
+          block_lengths = block_lengths,
+          block_starts = block_starts,
+          block_states = block_state_vec,
+          source_indices = source_row_indices  # For probability lookup
+        )
+      )
+    } else {
+      list(series = bootstrap_series, info = NULL)
+    }
+  }
+  
+  ## ---- Run Sampling ----
+  if (parallel && num_cores > 1) {
+    if (!requireNamespace("foreach", quietly = TRUE) || 
+        !requireNamespace("doParallel", quietly = TRUE)) {
+      stop("Packages 'foreach' and 'doParallel' required for parallel execution.")
+    }
+    
+    cl <- parallel::makeCluster(num_cores)
+    doParallel::registerDoParallel(cl)
+    on.exit(parallel::stopCluster(cl), add = TRUE)
+    
+    `%dopar%` <- foreach::`%dopar%`
+    results <- foreach::foreach(i = seq_len(num_boots)) %dopar% {
+      sample_one_replicate(i)
+    }
+  } else {
+    results <- lapply(seq_len(num_boots), sample_one_replicate)
+  }
+  
+  ## ---- Extract Results ----
+  samples <- lapply(results, `[[`, "series")
+  replicate_info <- if (collect_diagnostics) {
+    lapply(results, `[[`, "info")
+  } else {
+    NULL
+  }
+  
+  list(samples = samples, replicate_info = replicate_info)
 }

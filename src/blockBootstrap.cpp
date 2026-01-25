@@ -50,12 +50,20 @@ Rcpp::NumericVector bartlett_weights(int block_length) {
 
 
 // Tukey window (a.k.a. tapered cosine window).
-// Allows tuning of the taper via alpha ∈ [0, 1]:
+// Allows tuning of the taper via alpha ∈ (0, 1]:
 // alpha = 0 → rectangular (no taper)
 // alpha = 1 → Hann (fully tapered) 
+//' @export
 // [[Rcpp::export]]
 Rcpp::NumericVector tukey_weights(int block_length, double alpha = 0.5) {
   Rcpp::NumericVector w(block_length);
+  
+  // Handle alpha = 0 (Rectangular window) explicitly to avoid division by zero
+  if (alpha <= 0.0) {
+    std::fill(w.begin(), w.end(), 1.0);
+    return w;
+  }
+  
   double N = static_cast<double>(block_length - 1);
   
   for (int i = 0; i < block_length; ++i) {

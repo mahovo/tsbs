@@ -1,0 +1,619 @@
+---
+title: "Copula GARCH vs DCC: Model Comparison and Diagnostics"
+author: "tsbs Package"
+date: "`r Sys.Date()`"
+output: 
+  rmarkdown::html_vignette:
+    toc: true
+    toc_depth: 3
+    number_sections: true
+vignette: >
+  %\VignetteIndexEntry{Copula GARCH vs DCC: Model Comparison and Diagnostics}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r setup, include = FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>",
+  fig.width = 7,
+  fig.height = 5,
+  warning = FALSE,
+  message = FALSE
+)
+```
+
+# Overview
+
+This vignette compares two approaches for modeling dynamic correlations in 
+multivariate time series within the `tsbs` package's Markov-Switching 
+VARMA-GARCH framework:
+
+1. **DCC (Dynamic Conditional Correlation)**: Models correlation dynamics 
+   directly on standardized residuals
+2. **Copula GARCH (CGARCH)**: Separates marginal distributions from the 
+   dependence structure using copulas
+
+Both models can be used with the `tsbs()` function for bootstrap inference
+and with `fit_ms_varma_garch()` for model estimation.
+
+## When to Use Which Model
+
+| Consideration | DCC | Copula GARCH |
+|--------------|-----|--------------|
+| Computational speed | Faster | More flexible |
+| Marginal distributions | Normal assumed | Any (via PIT) |
+| Tail dependence | Limited | Student-t copula |
+| Interpretation | Direct | Via copula |
+| Analytical gradients | Full support | DCC(1,1) only |
+
+**Use DCC when:**
+
+- Speed is critical (e.g., many bootstrap replications)
+- Normal marginals are reasonable
+- Simple interpretation is preferred
+
+**Use Copula GARCH when:**
+
+- Non-normal marginals are important
+- Tail dependence matters (use MVT copula)
+- Semi-parametric flexibility is needed
+
+# Mathematical Background
+
+## DCC Model
+
+The DCC model specifies correlation dynamics directly:
+
+$$Q_t = \bar{Q}(1 - \alpha - \beta) + \alpha z_{t-1}z_{t-1}' + \beta Q_{t-1}$$
+
+$$R_t = \text{diag}(Q_t)^{-1/2} Q_t \text{diag}(Q_t)^{-1/2}$$
+
+where $z_t = \Sigma_t^{-1/2} \varepsilon_t$ are standardized residuals and 
+$\Sigma_t$ is the conditional covariance matrix.
+
+The log-likelihood combines univariate GARCH and correlation components:
+
+$$\ell = \sum_t \left[ -\frac{1}{2} \log|R_t| - \frac{1}{2} z_t' R_t^{-1} z_t + \frac{1}{2} z_t' z_t \right] + \sum_i \ell_i^{GARCH}$$
+
+## Copula GARCH Model
+
+Copula GARCH separates the problem into marginals and dependence:
+
+**Step 1: Probability Integral Transform (PIT)**
+
+Transform standardized residuals $z_{it}$ to uniform margins:
+
+$$u_{it} = F_i(z_{it})$$
+
+where $F_i$ is the marginal CDF (parametric, empirical, or semi-parametric).
+
+**Step 2: Copula Transformation**
+
+Transform uniform margins to copula space:
+
+- Gaussian copula: $\tilde{z}_{it} = \Phi^{-1}(u_{it})$
+- Student-t copula: $\tilde{z}_{it} = t_\nu^{-1}(u_{it}) / \sqrt{\nu/(\nu-2)}$
+
+**Step 3: Correlation Dynamics**
+
+Apply DCC/ADCC dynamics to $\tilde{z}_t$ (same as DCC, but on copula residuals).
+
+**Copula Log-Likelihood**
+
+For Gaussian copula:
+$$\ell_c = \sum_t \left[ -\frac{1}{2} \log|R_t| - \frac{1}{2} \tilde{z}_t' R_t^{-1} \tilde{z}_t + \frac{1}{2} \tilde{z}_t' \tilde{z}_t \right]$$
+
+For Student-t copula (adds tail dependence):
+$$\ell_c = \sum_t \left[ \log \Gamma\left(\frac{k+\nu}{2}\right) - \log \Gamma\left(\frac{\nu}{2}\right) - \frac{k}{2}\log(\pi(\nu-2)) - \frac{1}{2}\log|R_t| - \frac{\nu+k}{2}\log\left(1 + \frac{q_t}{\nu-2}\right) - \sum_i \log f_t(\tilde{z}_{it}) \right]$$
+
+## ADCC Extension
+
+Both DCC and Copula GARCH support asymmetric dynamics (ADCC):
+
+$$Q_t = \Omega + \alpha z_{t-1}z_{t-1}' + \gamma n_{t-1}n_{t-1}' + \beta Q_{t-1}$$
+
+where $n_t = z_t \odot \mathbf{1}_{z_t < 0}$ captures negative shocks.
+
+# Practical Comparison
+
+## Setup
+
+```{r load_packages, eval=FALSE}
+library(tsbs)
+library(tsgarch)
+library(tsmarch)
+library(ggplot2)
+library(dplyr)
+```
+
+## Simulating Test Data
+
+We'll simulate data with known correlation structure to compare both models:
+
+```{r simulate_data, eval=FALSE}
+set.seed(42)
+
+# Simulate bivariate series with time-varying correlation
+n <- 500
+k <- 2
+
+# True parameters
+omega_true <- c(0.05, 0.08)
+alpha_garch_true <- c(0.10, 0.12)
+beta_garch_true <- c(0.85, 0.82)
+dcc_alpha_true <- 0.05
+dcc_beta_true <- 0.90
+
+# Simulate using DCC-GARCH
+y_sim <- simulate_dcc_garch(
+  n = n,
+  k = k,
+  omega = omega_true,
+  alpha_garch = alpha_garch_true,
+  beta_garch = beta_garch_true,
+  dcc_alpha = dcc_alpha_true,
+  dcc_beta = dcc_beta_true,
+  seed = 42
+)
+
+cat("Simulated data summary:\n")
+cat("  Mean:", round(colMeans(y_sim), 4), "\n")
+cat("  SD:", round(apply(y_sim, 2, sd), 4), "\n")
+cat("  Empirical correlation:", round(cor(y_sim)[1,2], 4), "\n")
+```
+
+## DCC Specification
+
+```{r dcc_spec, eval=FALSE}
+# Define univariate GARCH specification
+spec_uni <- list(
+  model = "garch",
+  garch_order = c(1, 1),
+  distribution = "norm"
+)
+
+# DCC specification for 2-state model
+spec_dcc <- list(
+  # State 1: Low volatility
+  list(
+    var_order = 1,
+    garch_spec_fun = "dcc_modelspec",
+    distribution = "mvn",
+    garch_spec_args = list(
+      dcc_order = c(1, 1),
+      dynamics = "dcc",
+      distribution = "mvn",
+      garch_model = list(univariate = list(spec_uni, spec_uni))
+    ),
+    start_pars = list(
+      var_pars = rep(0, 6),
+      garch_pars = list(
+        list(omega = 0.05, alpha1 = 0.08, beta1 = 0.85),
+        list(omega = 0.05, alpha1 = 0.08, beta1 = 0.85)
+      ),
+      dcc_pars = list(alpha_1 = 0.05, beta_1 = 0.90),
+      dist_pars = NULL
+    )
+  ),
+  # State 2: High volatility
+  list(
+    var_order = 1,
+    garch_spec_fun = "dcc_modelspec",
+    distribution = "mvn",
+    garch_spec_args = list(
+      dcc_order = c(1, 1),
+      dynamics = "dcc",
+      distribution = "mvn",
+      garch_model = list(univariate = list(spec_uni, spec_uni))
+    ),
+    start_pars = list(
+      var_pars = rep(0, 6),
+      garch_pars = list(
+        list(omega = 0.15, alpha1 = 0.12, beta1 = 0.80),
+        list(omega = 0.15, alpha1 = 0.12, beta1 = 0.80)
+      ),
+      dcc_pars = list(alpha_1 = 0.08, beta_1 = 0.85),
+      dist_pars = NULL
+    )
+  )
+)
+```
+
+## Copula GARCH Specification
+
+```{r cgarch_spec, eval=FALSE}
+# CGARCH specification - note the key differences:
+# - garch_spec_fun = "cgarch_modelspec"
+# - transformation argument
+# - copula argument
+
+spec_cgarch <- list(
+  # State 1: Low volatility
+  list(
+    var_order = 1,
+    garch_spec_fun = "cgarch_modelspec",  # KEY DIFFERENCE
+    distribution = "mvn",
+    garch_spec_args = list(
+      dcc_order = c(1, 1),
+      dynamics = "dcc",
+      transformation = "parametric",       # PIT method
+      copula = "mvn",                      # Copula type
+      garch_model = list(univariate = list(spec_uni, spec_uni))
+    ),
+    start_pars = list(
+      var_pars = rep(0, 6),
+      garch_pars = list(
+        list(omega = 0.05, alpha1 = 0.08, beta1 = 0.85),
+        list(omega = 0.05, alpha1 = 0.08, beta1 = 0.85)
+      ),
+      dcc_pars = list(alpha_1 = 0.05, beta_1 = 0.90),
+      dist_pars = NULL
+    )
+  ),
+  # State 2: High volatility
+  list(
+    var_order = 1,
+    garch_spec_fun = "cgarch_modelspec",
+    distribution = "mvn",
+    garch_spec_args = list(
+      dcc_order = c(1, 1),
+      dynamics = "dcc",
+      transformation = "parametric",
+      copula = "mvn",
+      garch_model = list(univariate = list(spec_uni, spec_uni))
+    ),
+    start_pars = list(
+      var_pars = rep(0, 6),
+      garch_pars = list(
+        list(omega = 0.15, alpha1 = 0.12, beta1 = 0.80),
+        list(omega = 0.15, alpha1 = 0.12, beta1 = 0.80)
+      ),
+      dcc_pars = list(alpha_1 = 0.08, beta_1 = 0.85),
+      dist_pars = NULL
+    )
+  )
+)
+```
+
+## Fitting Both Models
+
+```{r fit_models, eval=FALSE}
+# Fit DCC model
+fit_dcc <- fit_ms_varma_garch(
+  y = y_sim,
+  M = 2,
+  spec = spec_dcc,
+  model_type = "multivariate",
+  control = list(max_iter = 50, tol = 1e-4),
+  collect_diagnostics = TRUE,
+  verbose = FALSE
+)
+
+# Fit CGARCH model
+fit_cgarch <- fit_ms_varma_garch(
+  y = y_sim,
+  M = 2,
+  spec = spec_cgarch,
+  model_type = "multivariate",
+  control = list(max_iter = 50, tol = 1e-4),
+  collect_diagnostics = TRUE,
+  verbose = FALSE
+)
+
+cat("DCC final log-likelihood:", fit_dcc$log_likelihood, "\n")
+cat("CGARCH final log-likelihood:", fit_cgarch$log_likelihood, "\n")
+```
+
+# Diagnostic Comparison
+
+## Convergence Analysis
+
+```{r convergence, eval=FALSE}
+# Extract log-likelihood trajectories
+ll_dcc <- sapply(fit_dcc$diagnostics$em_iterations, 
+                 function(x) x$log_lik_after_mstep)
+ll_cgarch <- sapply(fit_cgarch$diagnostics$em_iterations,
+                    function(x) x$log_lik_after_mstep)
+
+# Plot convergence
+df_conv <- data.frame(
+  iteration = c(seq_along(ll_dcc), seq_along(ll_cgarch)),
+  log_likelihood = c(ll_dcc, ll_cgarch),
+  model = c(rep("DCC", length(ll_dcc)), rep("CGARCH", length(ll_cgarch)))
+)
+
+ggplot(df_conv, aes(x = iteration, y = log_likelihood, color = model)) +
+  geom_line(linewidth = 1) +
+  geom_point(size = 2) +
+  labs(
+    title = "EM Algorithm Convergence: DCC vs CGARCH",
+    x = "EM Iteration",
+    y = "Log-Likelihood",
+    color = "Model"
+  ) +
+  theme_minimal() +
+  scale_color_manual(values = c("DCC" = "#1f77b4", "CGARCH" = "#ff7f0e"))
+```
+
+## Parameter Estimates Comparison
+
+```{r params, eval=FALSE}
+# Extract final parameters
+get_dcc_params <- function(fit, state) {
+  pars <- fit$model_fits[[state]]
+  list(
+    alpha = pars$dcc_pars$alpha_1,
+    beta = pars$dcc_pars$beta_1,
+    persistence = pars$dcc_pars$alpha_1 + pars$dcc_pars$beta_1
+  )
+}
+
+# Compare
+cat("State 1 DCC Parameters:\n")
+cat("  DCC Model:", unlist(get_dcc_params(fit_dcc, 1)), "\n")
+cat("  CGARCH Model:", unlist(get_dcc_params(fit_cgarch, 1)), "\n")
+
+cat("\nState 2 DCC Parameters:\n")
+cat("  DCC Model:", unlist(get_dcc_params(fit_dcc, 2)), "\n")
+cat("  CGARCH Model:", unlist(get_dcc_params(fit_cgarch, 2)), "\n")
+```
+
+## State Probabilities
+
+```{r states, eval=FALSE}
+# Compare smoothed state probabilities
+prob_dcc <- fit_dcc$smoothed_probabilities[, 1]
+prob_cgarch <- fit_cgarch$smoothed_probabilities[, 1]
+
+df_states <- data.frame(
+  time = 1:length(prob_dcc),
+  DCC = prob_dcc,
+  CGARCH = prob_cgarch
+)
+
+# Correlation between state assignments
+cat("Correlation of State 1 probabilities:", 
+    cor(prob_dcc, prob_cgarch), "\n")
+
+# Plot
+df_long <- tidyr::pivot_longer(df_states, cols = c(DCC, CGARCH),
+                                names_to = "model", values_to = "probability")
+
+ggplot(df_long, aes(x = time, y = probability, color = model)) +
+  geom_line(alpha = 0.7) +
+  labs(
+    title = "State 1 Probability: DCC vs CGARCH",
+    x = "Time",
+    y = "P(State = 1)",
+    color = "Model"
+  ) +
+  theme_minimal() +
+  scale_color_manual(values = c("DCC" = "#1f77b4", "CGARCH" = "#ff7f0e"))
+```
+
+# Transformation Methods in CGARCH
+
+## Comparing PIT Transformations
+
+The CGARCH model supports three transformation methods:
+
+1. **Parametric**: Uses fitted distribution CDF
+2. **Empirical**: Uses empirical CDF (non-parametric)
+3. **SPD**: Semi-parametric distribution (kernel + parametric tails)
+
+```{r transformations, eval=FALSE}
+# Create specs with different transformations
+transformations <- c("parametric", "empirical", "spd")
+
+results <- list()
+for (trans in transformations) {
+  spec_trans <- spec_cgarch
+  for (s in 1:2) {
+    spec_trans[[s]]$garch_spec_args$transformation <- trans
+  }
+  
+  fit <- fit_ms_varma_garch(
+    y = y_sim,
+    M = 2,
+    spec = spec_trans,
+    model_type = "multivariate",
+    control = list(max_iter = 30, tol = 1e-4),
+    verbose = FALSE
+  )
+  
+  results[[trans]] <- list(
+    log_likelihood = fit$log_likelihood,
+    aic = fit$aic,
+    bic = fit$bic
+  )
+}
+
+# Compare
+cat("Transformation Comparison:\n")
+cat(sprintf("%-12s %12s %12s %12s\n", "Method", "Log-Lik", "AIC", "BIC"))
+for (trans in transformations) {
+  cat(sprintf("%-12s %12.2f %12.2f %12.2f\n", 
+              trans, 
+              results[[trans]]$log_likelihood,
+              results[[trans]]$aic,
+              results[[trans]]$bic))
+}
+```
+
+# Copula Distribution Choice
+
+## Gaussian vs Student-t Copula
+
+The Student-t copula captures tail dependence, which is important when
+extreme observations tend to occur together.
+
+```{r copula_dist, eval=FALSE}
+# MVT copula specification
+spec_mvt <- spec_cgarch
+for (s in 1:2) {
+  spec_mvt[[s]]$garch_spec_args$copula <- "mvt"
+  spec_mvt[[s]]$distribution <- "mvt"
+  spec_mvt[[s]]$start_pars$dist_pars <- list(shape = 8)
+}
+
+fit_mvt <- fit_ms_varma_garch(
+  y = y_sim,
+  M = 2,
+  spec = spec_mvt,
+  model_type = "multivariate",
+  control = list(max_iter = 50, tol = 1e-4),
+  verbose = FALSE
+)
+
+cat("Copula Distribution Comparison:\n")
+cat("  MVN Log-Likelihood:", fit_cgarch$log_likelihood, "\n")
+cat("  MVT Log-Likelihood:", fit_mvt$log_likelihood, "\n")
+cat("  MVT shape (df) estimates:", 
+    fit_mvt$model_fits[[1]]$dist_pars$shape, ",",
+    fit_mvt$model_fits[[2]]$dist_pars$shape, "\n")
+```
+
+## Tail Dependence Interpretation
+
+For a Student-t copula with $\nu$ degrees of freedom, the lower and upper
+tail dependence coefficients are:
+
+$$\lambda_L = \lambda_U = 2 t_{\nu+1}\left( -\sqrt{\frac{(\nu+1)(1-\rho)}{1+\rho}} \right)$$
+
+where $\rho$ is the correlation. As $\nu \to \infty$, $\lambda \to 0$ 
+(Gaussian copula has no tail dependence).
+
+```{r tail_dep, eval=FALSE}
+# Function to compute tail dependence
+tail_dependence <- function(rho, nu) {
+  if (nu > 1000) return(0)  # Gaussian limit
+  arg <- -sqrt((nu + 1) * (1 - rho) / (1 + rho))
+  2 * pt(arg, df = nu + 1)
+}
+
+# Example: compare tail dependence for different df
+df_values <- c(4, 8, 15, 30, 100)
+rho <- 0.5
+
+cat("Tail dependence coefficient (ρ = 0.5):\n")
+for (df in df_values) {
+  cat(sprintf("  ν = %3d: λ = %.4f\n", df, tail_dependence(rho, df)))
+}
+```
+
+# ADCC: Asymmetric Dynamics
+
+## Leverage Effects in Correlations
+
+ADCC captures the tendency for correlations to increase after negative shocks
+(market stress).
+
+```{r adcc, eval=FALSE}
+# ADCC specification
+spec_adcc <- spec_cgarch
+for (s in 1:2) {
+  spec_adcc[[s]]$garch_spec_args$dynamics <- "adcc"
+  spec_adcc[[s]]$start_pars$dcc_pars <- list(
+    alpha_1 = 0.03,
+    gamma_1 = 0.02,  # Asymmetry parameter
+    beta_1 = 0.90
+  )
+}
+
+fit_adcc <- fit_ms_varma_garch(
+  y = y_sim,
+  M = 2,
+  spec = spec_adcc,
+  model_type = "multivariate",
+  control = list(max_iter = 50, tol = 1e-4),
+  verbose = FALSE
+)
+
+cat("DCC vs ADCC Comparison:\n")
+cat("  DCC Log-Likelihood:", fit_cgarch$log_likelihood, "\n")
+cat("  ADCC Log-Likelihood:", fit_adcc$log_likelihood, "\n")
+cat("  Likelihood Ratio Test Statistic:", 
+    2 * (fit_adcc$log_likelihood - fit_cgarch$log_likelihood), "\n")
+cat("  p-value (χ² with 2 df):", 
+    pchisq(2 * (fit_adcc$log_likelihood - fit_cgarch$log_likelihood), 
+           df = 2, lower.tail = FALSE), "\n")
+```
+
+# Bootstrap Comparison
+
+## Running Bootstrap with Both Models
+
+```{r bootstrap, eval=FALSE}
+# DCC bootstrap
+boot_dcc <- tsbs(
+  x = y_sim,
+  bs_type = "ms_varma_garch",
+  num_states = 2,
+  spec = spec_dcc,
+  model_type = "multivariate",
+  num_boots = 100,
+  return_fit = TRUE,
+  verbose = FALSE
+)
+
+# CGARCH bootstrap
+boot_cgarch <- tsbs(
+  x = y_sim,
+  bs_type = "ms_varma_garch",
+  num_states = 2,
+  spec = spec_cgarch,
+  model_type = "multivariate",
+  num_boots = 100,
+  return_fit = TRUE,
+  verbose = FALSE
+)
+
+# Compare bootstrap distributions
+cat("Bootstrap Comparison:\n")
+cat("  DCC mean of means:", mean(boot_dcc$func_out_means), "\n")
+cat("  CGARCH mean of means:", mean(boot_cgarch$func_out_means), "\n")
+```
+
+# Summary and Suggestions
+
+## Model Selection Guidelines
+
+1. **Start with DCC** for initial analysis - it's faster and often sufficient
+
+2. **Consider CGARCH when:**
+   - Marginal distributions show significant non-normality
+   - QQ-plots suggest heavy tails
+   - Tail dependence is theoretically expected (e.g., crisis contagion)
+   - BIC/AIC favor CGARCH over DCC
+
+3. **Transformation choice:**
+   - `parametric`: When univariate distributions are well-specified
+   - `empirical`: When marginal misspecification is a concern
+   - `spd`: Best of both worlds, but computationally more expensive
+
+4. **Copula choice:**
+   - `mvn`: Default, no tail dependence
+   - `mvt`: When tail dependence matters; lower shape = stronger dependence
+
+5. **Dynamics choice:**
+   - `constant`: When correlation is time-invariant
+   - `dcc`: Standard dynamic correlation
+   - `adcc`: When leverage effects in correlation are expected
+
+## Diagnostic Checklist
+
+- [ ] Check log-likelihood convergence (monotonic increase)
+- [ ] Compare AIC/BIC across models
+- [ ] Examine state probability alignment
+- [ ] Verify parameter stationarity constraints
+- [ ] Check for boundary estimates (α ≈ 0 or persistence ≈ 1)
+- [ ] Compare univariate GARCH diagnostics across models
+- [ ] Test for asymmetry if using ADCC
+
+# Session Info
+
+```{r session, eval=FALSE}
+sessionInfo()
+```

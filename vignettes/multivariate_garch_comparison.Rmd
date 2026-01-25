@@ -1,0 +1,469 @@
+---
+title: "Multivariate GARCH Model Comparison: DCC, CGARCH, and GOGARCH"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{Multivariate GARCH Model Comparison: DCC, CGARCH, and GOGARCH}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r setup, include = FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>",
+  fig.width = 7,
+  fig.height = 5
+)
+```
+
+## Overview
+
+The tsbs package supports three multivariate GARCH correlation specifications for
+modeling time-varying dependence in financial time series:
+
+1. **DCC** (Dynamic Conditional Correlation) - Engle (2002)
+2. **CGARCH** (Copula GARCH) - Patton (2006), Jondeau & Rockinger (2006)
+3. **GOGARCH** (Generalized Orthogonal GARCH) - van der Weide (2002)
+
+This vignette compares these three approaches, highlighting their:
+
+- Theoretical foundations and model structure
+- Key assumptions and flexibility
+- Computational considerations
+- Appropriate use cases
+- Integration with the MS-VARMA-GARCH bootstrap framework
+
+## Model Taxonomy
+
+```
+Multivariate GARCH Correlation Models
+├── Correlation-Based Approaches
+│   ├── DCC (dcc_modelspec)
+│   │   └── Models correlation dynamics directly
+│   └── CGARCH (cgarch_modelspec)
+│       └── Separates marginals from dependence via copulas
+└── Factor-Based Approach
+    └── GOGARCH (gogarch_modelspec)
+        └── Derives correlation from independent components
+```
+
+---
+
+## Part I: DCC (Dynamic Conditional Correlation)
+
+### Model Structure
+
+The DCC model of Engle (2002) specifies time-varying correlations through a
+two-stage process:
+
+**Stage 1: Univariate GARCH**
+
+For each series $i = 1, \ldots, k$:
+$$r_{i,t} = \mu_{i,t} + \varepsilon_{i,t}, \quad \varepsilon_{i,t} = \sigma_{i,t} z_{i,t}$$
+$$\sigma_{i,t}^2 = \omega_i + \alpha_i \varepsilon_{i,t-1}^2 + \beta_i \sigma_{i,t-1}^2$$
+
+**Stage 2: Correlation Dynamics**
+
+The standardized residuals $z_t = (z_{1,t}, \ldots, z_{k,t})'$ follow DCC dynamics:
+$$Q_t = (1 - \alpha - \beta) \bar{Q} + \alpha z_{t-1} z_{t-1}' + \beta Q_{t-1}$$
+$$R_t = \text{diag}(Q_t)^{-1/2} \, Q_t \, \text{diag}(Q_t)^{-1/2}$$
+
+where $\bar{Q}$ is the unconditional covariance of $z_t$, and $R_t$ is the
+time-varying correlation matrix.
+
+### Key Parameters
+
+| Parameter | Description | Typical Range |
+|-----------|-------------|---------------|
+| $\alpha$ | News impact (ARCH effect) | 0.01 - 0.10 |
+| $\beta$ | Persistence (GARCH effect) | 0.85 - 0.98 |
+| $\alpha + \beta$ | Total persistence | < 1 (stationarity) |
+
+### Assumptions
+
+1. **Normality or Student-t**: Standardized residuals follow MVN or MVT
+2. **Scalar dynamics**: Same $\alpha, \beta$ for all correlation pairs
+3. **Symmetric response**: No distinction between positive/negative shocks
+
+### Usage in tsbs
+
+```{r eval=FALSE}
+spec <- list(
+  list(
+    var_order = 1,
+    garch_spec_fun = "dcc_modelspec",
+    distribution = "mvn",  # or "mvt"
+    garch_spec_args = list(
+      dcc_order = c(1, 1),
+      garch_model = list(...)
+    )
+  )
+)
+```
+
+### Strengths
+
+- Simple, parsimonious (only 2 correlation parameters)
+- Computationally efficient
+- Well-established asymptotic theory
+- Good for capturing smooth correlation dynamics
+
+### Limitations
+
+- Assumes common dynamics across all pairs
+- Limited flexibility for marginal distributions
+- May miss asymmetric dependence patterns
+- "Flat beta problem" in inference (see inference guide)
+
+---
+
+## Part II: CGARCH (Copula GARCH)
+
+### Model Structure
+
+Copula GARCH separates marginal distributions from the dependence structure
+using copula theory.
+
+**Stage 1: Univariate GARCH + PIT**
+
+Same univariate GARCH as DCC, but with Probability Integral Transform:
+$$u_{i,t} = F_i(z_{i,t} | \theta_i)$$
+
+where $F_i$ is the marginal CDF. This transforms residuals to uniform $[0,1]$.
+
+**Stage 2: Copula Transformation**
+
+Transform uniform margins to copula residuals:
+$$\tilde{z}_{i,t} = \Phi^{-1}(u_{i,t}) \quad \text{(Gaussian copula)}$$
+$$\tilde{z}_{i,t} = t_\nu^{-1}(u_{i,t}) \quad \text{(Student-t copula)}$$
+
+**Stage 3: Correlation Dynamics**
+
+Apply DCC-style dynamics to copula residuals:
+$$Q_t = (1 - \alpha - \beta) \bar{Q} + \alpha \tilde{z}_{t-1} \tilde{z}_{t-1}' + \beta Q_{t-1}$$
+
+### PIT Transformation Methods
+
+| Method | Description | Use Case |
+|--------|-------------|----------|
+| `parametric` | Uses fitted distribution CDF | Standard approach |
+| `empirical` | Uses empirical CDF | Non-parametric, robust |
+| `spd` | Semi-parametric distribution | Flexible tails |
+
+### Copula Distributions
+
+| Copula | Properties | Parameters |
+|--------|------------|------------|
+| `mvn` | Gaussian | None (symmetric) |
+| `mvt` | Student-t | Shape $\nu$ (tail dependence) |
+
+### ADCC Extension
+
+CGARCH supports Asymmetric DCC (ADCC) for leverage effects:
+$$Q_t = (1 - \alpha - \beta - \delta\bar{\gamma}) \bar{Q} + \alpha \tilde{z}_{t-1} \tilde{z}_{t-1}' + \beta Q_{t-1} + \gamma n_{t-1} n_{t-1}'$$
+
+where $n_t = \tilde{z}_t \cdot \mathbf{1}(\tilde{z}_t < 0)$ captures negative shocks.
+
+### Usage in tsbs
+
+```{r eval=FALSE}
+spec <- list(
+  list(
+    var_order = 1,
+    garch_spec_fun = "cgarch_modelspec",
+    distribution = "mvn",  # copula distribution
+    garch_spec_args = list(
+      dcc_order = c(1, 1),
+      dynamics = "dcc",           # or "adcc", "constant"
+      transformation = "parametric",  # or "empirical", "spd"
+      copula = "mvn",             # or "mvt"
+      garch_model = list(univariate = list(...))
+    )
+  )
+)
+```
+
+### Comparison: DCC vs CGARCH
+
+| Aspect | DCC | CGARCH |
+|--------|-----|--------|
+| Marginal distributions | Implicitly normal | Flexible via PIT |
+| Tail dependence | Limited (MVT only) | Student-t copula |
+| Transformation step | None | PIT to uniform |
+| Asymmetric dynamics | Not standard | ADCC available |
+| Complexity | Lower | Higher |
+| Parameters | 2 (α, β) | 2-4 (α, β, [γ], [ν]) |
+
+### Strengths
+
+- Flexible marginal distributions
+- Captures tail dependence with MVT copula
+- ADCC for asymmetric correlation response
+- SPD transformation for robust tail modeling
+
+### Limitations
+
+- Higher computational cost
+- More parameters to estimate
+- Same "flat beta problem" as DCC
+- PIT step introduces additional estimation uncertainty
+
+---
+
+## Part III: GOGARCH (Generalized Orthogonal GARCH)
+
+### Model Structure
+
+GOGARCH takes a fundamentally different approach: instead of modeling
+correlations directly, it models multivariate volatility through independent
+components.
+
+**Stage 1: ICA Decomposition**
+
+Decompose observed residuals into independent components:
+$$\varepsilon_t = A \cdot s_t$$
+
+where $A$ is the mixing matrix and $s_t$ are independent components.
+Equivalently: $s_t = W \cdot \varepsilon_t$ where $W = A^{-1}$ is the unmixing matrix.
+
+**Stage 2: Component GARCH**
+
+Each independent component follows univariate GARCH:
+$$s_{i,t} = \sqrt{h_{i,t}} \cdot \eta_{i,t}$$
+$$h_{i,t} = \omega_i + \alpha_{1,i} s_{i,t-1}^2 + \beta_{1,i} h_{i,t-1}$$
+
+where $\eta_{i,t} \stackrel{iid}{\sim} (0, 1)$.
+
+**Stage 3: Covariance Reconstruction**
+
+Time-varying covariance is reconstructed via:
+$$\Sigma_t = A \cdot H_t \cdot A'$$
+
+where $H_t = \text{diag}(h_{1,t}, \ldots, h_{k,t})$.
+
+The correlation matrix is:
+$$R_t = D_t^{-1} \Sigma_t D_t^{-1}$$
+
+where $D_t = \text{diag}(\sqrt{\Sigma_{11,t}}, \ldots, \sqrt{\Sigma_{kk,t}})$.
+
+### ICA Methods
+
+| Method | Algorithm | Properties |
+|--------|-----------|------------|
+| `radical` | RADICAL | Robust, outlier-resistant |
+| `fastica` | FastICA | Fast, widely used |
+| `jade` | JADE | Joint diagonalization |
+
+### Key Insight: No Direct Correlation Parameters
+
+Unlike DCC/CGARCH, GOGARCH has **no α, β parameters for correlation dynamics**.
+Instead, time-varying correlations emerge from:
+
+1. The fixed mixing matrix $A$ (estimated via ICA)
+2. The time-varying component variances $h_{i,t}$ (via GARCH)
+
+### Usage in tsbs
+
+```{r eval=FALSE}
+spec <- list(
+  list(
+    var_order = 1,
+    garch_spec_fun = "gogarch_modelspec",
+    distribution = "norm",  # or "std"
+    garch_spec_args = list(
+      ica_method = "radical",  # or "fastica"
+      garch_model = list(
+        model = "garch",
+        garch_order = c(1, 1)
+      )
+    )
+  )
+)
+```
+
+### Comparison: DCC/CGARCH vs GOGARCH
+
+| Aspect | DCC/CGARCH | GOGARCH |
+|--------|------------|---------|
+| Correlation source | Explicit dynamics | ICA + component volatility |
+| Main parameters | α, β (correlation) | ω, α₁, β₁ per component |
+| Number of params | 2-4 total | 3k (k = series) |
+| Estimation | Two-stage MLE | ICA + GARCH MLE |
+| Correlation dynamics | Smooth, autoregressive | Can be more complex |
+| Cross-sectional | Scalar (common) | Component-specific |
+
+### Strengths
+
+- No assumption of common dynamics across pairs
+- Can capture complex correlation patterns
+- Natural for factor-based modeling
+- Higher-order moments (coskewness, cokurtosis) available
+
+### Limitations
+
+- ICA estimation uncertainty
+- Requires more series for reliable ICA
+- Mixing matrix interpretation can be challenging
+- Higher computational cost for many series
+
+---
+
+## Part IV: Model Selection Guide
+
+### When to Use DCC
+
+- **Few series** (2-10): DCC is parsimonious
+- **Smooth correlation dynamics**: DCC captures gradual changes
+- **Quick estimation**: DCC is fastest
+- **Established benchmarks**: DCC is standard in finance
+
+### When to Use CGARCH
+
+- **Non-normal marginals**: When univariate distributions are clearly non-Gaussian
+- **Tail dependence matters**: For risk management with extreme events
+- **Asymmetric correlation response**: Use ADCC for leverage effects
+- **Robust tail modeling**: SPD transformation for heavy tails
+
+### When to Use GOGARCH
+
+- **Factor structure suspected**: When underlying independent factors drive returns
+- **Higher-order moments needed**: Coskewness/cokurtosis for portfolio optimization
+- **Complex correlation patterns**: When DCC dynamics are too restrictive
+- **Many series with latent structure**: Natural for factor models
+
+### Decision Flowchart
+
+```
+Start
+  │
+  ├─ Are marginals clearly non-normal?
+  │   ├─ Yes → Consider CGARCH
+  │   └─ No  → Continue
+  │
+  ├─ Is there a suspected factor structure?
+  │   ├─ Yes → Consider GOGARCH
+  │   └─ No  → Continue
+  │
+  ├─ Need asymmetric correlation response?
+  │   ├─ Yes → Use CGARCH with ADCC
+  │   └─ No  → Continue
+  │
+  ├─ Is parsimony important?
+  │   ├─ Yes → Use DCC
+  │   └─ No  → Consider all three
+  │
+  └─ Default: DCC (simplest, well-understood)
+```
+
+---
+
+## Part V: Inference Considerations
+
+### The Flat Beta Problem (DCC & CGARCH)
+
+Both DCC and CGARCH share the same correlation dynamics, leading to:
+
+- Likelihood surface ~8x flatter in β direction than α
+- Hessian-based SEs underestimate β uncertainty by ~5-6x
+- **Suggestion**: Use bootstrap for β inference
+
+### GOGARCH Inference
+
+GOGARCH has different challenges:
+
+- ICA estimation uncertainty not captured by Hessian
+- Two-stage estimation (ICA then GARCH)
+- **Suggestion**: Always use bootstrap for all parameters
+
+### Summary Table
+
+| Model | α SE Method | β SE Method | Other Parameters |
+|-------|-------------|-------------|------------------|
+| DCC | Hessian OK | Bootstrap | Shape: Hessian OK |
+| CGARCH | Hessian OK | Bootstrap | γ, ν: Bootstrap |
+| GOGARCH | Bootstrap | Bootstrap | All: Bootstrap |
+
+---
+
+## Part VI: Computational Considerations
+
+### Estimation Time (Typical)
+
+| Model | Small (k=2) | Medium (k=5) | Large (k=10) |
+|-------|-------------|--------------|--------------|
+| DCC | Fast | Fast | Moderate |
+| CGARCH | Moderate | Moderate | Slow |
+| GOGARCH | Moderate | Slow | Very Slow |
+
+### Memory Usage
+
+- **DCC/CGARCH**: Stores k×k correlation matrices per time point
+- **GOGARCH**: Stores ICA decomposition + k volatility series
+
+### Parallelization
+
+All three models support parallelization in the tsbs bootstrap:
+
+```{r eval=FALSE}
+library(future)
+plan(multisession, workers = 4)
+
+result <- tsbs(
+  data = data,
+  spec = spec,
+  n_boot = 1000,
+  parallel = TRUE
+)
+```
+
+---
+
+## Part VII: Integration with MS-VARMA-GARCH
+
+All three models integrate with the Markov-Switching framework:
+
+```{r eval=FALSE}
+# Two-regime model with DCC
+spec_ms <- list(
+  # Regime 1: Low volatility
+  list(
+    var_order = 1,
+    garch_spec_fun = "dcc_modelspec",
+    distribution = "mvn"
+  ),
+  # Regime 2: High volatility
+  list(
+    var_order = 1,
+    garch_spec_fun = "dcc_modelspec",
+    distribution = "mvt"
+  )
+)
+
+# Can mix model types across regimes
+spec_mixed <- list(
+  # Regime 1: Simple DCC
+  list(garch_spec_fun = "dcc_modelspec", ...),
+  # Regime 2: CGARCH for crises (better tail modeling)
+  list(garch_spec_fun = "cgarch_modelspec", ...)
+)
+```
+
+---
+
+## References
+
+**DCC**:
+- Engle, R. (2002). Dynamic conditional correlation: A simple class of multivariate GARCH models. *Journal of Business & Economic Statistics*, 20(3), 339-350.
+- Aielli, G. P. (2013). Dynamic conditional correlation: On properties and estimation. *JBES*, 31(3), 282-299.
+
+**Copula GARCH**:
+- Patton, A. J. (2006). Modelling asymmetric exchange rate dependence. *International Economic Review*, 47(2), 527-556.
+- Jondeau, E. & Rockinger, M. (2006). The Copula-GARCH model of conditional dependencies. *Journal of International Money and Finance*, 25(5), 827-853.
+
+**GOGARCH**:
+- van der Weide, R. (2002). GO-GARCH: A multivariate generalized orthogonal GARCH model. *Journal of Applied Econometrics*, 17(5), 549-564.
+- Boswijk, H. P. & van der Weide, R. (2011). Method of moments estimation of GO-GARCH models. *Journal of Econometrics*, 163(1), 118-126.
+
+**ICA**:
+- Learned-Miller, E. G. (2003). ICA using spacings estimates of entropy. *JMLR*, 4, 1271-1295.
+- Hyvärinen, A. & Oja, E. (2000). Independent component analysis: algorithms and applications. *Neural Networks*, 13(4-5), 411-430.

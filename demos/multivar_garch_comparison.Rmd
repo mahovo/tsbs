@@ -1,0 +1,903 @@
+---
+title: "Multivariate GARCH Model Comparison Demo"
+subtitle: "DCC vs CGARCH vs GOGARCH: A Practical Comparison"
+author: "tsbs package"
+date: "`r Sys.Date()`"
+output: 
+  html_document:
+    toc: true
+    toc_float: true
+    toc_depth: 3
+    code_folding: show
+    theme: flatly
+    highlight: tango
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>",
+  fig.width = 9,
+  fig.height = 6,
+  message = FALSE,
+  warning = FALSE
+)
+devtools::load_all()
+```
+
+## Overview
+
+This demo provides a hands-on comparison of the three multivariate GARCH 
+correlation models supported by the tsbs package:
+
+1. **DCC** - Dynamic Conditional Correlation
+2. **CGARCH** - Copula GARCH  
+3. **GOGARCH** - Generalized Orthogonal GARCH
+
+We simulate data, fit all three models, and compare their:
+
+- Parameter estimates
+- Correlation dynamics
+- Log-likelihood and model fit
+- Computational characteristics
+
+```{r load-packages}
+library(tsbs)
+set.seed(42)
+```
+
+---
+
+# Part I: Data Simulation
+
+We simulate a 3-dimensional return series with known time-varying correlations.
+This allows us to evaluate how well each model recovers the true dynamics.
+
+## True Data Generating Process
+
+We use a DCC-style process as the true DGP, which allows us to assess
+how well DCC recovers the truth, and how CGARCH and GOGARCH approximate it.
+
+```{r simulate-true-dgp}
+## Simulation parameters
+n <- 1000        # Number of observations
+k <- 3           # Number of series
+
+## True DCC parameters
+alpha_true <- 0.06
+beta_true <- 0.92
+persistence_true <- alpha_true + beta_true
+
+## True unconditional correlation matrix
+Qbar_true <- matrix(c(
+  1.00, 0.50, 0.30,
+  0.50, 1.00, 0.40,
+  0.30, 0.40, 1.00
+), nrow = 3, byrow = TRUE)
+
+## True univariate GARCH parameters (for each series)
+garch_true <- list(
+  series1 = list(omega = 0.05, alpha = 0.08, beta = 0.90),
+  series2 = list(omega = 0.03, alpha = 0.06, beta = 0.92),
+  series3 = list(omega = 0.04, alpha = 0.10, beta = 0.88)
+)
+
+cat("True DGP Parameters\n")
+cat("===================\n")
+cat("DCC: alpha =", alpha_true, ", beta =", beta_true, "\n")
+cat("Unconditional correlation matrix:\n")
+print(round(Qbar_true, 2))
+```
+
+```{r simulate-data}
+## Initialize storage
+returns <- matrix(0, n, k)
+z <- matrix(0, n, k)
+sigma <- matrix(0, n, k)
+Q <- array(0, dim = c(k, k, n))
+R <- array(0, dim = c(k, k, n))
+
+## Initialize
+Q[,,1] <- Qbar_true
+R[,,1] <- Qbar_true
+
+## Initialize univariate variances
+for (i in 1:k) {
+  pars <- garch_true[[i]]
+  sigma[1, i] <- sqrt(pars$omega / (1 - pars$alpha - pars$beta))
+}
+
+## Generate first observation
+L1 <- chol(Qbar_true)
+z[1, ] <- as.vector(t(L1) %*% rnorm(k))
+returns[1, ] <- sigma[1, ] * z[1, ]
+
+## Simulate full process
+for (t in 2:n) {
+  ## Update univariate GARCH variances
+  for (i in 1:k) {
+    pars <- garch_true[[i]]
+    sigma[t, i] <- sqrt(pars$omega + pars$alpha * returns[t-1, i]^2 + 
+                         pars$beta * sigma[t-1, i]^2)
+  }
+  
+  ## Update DCC dynamics
+  z_lag <- z[t-1, , drop = FALSE]
+  Q[,,t] <- (1 - alpha_true - beta_true) * Qbar_true + 
+            alpha_true * (t(z_lag) %*% z_lag) + 
+            beta_true * Q[,,t-1]
+  
+  ## Normalize to correlation matrix
+  d_t <- sqrt(diag(Q[,,t]))
+  D_inv <- diag(1 / d_t, k)
+  R[,,t] <- D_inv %*% Q[,,t] %*% D_inv
+  
+  ## Ensure valid correlation matrix
+  R_t <- (R[,,t] + t(R[,,t])) / 2
+  diag(R_t) <- 1
+  
+  ## Make positive definite if needed
+  eig <- eigen(R_t, symmetric = TRUE)
+  if (any(eig$values < 1e-8)) {
+    eig$values[eig$values < 1e-8] <- 1e-8
+    R_t <- eig$vectors %*% diag(eig$values) %*% t(eig$vectors)
+    d <- sqrt(diag(R_t))
+    R_t <- diag(1/d) %*% R_t %*% diag(1/d)
+  }
+  
+  ## Generate correlated standardized residuals
+  L <- chol(R_t)
+  z[t, ] <- as.vector(t(L) %*% rnorm(k))
+  
+  ## Generate returns
+  returns[t, ] <- sigma[t, ] * z[t, ]
+}
+
+## Store true correlations for comparison
+true_cor_12 <- sapply(1:n, function(t) R[1, 2, t])
+true_cor_13 <- sapply(1:n, function(t) R[1, 3, t])
+true_cor_23 <- sapply(1:n, function(t) R[2, 3, t])
+
+cat("\nSimulation complete:", n, "observations\n")
+cat("Sample statistics:\n")
+cat("  Mean returns:", round(colMeans(returns), 4), "\n")
+cat("  SD returns:", round(apply(returns, 2, sd), 4), "\n")
+cat("  Sample correlation:\n")
+print(round(cor(returns), 3))
+```
+
+## Visualize True Dynamics
+
+```{r plot-true-dynamics, fig.height=8}
+par(mfrow = c(3, 1), mar = c(4, 4, 2, 1))
+
+## Returns
+matplot(1:n, returns, type = "l", lty = 1, col = 1:3,
+        xlab = "Time", ylab = "Returns",
+        main = "Simulated Returns")
+legend("topright", legend = paste("Series", 1:3), col = 1:3, lty = 1, cex = 0.8)
+
+## True correlations
+plot(1:n, true_cor_12, type = "l", col = "blue", ylim = c(0, 0.8),
+     xlab = "Time", ylab = "Correlation",
+     main = "True Time-Varying Correlations")
+lines(1:n, true_cor_13, col = "red")
+lines(1:n, true_cor_23, col = "darkgreen")
+abline(h = c(0.5, 0.3, 0.4), col = c("blue", "red", "darkgreen"), lty = 2)
+legend("topright", legend = c("ρ(1,2)", "ρ(1,3)", "ρ(2,3)"), 
+       col = c("blue", "red", "darkgreen"), lty = 1, cex = 0.8)
+
+## Volatilities
+matplot(1:n, sigma, type = "l", lty = 1, col = 1:3,
+        xlab = "Time", ylab = "Volatility (σ)",
+        main = "True Conditional Volatilities")
+legend("topright", legend = paste("Series", 1:3), col = 1:3, lty = 1, cex = 0.8)
+
+par(mfrow = c(1, 1))
+```
+
+---
+
+# Part II: Stage 1 - Univariate GARCH Estimation
+
+All three models share a common first stage: univariate GARCH estimation.
+
+```{r stage1-garch}
+## Estimate univariate GARCH for each series
+garch_fits <- list()
+std_resid <- matrix(0, n, k)
+sigma_hat <- matrix(0, n, k)
+
+for (i in 1:k) {
+  ## Simple GARCH(1,1) estimation via MLE
+  garch_nll <- function(pars, y) {
+    omega <- pars[1]
+    alpha <- pars[2]
+    beta <- pars[3]
+    
+    if (omega <= 0 || alpha < 0 || beta < 0 || alpha + beta >= 1) {
+      return(1e10)
+    }
+    
+    T_obs <- length(y)
+    sigma2 <- omega / (1 - alpha - beta)
+    nll <- 0
+    
+    for (t in 1:T_obs) {
+      if (t > 1) {
+        sigma2 <- omega + alpha * y[t-1]^2 + beta * sigma2
+      }
+      sigma2 <- max(sigma2, 1e-10)
+      nll <- nll + 0.5 * (log(sigma2) + y[t]^2 / sigma2)
+    }
+    nll
+  }
+  
+  ## Optimize
+  opt_i <- optim(
+    par = c(0.05, 0.05, 0.90),
+    fn = garch_nll,
+    y = returns[, i],
+    method = "L-BFGS-B",
+    lower = c(1e-8, 1e-8, 1e-8),
+    upper = c(1, 0.5, 0.999)
+  )
+  
+  garch_fits[[i]] <- list(
+    omega = opt_i$par[1],
+    alpha = opt_i$par[2],
+    beta = opt_i$par[3],
+    nll = opt_i$value
+  )
+  
+  ## Extract conditional volatility and standardized residuals
+  sigma2 <- garch_fits[[i]]$omega / (1 - garch_fits[[i]]$alpha - garch_fits[[i]]$beta)
+  for (t in 1:n) {
+    sigma_hat[t, i] <- sqrt(sigma2)
+    std_resid[t, i] <- returns[t, i] / sigma_hat[t, i]
+    if (t < n) {
+      sigma2 <- garch_fits[[i]]$omega + garch_fits[[i]]$alpha * returns[t, i]^2 + 
+                garch_fits[[i]]$beta * sigma2
+    }
+  }
+}
+
+## Prepare common inputs for Stage 2
+weights <- rep(1, n)
+Qbar_hat <- cor(std_resid)
+```
+
+```{r stage1-output, echo=FALSE}
+cat("Stage 1: Univariate GARCH Estimates\n")
+cat("====================================\n\n")
+
+for (i in 1:k) {
+  true_pars <- garch_true[[i]]
+  est_pars <- garch_fits[[i]]
+  
+  cat(sprintf("Series %d:\n", i))
+  cat(sprintf("  omega: est=%.5f (true=%.5f)\n", est_pars$omega, true_pars$omega))
+  cat(sprintf("  alpha: est=%.4f  (true=%.4f)\n", est_pars$alpha, true_pars$alpha))
+  cat(sprintf("  beta:  est=%.4f  (true=%.4f)\n", est_pars$beta, true_pars$beta))
+  cat(sprintf("  persistence: est=%.4f (true=%.4f)\n\n", 
+              est_pars$alpha + est_pars$beta, true_pars$alpha + true_pars$beta))
+}
+
+cat("Sample correlation of standardized residuals:\n")
+print(round(Qbar_hat, 3))
+```
+
+---
+
+# Part III: DCC Estimation
+
+## DCC Model Fitting
+
+```{r dcc-estimation}
+## DCC(1,1) negative log-likelihood
+dcc_nll_local <- function(params, z, w, Qbar) {
+  alpha <- params[1]
+  beta <- params[2]
+  
+  if (alpha < 0 || beta < 0 || alpha + beta >= 1) {
+    return(1e10)
+  }
+  
+  T_obs <- nrow(z)
+  k_dim <- ncol(z)
+  Q <- Qbar
+  nll <- 0
+  
+  for (t in 1:T_obs) {
+    if (t > 1) {
+      z_lag <- z[t-1, , drop = FALSE]
+      Q <- (1 - alpha - beta) * Qbar + alpha * (t(z_lag) %*% z_lag) + beta * Q
+    }
+    
+    ## Normalize to R
+    d <- sqrt(diag(Q))
+    d[d < 1e-8] <- 1e-8
+    D_inv <- diag(1 / d, k_dim)
+    R_t <- D_inv %*% Q %*% D_inv
+    diag(R_t) <- 1
+    R_t <- (R_t + t(R_t)) / 2
+    
+    ## Log-likelihood contribution
+    det_R <- det(R_t)
+    if (det_R <= 0) {
+      nll <- nll + 1e5
+      next
+    }
+    
+    R_inv <- tryCatch(solve(R_t), error = function(e) NULL)
+    if (is.null(R_inv)) {
+      nll <- nll + 1e5
+      next
+    }
+    
+    z_t <- z[t, ]
+    mahal <- as.numeric(t(z_t) %*% R_inv %*% z_t)
+    
+    nll <- nll + w[t] * 0.5 * (log(det_R) + mahal - sum(z_t^2))
+  }
+  
+  nll
+}
+
+## Optimize DCC
+dcc_opt <- optim(
+  par = c(0.05, 0.90),
+  fn = dcc_nll_local,
+  z = std_resid,
+  w = weights,
+  Qbar = Qbar_hat,
+  method = "L-BFGS-B",
+  lower = c(1e-6, 1e-6),
+  upper = c(0.5, 0.999)
+)
+
+dcc_alpha <- dcc_opt$par[1]
+dcc_beta <- dcc_opt$par[2]
+dcc_nll <- dcc_opt$value
+```
+
+```{r dcc-output, echo=FALSE}
+cat("DCC Estimation Results\n")
+cat("======================\n")
+cat(sprintf("  alpha: %.4f (true: %.4f)\n", dcc_alpha, alpha_true))
+cat(sprintf("  beta:  %.4f (true: %.4f)\n", dcc_beta, beta_true))
+cat(sprintf("  persistence: %.4f (true: %.4f)\n", dcc_alpha + dcc_beta, persistence_true))
+cat(sprintf("  NLL: %.2f\n", dcc_nll))
+```
+
+## Extract DCC Correlations
+
+```{r dcc-correlations}
+## Extract fitted correlations
+dcc_R <- array(0, dim = c(k, k, n))
+Q_dcc <- Qbar_hat
+
+for (t in 1:n) {
+  if (t > 1) {
+    z_lag <- std_resid[t-1, , drop = FALSE]
+    Q_dcc <- (1 - dcc_alpha - dcc_beta) * Qbar_hat + 
+             dcc_alpha * (t(z_lag) %*% z_lag) + dcc_beta * Q_dcc
+  }
+  
+  d <- sqrt(diag(Q_dcc))
+  D_inv <- diag(1 / d, k)
+  dcc_R[,,t] <- D_inv %*% Q_dcc %*% D_inv
+  diag(dcc_R[,,t]) <- 1
+}
+
+dcc_cor_12 <- sapply(1:n, function(t) dcc_R[1, 2, t])
+dcc_cor_13 <- sapply(1:n, function(t) dcc_R[1, 3, t])
+dcc_cor_23 <- sapply(1:n, function(t) dcc_R[2, 3, t])
+```
+
+---
+
+# Part IV: CGARCH Estimation
+
+## CGARCH Model Fitting
+
+For this demo, we use the Gaussian copula with parametric PIT transformation.
+Since we simulated from normal innovations, this is equivalent to DCC but
+demonstrates the CGARCH framework.
+
+```{r cgarch-estimation}
+## For Gaussian copula with normal marginals, the copula residuals
+## are the same as standardized residuals (PIT is identity)
+z_cgarch <- std_resid
+
+## CGARCH uses the same DCC dynamics on copula residuals
+## For MVN copula, this is mathematically equivalent to DCC
+## But with MVT copula or different PIT, results would differ
+
+cgarch_opt <- optim(
+  par = c(0.05, 0.90),
+  fn = dcc_nll_local,  # Same NLL for Gaussian copula
+  z = z_cgarch,
+  w = weights,
+  Qbar = Qbar_hat,
+  method = "L-BFGS-B",
+  lower = c(1e-6, 1e-6),
+  upper = c(0.5, 0.999)
+)
+
+cgarch_alpha <- cgarch_opt$par[1]
+cgarch_beta <- cgarch_opt$par[2]
+cgarch_nll <- cgarch_opt$value
+```
+
+```{r cgarch-output, echo=FALSE}
+cat("CGARCH Estimation Results (Gaussian Copula)\n")
+cat("============================================\n")
+cat(sprintf("  alpha: %.4f (true: %.4f)\n", cgarch_alpha, alpha_true))
+cat(sprintf("  beta:  %.4f (true: %.4f)\n", cgarch_beta, beta_true))
+cat(sprintf("  persistence: %.4f (true: %.4f)\n", cgarch_alpha + cgarch_beta, persistence_true))
+cat(sprintf("  NLL: %.2f\n", cgarch_nll))
+cat("\nNote: With Gaussian copula and normal marginals, CGARCH = DCC\n")
+```
+
+## CGARCH with Student-t Copula (Demonstration)
+
+```{r cgarch-mvt-estimation}
+## Student-t copula NLL (with shape parameter)
+cgarch_mvt_nll <- function(params, z, w, Qbar) {
+  alpha <- params[1]
+  beta <- params[2]
+  nu <- params[3]  # degrees of freedom
+  
+  if (alpha < 0 || beta < 0 || alpha + beta >= 1 || nu <= 2) {
+    return(1e10)
+  }
+  
+  T_obs <- nrow(z)
+  k_dim <- ncol(z)
+  Q <- Qbar
+  nll <- 0
+  
+  ## Transform to Student-t copula residuals
+  ## z_t ~ N(0,1) -> u_t = Phi(z_t) -> z_t^* = t_nu^{-1}(u_t)
+  u <- pnorm(z)
+  u[u < 1e-10] <- 1e-10
+  u[u > 1 - 1e-10] <- 1 - 1e-10
+  z_t_copula <- qt(u, df = nu)
+  
+  for (t in 1:T_obs) {
+    if (t > 1) {
+      z_lag <- z_t_copula[t-1, , drop = FALSE]
+      Q <- (1 - alpha - beta) * Qbar + alpha * (t(z_lag) %*% z_lag) / (nu / (nu - 2)) + beta * Q
+    }
+    
+    d <- sqrt(diag(Q))
+    d[d < 1e-8] <- 1e-8
+    D_inv <- diag(1 / d, k_dim)
+    R_t <- D_inv %*% Q %*% D_inv
+    diag(R_t) <- 1
+    R_t <- (R_t + t(R_t)) / 2
+    
+    det_R <- det(R_t)
+    if (det_R <= 0) {
+      nll <- nll + 1e5
+      next
+    }
+    
+    R_inv <- tryCatch(solve(R_t), error = function(e) NULL)
+    if (is.null(R_inv)) {
+      nll <- nll + 1e5
+      next
+    }
+    
+    z_t <- z_t_copula[t, ]
+    mahal <- as.numeric(t(z_t) %*% R_inv %*% z_t)
+    
+    ## Student-t copula log-likelihood
+    ll_t <- lgamma((nu + k_dim) / 2) - lgamma(nu / 2) - 
+            0.5 * k_dim * log(pi * (nu - 2)) - 0.5 * log(det_R) -
+            (nu + k_dim) / 2 * log(1 + mahal / (nu - 2))
+    
+    ## Subtract marginal t densities
+    for (j in 1:k_dim) {
+      ll_t <- ll_t - dt(z_t[j], df = nu, log = TRUE)
+    }
+    
+    nll <- nll - w[t] * ll_t
+  }
+  
+  nll
+}
+
+## Optimize CGARCH with MVT copula
+cgarch_mvt_opt <- optim(
+  par = c(0.05, 0.90, 8),
+  fn = cgarch_mvt_nll,
+  z = std_resid,
+  w = weights,
+  Qbar = Qbar_hat,
+  method = "L-BFGS-B",
+  lower = c(1e-6, 1e-6, 2.5),
+  upper = c(0.5, 0.999, 50)
+)
+
+cgarch_mvt_alpha <- cgarch_mvt_opt$par[1]
+cgarch_mvt_beta <- cgarch_mvt_opt$par[2]
+cgarch_mvt_nu <- cgarch_mvt_opt$par[3]
+cgarch_mvt_nll <- cgarch_mvt_opt$value
+```
+
+```{r cgarch-mvt-output, echo=FALSE}
+cat("CGARCH Estimation Results (Student-t Copula)\n")
+cat("=============================================\n")
+cat(sprintf("  alpha: %.4f\n", cgarch_mvt_alpha))
+cat(sprintf("  beta:  %.4f\n", cgarch_mvt_beta))
+cat(sprintf("  nu (df): %.2f\n", cgarch_mvt_nu))
+cat(sprintf("  persistence: %.4f\n", cgarch_mvt_alpha + cgarch_mvt_beta))
+cat(sprintf("  NLL: %.2f\n", cgarch_mvt_nll))
+cat("\nNote: Higher df → MVT approaches MVN (no tail dependence)\n")
+```
+
+---
+
+# Part V: GOGARCH Estimation
+
+## ICA Decomposition
+
+```{r gogarch-ica}
+## Simple FastICA implementation for GOGARCH
+fastica_simple <- function(X, n_comp = ncol(X), max_iter = 200, tol = 1e-6) {
+  n <- nrow(X)
+  p <- ncol(X)
+  
+  ## Center the data
+  mu <- colMeans(X)
+  X_c <- sweep(X, 2, mu)
+  
+  ## Whiten the data
+  cov_X <- cov(X_c)
+  eig <- eigen(cov_X, symmetric = TRUE)
+  D_inv_sqrt <- diag(1 / sqrt(pmax(eig$values, 1e-10)))
+  K <- D_inv_sqrt %*% t(eig$vectors)  # Whitening matrix
+  X_white <- X_c %*% t(K)
+  
+  ## Initialize unmixing matrix
+  set.seed(123)
+  W <- matrix(rnorm(n_comp * n_comp), n_comp, n_comp)
+  
+  for (iter in 1:max_iter) {
+    W_old <- W
+    
+    for (i in 1:n_comp) {
+      ## Project
+      wx <- X_white %*% W[i, ]
+      
+      ## Apply nonlinearity (tanh)
+      g <- tanh(wx)
+      g_prime <- 1 - tanh(wx)^2
+      
+      ## Update
+      W[i, ] <- colMeans(sweep(X_white, 1, g, "*")) - mean(g_prime) * W[i, ]
+    }
+    
+    ## Symmetric orthogonalization
+    svd_W <- svd(W)
+    W <- svd_W$u %*% t(svd_W$v)
+    
+    ## Check convergence
+    if (max(abs(abs(rowSums(W * W_old)) - 1)) < tol) {
+      break
+    }
+  }
+  
+  ## Full unmixing matrix (including whitening)
+  W_full <- W %*% K
+  
+  ## Independent components
+  S <- X_c %*% t(W_full)
+  
+  ## Mixing matrix
+  A <- solve(W_full)
+  
+  list(
+    W = W_full,
+    A = A,
+    S = S,
+    K = K,
+    mu = mu,
+    n_iter = iter
+  )
+}
+
+## Perform ICA on standardized residuals
+ica_result <- fastica_simple(std_resid, n_comp = k)
+
+## Store results
+gogarch_W <- ica_result$W
+gogarch_A <- ica_result$A
+gogarch_S <- ica_result$S
+```
+
+```{r gogarch-ica-output, echo=FALSE}
+cat("GOGARCH ICA Decomposition\n")
+cat("=========================\n")
+cat("Unmixing matrix W:\n")
+print(round(gogarch_W, 4))
+cat("\nMixing matrix A:\n")
+print(round(gogarch_A, 4))
+cat("\nCorrelation of independent components:\n")
+print(round(cor(gogarch_S), 4))
+cat("(Should be close to identity if ICA worked)\n")
+cat("\nICA converged in", ica_result$n_iter, "iterations\n")
+```
+
+## Estimate Component GARCH
+
+```{r gogarch-garch}
+## Estimate GARCH for each independent component
+gogarch_pars <- list()
+
+for (i in 1:k) {
+  S_i <- gogarch_S[, i]
+  
+  garch_nll_comp <- function(pars) {
+    omega <- pars[1]
+    alpha <- pars[2]
+    beta <- pars[3]
+    
+    if (omega <= 0 || alpha < 0 || beta < 0 || alpha + beta >= 1) {
+      return(1e10)
+    }
+    
+    T_obs <- length(S_i)
+    sigma2 <- omega / (1 - alpha - beta)
+    nll <- 0
+    
+    for (t in 1:T_obs) {
+      if (t > 1) {
+        sigma2 <- omega + alpha * S_i[t-1]^2 + beta * sigma2
+      }
+      sigma2 <- max(sigma2, 1e-10)
+      nll <- nll + 0.5 * (log(sigma2) + S_i[t]^2 / sigma2)
+    }
+    nll
+  }
+  
+  opt_i <- optim(
+    par = c(0.05, 0.05, 0.90),
+    fn = garch_nll_comp,
+    method = "L-BFGS-B",
+    lower = c(1e-8, 1e-8, 1e-8),
+    upper = c(1, 0.5, 0.999)
+  )
+  
+  gogarch_pars[[i]] <- list(
+    omega = opt_i$par[1],
+    alpha1 = opt_i$par[2],
+    beta1 = opt_i$par[3],
+    nll = opt_i$value
+  )
+}
+
+## Compute total GOGARCH log-likelihood
+## L = sum(component LLs) + log|det(W)|
+gogarch_total_nll <- sum(sapply(gogarch_pars, function(x) x$nll)) - 
+                      log(abs(det(gogarch_W)))
+```
+
+```{r gogarch-garch-output, echo=FALSE}
+cat("GOGARCH Component GARCH Estimates\n")
+cat("==================================\n")
+
+for (i in 1:k) {
+  cat(sprintf("\nComponent %d:\n", i))
+  cat(sprintf("  omega: %.5f\n", gogarch_pars[[i]]$omega))
+  cat(sprintf("  alpha: %.4f\n", gogarch_pars[[i]]$alpha1))
+  cat(sprintf("  beta:  %.4f\n", gogarch_pars[[i]]$beta1))
+  cat(sprintf("  persistence: %.4f\n", 
+              gogarch_pars[[i]]$alpha1 + gogarch_pars[[i]]$beta1))
+}
+
+cat(sprintf("\nTotal GOGARCH NLL: %.2f\n", gogarch_total_nll))
+```
+
+## Extract GOGARCH Correlations
+
+```{r gogarch-correlations}
+## Compute component variances over time
+H <- matrix(0, n, k)
+for (i in 1:k) {
+  pars <- gogarch_pars[[i]]
+  sigma2 <- pars$omega / (1 - pars$alpha1 - pars$beta1)
+  
+  for (t in 1:n) {
+    H[t, i] <- sigma2
+    if (t < n) {
+      sigma2 <- pars$omega + pars$alpha1 * gogarch_S[t, i]^2 + pars$beta1 * sigma2
+    }
+  }
+}
+
+## Compute time-varying covariance and correlation
+gogarch_R <- array(0, dim = c(k, k, n))
+A <- gogarch_A
+
+for (t in 1:n) {
+  H_t <- diag(H[t, ])
+  Sigma_t <- A %*% H_t %*% t(A)
+  
+  ## Convert to correlation
+  d <- sqrt(diag(Sigma_t))
+  d[d < 1e-8] <- 1e-8
+  gogarch_R[,,t] <- diag(1/d) %*% Sigma_t %*% diag(1/d)
+}
+
+gogarch_cor_12 <- sapply(1:n, function(t) gogarch_R[1, 2, t])
+gogarch_cor_13 <- sapply(1:n, function(t) gogarch_R[1, 3, t])
+gogarch_cor_23 <- sapply(1:n, function(t) gogarch_R[2, 3, t])
+```
+
+---
+
+# Part VI: Model Comparison
+
+## Parameter Estimates Summary
+
+```{r parameter-comparison, echo=FALSE}
+cat("\n")
+cat("================================================================\n")
+cat("              MODEL COMPARISON SUMMARY\n")
+cat("================================================================\n\n")
+
+cat("CORRELATION PARAMETERS\n")
+cat("----------------------\n")
+cat(sprintf("%-20s %10s %10s %10s\n", "Model", "Alpha", "Beta", "Persistence"))
+cat(sprintf("%-20s %10.4f %10.4f %10.4f\n", "True DGP", alpha_true, beta_true, persistence_true))
+cat(sprintf("%-20s %10.4f %10.4f %10.4f\n", "DCC", dcc_alpha, dcc_beta, dcc_alpha + dcc_beta))
+cat(sprintf("%-20s %10.4f %10.4f %10.4f\n", "CGARCH (MVN)", cgarch_alpha, cgarch_beta, cgarch_alpha + cgarch_beta))
+cat(sprintf("%-20s %10.4f %10.4f %10.4f (nu=%.1f)\n", "CGARCH (MVT)", 
+            cgarch_mvt_alpha, cgarch_mvt_beta, cgarch_mvt_alpha + cgarch_mvt_beta, cgarch_mvt_nu))
+cat(sprintf("%-20s %10s %10s %10s\n", "GOGARCH", "N/A", "N/A", "Component-specific"))
+
+cat("\n\nGOGARCH COMPONENT PARAMETERS\n")
+cat("----------------------------\n")
+cat(sprintf("%-12s %10s %10s %10s %12s\n", "Component", "Omega", "Alpha", "Beta", "Persistence"))
+for (i in 1:k) {
+  p <- gogarch_pars[[i]]
+  cat(sprintf("%-12s %10.5f %10.4f %10.4f %12.4f\n", 
+              paste("Component", i), p$omega, p$alpha1, p$beta1, p$alpha1 + p$beta1))
+}
+
+cat("\n\nMODEL FIT (NEGATIVE LOG-LIKELIHOOD)\n")
+cat("------------------------------------\n")
+cat(sprintf("DCC:          %.2f\n", dcc_nll))
+cat(sprintf("CGARCH (MVN): %.2f\n", cgarch_nll))
+cat(sprintf("CGARCH (MVT): %.2f\n", cgarch_mvt_nll))
+cat(sprintf("GOGARCH:      %.2f\n", gogarch_total_nll))
+cat("\nNote: NLLs not directly comparable due to different model structures\n")
+```
+
+## Correlation Dynamics Comparison
+
+```{r correlation-comparison, fig.height=9}
+par(mfrow = c(3, 1), mar = c(4, 4, 3, 1))
+
+## Correlation (1,2)
+plot(1:n, true_cor_12, type = "l", col = "black", lwd = 2,
+     ylim = range(c(true_cor_12, dcc_cor_12, gogarch_cor_12), na.rm = TRUE) + c(-0.05, 0.05),
+     xlab = "Time", ylab = expression(rho[12]),
+     main = "Correlation (1,2): True vs Estimated")
+lines(1:n, dcc_cor_12, col = "blue", lwd = 1.5)
+lines(1:n, gogarch_cor_12, col = "red", lwd = 1.5, lty = 2)
+legend("topright", legend = c("True", "DCC", "GOGARCH"), 
+       col = c("black", "blue", "red"), lty = c(1, 1, 2), lwd = c(2, 1.5, 1.5), cex = 0.8)
+
+## Correlation (1,3)
+plot(1:n, true_cor_13, type = "l", col = "black", lwd = 2,
+     ylim = range(c(true_cor_13, dcc_cor_13, gogarch_cor_13), na.rm = TRUE) + c(-0.05, 0.05),
+     xlab = "Time", ylab = expression(rho[13]),
+     main = "Correlation (1,3): True vs Estimated")
+lines(1:n, dcc_cor_13, col = "blue", lwd = 1.5)
+lines(1:n, gogarch_cor_13, col = "red", lwd = 1.5, lty = 2)
+legend("topright", legend = c("True", "DCC", "GOGARCH"), 
+       col = c("black", "blue", "red"), lty = c(1, 1, 2), lwd = c(2, 1.5, 1.5), cex = 0.8)
+
+## Correlation (2,3)
+plot(1:n, true_cor_23, type = "l", col = "black", lwd = 2,
+     ylim = range(c(true_cor_23, dcc_cor_23, gogarch_cor_23), na.rm = TRUE) + c(-0.05, 0.05),
+     xlab = "Time", ylab = expression(rho[23]),
+     main = "Correlation (2,3): True vs Estimated")
+lines(1:n, dcc_cor_23, col = "blue", lwd = 1.5)
+lines(1:n, gogarch_cor_23, col = "red", lwd = 1.5, lty = 2)
+legend("topright", legend = c("True", "DCC", "GOGARCH"), 
+       col = c("black", "blue", "red"), lty = c(1, 1, 2), lwd = c(2, 1.5, 1.5), cex = 0.8)
+
+par(mfrow = c(1, 1))
+```
+
+## Correlation Recovery Metrics
+
+```{r correlation-metrics}
+## Compute RMSE for correlation recovery
+rmse <- function(true, est) sqrt(mean((true - est)^2, na.rm = TRUE))
+mae <- function(true, est) mean(abs(true - est), na.rm = TRUE)
+
+## DCC metrics
+dcc_rmse_12 <- rmse(true_cor_12, dcc_cor_12)
+dcc_rmse_13 <- rmse(true_cor_13, dcc_cor_13)
+dcc_rmse_23 <- rmse(true_cor_23, dcc_cor_23)
+
+## GOGARCH metrics
+gogarch_rmse_12 <- rmse(true_cor_12, gogarch_cor_12)
+gogarch_rmse_13 <- rmse(true_cor_13, gogarch_cor_13)
+gogarch_rmse_23 <- rmse(true_cor_23, gogarch_cor_23)
+```
+
+```{r correlation-metrics-output, echo=FALSE}
+cat("\nCORRELATION RECOVERY (RMSE)\n")
+cat("===========================\n")
+cat(sprintf("%-15s %10s %10s %10s %10s\n", "Model", "ρ(1,2)", "ρ(1,3)", "ρ(2,3)", "Average"))
+cat(sprintf("%-15s %10.4f %10.4f %10.4f %10.4f\n", "DCC", 
+            dcc_rmse_12, dcc_rmse_13, dcc_rmse_23,
+            mean(c(dcc_rmse_12, dcc_rmse_13, dcc_rmse_23))))
+cat(sprintf("%-15s %10.4f %10.4f %10.4f %10.4f\n", "GOGARCH", 
+            gogarch_rmse_12, gogarch_rmse_13, gogarch_rmse_23,
+            mean(c(gogarch_rmse_12, gogarch_rmse_13, gogarch_rmse_23))))
+
+cat("\nNotes:\n")
+cat("- DCC should perform well since data was simulated from DCC\n")
+cat("- GOGARCH provides a different approximation to correlation dynamics\n")
+cat("- Lower RMSE = better correlation recovery\n")
+```
+
+---
+
+# Part VII: Summary and Recommendations
+
+```{r final-summary, echo=FALSE}
+cat("\n")
+cat("================================================================\n")
+cat("                    FINAL SUMMARY\n")
+cat("================================================================\n\n")
+
+cat("MODEL CHARACTERISTICS\n")
+cat("---------------------\n")
+cat("DCC:\n")
+cat("  + Simple, parsimonious (2 correlation parameters)\n")
+cat("  + Fast estimation\n")
+cat("  + Well-suited for smooth correlation dynamics\n")
+cat("  - Assumes common dynamics across all pairs\n")
+cat("  - Limited marginal distribution flexibility\n\n")
+
+cat("CGARCH:\n")
+cat("  + Flexible marginal distributions via PIT\n")
+cat("  + MVT copula captures tail dependence\n")
+cat("  + ADCC extension for asymmetric effects\n")
+cat("  - Higher computational cost\n")
+cat("  - Same correlation dynamics as DCC\n\n")
+
+cat("GOGARCH:\n")
+cat("  + No assumption of common dynamics\n")
+cat("  + Natural for factor-based modeling\n")
+cat("  + Higher-order moments available\n")
+cat("  - ICA estimation uncertainty\n")
+cat("  - More parameters (3 per component)\n")
+cat("  - Interpretation can be challenging\n\n")
+
+cat("WHEN TO USE EACH MODEL\n")
+cat("----------------------\n")
+cat("DCC:     Smooth correlations, parsimony, established benchmarks\n")
+cat("CGARCH:  Non-normal marginals, tail dependence, asymmetric effects\n")
+cat("GOGARCH: Factor structure, complex dynamics, higher-order moments\n\n")
+
+cat("INFERENCE RECOMMENDATIONS\n")
+cat("-------------------------\n")
+cat("DCC/CGARCH: Use bootstrap for beta parameter\n")
+cat("GOGARCH:    Use bootstrap for all parameters (ICA uncertainty)\n")
+```
+
+## Session Info
+
+```{r session-info}
+sessionInfo()
+```

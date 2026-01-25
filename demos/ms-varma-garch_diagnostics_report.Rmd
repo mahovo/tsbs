@@ -1,0 +1,1602 @@
+---
+title: "MS-VARMA-GARCH Parameter Estimation Diagnostics"
+subtitle: "Comprehensive Analysis: DCC, CGARCH, and GOGARCH Models"
+author: "Martin Hoshi Vognsen"
+date: "`r Sys.Date()`"
+output:
+  html_document:
+    toc: true
+    toc_float: true
+    toc_depth: 4
+    code_folding: show
+    theme: flatly
+    fig_width: 10
+    fig_height: 7
+params:
+  run_dcc: true
+  run_cgarch: true
+  run_gogarch: true
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(
+  echo = TRUE,
+  message = FALSE,
+  warning = FALSE,
+  fig.align = "center",
+  cache = TRUE
+)
+
+## Define params for interactive use (knitting will override this)
+if (!exists("params")) {
+  params <- list(
+    run_dcc = TRUE,
+    run_cgarch = TRUE,
+    run_gogarch = TRUE
+  )
+}
+```
+
+# Introduction
+
+This document presents a comprehensive diagnostic analysis of parameter estimation 
+accuracy across all three multivariate GARCH correlation structures supported by
+the `tsbs` package:
+
+1. **DCC** (Dynamic Conditional Correlation) - Standard DCC(1,1) dynamics
+2. **CGARCH** (Copula GARCH) - DCC/ADCC dynamics with copula flexibility
+3. **GOGARCH** (Generalized Orthogonal GARCH) - ICA-based orthogonal components
+
+For each model type, we assess:
+
+1. **Bias and RMSE** - Are estimates centered on true values?
+2. **Standard Error Calibration** - Do computed SEs match empirical variability?
+3. **Coverage Probability** - Do 95% CIs contain true values 95% of the time?
+4. **Likelihood Surface** - Is the surface well-behaved near the optimum?
+5. **Optimization Path** - How does the optimizer navigate the parameter space?
+6. **Asymptotic Normality** - Are standardized estimates approximately N(0,1)?
+7. **Inference Method Comparison** - Hessian vs Bootstrap vs Profile Likelihood
+
+# Setup
+
+## Load Required Packages and Source Files
+
+```{r load-packages}
+library(tsbs)
+library(plotly)
+library(knitr)
+library(kableExtra)
+library(mvtnorm)  ## Required for simulation
+library(ggplot2)
+
+## Source the estimation and diagnostic code
+# source("diagnostic_utils.R")
+# source("dcc_gradient.R")
+# source("dcc_hessian.R")
+# source("dcc_diagnostics.R")
+# source("dcc_inference.R")
+# source("ms-varma-garch_diagnostics.R")
+```
+
+## Global Configuration
+
+```{r global-config}
+## Monte Carlo settings (applied to all model types)
+N_SIM <- 100
+N_OBS <- 500
+K <- 2  ## Number of series for DCC/CGARCH
+K_GOGARCH <- 3  ## Number of series/components for GOGARCH
+
+## Bootstrap settings
+N_BOOT <- 200
+
+## Random seed
+SEED <- 12345
+```
+
+
+```{r global-config-print, echo=FALSE}
+cat("Global Configuration:\n")
+cat(sprintf("  MC Replications: %d\n", N_SIM))
+cat(sprintf("  Observations per rep: %d\n", N_OBS))
+cat(sprintf("  Bootstrap replications: %d\n", N_BOOT))
+cat(sprintf("  Random seed: %d\n", SEED))
+```
+
+---
+
+# PART I: DCC(1,1) Model Diagnostics {.tabset}
+
+## DCC Configuration
+
+```{r dcc-config}
+## True DCC parameters
+TRUE_DCC_ALPHA <- 0.05
+TRUE_DCC_BETA <- 0.90
+TRUE_DCC_PERSISTENCE <- TRUE_DCC_ALPHA + TRUE_DCC_BETA
+
+## GARCH parameters (known, used to compute standardized residuals)
+DCC_OMEGA <- c(0.05, 0.08)
+DCC_ALPHA_GARCH <- c(0.10, 0.12)
+DCC_BETA_GARCH <- c(0.85, 0.82)
+```
+
+```{r dcc-config-print, echo=FALSE}
+cat("DCC Configuration:\n")
+cat(sprintf("  Number of series: %d\n", K))
+cat(sprintf("  True DCC alpha: %.3f\n", TRUE_DCC_ALPHA))
+cat(sprintf("  True DCC beta: %.3f\n", TRUE_DCC_BETA))
+cat(sprintf("  True persistence: %.3f\n", TRUE_DCC_PERSISTENCE))
+```
+
+## DCC Monte Carlo Simulation
+
+```{r dcc-mc-simulation, eval=params$run_dcc}
+set.seed(SEED)
+
+dcc_mc_result <- run_dcc_monte_carlo(
+  n_sim = N_SIM,
+  n_obs = N_OBS,
+  k = K,
+  true_alpha = TRUE_DCC_ALPHA,
+  true_beta = TRUE_DCC_BETA,
+  omega = DCC_OMEGA,
+  alpha_garch = DCC_ALPHA_GARCH,
+  beta_garch = DCC_BETA_GARCH,
+  confidence_level = 0.95,
+  verbose = TRUE,
+  seed = SEED
+)
+```
+
+## DCC Summary Statistics
+
+```{r dcc-mc-summary, eval=params$run_dcc}
+dcc_summary_table <- data.frame(
+  Parameter = c("alpha", "beta", "Persistence"),
+  True_Value = c(TRUE_DCC_ALPHA, TRUE_DCC_BETA, TRUE_DCC_PERSISTENCE),
+  Mean_Estimate = c(
+    mean(dcc_mc_result$estimates[dcc_mc_result$convergence, "alpha"], na.rm = TRUE),
+    mean(dcc_mc_result$estimates[dcc_mc_result$convergence, "beta"], na.rm = TRUE),
+    mean(rowSums(dcc_mc_result$estimates[dcc_mc_result$convergence, ]), na.rm = TRUE)
+  ),
+  Bias = c(
+    dcc_mc_result$bias["alpha"],
+    dcc_mc_result$bias["beta"],
+    dcc_mc_result$bias["alpha"] + dcc_mc_result$bias["beta"]
+  ),
+  RMSE = c(
+    dcc_mc_result$rmse["alpha"],
+    dcc_mc_result$rmse["beta"],
+    sqrt(mean((rowSums(dcc_mc_result$estimates[dcc_mc_result$convergence, ]) - TRUE_DCC_PERSISTENCE)^2, na.rm = TRUE))
+  ),
+  Empirical_SD = c(
+    dcc_mc_result$empirical_sd["alpha"],
+    dcc_mc_result$empirical_sd["beta"],
+    sd(rowSums(dcc_mc_result$estimates[dcc_mc_result$convergence, ]), na.rm = TRUE)
+  ),
+  Mean_SE = c(
+    dcc_mc_result$mean_se["alpha"],
+    dcc_mc_result$mean_se["beta"],
+    NA
+  ),
+  Coverage = c(
+    dcc_mc_result$coverage["alpha"],
+    dcc_mc_result$coverage["beta"],
+    NA
+  )
+)
+
+kable(dcc_summary_table, digits = 4, caption = "DCC Monte Carlo Summary Statistics") %>%
+  kable_styling(bootstrap_options = c("striped", "hover", "condensed"), full_width = FALSE)
+```
+
+## DCC Interpretation
+
+```{r dcc-mc-interpretation, eval=params$run_dcc}
+dcc_conv_rate <- mean(dcc_mc_result$convergence) * 100
+dcc_valid_se_rate <- mean(dcc_mc_result$valid_se) * 100
+```
+
+```{r dcc-mc-interpretation-print, eval=params$run_dcc, echo=FALSE}
+cat("DCC Convergence and Validity:\n")
+cat(sprintf("  Optimization converged: %.1f%% of replications\n", dcc_conv_rate))
+cat(sprintf("  Valid standard errors: %.1f%% of replications\n", dcc_valid_se_rate))
+cat("\n")
+
+## SE calibration
+dcc_se_ratio_alpha <- dcc_mc_result$mean_se["alpha"] / dcc_mc_result$empirical_sd["alpha"]
+dcc_se_ratio_beta <- dcc_mc_result$mean_se["beta"] / dcc_mc_result$empirical_sd["beta"]
+
+cat("DCC Standard Error Calibration:\n")
+cat(sprintf("  alpha: SE/SD ratio = %.2f\n", dcc_se_ratio_alpha))
+cat(sprintf("  beta: SE/SD ratio = %.2f\n", dcc_se_ratio_beta))
+cat("\n")
+
+cat("DCC Coverage Probability (nominal 95%):\n")
+cat(sprintf("  alpha: %.1f%%\n", dcc_mc_result$coverage["alpha"] * 100))
+cat(sprintf("  beta: %.1f%%\n", dcc_mc_result$coverage["beta"] * 100))
+```
+
+## DCC Distribution of Estimates
+
+### DCC Scatter Plot
+
+```{r dcc-scatter-plot, eval=params$run_dcc}
+dcc_valid_idx <- dcc_mc_result$convergence & !is.na(dcc_mc_result$estimates[, 1])
+dcc_alpha_est <- dcc_mc_result$estimates[dcc_valid_idx, "alpha"]
+dcc_beta_est <- dcc_mc_result$estimates[dcc_valid_idx, "beta"]
+
+plot_ly() %>%
+  add_trace(
+    x = dcc_alpha_est,
+    y = dcc_beta_est,
+    type = "scatter",
+    mode = "markers",
+    marker = list(color = "steelblue", opacity = 0.6, size = 8),
+    name = "Estimates"
+  ) %>%
+  add_trace(
+    x = TRUE_DCC_ALPHA,
+    y = TRUE_DCC_BETA,
+    type = "scatter",
+    mode = "markers",
+    marker = list(color = "red", size = 15, symbol = "star"),
+    name = sprintf("True (%.3f, %.3f)", TRUE_DCC_ALPHA, TRUE_DCC_BETA)
+  ) %>%
+  add_trace(
+    x = mean(dcc_alpha_est),
+    y = mean(dcc_beta_est),
+    type = "scatter",
+    mode = "markers",
+    marker = list(color = "green", size = 12, symbol = "diamond"),
+    name = sprintf("Mean (%.3f, %.3f)", mean(dcc_alpha_est), mean(dcc_beta_est))
+  ) %>%
+  layout(
+    title = "DCC: Distribution of Parameter Estimates",
+    xaxis = list(title = "alpha"),
+    yaxis = list(title = "beta"),
+    showlegend = TRUE
+  )
+```
+
+### DCC Alpha Distribution
+
+```{r dcc-alpha-hist, eval=params$run_dcc}
+plot_ly(x = dcc_alpha_est, type = "histogram", 
+        marker = list(color = "steelblue"),
+        name = "alpha estimates") %>%
+  add_trace(
+    x = c(TRUE_DCC_ALPHA, TRUE_DCC_ALPHA),
+    y = c(0, N_SIM / 5),
+    type = "scatter",
+    mode = "lines",
+    line = list(color = "red", width = 3, dash = "dash"),
+    name = sprintf("True = %.3f", TRUE_DCC_ALPHA)
+  ) %>%
+  layout(
+    title = "DCC: Distribution of Alpha Estimates",
+    xaxis = list(title = "alpha"),
+    yaxis = list(title = "Count")
+  )
+```
+
+### DCC Beta Distribution
+
+```{r dcc-beta-hist, eval=params$run_dcc}
+plot_ly(x = dcc_beta_est, type = "histogram",
+        marker = list(color = "steelblue"),
+        name = "beta estimates") %>%
+  add_trace(
+    x = c(TRUE_DCC_BETA, TRUE_DCC_BETA),
+    y = c(0, N_SIM / 5),
+    type = "scatter",
+    mode = "lines",
+    line = list(color = "red", width = 3, dash = "dash"),
+    name = sprintf("True = %.3f", TRUE_DCC_BETA)
+  ) %>%
+  layout(
+    title = "DCC: Distribution of Beta Estimates",
+    xaxis = list(title = "beta"),
+    yaxis = list(title = "Count")
+  )
+```
+
+### DCC Persistence Distribution
+
+```{r dcc-persistence-hist, eval=params$run_dcc}
+dcc_persistence_est <- dcc_alpha_est + dcc_beta_est
+
+plot_ly(x = dcc_persistence_est, type = "histogram",
+        marker = list(color = "steelblue"),
+        name = "Persistence") %>%
+  add_trace(
+    x = c(TRUE_DCC_PERSISTENCE, TRUE_DCC_PERSISTENCE),
+    y = c(0, N_SIM / 5),
+    type = "scatter",
+    mode = "lines",
+    line = list(color = "red", width = 3, dash = "dash"),
+    name = sprintf("True = %.3f", TRUE_DCC_PERSISTENCE)
+  ) %>%
+  layout(
+    title = "DCC: Distribution of Persistence (alpha + beta)",
+    xaxis = list(title = "alpha + beta"),
+    yaxis = list(title = "Count")
+  )
+```
+
+## DCC Likelihood Surface Analysis
+
+```{r dcc-likelihood-surface, eval=params$run_dcc}
+set.seed(SEED)
+
+## Simulate one dataset
+dcc_y_sim <- simulate_dcc_garch(
+  n = N_OBS,
+  k = K,
+  omega = DCC_OMEGA,
+  alpha_garch = DCC_ALPHA_GARCH,
+  beta_garch = DCC_BETA_GARCH,
+  alpha_dcc = TRUE_DCC_ALPHA,
+  beta_dcc = TRUE_DCC_BETA,
+  seed = SEED
+)
+
+## Compute standardized residuals
+dcc_std_resid <- compute_std_residuals(dcc_y_sim, DCC_OMEGA, DCC_ALPHA_GARCH, DCC_BETA_GARCH)
+
+dcc_surface <- compute_nll_surface(
+  std_resid = dcc_std_resid,
+  weights = rep(1, N_OBS),
+  Qbar = cor(dcc_std_resid),
+  alpha_range = c(0.001, 0.999),
+  beta_range = c(0.01, 0.99),
+  n_grid = 60,
+  distribution = "mvn"
+)
+
+dcc_mle_result <- optim(
+  par = c(TRUE_DCC_ALPHA, TRUE_DCC_BETA),
+  fn = dcc11_nll,
+  method = "L-BFGS-B",
+  lower = c(1e-6, 1e-6),
+  upper = c(0.5, 0.999),
+  std_resid = dcc_std_resid,
+  weights = rep(1, N_OBS),
+  Qbar = cor(dcc_std_resid),
+  distribution = "mvn",
+  use_reparam = FALSE
+)
+
+dcc_mle_params <- dcc_mle_result$par
+names(dcc_mle_params) <- c("alpha", "beta")
+```
+
+### DCC Contour Plot
+
+```{r dcc-contour-plot, eval=params$run_dcc}
+plot_nll_contours(
+  dcc_surface,
+  true_params = c(TRUE_DCC_ALPHA, TRUE_DCC_BETA),
+  mle_params = dcc_mle_params,
+  title = "DCC(1,1) Negative Log-Likelihood Contours"
+)
+```
+
+### DCC 3D Surface Plot
+
+```{r dcc-surface-3d, eval=params$run_dcc}
+plot_nll_surface_3d(
+  dcc_surface,
+  true_params = c(TRUE_DCC_ALPHA, TRUE_DCC_BETA),
+  mle_params = dcc_mle_params,
+  title = "DCC(1,1) Negative Log-Likelihood Surface"
+)
+```
+
+### DCC Hessian Eigenvalue Analysis
+
+```{r dcc-hessian-eigenvalues, eval=params$run_dcc}
+## Compute Hessian at MLE
+dcc_Qbar <- cor(dcc_std_resid)
+dcc_weights <- rep(1, N_OBS)
+
+dcc_hessian_result <- dcc11_hessian(
+  params = dcc_mle_params,
+  std_resid = dcc_std_resid,
+  weights = dcc_weights,
+  Qbar = dcc_Qbar,
+  distribution = "mvn"
+)
+
+## Eigendecomposition
+dcc_eig <- eigen(dcc_hessian_result$hessian, symmetric = TRUE)
+```
+
+```{r dcc-hessian-eigenvalues-print, eval=params$run_dcc, echo=FALSE}
+cat("DCC Hessian Eigenvalue Analysis:\n\n")
+cat(sprintf("  Eigenvalue 1 (larger):  %.4f\n", dcc_eig$values[1]))
+cat(sprintf("  Eigenvalue 2 (smaller): %.4f\n", dcc_eig$values[2]))
+cat(sprintf("  Ratio (λ1/λ2):          %.2f\n", dcc_eig$values[1] / dcc_eig$values[2]))
+cat(sprintf("  Condition number:       %.2f\n", max(dcc_eig$values) / min(dcc_eig$values)))
+
+cat("\n  Eigenvector 1 (steep direction):\n")
+cat(sprintf("    alpha component: %.4f\n", dcc_eig$vectors[1, 1]))
+cat(sprintf("    beta component:  %.4f\n", dcc_eig$vectors[2, 1]))
+
+cat("\n  Eigenvector 2 (flat direction):\n")
+cat(sprintf("    alpha component: %.4f\n", dcc_eig$vectors[1, 2]))
+cat(sprintf("    beta component:  %.4f\n", dcc_eig$vectors[2, 2]))
+
+if (dcc_eig$values[1] / dcc_eig$values[2] > 10) {
+  cat("\n  INTERPRETATION: Large eigenvalue ratio indicates highly anisotropic curvature.\n")
+  cat("  The likelihood is much flatter in one direction than the other.\n")
+}
+```
+
+## DCC Coverage Probability Diagnostics
+
+### DCC Visual Coverage - Alpha
+
+```{r dcc-coverage-alpha, eval=params$run_dcc}
+plot_coverage_diagnostic(dcc_mc_result, param = "alpha", max_show = min(50, N_SIM))
+```
+
+### DCC Visual Coverage - Beta
+
+```{r dcc-coverage-beta, eval=params$run_dcc}
+plot_coverage_diagnostic(dcc_mc_result, param = "beta", max_show = min(50, N_SIM))
+```
+
+### DCC Coverage Summary
+
+```{r dcc-coverage-summary, eval=params$run_dcc}
+dcc_valid_ci <- dcc_mc_result$valid_se
+
+dcc_coverage_table <- data.frame(
+  Parameter = c("alpha", "beta"),
+  Nominal = c("95%", "95%"),
+  Empirical = sprintf("%.1f%%", 
+    c(dcc_mc_result$coverage["alpha"], dcc_mc_result$coverage["beta"]) * 100),
+  Valid_CIs = c(sum(dcc_valid_ci), sum(dcc_valid_ci)),
+  Status = c(
+    ifelse(dcc_mc_result$coverage["alpha"] > 0.90 & 
+           dcc_mc_result$coverage["alpha"] < 0.99, "OK", "Check"),
+    ifelse(dcc_mc_result$coverage["beta"] > 0.90 & 
+           dcc_mc_result$coverage["beta"] < 0.99, "OK", "Check")
+  )
+)
+
+kable(dcc_coverage_table, caption = "DCC Confidence Interval Coverage") %>%
+  kable_styling(bootstrap_options = c("striped", "hover"), full_width = FALSE)
+```
+
+## DCC Asymptotic Normality
+
+```{r dcc-normality-test, eval=params$run_dcc}
+dcc_normality_results <- test_estimate_normality(dcc_mc_result)
+```
+
+### DCC Q-Q Plot: Alpha
+
+```{r dcc-qq-alpha, eval=params$run_dcc}
+dcc_z_alpha <- dcc_normality_results$alpha$z_scores
+dcc_qq_data_alpha <- qqnorm(dcc_z_alpha, plot.it = FALSE)
+
+plot_ly() %>%
+  add_trace(
+    x = dcc_qq_data_alpha$x, y = dcc_qq_data_alpha$y,
+    type = "scatter", mode = "markers",
+    marker = list(color = "steelblue", size = 6),
+    name = "Z-scores"
+  ) %>%
+  add_trace(
+    x = c(-3, 3), y = c(-3, 3),
+    type = "scatter", mode = "lines",
+    line = list(color = "red", width = 2),
+    name = "N(0,1)"
+  ) %>%
+  layout(
+    title = "DCC Q-Q Plot: Alpha Standardized Estimates",
+    xaxis = list(title = "Theoretical Quantiles"),
+    yaxis = list(title = "Sample Quantiles")
+  )
+```
+
+### DCC Q-Q Plot: Beta
+
+```{r dcc-qq-beta, eval=params$run_dcc}
+dcc_z_beta <- dcc_normality_results$beta$z_scores
+dcc_qq_data_beta <- qqnorm(dcc_z_beta, plot.it = FALSE)
+
+plot_ly() %>%
+  add_trace(
+    x = dcc_qq_data_beta$x, y = dcc_qq_data_beta$y,
+    type = "scatter", mode = "markers",
+    marker = list(color = "steelblue", size = 6),
+    name = "Z-scores"
+  ) %>%
+  add_trace(
+    x = c(-3, 3), y = c(-3, 3),
+    type = "scatter", mode = "lines",
+    line = list(color = "red", width = 2),
+    name = "N(0,1)"
+  ) %>%
+  layout(
+    title = "DCC Q-Q Plot: Beta Standardized Estimates",
+    xaxis = list(title = "Theoretical Quantiles"),
+    yaxis = list(title = "Sample Quantiles")
+  )
+```
+
+### DCC Normality Summary
+
+```{r dcc-normality-summary, eval=params$run_dcc}
+dcc_normality_table <- data.frame(
+  Parameter = c("alpha", "beta"),
+  N = c(dcc_normality_results$alpha$n, dcc_normality_results$beta$n),
+  Mean_Z = c(dcc_normality_results$alpha$mean_z, dcc_normality_results$beta$mean_z),
+  SD_Z = c(dcc_normality_results$alpha$sd_z, dcc_normality_results$beta$sd_z),
+  Skewness = c(dcc_normality_results$alpha$skewness, dcc_normality_results$beta$skewness),
+  Kurtosis = c(dcc_normality_results$alpha$kurtosis, dcc_normality_results$beta$kurtosis),
+  Shapiro_p = c(dcc_normality_results$alpha$shapiro_p, dcc_normality_results$beta$shapiro_p)
+)
+
+kable(dcc_normality_table, digits = 3, 
+      caption = "DCC Normality Diagnostics (Target: Mean=0, SD=1)") %>%
+  kable_styling(bootstrap_options = c("striped", "hover"), full_width = FALSE)
+```
+
+## DCC Inference Method Comparison
+
+```{r dcc-inference-comparison, eval=params$run_dcc}
+## Use correlation_comprehensive_inference from ms_varma_garch_inference.R
+dcc_inf_result <- correlation_comprehensive_inference(
+  model_type = "dcc",
+  residuals = dcc_std_resid,
+  weights = dcc_weights,
+  Qbar = dcc_Qbar,
+  mle_params = dcc_mle_params,
+  distribution = "mvn",
+  n_boot = N_BOOT,
+  boot_method = "residual",
+  n_profile_points = 50,
+  conf_level = 0.95,
+  verbose = TRUE,
+  seed = SEED
+)
+```
+
+### DCC Standard Error Comparison
+
+```{r dcc-se-comparison, eval=params$run_dcc}
+dcc_se_comparison <- data.frame(
+  Parameter = c("alpha", "beta"),
+  Hessian_SE = dcc_inf_result$hessian$se,
+  Bootstrap_SE = dcc_inf_result$bootstrap$se,
+  Ratio = dcc_inf_result$hessian$se / dcc_inf_result$bootstrap$se
+)
+
+kable(dcc_se_comparison, digits = 4, 
+      caption = "DCC Standard Error Comparison: Hessian vs Bootstrap") %>%
+  kable_styling(bootstrap_options = c("striped", "hover"), full_width = FALSE)
+```
+
+```{r dcc-se-comparison-print, eval=params$run_dcc, echo=FALSE}
+cat("\nInterpretation:\n")
+cat("  Ratio < 1: Hessian SE underestimates uncertainty\n")
+cat("  Ratio > 1: Hessian SE overestimates uncertainty\n")
+cat("  Ratio ~ 1: Methods agree (Hessian is reliable)\n")
+```
+
+### DCC Confidence Interval Comparison
+
+```{r dcc-ci-comparison, eval=params$run_dcc}
+dcc_ci_comparison <- data.frame(
+  Parameter = rep(c("alpha", "beta"), each = 3),
+  Method = rep(c("Hessian", "Bootstrap", "Profile"), 2),
+  Lower = c(
+    dcc_inf_result$hessian$ci[1, "alpha"],
+    dcc_inf_result$bootstrap$ci_percentile[1, "alpha"],
+    dcc_inf_result$profile$alpha$ci["lower"],
+    dcc_inf_result$hessian$ci[1, "beta"],
+    dcc_inf_result$bootstrap$ci_percentile[1, "beta"],
+    dcc_inf_result$profile$beta$ci["lower"]
+  ),
+  Upper = c(
+    dcc_inf_result$hessian$ci[2, "alpha"],
+    dcc_inf_result$bootstrap$ci_percentile[2, "alpha"],
+    dcc_inf_result$profile$alpha$ci["upper"],
+    dcc_inf_result$hessian$ci[2, "beta"],
+    dcc_inf_result$bootstrap$ci_percentile[2, "beta"],
+    dcc_inf_result$profile$beta$ci["upper"]
+  )
+)
+
+dcc_ci_comparison$Width <- dcc_ci_comparison$Upper - dcc_ci_comparison$Lower
+dcc_ci_comparison$MLE <- rep(dcc_mle_params, each = 3)
+
+kable(dcc_ci_comparison, digits = 4, 
+      caption = "DCC 95% Confidence Interval Comparison") %>%
+  kable_styling(bootstrap_options = c("striped", "hover"), full_width = FALSE)
+```
+
+---
+
+# PART II: CGARCH (Copula-GARCH) Model Diagnostics {.tabset}
+
+## CGARCH Configuration
+
+```{r cgarch-config}
+## True CGARCH parameters
+TRUE_CGARCH_ALPHA <- 0.05
+TRUE_CGARCH_BETA <- 0.90
+TRUE_CGARCH_GAMMA <- 0.02  ## ADCC leverage parameter (set to 0 for DCC-like behavior)
+TRUE_CGARCH_PERSISTENCE <- TRUE_CGARCH_ALPHA + TRUE_CGARCH_BETA + 0.5 * TRUE_CGARCH_GAMMA
+
+## Copula settings
+CGARCH_COPULA <- "mvn"  ## "mvn" or "mvt"
+CGARCH_SHAPE <- 8       ## Only used for MVT copula
+
+## GARCH parameters
+CGARCH_OMEGA <- c(0.05, 0.08)
+CGARCH_ALPHA_GARCH <- c(0.10, 0.12)
+CGARCH_BETA_GARCH <- c(0.85, 0.82)
+```
+
+```{r cgarch-config-print, echo=FALSE}
+cat("CGARCH Configuration:\n")
+cat(sprintf("  Number of series: %d\n", K))
+cat(sprintf("  Copula type: %s\n", CGARCH_COPULA))
+cat(sprintf("  True alpha: %.3f\n", TRUE_CGARCH_ALPHA))
+cat(sprintf("  True beta: %.3f\n", TRUE_CGARCH_BETA))
+cat(sprintf("  True gamma (ADCC): %.3f\n", TRUE_CGARCH_GAMMA))
+cat(sprintf("  True persistence: %.3f\n", TRUE_CGARCH_PERSISTENCE))
+```
+
+## CGARCH Monte Carlo Simulation
+
+```{r cgarch-mc-simulation, eval=params$run_cgarch}
+set.seed(SEED)
+
+## Note: run_cgarch_monte_carlo would be the CGARCH-specific Monte Carlo function
+## For now, we simulate CGARCH data and apply similar analysis
+
+cgarch_mc_result <- run_cgarch_monte_carlo(
+  n_sim = N_SIM,
+  n_obs = N_OBS,
+  k = K,
+  true_alpha = TRUE_CGARCH_ALPHA,
+  true_beta = TRUE_CGARCH_BETA,
+  true_gamma = TRUE_CGARCH_GAMMA,
+  omega = CGARCH_OMEGA,
+  alpha_garch = CGARCH_ALPHA_GARCH,
+  beta_garch = CGARCH_BETA_GARCH,
+  copula = CGARCH_COPULA,
+  shape = CGARCH_SHAPE,
+  confidence_level = 0.95,
+  verbose = TRUE,
+  seed = SEED
+)
+```
+
+## CGARCH Summary Statistics
+
+```{r cgarch-mc-summary, eval=params$run_cgarch}
+cgarch_summary_table <- data.frame(
+  Parameter = c("alpha", "beta", "gamma", "Persistence"),
+  True_Value = c(TRUE_CGARCH_ALPHA, TRUE_CGARCH_BETA, TRUE_CGARCH_GAMMA, TRUE_CGARCH_PERSISTENCE),
+  Mean_Estimate = c(
+    mean(cgarch_mc_result$estimates[cgarch_mc_result$convergence, "alpha"], na.rm = TRUE),
+    mean(cgarch_mc_result$estimates[cgarch_mc_result$convergence, "beta"], na.rm = TRUE),
+    mean(cgarch_mc_result$estimates[cgarch_mc_result$convergence, "gamma"], na.rm = TRUE),
+    mean(cgarch_mc_result$persistence[cgarch_mc_result$convergence], na.rm = TRUE)
+  ),
+  Bias = c(
+    cgarch_mc_result$bias["alpha"],
+    cgarch_mc_result$bias["beta"],
+    cgarch_mc_result$bias["gamma"],
+    mean(cgarch_mc_result$persistence[cgarch_mc_result$convergence], na.rm = TRUE) - TRUE_CGARCH_PERSISTENCE
+  ),
+  RMSE = c(
+    cgarch_mc_result$rmse["alpha"],
+    cgarch_mc_result$rmse["beta"],
+    cgarch_mc_result$rmse["gamma"],
+    sqrt(mean((cgarch_mc_result$persistence[cgarch_mc_result$convergence] - TRUE_CGARCH_PERSISTENCE)^2, na.rm = TRUE))
+  ),
+  Empirical_SD = c(
+    cgarch_mc_result$empirical_sd["alpha"],
+    cgarch_mc_result$empirical_sd["beta"],
+    cgarch_mc_result$empirical_sd["gamma"],
+    sd(cgarch_mc_result$persistence[cgarch_mc_result$convergence], na.rm = TRUE)
+  ),
+  Coverage = c(
+    cgarch_mc_result$coverage["alpha"],
+    cgarch_mc_result$coverage["beta"],
+    cgarch_mc_result$coverage["gamma"],
+    NA
+  )
+)
+
+kable(cgarch_summary_table, digits = 4, caption = "CGARCH Monte Carlo Summary Statistics") %>%
+  kable_styling(bootstrap_options = c("striped", "hover", "condensed"), full_width = FALSE)
+```
+
+## CGARCH Interpretation
+
+```{r cgarch-mc-interpretation, eval=params$run_cgarch}
+cgarch_conv_rate <- mean(cgarch_mc_result$convergence) * 100
+cgarch_valid_se_rate <- mean(cgarch_mc_result$valid_se) * 100
+```
+
+```{r cgarch-mc-interpretation-print, eval=params$run_cgarch, echo=FALSE}
+cat("CGARCH Convergence and Validity:\n")
+cat(sprintf("  Optimization converged: %.1f%% of replications\n", cgarch_conv_rate))
+cat(sprintf("  Valid standard errors: %.1f%% of replications\n", cgarch_valid_se_rate))
+cat("\n")
+```
+
+```{r cgarch-mc-se-calibration, eval=params$run_cgarch}
+## SE calibration
+cgarch_se_ratio_alpha <- cgarch_mc_result$mean_se["alpha"] / cgarch_mc_result$empirical_sd["alpha"]
+cgarch_se_ratio_beta <- cgarch_mc_result$mean_se["beta"] / cgarch_mc_result$empirical_sd["beta"]
+cgarch_se_ratio_gamma <- cgarch_mc_result$mean_se["gamma"] / cgarch_mc_result$empirical_sd["gamma"]
+```
+
+```{r cgarch-mc-se-cal-print, eval=params$run_cgarch, echo=FALSE}
+cat("CGARCH Standard Error Calibration:\n")
+cat(sprintf("  alpha: SE/SD ratio = %.2f\n", cgarch_se_ratio_alpha))
+cat(sprintf("  beta: SE/SD ratio = %.2f\n", cgarch_se_ratio_beta))
+cat(sprintf("  gamma: SE/SD ratio = %.2f\n", cgarch_se_ratio_gamma))
+cat("\n")
+
+cat("CGARCH Coverage Probability (nominal 95%):\n")
+cat(sprintf("  alpha: %.1f%%\n", cgarch_mc_result$coverage["alpha"] * 100))
+cat(sprintf("  beta: %.1f%%\n", cgarch_mc_result$coverage["beta"] * 100))
+cat(sprintf("  gamma: %.1f%%\n", cgarch_mc_result$coverage["gamma"] * 100))
+```
+
+## CGARCH Distribution of Estimates
+
+### CGARCH Scatter Plot (alpha vs beta)
+
+```{r cgarch-scatter-plot, eval=params$run_cgarch}
+cgarch_valid_idx <- cgarch_mc_result$convergence & !is.na(cgarch_mc_result$estimates[, 1])
+cgarch_alpha_est <- cgarch_mc_result$estimates[cgarch_valid_idx, "alpha"]
+cgarch_beta_est <- cgarch_mc_result$estimates[cgarch_valid_idx, "beta"]
+cgarch_gamma_est <- cgarch_mc_result$estimates[cgarch_valid_idx, "gamma"]
+
+plot_ly() %>%
+  add_trace(
+    x = cgarch_alpha_est,
+    y = cgarch_beta_est,
+    type = "scatter",
+    mode = "markers",
+    marker = list(color = "darkorange", opacity = 0.6, size = 8),
+    name = "Estimates"
+  ) %>%
+  add_trace(
+    x = TRUE_CGARCH_ALPHA,
+    y = TRUE_CGARCH_BETA,
+    type = "scatter",
+    mode = "markers",
+    marker = list(color = "red", size = 15, symbol = "star"),
+    name = sprintf("True (%.3f, %.3f)", TRUE_CGARCH_ALPHA, TRUE_CGARCH_BETA)
+  ) %>%
+  add_trace(
+    x = mean(cgarch_alpha_est),
+    y = mean(cgarch_beta_est),
+    type = "scatter",
+    mode = "markers",
+    marker = list(color = "green", size = 12, symbol = "diamond"),
+    name = sprintf("Mean (%.3f, %.3f)", mean(cgarch_alpha_est), mean(cgarch_beta_est))
+  ) %>%
+  layout(
+    title = "CGARCH: Distribution of Alpha vs Beta Estimates",
+    xaxis = list(title = "alpha"),
+    yaxis = list(title = "beta"),
+    showlegend = TRUE
+  )
+```
+
+### CGARCH Gamma (ADCC) Distribution
+
+```{r cgarch-gamma-hist, eval=params$run_cgarch}
+plot_ly(x = cgarch_gamma_est, type = "histogram",
+        marker = list(color = "darkorange"),
+        name = "gamma estimates") %>%
+  add_trace(
+    x = c(TRUE_CGARCH_GAMMA, TRUE_CGARCH_GAMMA),
+    y = c(0, N_SIM / 5),
+    type = "scatter",
+    mode = "lines",
+    line = list(color = "red", width = 3, dash = "dash"),
+    name = sprintf("True = %.3f", TRUE_CGARCH_GAMMA)
+  ) %>%
+  layout(
+    title = "CGARCH: Distribution of Gamma (ADCC Leverage) Estimates",
+    xaxis = list(title = "gamma"),
+    yaxis = list(title = "Count")
+  )
+```
+
+### CGARCH Persistence Distribution
+
+```{r cgarch-persistence-hist, eval=params$run_cgarch}
+cgarch_persistence_est <- cgarch_alpha_est + cgarch_beta_est + 0.5 * cgarch_gamma_est
+
+plot_ly(x = cgarch_persistence_est, type = "histogram",
+        marker = list(color = "darkorange"),
+        name = "Persistence") %>%
+  add_trace(
+    x = c(TRUE_CGARCH_PERSISTENCE, TRUE_CGARCH_PERSISTENCE),
+    y = c(0, N_SIM / 5),
+    type = "scatter",
+    mode = "lines",
+    line = list(color = "red", width = 3, dash = "dash"),
+    name = sprintf("True = %.3f", TRUE_CGARCH_PERSISTENCE)
+  ) %>%
+  layout(
+    title = "CGARCH: Distribution of ADCC Persistence (α + β + 0.5γ)",
+    xaxis = list(title = "Persistence"),
+    yaxis = list(title = "Count")
+  )
+```
+
+## CGARCH Likelihood Surface Analysis
+
+```{r cgarch-likelihood-surface, eval=params$run_cgarch}
+set.seed(SEED)
+
+## Simulate CGARCH data
+cgarch_y_sim <- simulate_cgarch(
+  n = N_OBS,
+  k = K,
+  omega = CGARCH_OMEGA,
+  alpha_garch = CGARCH_ALPHA_GARCH,
+  beta_garch = CGARCH_BETA_GARCH,
+  alpha_dcc = TRUE_CGARCH_ALPHA,
+  beta_dcc = TRUE_CGARCH_BETA,
+  copula = CGARCH_COPULA,
+  shape = CGARCH_SHAPE,
+  seed = SEED
+)
+
+## Compute standardized residuals
+cgarch_std_resid <- compute_std_residuals(cgarch_y_sim, CGARCH_OMEGA, CGARCH_ALPHA_GARCH, CGARCH_BETA_GARCH)
+
+cgarch_surface <- compute_nll_surface(
+  std_resid = cgarch_std_resid,
+  weights = rep(1, N_OBS),
+  Qbar = cor(cgarch_std_resid),
+  alpha_range = c(0.001, 0.20),
+  beta_range = c(0.70, 0.99),
+  n_grid = 60,
+  distribution = CGARCH_COPULA
+)
+
+cgarch_mle_params <- c(
+  mean(cgarch_alpha_est, na.rm = TRUE),
+  mean(cgarch_beta_est, na.rm = TRUE)
+)
+names(cgarch_mle_params) <- c("alpha", "beta")
+```
+
+### CGARCH Contour Plot
+
+```{r cgarch-contour-plot, eval=params$run_cgarch}
+plot_nll_contours(
+  cgarch_surface,
+  true_params = c(TRUE_CGARCH_ALPHA, TRUE_CGARCH_BETA),
+  mle_params = cgarch_mle_params,
+  title = "CGARCH Negative Log-Likelihood Contours"
+)
+```
+
+### CGARCH 3D Surface Plot
+
+```{r cgarch-surface-3d, eval=params$run_cgarch}
+plot_nll_surface_3d(
+  cgarch_surface,
+  true_params = c(TRUE_CGARCH_ALPHA, TRUE_CGARCH_BETA),
+  mle_params = cgarch_mle_params,
+  title = "CGARCH Negative Log-Likelihood Surface"
+)
+```
+
+## CGARCH Coverage Probability Diagnostics
+
+### CGARCH Coverage Summary
+
+```{r cgarch-coverage-summary, eval=params$run_cgarch}
+cgarch_coverage_table <- data.frame(
+  Parameter = c("alpha", "beta", "gamma"),
+  Nominal = c("95%", "95%", "95%"),
+  Empirical = sprintf("%.1f%%", 
+    c(cgarch_mc_result$coverage["alpha"], 
+      cgarch_mc_result$coverage["beta"],
+      cgarch_mc_result$coverage["gamma"]) * 100),
+  Status = c(
+    ifelse(cgarch_mc_result$coverage["alpha"] > 0.90 & 
+           cgarch_mc_result$coverage["alpha"] < 0.99, "OK", "Check"),
+    ifelse(cgarch_mc_result$coverage["beta"] > 0.90 & 
+           cgarch_mc_result$coverage["beta"] < 0.99, "OK", "Check"),
+    ifelse(cgarch_mc_result$coverage["gamma"] > 0.90 & 
+           cgarch_mc_result$coverage["gamma"] < 0.99, "OK", "Check")
+  )
+)
+
+kable(cgarch_coverage_table, caption = "CGARCH Confidence Interval Coverage") %>%
+  kable_styling(bootstrap_options = c("striped", "hover"), full_width = FALSE)
+```
+
+## CGARCH Inference Method Comparison
+
+```{r cgarch-inference-comparison, eval=params$run_cgarch}
+## Use correlation_comprehensive_inference for CGARCH
+cgarch_inf_result <- correlation_comprehensive_inference(
+  model_type = "cgarch",
+  residuals = cgarch_std_resid,
+  weights = rep(1, N_OBS),
+  Qbar = cor(cgarch_std_resid),
+  mle_params = cgarch_mle_params,
+  distribution = CGARCH_COPULA,
+  n_boot = N_BOOT,
+  boot_method = "residual",
+  n_profile_points = 50,
+  conf_level = 0.95,
+  verbose = TRUE,
+  seed = SEED
+)
+```
+
+### CGARCH Standard Error Comparison
+
+```{r cgarch-se-comparison, eval=params$run_cgarch}
+cgarch_se_comparison <- data.frame(
+  Parameter = c("alpha", "beta"),
+  Hessian_SE = cgarch_inf_result$hessian$se[1:2],
+  Bootstrap_SE = cgarch_inf_result$bootstrap$se[1:2],
+  Ratio = cgarch_inf_result$hessian$se[1:2] / cgarch_inf_result$bootstrap$se[1:2]
+)
+
+kable(cgarch_se_comparison, digits = 4, 
+      caption = "CGARCH Standard Error Comparison: Hessian vs Bootstrap") %>%
+  kable_styling(bootstrap_options = c("striped", "hover"), full_width = FALSE)
+```
+
+```{r cgarch-se-comparison-print, eval=params$run_cgarch, echo=FALSE}
+cat("\nInterpretation:\n")
+cat("  Ratio < 1: Hessian SE underestimates uncertainty\n")
+cat("  Ratio > 1: Hessian SE overestimates uncertainty\n")
+cat("  Ratio ~ 1: Methods agree (Hessian is reliable)\n")
+```
+
+### CGARCH Confidence Interval Comparison
+
+```{r cgarch-ci-comparison, eval=params$run_cgarch}
+cgarch_ci_comparison <- data.frame(
+  Parameter = rep(c("alpha", "beta"), each = 3),
+  Method = rep(c("Hessian", "Bootstrap", "Profile"), 2),
+  Lower = c(
+    cgarch_inf_result$hessian$ci[1, "alpha"],
+    cgarch_inf_result$bootstrap$ci_percentile[1, "alpha"],
+    cgarch_inf_result$profile$alpha$ci["lower"],
+    cgarch_inf_result$hessian$ci[1, "beta"],
+    cgarch_inf_result$bootstrap$ci_percentile[1, "beta"],
+    cgarch_inf_result$profile$beta$ci["lower"]
+  ),
+  Upper = c(
+    cgarch_inf_result$hessian$ci[2, "alpha"],
+    cgarch_inf_result$bootstrap$ci_percentile[2, "alpha"],
+    cgarch_inf_result$profile$alpha$ci["upper"],
+    cgarch_inf_result$hessian$ci[2, "beta"],
+    cgarch_inf_result$bootstrap$ci_percentile[2, "beta"],
+    cgarch_inf_result$profile$beta$ci["upper"]
+  )
+)
+
+cgarch_ci_comparison$Width <- cgarch_ci_comparison$Upper - cgarch_ci_comparison$Lower
+cgarch_ci_comparison$MLE <- rep(cgarch_mle_params[1:2], each = 3)
+
+kable(cgarch_ci_comparison, digits = 4, 
+      caption = "CGARCH 95% Confidence Interval Comparison") %>%
+  kable_styling(bootstrap_options = c("striped", "hover"), full_width = FALSE)
+```
+
+## CGARCH vs DCC Comparison
+
+```{r cgarch-dcc-comparison, eval=params$run_dcc & params$run_cgarch}
+comparison_table <- data.frame(
+  Metric = c("Convergence Rate", "Alpha Bias", "Beta Bias", 
+             "Alpha SE/SD Ratio", "Beta SE/SD Ratio",
+             "Alpha Coverage", "Beta Coverage"),
+  DCC = c(
+    sprintf("%.1f%%", dcc_conv_rate),
+    sprintf("%.4f", dcc_mc_result$bias["alpha"]),
+    sprintf("%.4f", dcc_mc_result$bias["beta"]),
+    sprintf("%.2f", dcc_se_ratio_alpha),
+    sprintf("%.2f", dcc_se_ratio_beta),
+    sprintf("%.1f%%", dcc_mc_result$coverage["alpha"] * 100),
+    sprintf("%.1f%%", dcc_mc_result$coverage["beta"] * 100)
+  ),
+  CGARCH = c(
+    sprintf("%.1f%%", cgarch_conv_rate),
+    sprintf("%.4f", cgarch_mc_result$bias["alpha"]),
+    sprintf("%.4f", cgarch_mc_result$bias["beta"]),
+    sprintf("%.2f", cgarch_se_ratio_alpha),
+    sprintf("%.2f", cgarch_se_ratio_beta),
+    sprintf("%.1f%%", cgarch_mc_result$coverage["alpha"] * 100),
+    sprintf("%.1f%%", cgarch_mc_result$coverage["beta"] * 100)
+  )
+)
+
+kable(comparison_table, caption = "DCC vs CGARCH Performance Comparison") %>%
+  kable_styling(bootstrap_options = c("striped", "hover"), full_width = FALSE)
+```
+
+---
+
+# PART III: GOGARCH Model Diagnostics {.tabset}
+
+## GOGARCH Configuration
+
+```{r gogarch-config}
+## True GOGARCH parameters (component-wise GARCH)
+TRUE_GOGARCH_OMEGA <- c(0.03, 0.05, 0.08)
+TRUE_GOGARCH_ALPHA <- c(0.05, 0.08, 0.12)
+TRUE_GOGARCH_BETA <- c(0.90, 0.87, 0.83)
+TRUE_GOGARCH_PERSISTENCE <- TRUE_GOGARCH_ALPHA + TRUE_GOGARCH_BETA
+
+## ICA settings
+GOGARCH_ICA_METHOD <- "radical"
+```
+
+```{r gogarch-config-print, echo=FALSE}
+cat("GOGARCH Configuration:\n")
+cat(sprintf("  Number of components: %d\n", K_GOGARCH))
+cat(sprintf("  ICA method: %s\n", GOGARCH_ICA_METHOD))
+cat("\n  True component parameters:\n")
+for (i in 1:K_GOGARCH) {
+  cat(sprintf("    Component %d: omega=%.3f, alpha=%.3f, beta=%.3f, persistence=%.3f\n",
+              i, TRUE_GOGARCH_OMEGA[i], TRUE_GOGARCH_ALPHA[i], 
+              TRUE_GOGARCH_BETA[i], TRUE_GOGARCH_PERSISTENCE[i]))
+}
+```
+
+## GOGARCH Monte Carlo Simulation
+
+```{r gogarch-mc-simulation, eval=params$run_gogarch}
+set.seed(SEED)
+
+gogarch_mc_result <- run_gogarch_monte_carlo(
+  n_sim = N_SIM,
+  n_obs = N_OBS,
+  k = K_GOGARCH,
+  true_omega = TRUE_GOGARCH_OMEGA,
+  true_alpha = TRUE_GOGARCH_ALPHA,
+  true_beta = TRUE_GOGARCH_BETA,
+  ica_method = GOGARCH_ICA_METHOD,
+  confidence_level = 0.95,
+  verbose = TRUE,
+  seed = SEED
+)
+```
+
+## GOGARCH Summary Statistics
+
+```{r gogarch-mc-summary, eval=params$run_gogarch}
+## Create summary for each component
+gogarch_summary_list <- list()
+
+for (c in 1:K_GOGARCH) {
+  gogarch_summary_list[[c]] <- data.frame(
+    Component = c,
+    Parameter = c("alpha", "beta", "persistence"),
+    True_Value = c(TRUE_GOGARCH_ALPHA[c], TRUE_GOGARCH_BETA[c], TRUE_GOGARCH_PERSISTENCE[c]),
+    Mean_Estimate = c(
+      mean(gogarch_mc_result$estimates[[c]]$alpha[gogarch_mc_result$convergence], na.rm = TRUE),
+      mean(gogarch_mc_result$estimates[[c]]$beta[gogarch_mc_result$convergence], na.rm = TRUE),
+      mean(gogarch_mc_result$persistence[[c]][gogarch_mc_result$convergence], na.rm = TRUE)
+    ),
+    Bias = c(
+      gogarch_mc_result$bias[[c]]["alpha"],
+      gogarch_mc_result$bias[[c]]["beta"],
+      mean(gogarch_mc_result$persistence[[c]][gogarch_mc_result$convergence], na.rm = TRUE) - TRUE_GOGARCH_PERSISTENCE[c]
+    ),
+    RMSE = c(
+      gogarch_mc_result$rmse[[c]]["alpha"],
+      gogarch_mc_result$rmse[[c]]["beta"],
+      sqrt(mean((gogarch_mc_result$persistence[[c]][gogarch_mc_result$convergence] - TRUE_GOGARCH_PERSISTENCE[c])^2, na.rm = TRUE))
+    ),
+    Empirical_SD = c(
+      gogarch_mc_result$empirical_sd[[c]]["alpha"],
+      gogarch_mc_result$empirical_sd[[c]]["beta"],
+      sd(gogarch_mc_result$persistence[[c]][gogarch_mc_result$convergence], na.rm = TRUE)
+    )
+  )
+}
+
+gogarch_summary_table <- do.call(rbind, gogarch_summary_list)
+
+kable(gogarch_summary_table, digits = 4, row.names = FALSE,
+      caption = "GOGARCH Monte Carlo Summary Statistics by Component") %>%
+  kable_styling(bootstrap_options = c("striped", "hover", "condensed"), full_width = FALSE) %>%
+  pack_rows("Component 1", 1, 3) %>%
+  pack_rows("Component 2", 4, 6) %>%
+  pack_rows("Component 3", 7, 9)
+```
+
+## GOGARCH Interpretation
+
+```{r gogarch-mc-interpretation, eval=params$run_gogarch}
+gogarch_conv_rate <- mean(gogarch_mc_result$convergence) * 100
+gogarch_ica_success_rate <- mean(gogarch_mc_result$ica_converged) * 100
+```
+
+```{r gogarch-mc-interpretation-print, eval=params$run_gogarch, echo=FALSE}
+cat("GOGARCH Convergence and Validity:\n")
+cat(sprintf("  Optimization converged: %.1f%% of replications\n", gogarch_conv_rate))
+cat(sprintf("  ICA converged: %.1f%% of replications\n", gogarch_ica_success_rate))
+cat("\n")
+
+cat("GOGARCH Component GARCH Diagnostics:\n")
+for (c in 1:K_GOGARCH) {
+  alpha_bias <- gogarch_mc_result$bias[[c]]["alpha"]
+  beta_bias <- gogarch_mc_result$bias[[c]]["beta"]
+  cat(sprintf("  Component %d: alpha bias=%.4f, beta bias=%.4f\n",
+              c, alpha_bias, beta_bias))
+}
+```
+
+## GOGARCH Distribution of Estimates
+
+### GOGARCH Component Persistence Distributions
+
+```{r gogarch-persistence-hist, eval=params$run_gogarch}
+gogarch_valid_idx <- gogarch_mc_result$convergence
+
+## Create persistence plot for all components
+plot_data <- data.frame()
+for (c in 1:K_GOGARCH) {
+  plot_data <- rbind(plot_data, data.frame(
+    Component = paste0("Component ", c),
+    Persistence = gogarch_mc_result$persistence[[c]][gogarch_valid_idx],
+    True = TRUE_GOGARCH_PERSISTENCE[c]
+  ))
+}
+
+ggplot(plot_data, aes(x = Persistence, fill = Component)) +
+  geom_histogram(bins = 30, alpha = 0.7, position = "identity") +
+  geom_vline(aes(xintercept = True, color = Component), linetype = "dashed", size = 1.2) +
+  facet_wrap(~Component, scales = "free_y") +
+  labs(title = "GOGARCH: Distribution of Component Persistence Estimates",
+       x = "Persistence (alpha + beta)",
+       y = "Count") +
+  theme_minimal() +
+  theme(legend.position = "none")
+```
+
+### GOGARCH Component Alpha vs Beta
+
+```{r gogarch-scatter-components, eval=params$run_gogarch}
+## Create scatter plot for each component
+plots <- list()
+
+for (c in 1:K_GOGARCH) {
+  alpha_est <- gogarch_mc_result$estimates[[c]]$alpha[gogarch_valid_idx]
+  beta_est <- gogarch_mc_result$estimates[[c]]$beta[gogarch_valid_idx]
+  
+  p <- plot_ly() %>%
+    add_trace(
+      x = alpha_est,
+      y = beta_est,
+      type = "scatter",
+      mode = "markers",
+      marker = list(color = c("forestgreen", "purple", "orange")[c], opacity = 0.6, size = 6),
+      name = paste("Component", c)
+    ) %>%
+    add_trace(
+      x = TRUE_GOGARCH_ALPHA[c],
+      y = TRUE_GOGARCH_BETA[c],
+      type = "scatter",
+      mode = "markers",
+      marker = list(color = "red", size = 12, symbol = "star"),
+      name = "True"
+    ) %>%
+    layout(
+      title = sprintf("GOGARCH Component %d: Alpha vs Beta", c),
+      xaxis = list(title = "alpha"),
+      yaxis = list(title = "beta")
+    )
+  
+  plots[[c]] <- p
+}
+
+## Display first component plot
+plots[[1]]
+```
+
+```{r gogarch-scatter-component2, eval=params$run_gogarch}
+plots[[2]]
+```
+
+```{r gogarch-scatter-component3, eval=params$run_gogarch}
+plots[[3]]
+```
+
+## GOGARCH ICA Mixing Matrix Analysis
+
+```{r gogarch-ica-analysis, eval=params$run_gogarch, echo=FALSE}
+cat("GOGARCH ICA Decomposition Analysis:\n\n")
+
+## Analyze mixing matrix stability across simulations
+if (!is.null(gogarch_mc_result$mixing_matrices)) {
+  n_valid <- sum(gogarch_valid_idx)
+  
+  ## Compute condition numbers
+  cond_nums <- sapply(gogarch_mc_result$mixing_matrices[gogarch_valid_idx], function(A) {
+    if (is.null(A) || !is.matrix(A)) return(NA)
+    svd_A <- svd(A)
+    max(svd_A$d) / max(min(svd_A$d), 1e-10)
+  })
+  
+  cat("Mixing Matrix Conditioning:\n")
+  cat(sprintf("  Mean condition number: %.2f\n", mean(cond_nums, na.rm = TRUE)))
+  cat(sprintf("  Median condition number: %.2f\n", median(cond_nums, na.rm = TRUE)))
+  cat(sprintf("  Max condition number: %.2f\n", max(cond_nums, na.rm = TRUE)))
+  cat(sprintf("  Ill-conditioned (>100): %.1f%%\n", 
+              mean(cond_nums > 100, na.rm = TRUE) * 100))
+}
+```
+
+## GOGARCH Coverage Summary
+
+```{r gogarch-coverage-summary, eval=params$run_gogarch}
+gogarch_coverage_data <- data.frame()
+
+for (c in 1:K_GOGARCH) {
+  gogarch_coverage_data <- rbind(gogarch_coverage_data, data.frame(
+    Component = c,
+    Parameter = c("alpha", "beta"),
+    Nominal = "95%",
+    Empirical = sprintf("%.1f%%", c(
+      gogarch_mc_result$coverage[[c]]["alpha"],
+      gogarch_mc_result$coverage[[c]]["beta"]
+    ) * 100),
+    Status = c(
+      ifelse(gogarch_mc_result$coverage[[c]]["alpha"] > 0.85 & 
+             gogarch_mc_result$coverage[[c]]["alpha"] < 0.99, "OK", "Check"),
+      ifelse(gogarch_mc_result$coverage[[c]]["beta"] > 0.85 & 
+             gogarch_mc_result$coverage[[c]]["beta"] < 0.99, "OK", "Check")
+    )
+  ))
+}
+
+kable(gogarch_coverage_data, caption = "GOGARCH Confidence Interval Coverage by Component") %>%
+  kable_styling(bootstrap_options = c("striped", "hover"), full_width = FALSE)
+```
+
+## GOGARCH Inference Method Comparison
+
+GOGARCH models require a different inference approach than DCC/CGARCH because the 
+parameters include ICA decomposition components. Profile likelihood is not available 
+for GOGARCH due to the ICA structure - bootstrap is the recommended approach.
+
+```{r gogarch-inference-comparison, eval=params$run_gogarch}
+## Use gogarch_comprehensive_inference for GOGARCH
+## Note: This requires garch_pars and ica_info from the fitted model
+
+## For demonstration, we extract from the Monte Carlo results
+## In practice, you would pass results from a single fit
+
+## Simulate one dataset for inference demonstration
+set.seed(SEED)
+gogarch_sim_data <- simulate_gogarch(
+  n = N_OBS,
+  k = K_GOGARCH,
+  omega = TRUE_GOGARCH_OMEGA,
+  alpha_garch = TRUE_GOGARCH_ALPHA,
+  beta_garch = TRUE_GOGARCH_BETA,
+  distribution = "norm",
+  seed = SEED
+)
+
+## Create garch_pars structure for inference
+gogarch_garch_pars <- lapply(1:K_GOGARCH, function(i) {
+  list(
+    omega = TRUE_GOGARCH_OMEGA[i],
+    alpha1 = TRUE_GOGARCH_ALPHA[i],
+    beta1 = TRUE_GOGARCH_BETA[i]
+  )
+})
+
+## Create minimal ica_info structure
+gogarch_ica_info <- list(
+  A = gogarch_sim_data$A,
+  W = gogarch_sim_data$W,
+  S = gogarch_sim_data$S,
+  method = GOGARCH_ICA_METHOD,
+  n_components = K_GOGARCH
+)
+
+gogarch_inf_result <- gogarch_comprehensive_inference(
+  residuals = gogarch_sim_data$y,
+  weights = rep(1, N_OBS),
+  garch_pars = gogarch_garch_pars,
+  ica_info = gogarch_ica_info,
+  n_boot = N_BOOT,
+  boot_method = "residual",
+  distribution = "norm",
+  conf_level = 0.95,
+  verbose = TRUE,
+  seed = SEED
+)
+```
+
+### GOGARCH Standard Error Comparison by Component
+
+```{r gogarch-se-comparison, eval=params$run_gogarch}
+## Create SE comparison table for all components
+gogarch_se_data <- data.frame()
+
+for (i in 1:K_GOGARCH) {
+  comp_summary <- gogarch_inf_result$component_summaries[[i]]
+  
+  gogarch_se_data <- rbind(gogarch_se_data, data.frame(
+    Component = i,
+    Parameter = comp_summary$Parameter,
+    Estimate = comp_summary$Estimate,
+    Hessian_SE = comp_summary$Hessian_SE,
+    Bootstrap_SE = comp_summary$Boot_SE,
+    Ratio = comp_summary$Hessian_SE / comp_summary$Boot_SE
+  ))
+}
+
+kable(gogarch_se_data, digits = 4, row.names = FALSE,
+      caption = "GOGARCH Standard Error Comparison by Component") %>%
+  kable_styling(bootstrap_options = c("striped", "hover", "condensed"), full_width = FALSE) %>%
+  pack_rows("Component 1", 1, 3) %>%
+  pack_rows("Component 2", 4, 6) %>%
+  pack_rows("Component 3", 7, 9)
+```
+
+### GOGARCH Inference Recommendations
+
+```{r gogarch-inference-recommendations, eval=params$run_gogarch}
+cat("=== GOGARCH Inference Assessment ===\n\n", echo=FALSE)
+
+## Check Hessian reliability across components
+for (i in 1:K_GOGARCH) {
+  comp_summary <- gogarch_inf_result$component_summaries[[i]]
+  
+  ## Find alpha and beta rows
+  alpha_idx <- which(comp_summary$Parameter == "alpha1")
+  beta_idx <- which(comp_summary$Parameter == "beta1")
+  
+  if (length(alpha_idx) > 0 && length(beta_idx) > 0) {
+    ratio_alpha <- comp_summary$Hessian_SE[alpha_idx] / comp_summary$Boot_SE[alpha_idx]
+    ratio_beta <- comp_summary$Hessian_SE[beta_idx] / comp_summary$Boot_SE[beta_idx]
+    
+    cat(sprintf("Component %d:\n", i))
+    cat(sprintf("  Hessian SE / Bootstrap SE:\n"))
+    cat(sprintf("    Alpha: %.2f\n", ratio_alpha))
+    cat(sprintf("    Beta:  %.2f\n", ratio_beta))
+    
+    if (ratio_beta < 0.7) {
+      cat("  WARNING: Hessian SEs for beta are substantially underestimated.\n")
+      cat("           Recommendation: Use bootstrap CIs.\n")
+    }
+    cat("\n")
+  }
+}
+
+cat("GENERAL RECOMMENDATION: For GOGARCH models, bootstrap inference is\n")
+cat("recommended due to ICA estimation uncertainty and the complex\n")
+cat("dependence structure between mixing matrix and GARCH parameters.\n")
+```
+
+---
+
+# PART IV: Cross-Model Comparison {.tabset}
+
+## Summary Comparison Table
+
+```{r cross-model-comparison, eval=params$run_dcc & params$run_cgarch & params$run_gogarch}
+cross_model_table <- data.frame(
+  Metric = c(
+    "Convergence Rate",
+    "Alpha Bias (mean)",
+    "Beta Bias (mean)",
+    "Alpha Coverage",
+    "Beta Coverage",
+    "Mean Persistence Bias"
+  ),
+  DCC = c(
+    sprintf("%.1f%%", dcc_conv_rate),
+    sprintf("%.4f", dcc_mc_result$bias["alpha"]),
+    sprintf("%.4f", dcc_mc_result$bias["beta"]),
+    sprintf("%.1f%%", dcc_mc_result$coverage["alpha"] * 100),
+    sprintf("%.1f%%", dcc_mc_result$coverage["beta"] * 100),
+    sprintf("%.4f", mean(dcc_persistence_est) - TRUE_DCC_PERSISTENCE)
+  ),
+  CGARCH = c(
+    sprintf("%.1f%%", cgarch_conv_rate),
+    sprintf("%.4f", cgarch_mc_result$bias["alpha"]),
+    sprintf("%.4f", cgarch_mc_result$bias["beta"]),
+    sprintf("%.1f%%", cgarch_mc_result$coverage["alpha"] * 100),
+    sprintf("%.1f%%", cgarch_mc_result$coverage["beta"] * 100),
+    sprintf("%.4f", mean(cgarch_persistence_est) - TRUE_CGARCH_PERSISTENCE)
+  ),
+  GOGARCH = c(
+    sprintf("%.1f%%", gogarch_conv_rate),
+    sprintf("%.4f", mean(sapply(1:K_GOGARCH, function(c) gogarch_mc_result$bias[[c]]["alpha"]))),
+    sprintf("%.4f", mean(sapply(1:K_GOGARCH, function(c) gogarch_mc_result$bias[[c]]["beta"]))),
+    sprintf("%.1f%%", mean(sapply(1:K_GOGARCH, function(c) gogarch_mc_result$coverage[[c]]["alpha"])) * 100),
+    sprintf("%.1f%%", mean(sapply(1:K_GOGARCH, function(c) gogarch_mc_result$coverage[[c]]["beta"])) * 100),
+    sprintf("%.4f", mean(sapply(1:K_GOGARCH, function(c) {
+      mean(gogarch_mc_result$persistence[[c]][gogarch_valid_idx]) - TRUE_GOGARCH_PERSISTENCE[c]
+    })))
+  )
+)
+
+kable(cross_model_table, caption = "Cross-Model Performance Comparison") %>%
+  kable_styling(bootstrap_options = c("striped", "hover"), full_width = FALSE) %>%
+  column_spec(1, bold = TRUE)
+```
+
+## Estimation Quality Visualization
+
+```{r estimation-quality-viz, eval=params$run_dcc & params$run_cgarch & params$run_gogarch}
+## Create comparative visualization
+quality_data <- data.frame(
+  Model = c("DCC", "DCC", "CGARCH", "CGARCH", "GOGARCH", "GOGARCH"),
+  Parameter = rep(c("alpha", "beta"), 3),
+  Bias = c(
+    dcc_mc_result$bias["alpha"], dcc_mc_result$bias["beta"],
+    cgarch_mc_result$bias["alpha"], cgarch_mc_result$bias["beta"],
+    mean(sapply(1:K_GOGARCH, function(c) gogarch_mc_result$bias[[c]]["alpha"])),
+    mean(sapply(1:K_GOGARCH, function(c) gogarch_mc_result$bias[[c]]["beta"]))
+  ),
+  RMSE = c(
+    dcc_mc_result$rmse["alpha"], dcc_mc_result$rmse["beta"],
+    cgarch_mc_result$rmse["alpha"], cgarch_mc_result$rmse["beta"],
+    mean(sapply(1:K_GOGARCH, function(c) gogarch_mc_result$rmse[[c]]["alpha"])),
+    mean(sapply(1:K_GOGARCH, function(c) gogarch_mc_result$rmse[[c]]["beta"]))
+  )
+)
+
+p1 <- ggplot(quality_data, aes(x = Model, y = Bias, fill = Parameter)) +
+  geom_bar(stat = "identity", position = "dodge") +
+  geom_hline(yintercept = 0, linetype = "dashed") +
+  labs(title = "Parameter Bias by Model Type", y = "Bias") +
+  theme_minimal() +
+  scale_fill_brewer(palette = "Set2")
+
+p2 <- ggplot(quality_data, aes(x = Model, y = RMSE, fill = Parameter)) +
+  geom_bar(stat = "identity", position = "dodge") +
+  labs(title = "Parameter RMSE by Model Type", y = "RMSE") +
+  theme_minimal() +
+  scale_fill_brewer(palette = "Set2")
+
+print(p1)
+print(p2)
+```
+
+---
+
+# Summary and Conclusions
+
+```{r conclusions, echo=FALSE}
+cat(paste(rep("=", 70), collapse = ""), "\n")
+cat("  MS-VARMA-GARCH PARAMETER ESTIMATION DIAGNOSTICS SUMMARY\n")
+cat(paste(rep("=", 70), collapse = ""), "\n\n")
+
+## DCC Summary
+if (params$run_dcc) {
+  cat("DCC MODEL:\n")
+  dcc_issues <- c()
+  if (abs(dcc_mc_result$bias["alpha"]) > 0.02 || abs(dcc_mc_result$bias["beta"]) > 0.02) {
+    dcc_issues <- c(dcc_issues, "Notable bias detected")
+  }
+  if (dcc_mc_result$coverage["alpha"] < 0.85 || dcc_mc_result$coverage["beta"] < 0.85) {
+    dcc_issues <- c(dcc_issues, "Coverage below acceptable range")
+  }
+  if (dcc_se_ratio_beta < 0.7) {
+    dcc_issues <- c(dcc_issues, "Beta SE severely underestimated (flat likelihood)")
+  }
+  
+  if (length(dcc_issues) == 0) {
+    cat("  Status: All diagnostics PASSED\n")
+  } else {
+    cat("  Issues:\n")
+    for (issue in dcc_issues) cat(sprintf("    - %s\n", issue))
+  }
+  cat("\n")
+}
+
+## CGARCH Summary
+if (params$run_cgarch) {
+  cat("CGARCH MODEL:\n")
+  cgarch_issues <- c()
+  
+  ## Check bias (handle NA)
+  alpha_bias <- cgarch_mc_result$bias["alpha"]
+  beta_bias <- cgarch_mc_result$bias["beta"]
+  if (!is.na(alpha_bias) && !is.na(beta_bias)) {
+    if (abs(alpha_bias) > 0.02 || abs(beta_bias) > 0.02) {
+      cgarch_issues <- c(cgarch_issues, "Notable bias detected")
+    }
+  }
+  
+  ## Check coverage (handle NA/NaN)
+  alpha_cov <- cgarch_mc_result$coverage["alpha"]
+  beta_cov <- cgarch_mc_result$coverage["beta"]
+  if (is.na(alpha_cov) || is.nan(alpha_cov) || is.na(beta_cov) || is.nan(beta_cov)) {
+    cgarch_issues <- c(cgarch_issues, "Coverage could not be computed for some parameters")
+  } else if (alpha_cov < 0.85 || beta_cov < 0.85) {
+    cgarch_issues <- c(cgarch_issues, "Coverage below acceptable range")
+  }
+  
+  if (length(cgarch_issues) == 0) {
+    cat("  Status: All diagnostics PASSED\n")
+  } else {
+    cat("  Issues:\n")
+    for (issue in cgarch_issues) cat(sprintf("    - %s\n", issue))
+  }
+  cat("\n")
+}
+
+## GOGARCH Summary
+if (params$run_gogarch) {
+  cat("GOGARCH MODEL:\n")
+  gogarch_issues <- c()
+  
+  ## Check each component
+  for (c in 1:K_GOGARCH) {
+    if (abs(gogarch_mc_result$bias[[c]]["alpha"]) > 0.03 || 
+        abs(gogarch_mc_result$bias[[c]]["beta"]) > 0.03) {
+      gogarch_issues <- c(gogarch_issues, sprintf("Component %d has notable bias", c))
+    }
+  }
+  
+  if (gogarch_ica_success_rate < 95) {
+    gogarch_issues <- c(gogarch_issues, "ICA convergence issues")
+  }
+  
+  if (length(gogarch_issues) == 0) {
+    cat("  Status: All diagnostics PASSED\n")
+  } else {
+    cat("  Issues:\n")
+    for (issue in gogarch_issues) cat(sprintf("    - %s\n", issue))
+  }
+  cat("\n")
+}
+
+## General recommendations
+cat("\n")
+cat(paste(rep("-", 70), collapse = ""), "\n")
+cat("INFERENCE RECOMMENDATIONS:\n")
+cat(paste(rep("-", 70), collapse = ""), "\n\n")
+
+cat("1. DCC Models:\n")
+cat("   - For high-persistence models (α+β > 0.95), use Bootstrap or Profile CIs\n")
+cat("   - Hessian-based SEs may severely underestimate beta uncertainty\n\n")
+
+cat("2. CGARCH Models:\n")
+cat("   - ADCC gamma parameter requires careful monitoring\n")
+cat("   - MVT copula shape should be > 4 for reliable inference\n\n")
+
+cat("3. GOGARCH Models:\n")
+cat("   - ICA mixing matrix conditioning affects all component estimates\n")
+cat("   - Consider RADICAL ICA for better numerical stability\n")
+cat("   - Bootstrap recommended for component GARCH parameters\n")
+```
+
+---
+
+# Session Information
+
+```{r session-info}
+sessionInfo()
+```

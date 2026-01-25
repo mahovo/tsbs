@@ -1,0 +1,753 @@
+---
+title: "MS-VARMA-GARCH Parameter Inference Guide"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{MS-VARMA-GARCH Parameter Inference Guide}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r setup, include = FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>",
+  fig.width = 7,
+  fig.height = 5
+)
+```
+
+## Overview
+
+This vignette provides guidance on statistical inference for correlation parameters in the tsbs package's multivariate GARCH models. The package supports three correlation model specifications:
+
+1. **DCC** (Dynamic Conditional Correlation) - `dcc_modelspec`
+2. **CGARCH** (Copula GARCH) - `cgarch_modelspec`
+3. **GOGARCH** (Generalized Orthogonal GARCH) - `gogarch_modelspec`
+
+Each model has distinct inference characteristics that require different approaches for reliable standard errors and confidence intervals.
+
+## Executive Summary
+
+| Model   | Parameter      | Recommended Method       | Reason |
+|---------|----------------|--------------------------|--------|
+| DCC     | Alpha (α)      | Hessian-based SE         | Well-calibrated (~0.8 ratio) |
+| DCC     | Beta (β)       | Bootstrap or Profile LR  | Hessian underestimates by ~5-6x |
+| CGARCH  | Alpha (α)      | Hessian-based SE         | Similar to DCC |
+| CGARCH  | Beta (β)       | Bootstrap or Profile LR  | Same flat likelihood issue |
+| CGARCH  | Shape (ν)      | Hessian-based SE         | Generally well-identified |
+| GOGARCH | GARCH params   | Bootstrap                | ICA uncertainty not captured |
+
+**Key Finding**: Both DCC and CGARCH share the "flat beta problem"—the likelihood surface is approximately 8x flatter in the beta direction than the alpha direction. This causes Hessian-based standard errors to severely underestimate uncertainty for beta. GOGARCH has a different structure but benefits from bootstrap inference due to ICA estimation uncertainty.
+
+---
+
+## Part I: DCC Models
+
+### The Flat Beta Problem
+
+The DCC(1,1) model has parameters α (news impact) and β (persistence). Validation studies reveal that the likelihood surface has highly anisotropic curvature:
+
+```
+Curvature Analysis (typical results with n=1000, α=0.05, β=0.90):
+┌─────────────────────────────────────────────────────────────────┐
+│ Metric                        │ Alpha    │ Beta     │ Ratio    │
+├─────────────────────────────────────────────────────────────────┤
+│ d²NLL/dθ² (curvature)         │ ~4900    │ ~630     │ 7.7x     │
+│ NLL change over ±0.05         │ ~7.4     │ ~1.7     │ 4.3x     │
+│ Hessian eigenvalue ratio      │          │          │ 16.2x    │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+The "flat direction" eigenvector is approximately (0.25, -0.97), meaning the likelihood is nearly constant along lines in parameter space. This is a **fundamental property of DCC with high persistence**, not an implementation error.
+
+### DCC Standard Error Calibration
+
+Monte Carlo studies reveal severe miscalibration of Hessian-based SEs for beta:
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│ Parameter │ Hessian SE │ Bootstrap SE │ Empirical SD │ Ratio   │
+├─────────────────────────────────────────────────────────────────┤
+│ Alpha     │ 0.019      │ 0.025        │ 0.024        │ 0.78    │
+│ Beta      │ 0.055      │ 0.343        │ 0.218        │ 0.16    │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+**Interpretation**: Alpha's Hessian SE is ~80% of empirical SD—acceptable for inference. Beta's Hessian SE is only ~16% of bootstrap SE—severely underestimated.
+
+### DCC Inference Methods
+
+#### 1. Hessian-based Standard Errors
+
+Fast but unreliable for beta at high persistence.
+
+```{r eval=FALSE}
+se_result <- dcc11_standard_errors(
+  params = c(alpha, beta),
+  std_resid = std_resid,
+  weights = weights,
+  Qbar = Qbar,
+  distribution = "mvn"
+)
+
+# Returns: se, vcov, eigenvalues, condition_number
+```
+
+**Use for**: Quick inference, alpha parameter, testing β > 0
+
+#### 2. Bootstrap Standard Errors
+
+Resamples data to estimate the true sampling distribution.
+
+```{r eval=FALSE}
+boot_result <- dcc11_bootstrap_se(
+  std_resid = std_resid,
+  weights = weights,
+  Qbar = Qbar,
+  mle_params = c(alpha, beta),
+  n_boot = 200,
+  method = "residual"  # or "parametric"
+)
+
+# Returns: se, boot_estimates, ci_percentile, ci_basic
+```
+
+**Use for**: Reliable beta inference, publication-quality results
+
+**Methods available**:
+
+- `"residual"`: Resamples rows of standardized residuals (faster)
+- `"parametric"`: Simulates new data from fitted DCC model (more theoretically justified)
+
+#### 3. Profile Likelihood Confidence Intervals
+
+Inverts the likelihood ratio test—does not assume quadratic likelihood.
+
+```{r eval=FALSE}
+profile_result <- correlation_profile_likelihood_ci(
+  model_type = "dcc",
+  residuals = std_resid,
+  weights = weights,
+  Qbar = Qbar,
+  mle_params = c(alpha, beta),
+  conf_level = 0.95
+)
+
+# Returns: Profile NLL curve, CI bounds for alpha and beta
+```
+
+**Use for**: Asymmetric CIs, near-boundary inference
+
+#### 4. Comprehensive DCC Inference
+
+Computes all three methods with comparison:
+
+```{r eval=FALSE}
+inf_result <- correlation_comprehensive_inference(
+  model_type = "dcc",
+  residuals = std_resid,
+  weights = weights,
+  n_boot = 200,
+  conf_level = 0.95
+)
+
+print_inference_comparison(inf_result)
+```
+
+---
+
+## Part II: CGARCH (Copula GARCH) Models
+
+### Overview
+
+Copula GARCH models separate marginal distributions from the dependence structure. The key difference from DCC is the Probability Integral Transform (PIT) applied to standardized residuals before modeling correlation dynamics.
+
+### CGARCH Model Components
+
+1. **Marginal Transformation**: Standardized residuals → Uniform [0,1] via PIT
+   - `"parametric"`: Uses estimated univariate distribution CDF
+   - `"empirical"`: Uses empirical CDF
+   - `"spd"`: Semi-parametric distribution
+
+2. **Copula Distribution**:
+   - `"mvn"`: Gaussian copula
+   - `"mvt"`: Student-t copula (adds shape parameter)
+
+3. **Correlation Dynamics**:
+   - `"constant"`: Static correlation
+   - `"dcc"`: Standard DCC dynamics
+   - `"adcc"`: Asymmetric DCC (adds gamma parameter for leverage)
+
+### CGARCH Inference Characteristics
+
+CGARCH shares the same "flat beta problem" as DCC because the correlation dynamics follow the same DCC(1,1) recursion. The copula transformation does not change the fundamental shape of the likelihood surface with respect to (α, β).
+
+```
+CGARCH Parameter Characteristics:
+┌─────────────────────────────────────────────────────────────────┐
+│ Parameter      │ Estimation    │ Inference Issue               │
+├─────────────────────────────────────────────────────────────────┤
+│ Alpha (α)      │ Well-identified │ Hessian SE acceptable       │
+│ Beta (β)       │ Flat likelihood │ Hessian SE underestimates   │
+│ Shape (ν)      │ Well-identified │ Hessian SE acceptable       │
+│ Gamma (ADCC)   │ Model-dependent │ May have flat regions       │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+### CGARCH Inference Methods
+
+#### 1. Bootstrap Standard Errors
+
+```{r eval=FALSE}
+boot_result <- cgarch_bootstrap_se(
+  z_matrix = z_matrix,      # PIT-transformed copula residuals
+  weights = weights,
+  Qbar = Qbar,
+  mle_params = c(alpha, beta),  # or c(alpha, beta, shape) for MVT
+  n_boot = 200,
+  method = "residual",
+  copula_dist = "mvn"       # or "mvt"
+)
+```
+
+#### 2. Profile Likelihood CIs
+
+```{r eval=FALSE}
+profile_result <- correlation_profile_likelihood_ci(
+  model_type = "cgarch",
+  residuals = z_matrix,
+  weights = weights,
+  Qbar = Qbar,
+  mle_params = c(alpha, beta),
+  conf_level = 0.95,
+  distribution = "mvn"
+)
+```
+
+#### 3. Comprehensive CGARCH Inference
+
+```{r eval=FALSE}
+inf_result <- correlation_comprehensive_inference(
+  model_type = "cgarch",
+  residuals = z_matrix,
+  weights = weights,
+  distribution = "mvn",   # or "mvt"
+  n_boot = 200,
+  conf_level = 0.95
+)
+
+print_inference_comparison(inf_result)
+```
+
+### ADCC (Asymmetric DCC) Inference
+
+ADCC adds a leverage parameter γ that captures asymmetric correlation responses to positive vs. negative shocks. The ADCC recursion is:
+
+$$Q_t = \Omega + \alpha z_{t-1}z_{t-1}' + \gamma n_{t-1}n_{t-1}' + \beta Q_{t-1}$$
+
+where:
+- $n_t = z_t \cdot \mathbf{1}(z_t < 0)$ captures negative shocks
+- $\bar{N} = E[n_t n_t']$ is the expected outer product of negative shocks
+- $\Omega = (1 - \alpha - \beta)\bar{Q} - \gamma\bar{N}$ ensures stationarity
+- Stationarity requires: $\alpha + \beta + \delta\gamma < 1$ where $\delta \approx 0.5$
+
+#### ADCC Hessian-Based Standard Errors
+
+The `adcc_standard_errors()` function computes Hessian-based SEs for the 3-parameter ADCC model:
+
+```{r eval=FALSE}
+# After fitting ADCC
+adcc_fit <- estimate_adcc_copula(
+  z_matrix = z_matrix,
+  weights = weights,
+  Qbar = Qbar,
+  copula_dist = "mvn"  # or "mvt"
+)
+
+# Compute Hessian-based SEs
+se_result <- adcc_standard_errors(
+
+  params = c(adcc_fit$alpha, adcc_fit$gamma, adcc_fit$beta),
+  z_matrix = z_matrix,
+  weights = weights,
+  Qbar = Qbar,
+  Nbar = adcc_fit$Nbar,
+  copula_dist = "mvn"
+)
+
+# Inspect results
+print(se_result$se)           # SEs for alpha, gamma, beta
+print(se_result$vcov)         # Variance-covariance matrix
+print(se_result$eigenvalues)  # Hessian eigenvalues (check for near-singularity)
+```
+
+#### ADCC with Robust Edge Case Handling
+
+For production use, the robust wrapper handles boundary estimates and numerical issues:
+
+```{r eval=FALSE}
+se_robust <- compute_adcc_standard_errors_robust(
+  adcc_result = adcc_fit,
+  z_matrix = z_matrix,
+  weights = weights,
+  Qbar = Qbar,
+  copula_dist = "mvn",
+  boundary_threshold = 1e-4
+)
+
+if (se_robust$valid) {
+  cat("SEs computed successfully:\n")
+  print(se_robust$se)
+} else {
+  cat("SE computation issue:", se_robust$reason, "\n")
+}
+```
+
+#### ADCC Bootstrap Standard Errors
+
+As with DCC/CGARCH, bootstrap is recommended for reliable inference, especially for beta:
+
+```{r eval=FALSE}
+boot_result <- adcc_bootstrap_se(
+  z_matrix = z_matrix,
+  weights = weights,
+  Qbar = Qbar,
+  mle_params = c(adcc_fit$alpha, adcc_fit$gamma, adcc_fit$beta),
+  Nbar = adcc_fit$Nbar,
+  n_boot = 200,
+  method = "residual",
+  copula_dist = "mvn",
+  verbose = TRUE
+)
+
+# Bootstrap SEs and CIs
+print(boot_result$se)
+print(boot_result$ci_percentile)
+```
+
+#### Comprehensive ADCC Inference
+
+Compare Hessian and bootstrap methods:
+
+```{r eval=FALSE}
+adcc_inf <- adcc_comprehensive_inference(
+  z_matrix = z_matrix,
+  weights = weights,
+  adcc_result = adcc_fit,
+  Qbar = Qbar,
+  copula_dist = "mvn",
+  n_boot = 200,
+  conf_level = 0.95,
+  verbose = TRUE
+)
+
+# Comparison table
+print(adcc_inf$comparison)
+```
+
+Output example:
+```
+=== ADCC Comprehensive Inference ===
+Observations: 1000, Series: 3
+MLE: alpha = 0.0450, gamma = 0.0280, beta = 0.9100
+
+=== Inference Comparison ===
+Confidence level: 95%
+
+  Parameter Estimate Hessian_SE Boot_SE  Hess_CI_lower Hess_CI_upper Boot_CI_lower Boot_CI_upper SE_Ratio
+1     alpha   0.0450     0.0180  0.0220         0.0097        0.0803        0.0089        0.0856     0.82
+2     gamma   0.0280     0.0150  0.0190         0.0014        0.0574        0.0025        0.0612     0.79
+3      beta   0.9100     0.0480  0.2100         0.8159        1.0041        0.5200        0.9650     0.23
+
+WARNING: Hessian SEs appear underestimated for some parameters (ratio < 0.7).
+         Bootstrap SEs recommended for inference.
+```
+
+#### ADCC Inference Recommendations
+
+| Parameter | Recommended Method | Notes |
+|-----------|-------------------|-------|
+| Alpha (α) | Hessian or Bootstrap | Usually well-identified |
+| Gamma (γ) | Bootstrap | May have flat regions when asymmetry is weak |
+| Beta (β)  | Bootstrap | Same flat likelihood issue as DCC |
+| Shape (ν) | Hessian | Generally well-identified (MVT copula) |
+
+**Key considerations for ADCC**:
+
+1. **Gamma identification**: When asymmetric effects are weak, γ may be poorly identified. Check the Hessian eigenvalues for near-singularity.
+
+2. **Stationarity boundary**: The constraint α + β + δγ < 1 means high-persistence models have less room for asymmetry.
+
+3. **Bootstrap coverage**: Monte Carlo studies show bootstrap provides better coverage than Hessian for all three parameters.
+
+---
+
+## Also update the Executive Summary table (around line 31)
+
+Add rows for ADCC:
+
+| Model   | Parameter      | Recommended Method       | Reason |
+|---------|----------------|--------------------------|--------|
+| DCC     | Alpha (α)      | Hessian-based SE         | Well-calibrated (~0.8 ratio) |
+| DCC     | Beta (β)       | Bootstrap or Profile LR  | Hessian underestimates by ~5-6x |
+| CGARCH  | Alpha (α)      | Hessian-based SE         | Similar to DCC |
+| CGARCH  | Beta (β)       | Bootstrap or Profile LR  | Same flat likelihood issue |
+| CGARCH  | Shape (ν)      | Hessian-based SE         | Generally well-identified |
+| **ADCC**| **Alpha (α)**  | **Hessian or Bootstrap** | **Usually well-identified** |
+| **ADCC**| **Gamma (γ)**  | **Bootstrap**            | **May have identification issues** |
+| **ADCC**| **Beta (β)**   | **Bootstrap**            | **Same flat likelihood as DCC** |
+| GOGARCH | GARCH params   | Bootstrap                | ICA uncertainty not captured |
+
+---
+
+## Also update the Summary Table in Part VII (around line 552)
+
+| Quantity | Method | Model Applicability |
+|----------|--------|---------------------|
+| Point estimates | MLE | All |
+| SE for α | Hessian | DCC, CGARCH, ADCC |
+| CI for β | Bootstrap or Profile | DCC, CGARCH, ADCC |
+| SE for γ (ADCC) | Bootstrap | ADCC |
+| Shape SE (ν) | Hessian | CGARCH (MVT), ADCC (MVT) |
+| Component GARCH SE | Bootstrap | GOGARCH |
+| Persistence | Point estimate + SE | All |
+
+---
+
+## Update the Reporting section (Part VII) to include ADCC example
+
+### Recommended Format for ADCC
+
+> The ADCC parameters were estimated as α̂ = 0.045 (SE = 0.022), 
+> γ̂ = 0.028 (bootstrap 95% CI: [0.003, 0.061]), and β̂ = 0.91 
+> (bootstrap 95% CI: [0.52, 0.97]). The asymmetric parameter γ is 
+> statistically significant, indicating stronger correlation increases 
+> following joint negative returns. Bootstrap confidence intervals are 
+> reported for γ and β due to potential identification issues with 
+> Hessian-based inference.
+
+---
+
+## Part III: GOGARCH Models
+
+### Overview
+
+Generalized Orthogonal GARCH (GOGARCH) models multivariate volatility through Independent Component Analysis (ICA). Unlike DCC/CGARCH, which model correlation dynamics directly, GOGARCH:
+
+1. Decomposes residuals into independent components via ICA
+2. Fits univariate GARCH to each independent component
+3. Derives time-varying correlation from the mixing matrix and component volatilities
+
+### Key Structural Differences
+
+```
+Model Structure Comparison:
+┌─────────────────────────────────────────────────────────────────┐
+│ Aspect              │ DCC/CGARCH           │ GOGARCH            │
+├─────────────────────────────────────────────────────────────────┤
+│ Correlation params  │ α, β (dynamics)      │ None (ICA-derived) │
+│ Main parameters     │ 2-3 correlation      │ 3×k component GARCH│
+│ Estimation          │ Two-stage MLE        │ ICA + GARCH MLE    │
+│ Uncertainty source  │ Likelihood curvature │ ICA + GARCH        │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+### GOGARCH Parameter Structure
+
+Each of the k independent components has a GARCH(1,1) specification:
+
+- **omega (ω)**: Constant term
+- **alpha1 (α₁)**: ARCH coefficient (shock impact)
+- **beta1 (β₁)**: GARCH coefficient (persistence)
+- **shape (ν)**: Optional Student-t degrees of freedom
+
+### Why Bootstrap is Essential for GOGARCH
+
+GOGARCH inference faces unique challenges:
+
+1. **ICA estimation uncertainty**: The mixing matrix W is estimated, but this uncertainty is not captured by standard Hessian-based SEs for the GARCH parameters.
+
+2. **Two-stage estimation**: ICA is performed first, then GARCH is estimated on the components. Standard errors that only consider the second stage are incomplete.
+
+3. **Component independence assumption**: Bootstrap naturally propagates uncertainty through both stages.
+
+### GOGARCH Inference Methods
+
+#### 1. Component-wise Hessian SEs (Limited Use)
+
+```{r eval=FALSE}
+se_result <- gogarch_standard_errors(
+  garch_pars = garch_pars,    # List of GARCH params per component
+  ica_info = ica_info,        # ICA decomposition results
+  residuals = residuals,
+  weights = weights,
+  distribution = "norm",
+  method = "hessian"
+)
+
+# Returns SE for each component's GARCH parameters
+```
+
+**Note**: These SEs do not account for ICA estimation uncertainty and should be viewed as lower bounds.
+
+#### 2. Bootstrap Standard Errors (Recommended)
+
+```{r eval=FALSE}
+boot_result <- gogarch_bootstrap_se(
+  residuals = residuals,
+  weights = weights,
+  garch_pars = garch_pars,
+  ica_info = ica_info,
+  n_boot = 200,
+  method = "residual",
+  distribution = "norm"
+)
+
+# Returns bootstrap SE for each component
+```
+
+The bootstrap procedure:
+1. Resamples the independent components (preserving independence)
+2. Re-estimates GARCH for each component
+3. Computes empirical standard deviations
+
+#### 3. Comprehensive GOGARCH Inference
+
+```{r eval=FALSE}
+inf_result <- gogarch_comprehensive_inference(
+  residuals = residuals,
+  weights = weights,
+  garch_pars = garch_pars,
+  ica_info = ica_info,
+  n_boot = 200,
+  boot_method = "residual",
+  distribution = "norm",
+  conf_level = 0.95
+)
+
+print_inference_comparison(inf_result)
+```
+
+**Note**: Profile likelihood is not available for GOGARCH due to the ICA structure. The bootstrap is the primary recommended method.
+
+---
+
+## Part IV: Unified Inference Interface
+
+The tsbs package provides unified functions that work across all three model types.
+
+### Unified Bootstrap
+
+```{r eval=FALSE}
+# Works for DCC, CGARCH, and GOGARCH
+boot_result <- correlation_bootstrap_se(
+  model_type = "dcc",      # or "cgarch", "gogarch"
+  residuals = residuals,
+  weights = weights,
+  mle_result = mle_result,
+  n_boot = 200,
+  method = "residual",
+  distribution = "mvn"
+)
+```
+
+### Unified Comprehensive Inference
+
+For DCC and CGARCH:
+```{r eval=FALSE}
+inf_result <- correlation_comprehensive_inference(
+  model_type = "dcc",   # or "cgarch"
+  residuals = residuals,
+  weights = weights,
+  n_boot = 200,
+  conf_level = 0.95
+)
+```
+
+For GOGARCH:
+```{r eval=FALSE}
+inf_result <- gogarch_comprehensive_inference(
+  residuals = residuals,
+  weights = weights,
+  garch_pars = garch_pars,
+  ica_info = ica_info,
+  n_boot = 200,
+  conf_level = 0.95
+)
+```
+
+### Pretty-printing Results
+
+```{r eval=FALSE}
+# Works for all model types
+print_inference_comparison(inf_result)
+```
+
+---
+
+## Part V: Diagnostic Workflow
+
+### Step 1: Check for Boundary Estimates
+
+All three models can produce boundary estimates that invalidate standard inference.
+
+```{r eval=FALSE}
+# For DCC/CGARCH
+is_boundary <- alpha < 1e-4 || beta > 0.999 || (alpha + beta) > 0.999
+
+# For GOGARCH
+for (i in 1:n_components) {
+  is_boundary_i <- garch_pars[[i]]$omega < 1e-8 ||
+                   garch_pars[[i]]$alpha1 + garch_pars[[i]]$beta1 > 0.999
+}
+```
+
+### Step 2: Assess Likelihood Curvature (DCC/CGARCH)
+
+```{r eval=FALSE}
+hess <- dcc11_hessian(params, std_resid, weights, Qbar)
+
+# Eigenvalue ratio indicates anisotropy
+ratio <- hess$eigenvalues[1] / hess$eigenvalues[2]
+if (ratio > 10) {
+  warning("Highly anisotropic curvature - beta SE unreliable")
+}
+
+# Condition number
+if (hess$condition_number > 1000) {
+  warning("Ill-conditioned Hessian - numerical issues possible")
+}
+```
+
+### Step 3: Compare SE Methods
+
+```{r eval=FALSE}
+# For DCC/CGARCH
+hess_se <- se_result$se
+boot_se <- boot_result$se
+
+ratio <- hess_se / boot_se
+if (ratio["beta"] < 0.5) {
+  warning("Hessian SE for beta is less than half of bootstrap SE")
+}
+
+# For GOGARCH - compare across components
+for (i in 1:n_components) {
+  ratio_i <- hess_result$component_se[[i]]$se / boot_result$component_results[[i]]$se
+  if (any(ratio_i < 0.5, na.rm = TRUE)) {
+    warning(sprintf("Component %d: Hessian SE appears underestimated", i))
+  }
+}
+```
+
+### Step 4: Visualize (DCC/CGARCH)
+
+```{r eval=FALSE}
+# Likelihood surface
+surface <- compute_nll_surface(std_resid, weights, Qbar)
+plot_nll_contours(surface, mle_params = c(alpha, beta))
+
+# Profile likelihood
+plot_profile_likelihood(inf_result$profile, "beta")
+
+# Look for:
+# - Elongated contours (flat direction)
+# - Multiple modes (identification issues)
+# - Boundary proximity
+```
+
+---
+
+## Part VI: Known Limitations and Recommendations
+
+### High Persistence (α + β > 0.95)
+
+When persistence is high in DCC/CGARCH, the likelihood becomes increasingly flat.
+
+**Recommendations**:
+- Always use bootstrap or profile likelihood for beta
+- Consider reporting persistence rather than individual parameters
+- Be cautious about point estimates—they may not be well-identified
+
+### Small Sample Sizes (n < 500)
+
+With limited data, all inference methods become less reliable.
+
+**Recommendations**:
+- Increase bootstrap replications (n_boot ≥ 500)
+- Consider wider confidence intervals
+- Report multiple inference methods for comparison
+
+### Near-Boundary Estimates
+
+When parameters approach bounds, standard asymptotic theory fails.
+
+**Our implementation**:
+- Detects boundary estimates and returns NA for SEs
+- Profile likelihood handles boundaries correctly
+- Bootstrap may produce boundary estimates in some replications
+
+### GOGARCH-Specific Issues
+
+**ICA sensitivity**: Results can depend on ICA initialization and method.
+
+**Recommendations**:
+- Consider multiple ICA runs with different seeds
+- Bootstrap captures some of this variation
+- Report ICA method used (e.g., "fastica", "jade")
+
+---
+
+## Part VII: Reporting Results
+
+### Recommended Format for DCC/CGARCH
+
+For publication, we recommend:
+
+> The DCC parameters were estimated as α̂ = 0.05 (SE = 0.02) and β̂ = 0.90 
+> (bootstrap 95% CI: [0.55, 0.96]). Hessian-based standard errors for β 
+> are known to underestimate uncertainty for high-persistence DCC models; 
+> bootstrap confidence intervals are reported instead.
+
+### Recommended Format for GOGARCH
+
+> GOGARCH model with k=3 independent components was estimated using 
+> FastICA decomposition. Component GARCH parameters with bootstrap 
+> standard errors (B=200):
+>
+> | Component | ω | α₁ (SE) | β₁ (SE) | Persistence |
+> |-----------|---|---------|---------|-------------|
+> | 1 | 0.001 | 0.08 (0.02) | 0.91 (0.03) | 0.99 |
+> | 2 | 0.002 | 0.05 (0.01) | 0.93 (0.02) | 0.98 |
+> | 3 | 0.003 | 0.10 (0.03) | 0.87 (0.04) | 0.97 |
+
+### Summary Table
+
+| Quantity | Method | Model Applicability |
+|----------|--------|---------------------|
+| Point estimates | MLE | All |
+| SE for α | Hessian | DCC, CGARCH |
+| CI for β | Bootstrap or Profile | DCC, CGARCH |
+| Shape SE (ν) | Hessian | CGARCH (MVT) |
+| Component GARCH SE | Bootstrap | GOGARCH |
+| Persistence | Point estimate + SE | All |
+
+---
+
+## References
+
+**DCC Models**:
+- Engle, R. (2002). Dynamic conditional correlation: A simple class of multivariate generalized autoregressive conditional heteroskedasticity models. *Journal of Business & Economic Statistics*, 20(3), 339-350.
+- Aielli, G. P. (2013). Dynamic conditional correlation: On properties and estimation. *Journal of Business & Economic Statistics*, 31(3), 282-299.
+
+**Copula GARCH**:
+- Patton, A. J. (2006). Modelling asymmetric exchange rate dependence. *International Economic Review*, 47(2), 527-556.
+- Jondeau, E. & Rockinger, M. (2006). The Copula-GARCH model of conditional dependencies. *Journal of International Money and Finance*, 25(5), 827-853.
+
+**GOGARCH**:
+- van der Weide, R. (2002). GO-GARCH: A multivariate generalized orthogonal GARCH model. *Journal of Applied Econometrics*, 17(5), 549-564.
+- Boswijk, H. P. & van der Weide, R. (2011). Method of moments estimation of GO-GARCH models. *Journal of Econometrics*, 163(1), 118-126.
+
+**Software**:
+- tsmarch package: https://github.com/tsmodels/tsmarch
+- tsgarch package: https://github.com/tsmodels/tsgarch

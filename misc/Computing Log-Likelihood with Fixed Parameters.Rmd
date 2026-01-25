@@ -1,10 +1,16 @@
 ---
 title: "Computing Log-Likelihood with Fixed Parameters"
-output: rmarkdown::html_vignette
-vignette: >
-  %\VignetteIndexEntry{Computing Log-Likelihood with Fixed Parameters}
-  %\VignetteEngine{knitr::rmarkdown}
-  %\VignetteEncoding{UTF-8}
+author: "Martin Hoshi Vognsen"
+date: "`r Sys.Date()`"
+output:
+  html_document:
+    toc: true
+    toc_float: true
+    toc_depth: 3
+    code_folding: show
+    theme: flatly
+    fig_width: 10
+    fig_height: 7
 ---
 
 ```{r setup, include = FALSE}
