@@ -1,2 +1,15 @@
 ^.*\.Rproj$
 ^\.Rproj\.user$
+^README\.Rmd$
+^LICENSE\.md$
+^.git$
+^\.github$
+^.gitignore$
+^_pkgdown\.yml$
+^pkgdown/
+^misc$
+^logs$
+^private$
+^output$
+^docs$
+^pkgdown$

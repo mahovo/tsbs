@@ -164,6 +164,32 @@ The package includes two vignettes for specialized topics:
 | `vignette("multivariate_garch_comparison", package = "tsbs")` | Diagnostic vignette comparing DCC, CGARCH and GOGARCH models |
 
 
+### Demos
+
+```r
+library(tsbs)
+
+# See what demos are available
+list_package_demos()
+
+# Get path to a demo  (choose demo name from list)
+demo_path <- get_demo_path("portfolio-optimization")
+
+# Render it (choose your output location)
+demo_output_dir <- "demo-output"
+rmarkdown::render(demo_path, output_dir = demo_output_dir)
+
+# Or use in a pipeline
+get_demo_path(demo_list[[1]]) |> 
+  rmarkdown::render(output_dir = demo_output_dir)
+```
+
+See also [https://github.com/mahovo/tsbs/tree/main/inst/demos](https://github.com/mahovo/tsbs/tree/main/inst/demos)
+
+See a pre-rendered version of "portfolio-optimization.Rmd" :  
+https://github.com/mahovo/tsbs/blob/main/inst/demos/portfolio-optimization.md
+
+
 ### Learning from Test Files
 
 The package test files contain extensive examples of model specification and usage patterns. Examining these files can be a helpful way to understand how to specify models for different scenarios:
@@ -182,15 +208,6 @@ Key test files include:
 - `test-hmm_bootstrap`  
 - `test-wild_bootstrap`  
 
-### Other resources
-
-See also [https://github.com/mahovo/tsbs/tree/main/demos](https://github.com/mahovo/tsbs/tree/main/demos), especially: 
-
-- "port_opt_demo.Rmd" (Runnable version of the vignette "portfolio-optimization-demo")  
-- "multivar_garch_comparison_demo.Rmd"  
-- "ms-varma-garch_diagnostics_report.Rmd"  
-- "ms-varma-garch_inference_demo.Rmd"  
-- "bootstrap_diagnostics_demo.R"  
 
 ### Related Packages
 
