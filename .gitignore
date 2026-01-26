@@ -5,7 +5,6 @@
 .DS_Store
 *.html
 *_cache
-*_files/
 logs/
 output/
 private/

@@ -1,2 +1,14 @@
 ^.*\.Rproj$
 ^\.Rproj\.user$
+^README\.Rmd$
+^LICENSE\.md$
+^.git$
+^\.github$
+^.gitignore$
+^_pkgdown\.yml$
+^pkgdown/
+^misc$
+^demos$
+^logs$
+^private$
+^output$
