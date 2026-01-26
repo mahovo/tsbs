@@ -184,10 +184,10 @@ get_demo_path(demo_list[[1]]) |>
   rmarkdown::render(output_dir = demo_output_dir)
 ```
 
-See also [https://github.com/mahovo/tsbs/tree/dev/inst/demos](https://github.com/mahovo/tsbs/tree/dev/inst/demos)
+See also [https://github.com/mahovo/tsbs/tree/main/inst/demos](https://github.com/mahovo/tsbs/tree/main/inst/demos)
 
 See a pre-rendered version of "portfolio-optimization.Rmd" :  
-https://github.com/mahovo/tsbs/blob/dev/inst/demos/portfolio-optimization.md
+https://github.com/mahovo/tsbs/blob/main/inst/demos/portfolio-optimization.md
 
 
 ### Learning from Test Files
