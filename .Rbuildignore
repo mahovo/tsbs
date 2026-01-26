@@ -8,7 +8,6 @@
 ^_pkgdown\.yml$
 ^pkgdown/
 ^misc$
-^demos$
 ^logs$
 ^private$
 ^output$
