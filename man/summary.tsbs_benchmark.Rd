@@ -4,7 +4,7 @@
 \alias{summary.tsbs_benchmark}
 \title{Summary Method for tsbs_benchmark}
 \usage{
-\method{summary}{tsbs_benchmark}(object, ...)
+summary.tsbs_benchmark(object, ...)
 }
 \arguments{
 \item{object}{A \code{tsbs_benchmark} object.}
