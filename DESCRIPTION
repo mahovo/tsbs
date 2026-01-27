@@ -30,7 +30,8 @@ Imports:
 Suggests: 
     knitr,
     rmarkdown,
-    quantmod
+    quantmod,
+    gridExtra
 VignetteBuilder: knitr
 LinkingTo: Rcpp, RcppArmadillo
 Encoding: UTF-8
