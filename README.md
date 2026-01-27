@@ -147,13 +147,19 @@ summary(result$fit$diagnostics)
 
 The main entry point for the package is the `tsbs()` function, which provides comprehensive documentation including detailed specification examples:
 
+[file:///Users/mhvpbp13/git/tsbs/docs/reference/tsbs.html](file:///Users/mhvpbp13/git/tsbs/docs/reference/tsbs.html)
+
+In R with tsbs package installed and loaded:
 ```r
 ?tsbs
 ```
 
+Full reference manual:  
+[https://mahovo.github.io/tsbs/](https://mahovo.github.io/tsbs/)
+
 ### Vignettes
 
-The package includes two vignettes for specialized topics:
+The package includes vignettes for specialized topics:
 
 | Vignette | Description |
 |----------|-------------|
