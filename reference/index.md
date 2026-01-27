@@ -1,0 +1,292 @@
+# Package index
+
+## All functions
+
+- [`adcc_bootstrap_se()`](https://mahovo.github.io/tsbs/reference/adcc_bootstrap_se.md)
+  : Bootstrap Standard Errors for ADCC Parameters
+- [`adcc_comprehensive_inference()`](https://mahovo.github.io/tsbs/reference/adcc_comprehensive_inference.md)
+  : Comprehensive ADCC Inference
+- [`adcc_copula_nll()`](https://mahovo.github.io/tsbs/reference/adcc_copula_nll.md)
+  : ADCC Copula Negative Log-Likelihood
+- [`adcc_standard_errors()`](https://mahovo.github.io/tsbs/reference/adcc_standard_errors.md)
+  : Compute Standard Errors for ADCC Parameters
+- [`analyze_iteration()`](https://mahovo.github.io/tsbs/reference/analyze_iteration.md)
+  : Analyze Iteration in Detail
+- [`as.data.frame(`*`<tsbs_diagnostics>`*`)`](https://mahovo.github.io/tsbs/reference/as.data.frame.tsbs_diagnostics.md)
+  : Convert Diagnostics to Data Frame
+- [`benchmark_tsbs()`](https://mahovo.github.io/tsbs/reference/benchmark_tsbs.md)
+  : Benchmark Bootstrap Methods
+- [`blockBootstrap()`](https://mahovo.github.io/tsbs/reference/blockBootstrap.md)
+  : Block Bootstrap for Time Series (Rcpp Implementation)
+- [`blockBootstrap_with_diagnostics()`](https://mahovo.github.io/tsbs/reference/blockBootstrap_with_diagnostics.md)
+  : Block Bootstrap with Diagnostics
+- [`bootstrap_diagnostics`](https://mahovo.github.io/tsbs/reference/bootstrap_diagnostics.md)
+  : Bootstrap Diagnostics System for tsbs Package
+- [`calculate_loglik_vector_r()`](https://mahovo.github.io/tsbs/reference/calculate_loglik_vector_r.md)
+  : Calculate the Log-Likelihood Vector (R Helper)
+- [`cgarch_bootstrap_se()`](https://mahovo.github.io/tsbs/reference/cgarch_bootstrap_se.md)
+  : Bootstrap Standard Errors for CGARCH Parameters
+- [`cgarch_standard_errors()`](https://mahovo.github.io/tsbs/reference/cgarch_standard_errors.md)
+  : Compute Standard Errors for CGARCH Models
+- [`check_all_states_constant()`](https://mahovo.github.io/tsbs/reference/check_all_states_constant.md)
+  : Check for All-States-Constant Event
+- [`check_cgarch_problems()`](https://mahovo.github.io/tsbs/reference/check_cgarch_problems.md)
+  : Check CGARCH-Specific Problems
+- [`check_convergence()`](https://mahovo.github.io/tsbs/reference/check_convergence.md)
+  : Check Convergence Achievement
+- [`check_em_monotonicity()`](https://mahovo.github.io/tsbs/reference/check_em_monotonicity.md)
+  : Check EM Monotonicity
+- [`check_gogarch_problems()`](https://mahovo.github.io/tsbs/reference/check_gogarch_problems.md)
+  : Check GOGARCH-Specific Problems
+- [`check_param_stationarity()`](https://mahovo.github.io/tsbs/reference/check_param_stationarity.md)
+  : Check Parameter Stationarity
+- [`check_sigma_updates()`](https://mahovo.github.io/tsbs/reference/check_sigma_updates.md)
+  : Check for Sigma Update Failures
+- [`compare_states()`](https://mahovo.github.io/tsbs/reference/compare_states.md)
+  : Compare States
+- [`compute_adcc_standard_errors_robust()`](https://mahovo.github.io/tsbs/reference/compute_adcc_standard_errors_robust.md)
+  : Compute ADCC Standard Errors with Robust Edge Case Handling
+- [`compute_bootstrap_diagnostics()`](https://mahovo.github.io/tsbs/reference/compute_bootstrap_diagnostics.md)
+  : Compute Diagnostics from Bootstrap Series
+- [`compute_cgarch_nll_surface()`](https://mahovo.github.io/tsbs/reference/compute_cgarch_nll_surface.md)
+  : Compute NLL Surface for CGARCH(1,1)
+- [`compute_cgarch_residuals()`](https://mahovo.github.io/tsbs/reference/compute_cgarch_residuals.md)
+  : Compute Copula Residuals from Simulated CGARCH Data
+- [`compute_cgarch_standard_errors_robust()`](https://mahovo.github.io/tsbs/reference/compute_cgarch_standard_errors_robust.md)
+  : Robust CGARCH Standard Errors with Edge Case Handling
+- [`compute_dcc_standard_errors_robust()`](https://mahovo.github.io/tsbs/reference/compute_dcc_standard_errors_robust.md)
+  : Compute DCC Standard Errors with Robust Edge Case Handling
+- [`compute_func_out_cv()`](https://mahovo.github.io/tsbs/reference/compute_func_out_cv.md)
+  : Compute Coefficient of Variation for Bootstrap Outputs
+- [`compute_gogarch_standard_errors_robust()`](https://mahovo.github.io/tsbs/reference/compute_gogarch_standard_errors_robust.md)
+  : Robust GOGARCH Standard Errors with Edge Case Handling
+- [`compute_loglik_fixed()`](https://mahovo.github.io/tsbs/reference/compute_loglik_fixed.md)
+  : Compute Log-Likelihood with Fixed Parameters
+- [`compute_nll_surface()`](https://mahovo.github.io/tsbs/reference/compute_nll_surface.md)
+  : Compute NLL Surface for DCC(1,1)
+- [`compute_robust_estimates()`](https://mahovo.github.io/tsbs/reference/compute_robust_estimates.md)
+  : Compute Robust Estimates from Bootstrap Outputs
+- [`compute_std_residuals()`](https://mahovo.github.io/tsbs/reference/compute_std_residuals.md)
+  : Compute Standardized Residuals from Simulated DCC-GARCH Data
+- [`copula_nll()`](https://mahovo.github.io/tsbs/reference/copula_nll.md)
+  : Copula Negative Log-Likelihood for DCC(1,1)
+- [`correlation_bootstrap_se()`](https://mahovo.github.io/tsbs/reference/correlation_bootstrap_se.md)
+  : Bootstrap Standard Errors for Correlation Parameters
+- [`correlation_comprehensive_inference()`](https://mahovo.github.io/tsbs/reference/correlation_comprehensive_inference.md)
+  : Comprehensive Correlation Model Inference
+- [`correlation_profile_likelihood_ci()`](https://mahovo.github.io/tsbs/reference/correlation_profile_likelihood_ci.md)
+  : Profile Likelihood Confidence Intervals
+- [`create_garch_spec_object_r()`](https://mahovo.github.io/tsbs/reference/create_garch_spec_object_r.md)
+  : Create a GARCH Specification Object (Convenience Function)
+- [`create_test_dcc_spec()`](https://mahovo.github.io/tsbs/reference/create_test_dcc_spec.md)
+  : Create a standard DCC spec for testing
+- [`dcc11_bootstrap_se()`](https://mahovo.github.io/tsbs/reference/dcc11_bootstrap_se.md)
+  : Bootstrap Standard Errors for DCC(1,1) Parameters
+- [`dcc11_confint()`](https://mahovo.github.io/tsbs/reference/dcc11_confint.md)
+  : Compute Confidence Intervals for DCC(1,1) Parameters
+- [`dcc11_estimation_summary()`](https://mahovo.github.io/tsbs/reference/dcc11_estimation_summary.md)
+  : Summarize DCC(1,1) Estimation Results
+- [`dcc11_gradient()`](https://mahovo.github.io/tsbs/reference/dcc11_gradient.md)
+  : Full DCC(1,1) Gradient Function for Optimizer
+- [`dcc11_hessian()`](https://mahovo.github.io/tsbs/reference/dcc11_hessian.md)
+  : Compute DCC(1,1) Hessian with Full Diagnostics
+- [`dcc11_nll()`](https://mahovo.github.io/tsbs/reference/dcc11_nll.md)
+  : DCC(1,1) Weighted Negative Log-Likelihood
+- [`dcc11_observed_information()`](https://mahovo.github.io/tsbs/reference/dcc11_observed_information.md)
+  : Compute Observed Information Matrix for DCC(1,1)
+- [`dcc11_profile_ci()`](https://mahovo.github.io/tsbs/reference/dcc11_profile_ci.md)
+  : Compute Profile Likelihood Confidence Intervals
+- [`dcc11_sandwich_se()`](https://mahovo.github.io/tsbs/reference/dcc11_sandwich_se.md)
+  : Compute Sandwich (Robust) Standard Errors
+- [`dcc11_standard_errors()`](https://mahovo.github.io/tsbs/reference/dcc11_standard_errors.md)
+  : Compute Standard Errors for DCC(1,1) Parameters
+- [`dcc11_transform_se()`](https://mahovo.github.io/tsbs/reference/dcc11_transform_se.md)
+  : Transform Standard Errors Between Parameterizations
+- [`default_model_func()`](https://mahovo.github.io/tsbs/reference/default_model_func.md)
+  : Default Model Fitting Function
+- [`diagnostic_summary_stats()`](https://mahovo.github.io/tsbs/reference/diagnostic_summary_stats.md)
+  : Get Diagnostic Summary Statistics
+- [`diagnostic_utils`](https://mahovo.github.io/tsbs/reference/diagnostic_utils.md)
+  : Diagnostic Utility Functions for MS-VARMA-GARCH
+- [`.check_expression_validity()`](https://mahovo.github.io/tsbs/reference/dot-check_expression_validity.md)
+  : Check if expression or variable exists and is evaluable
+- [`.estimate_p()`](https://mahovo.github.io/tsbs/reference/dot-estimate_p.md)
+  : Estimate geometric distribution parameter p for stationary bootstrap
+- [`.is_invalid_count()`](https://mahovo.github.io/tsbs/reference/dot-is_invalid_count.md)
+  : Invalid input count
+- [`.is_invalid_data()`](https://mahovo.github.io/tsbs/reference/dot-is_invalid_data.md)
+  : Invalid input data
+- [`.not_in_unit_interval()`](https://mahovo.github.io/tsbs/reference/dot-not_in_unit_interval.md)
+  : Value not in unit interval
+- [`estimate_adcc_copula()`](https://mahovo.github.io/tsbs/reference/estimate_adcc_copula.md)
+  : Estimate ADCC Copula Parameters
+- [`estimate_arma_weighted_r()`](https://mahovo.github.io/tsbs/reference/estimate_arma_weighted_r.md)
+  : Estimate Conditional Mean Parameters (R Helper)
+- [`estimate_garch_weighted_r()`](https://mahovo.github.io/tsbs/reference/estimate_garch_weighted_r.md)
+  : Estimate GARCH Parameters for Multivariate Models (R Helper)
+- [`estimate_gogarch_improved()`](https://mahovo.github.io/tsbs/reference/estimate_gogarch_improved.md)
+  : Estimate GOGARCH with Improved ICA
+- [`etf_prices`](https://mahovo.github.io/tsbs/reference/etf_prices.md)
+  : ETF Portfolio Price Data
+- [`etf_returns`](https://mahovo.github.io/tsbs/reference/etf_returns.md)
+  : ETF Portfolio Returns Data
+- [`evaluate_ica_quality()`](https://mahovo.github.io/tsbs/reference/evaluate_ica_quality.md)
+  : Evaluate ICA Quality
+- [`export_diagnostics_csv()`](https://mahovo.github.io/tsbs/reference/export_diagnostics_csv.md)
+  : Export Diagnostics to CSV Files
+- [`extract_blocks()`](https://mahovo.github.io/tsbs/reference/extract_blocks.md)
+  : Extract Block Information from Diagnostics
+- [`extract_cgarch_trajectory()`](https://mahovo.github.io/tsbs/reference/extract_cgarch_trajectory.md)
+  : Extract CGARCH Parameter Trajectory
+- [`extract_cgarch_trajectory_with_ll()`](https://mahovo.github.io/tsbs/reference/extract_cgarch_trajectory_with_ll.md)
+  : Extract CGARCH Trajectory with Log-Likelihood
+- [`extract_dcc_trajectory()`](https://mahovo.github.io/tsbs/reference/extract_dcc_trajectory.md)
+  : Extract DCC Parameter Trajectory from MS Diagnostics
+- [`extract_dcc_trajectory_with_ll()`](https://mahovo.github.io/tsbs/reference/extract_dcc_trajectory_with_ll.md)
+  : Extract DCC Trajectory with Log-Likelihood
+- [`extract_func_out_matrix()`](https://mahovo.github.io/tsbs/reference/extract_func_out_matrix.md)
+  : Extract Bootstrap Output Matrix
+- [`extract_gogarch_trajectory()`](https://mahovo.github.io/tsbs/reference/extract_gogarch_trajectory.md)
+  : Extract GOGARCH Parameter Trajectory
+- [`extract_ll_trajectory()`](https://mahovo.github.io/tsbs/reference/extract_ll_trajectory.md)
+  : Extract Log-Likelihood Trajectory
+- [`extract_param_trajectory()`](https://mahovo.github.io/tsbs/reference/extract_param_trajectory.md)
+  : Extract Parameter Trajectory
+- [`extract_sigma_stats()`](https://mahovo.github.io/tsbs/reference/extract_sigma_stats.md)
+  : Extract Sigma Evolution Statistics
+- [`extract_summary_stats()`](https://mahovo.github.io/tsbs/reference/extract_summary_stats.md)
+  : Extract Summary Statistics from Diagnostics
+- [`fit_ms_varma_garch()`](https://mahovo.github.io/tsbs/reference/fit_ms_varma_garch.md)
+  : Fit a Flexible N-State Markov-Switching Vector-ARMA-GARCH Model
+- [`fit_ms_varma_garch_cpp()`](https://mahovo.github.io/tsbs/reference/fit_ms_varma_garch_cpp.md)
+  : Fit a general MS-ARMA-GARCH model via the EM Algorithm in C++
+- [`fit_msvar()`](https://mahovo.github.io/tsbs/reference/fit_msvar.md)
+  : Fit a 2-State Markov-Switching Vector Autoregressive Model (MS-VAR)
+- [`generate_cgarch_spec()`](https://mahovo.github.io/tsbs/reference/generate_cgarch_spec.md)
+  : Generate CGARCH Specification
+- [`generate_dcc_spec()`](https://mahovo.github.io/tsbs/reference/generate_dcc_spec.md)
+  : Generate Model Specification for DCC-GARCH
+- [`generate_gogarch_spec()`](https://mahovo.github.io/tsbs/reference/generate_gogarch_spec.md)
+  : Generate GOGARCH Specification
+- [`get_demo_path()`](https://mahovo.github.io/tsbs/reference/get_demo_path.md)
+  : Get path to a specific demo Rmd file
+- [`gogarch_bootstrap_se()`](https://mahovo.github.io/tsbs/reference/gogarch_bootstrap_se.md)
+  : Bootstrap Standard Errors for GOGARCH Parameters
+- [`gogarch_comprehensive_inference()`](https://mahovo.github.io/tsbs/reference/gogarch_comprehensive_inference.md)
+  : GOGARCH Comprehensive Inference
+- [`gogarch_diagnostics()`](https://mahovo.github.io/tsbs/reference/gogarch_diagnostics.md)
+  : GOGARCH Model Diagnostics
+- [`gogarch_estimation_summary()`](https://mahovo.github.io/tsbs/reference/gogarch_estimation_summary.md)
+  : GOGARCH Estimation Summary
+- [`gogarch_standard_errors()`](https://mahovo.github.io/tsbs/reference/gogarch_standard_errors.md)
+  : Compute Standard Errors for GOGARCH Models
+- [`hmm_bootstrap()`](https://mahovo.github.io/tsbs/reference/hmm_bootstrap.md)
+  : Hidden Markov Model (HMM) Bootstrap for Multivariate Time Series
+- [`identify_problematic_states()`](https://mahovo.github.io/tsbs/reference/identify_problematic_states.md)
+  : Identify Problematic States
+- [`improved_ica_decomposition()`](https://mahovo.github.io/tsbs/reference/improved_ica_decomposition.md)
+  : Improved ICA Decomposition for GOGARCH
+- [`k_fold_cv_ts()`](https://mahovo.github.io/tsbs/reference/k_fold_cv_ts.md)
+  : K-Fold Cross-Validation for Time Series
+- [`list_package_demos()`](https://mahovo.github.io/tsbs/reference/list_package_demos.md)
+  : List available demonstration Rmd files
+- [`load_diagnostics()`](https://mahovo.github.io/tsbs/reference/load_diagnostics.md)
+  : Load Diagnostics from File
+- [`mae()`](https://mahovo.github.io/tsbs/reference/mae.md) : Mean
+  Absolute Error (MAE)
+- [`ms_varma_garch_bs()`](https://mahovo.github.io/tsbs/reference/ms_varma_garch_bs.md)
+  : Stationary Bootstrap for a General MS-VARMA-GARCH Model
+- [`mse()`](https://mahovo.github.io/tsbs/reference/mse.md) : Mean
+  Squared Error (MSE)
+- [`msvar_bootstrap()`](https://mahovo.github.io/tsbs/reference/msvar_bootstrap.md)
+  : Stationary Bootstrap for a 2-State MS-VAR(1) Model
+- [`open_demo()`](https://mahovo.github.io/tsbs/reference/open_demo.md)
+  : Open a demo Rmd file in RStudio or default editor
+- [`perform_m_step_parallel_r()`](https://mahovo.github.io/tsbs/reference/perform_m_step_parallel_r.md)
+  : Perform the M-Step in Parallel (R Helper)
+- [`perform_m_step_r()`](https://mahovo.github.io/tsbs/reference/perform_m_step_r.md)
+  : Perform the M-Step (Sequential Execution)
+- [`plot(`*`<ms_diagnostics>`*`)`](https://mahovo.github.io/tsbs/reference/plot.ms_diagnostics.md)
+  : Plot Diagnostics for MS-VARMA-GARCH Models
+- [`plot(`*`<tsbs_benchmark>`*`)`](https://mahovo.github.io/tsbs/reference/plot.tsbs_benchmark.md)
+  : Plot Method for tsbs_benchmark
+- [`plot(`*`<tsbs_diagnostics>`*`)`](https://mahovo.github.io/tsbs/reference/plot.tsbs_diagnostics.md)
+  : Plot Method for Bootstrap Diagnostics
+- [`plot_block_coverage()`](https://mahovo.github.io/tsbs/reference/plot_block_coverage.md)
+  : Plot Block Coverage for Bootstrap Diagnostics
+- [`plot_block_lengths()`](https://mahovo.github.io/tsbs/reference/plot_block_lengths.md)
+  : Plot Block Length Distribution
+- [`plot_cgarch_nll_contours()`](https://mahovo.github.io/tsbs/reference/plot_cgarch_nll_contours.md)
+  : Plot CGARCH NLL Contours
+- [`plot_coverage_diagnostic()`](https://mahovo.github.io/tsbs/reference/plot_coverage_diagnostic.md)
+  : Plot Coverage Diagnostic
+- [`plot_mc_estimates()`](https://mahovo.github.io/tsbs/reference/plot_mc_estimates.md)
+  : Plot Monte Carlo Estimate Distribution
+- [`plot_mc_estimates_generic()`](https://mahovo.github.io/tsbs/reference/plot_mc_estimates_generic.md)
+  : Plot Monte Carlo Estimates (Generic)
+- [`plot_mixing_matrix()`](https://mahovo.github.io/tsbs/reference/plot_mixing_matrix.md)
+  : Plot GOGARCH Mixing Matrix Heatmap
+- [`plot_nll_contours()`](https://mahovo.github.io/tsbs/reference/plot_nll_contours.md)
+  : Plot NLL Contours with plotly
+- [`plot_nll_surface_3d()`](https://mahovo.github.io/tsbs/reference/plot_nll_surface_3d.md)
+  : Plot 3D NLL Surface with plotly
+- [`plot_optimization_trace()`](https://mahovo.github.io/tsbs/reference/plot_optimization_trace.md)
+  : Plot Parameter Trace from Optimization
+- [`plot_regime_composition()`](https://mahovo.github.io/tsbs/reference/plot_regime_composition.md)
+  : Plot Regime Composition of Bootstrap Series
+- [`print(`*`<tsbs_benchmark>`*`)`](https://mahovo.github.io/tsbs/reference/print.tsbs_benchmark.md)
+  : Print Method for tsbs_benchmark
+- [`print(`*`<tsbs_diagnostics>`*`)`](https://mahovo.github.io/tsbs/reference/print.tsbs_diagnostics.md)
+  : Print Method for Bootstrap Diagnostics
+- [`print_cgarch_mc_results()`](https://mahovo.github.io/tsbs/reference/print_cgarch_mc_results.md)
+  : Print CGARCH Monte Carlo Results
+- [`print_gogarch_mc_results()`](https://mahovo.github.io/tsbs/reference/print_gogarch_mc_results.md)
+  : Print GOGARCH Monte Carlo Results
+- [`print_inference_comparison()`](https://mahovo.github.io/tsbs/reference/print_inference_comparison.md)
+  : Print Inference Comparison
+- [`print_mc_results()`](https://mahovo.github.io/tsbs/reference/print_mc_results.md)
+  : Print Monte Carlo Results
+- [`run_cgarch_monte_carlo()`](https://mahovo.github.io/tsbs/reference/run_cgarch_monte_carlo.md)
+  : Run Monte Carlo Study for CGARCH(1,1) Estimation with ADCC Support
+- [`run_complete_cgarch_diagnostics()`](https://mahovo.github.io/tsbs/reference/run_complete_cgarch_diagnostics.md)
+  : Summary Function for Complete CGARCH Diagnostic Analysis
+- [`run_complete_diagnostics()`](https://mahovo.github.io/tsbs/reference/run_complete_diagnostics.md)
+  : Summary Function for Complete Diagnostic Analysis
+- [`run_complete_gogarch_diagnostics()`](https://mahovo.github.io/tsbs/reference/run_complete_gogarch_diagnostics.md)
+  : Complete GOGARCH Diagnostics
+- [`run_dcc_monte_carlo()`](https://mahovo.github.io/tsbs/reference/run_dcc_monte_carlo.md)
+  : Run Monte Carlo Study for DCC(1,1) Estimation
+- [`run_gogarch_monte_carlo()`](https://mahovo.github.io/tsbs/reference/run_gogarch_monte_carlo.md)
+  : Run Monte Carlo Study for GOGARCH Estimation
+- [`save_diagnostics()`](https://mahovo.github.io/tsbs/reference/save_diagnostics.md)
+  : Export Diagnostics to File
+- [`simulate_cgarch()`](https://mahovo.github.io/tsbs/reference/simulate_cgarch.md)
+  : Simulate CGARCH Data with ADCC Support
+- [`simulate_dcc_garch()`](https://mahovo.github.io/tsbs/reference/simulate_dcc_garch.md)
+  : Simulate DCC-GARCH Data with Higher-Order Support
+- [`simulate_dcc_garch_test_data()`](https://mahovo.github.io/tsbs/reference/simulate_dcc_garch_test_data.md)
+  : Simulate DCC-GARCH data for testing
+- [`simulate_gogarch()`](https://mahovo.github.io/tsbs/reference/simulate_gogarch.md)
+  : Simulate GOGARCH Data
+- [`summarize_func_outs()`](https://mahovo.github.io/tsbs/reference/summarize_func_outs.md)
+  : Summarize Bootstrap Functional Outputs
+- [`summary.ms_diagnostics()`](https://mahovo.github.io/tsbs/reference/summary.ms_diagnostics.md)
+  : Summarize Diagnostics
+- [`summary.tsbs_benchmark()`](https://mahovo.github.io/tsbs/reference/summary.tsbs_benchmark.md)
+  : Summary Method for tsbs_benchmark
+- [`summary.tsbs_diagnostics()`](https://mahovo.github.io/tsbs/reference/summary.tsbs_diagnostics.md)
+  : Summary Method for Bootstrap Diagnostics
+- [`test_estimate_normality()`](https://mahovo.github.io/tsbs/reference/test_estimate_normality.md)
+  : Test Normality of Standardized Estimates
+- [`test_estimate_normality_generic()`](https://mahovo.github.io/tsbs/reference/test_estimate_normality_generic.md)
+  : Test Normality of Standardized Estimates (Generic)
+- [`tsbs()`](https://mahovo.github.io/tsbs/reference/tsbs.md) : Advanced
+  Bootstrap for Time Series
+- [`visualize_dcc_evolution()`](https://mahovo.github.io/tsbs/reference/visualize_dcc_evolution.md)
+  : Visualize DCC Parameter Evolution from EM Fit
+- [`visualize_gogarch_evolution()`](https://mahovo.github.io/tsbs/reference/visualize_gogarch_evolution.md)
+  : Visualize GOGARCH Component Evolution
+- [`visualize_standalone_optimization()`](https://mahovo.github.io/tsbs/reference/visualize_standalone_optimization.md)
+  : Quick Visualization of DCC Optimization Path (Standalone)
+- [`wild_bootstrap()`](https://mahovo.github.io/tsbs/reference/wild_bootstrap.md)
+  : Wild Bootstrap for Time Series Residuals
