@@ -4,7 +4,7 @@
 \alias{summary.ms_diagnostics}
 \title{Summarize Diagnostics}
 \usage{
-\method{summary}{ms_diagnostics}(object, ...)
+summary.ms_diagnostics(object, ...)
 }
 \description{
 Summarize Diagnostics

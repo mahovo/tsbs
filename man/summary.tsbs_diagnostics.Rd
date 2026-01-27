@@ -4,7 +4,7 @@
 \alias{summary.tsbs_diagnostics}
 \title{Summary Method for Bootstrap Diagnostics}
 \usage{
-\method{summary}{tsbs_diagnostics}(object, ...)
+summary.tsbs_diagnostics(object, ...)
 }
 \arguments{
 \item{object}{A \code{tsbs_diagnostics} object.}
