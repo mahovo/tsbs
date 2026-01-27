@@ -22,6 +22,7 @@
 #' @import tsmethods
 #' @import ggplot2
 #' @import data.table
+#' @import quantmod
 #' @importFrom stats acf ar
 #' @importFrom tsmethods tsfilter
 #' @importFrom Rcpp sourceCpp evalCpp
