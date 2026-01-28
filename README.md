@@ -1,4 +1,4 @@
-# tsbs: Advanced Time Series Bootstrap Tools
+# tsbs: Advanced Time Series Bootstrap Tools <a href="https://mahovo.github.io/tsbs/"><img src="man/figures/logo.png" align="right" height="139" alt="tsbs website" /></a>
 
 [![R Package](https://img.shields.io/badge/R-Package-blue.svg)](https://github.com/mahovo/tsbs)
 

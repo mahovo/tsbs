@@ -1,0 +1,109 @@
+---
+title: "Hex sticker"
+author: "mhv"
+date: "2026-01-27"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+library(hexSticker)
+library(ggplot2)
+library(dplyr)
+library(purrr)
+```
+
+
+```{r}
+# --- 1. Parameters to Tweal ---
+
+# Geometry settings
+start_n <- 6        # Starting sides (Hexagon)
+m_polygons <- 6    # How many polygons to draw? (Higher = closer to circle)
+radius <- 1.5         # Radius of the inner invisible circle
+
+# Aesthetics
+line_alpha <- 1   # Transparency of lines
+line_size <- 0.3    # Thickness of lines
+sticker_bg <- "#FFFFFF" # Background color of the whole sticker
+pkg_color  <- "#030303" # Text color
+
+# Color Palette (Gradient)
+# Option A: Viridis (Science/Data style)
+# Option B: Blues/Purples
+col_low  <- "#00688B" #"#440154"  # Color for the hexagon (n=6)
+col_high <- "#009ACD" #"#41958C"  # Color for the circle-approximation (n=high)
+
+# --- 2. Helper Function ---
+
+# Function to calculate vertices of a circumscribed regular polygon
+# Formula: Circumradius R = r / cos(pi/n)
+get_circum_poly <- function(n, r) {
+  # We rotate by pi/2 so the hexagon has a point at the top, 
+  # matching the hexSticker orientation.
+  angles <- seq(from = pi/2, to = 2*pi + pi/2, length.out = n + 1)
+  
+  # Calculate distance from center to vertex
+  R <- r / cos(pi / n)
+  
+  tibble(
+    x = R * cos(angles),
+    y = R * sin(angles),
+    sides = n,
+    group = as.factor(n)
+  )
+}
+
+# --- 3. Generate Data ---
+
+# Generate sequence of polygons: n = 6, 7, ..., 6 + m - 1
+poly_data <- map_dfr(start_n:(start_n + m_polygons - 1), 
+                     ~get_circum_poly(.x, radius))
+
+# --- 4. Create the Subplot (The Geometric Art) ---
+
+p <- ggplot(poly_data, aes(x = x, y = y, group = group, color = sides)) +
+  geom_path(size = line_size, alpha = line_alpha) +
+  coord_fixed() +
+  theme_void() +
+  theme(legend.position = "none") +
+  # Use a gradient based on number of sides
+  scale_color_gradient(low = col_low, high = col_high) 
+
+print(p)
+```
+
+
+```{r}
+# --- 5. Generate the Sticker ---
+
+sticker(
+  subplot = p, 
+  package = "tsbs", 
+  
+  # Subplot positioning
+  s_x = 1,          # Horizontal center
+  s_y = 1,          # Vertical center
+  s_width = 1.9,    # Width of the plot relative to sticker
+  s_height = 1.9,   # Height of the plot relative to sticker
+  
+  # Text positioning
+  p_size = 40,           # Font size
+  p_y = 1,               # Text vertical position (center)
+  p_color = pkg_color,   # Text color
+  p_family = "IosevkaLight",     # Font family (try "Aller" or google fonts if installed)
+  
+  # Sticker Border/Background
+  h_fill = sticker_bg,   # Sticker background
+  h_color = col_high,    # Border color (matches the outer polygon)
+  h_size = 0,          # Border thickness
+  dpi = 300,
+  
+  # Output
+  filename = "tsbs_sticker.png"
+)
+```
+
