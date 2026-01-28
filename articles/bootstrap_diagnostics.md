@@ -775,7 +775,7 @@ sessionInfo()
 #>  [17] magrittr_2.0.4              compiler_4.5.2             
 #>  [19] rlang_1.1.7                 sass_0.4.10                
 #>  [21] tools_4.5.2                 yaml_2.3.12                
-#>  [23] data.table_1.18.0           knitr_1.51                 
+#>  [23] data.table_1.18.2.1         knitr_1.51                 
 #>  [25] labeling_0.4.3              askpass_1.2.1              
 #>  [27] curl_7.0.0                  alabama_2025.1.0           
 #>  [29] xml2_1.5.2                  TTR_0.24.4                 
