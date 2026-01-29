@@ -82,6 +82,9 @@ The package includes vignettes for specialized topics:
 
 ### Demos
 
+See a pre-rendered version of "portfolio-optimization.Rmd" :  
+https://github.com/mahovo/tsbs/blob/main/inst/demos/portfolio-optimization.md
+
 ```r
 library(tsbs)
 
@@ -101,9 +104,6 @@ get_demo_path(demo_list[[1]]) |>
 ```
 
 See also [https://github.com/mahovo/tsbs/tree/main/inst/demos](https://github.com/mahovo/tsbs/tree/main/inst/demos)
-
-See a pre-rendered version of "portfolio-optimization.Rmd" :  
-https://github.com/mahovo/tsbs/blob/main/inst/demos/portfolio-optimization.md
 
 
 ### Learning from Test Files

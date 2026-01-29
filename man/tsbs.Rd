@@ -30,6 +30,11 @@ tsbs(
   score_func = mse,
   stationary_max_percentile = 0.99,
   stationary_max_fraction_of_n = 0.1,
+  distribution = "gaussian",
+  variance_model = "sGARCH",
+  micro_block_length = 1L,
+  regime_basis = "market",
+  seed = NULL,
   return_fit = FALSE,
   return_diagnostics = FALSE,
   fail_mode = c("predictably", "gracefully"),
@@ -140,6 +145,40 @@ See \link{k_fold_cv_ts}.}
 
 \item{stationary_max_fraction_of_n}{Stationary max fraction of n.}
 
+\item{distribution}{Character string specifying the conditional distribution
+for HMM bootstrap. One of:
+\itemize{
+\item \code{"gaussian"}: Gaussian HMM via depmixS4 (default, backward
+compatible)
+\item \code{"norm"}, \code{"std"}, \code{"sstd"}, \code{"snorm"},
+\code{"ged"}, \code{"sged"}: MSGARCH-based with GARCH dynamics
+\item \code{"norm_raw"}, \code{"std_raw"}, \code{"sstd_raw"}: Raw HMM
+without GARCH layer
+}
+Only used when \code{bs_type = "hmm"}. See Details for more information.}
+
+\item{variance_model}{Character string specifying the GARCH model for
+MSGARCH-based HMM. One of \code{"sGARCH"}, \code{"eGARCH"},
+\code{"gjrGARCH"}, or \code{"tGARCH"}. Default is \code{"sGARCH"}.
+Only used when \code{bs_type = "hmm"} and \code{distribution} is an
+MSGARCH distribution.}
+
+\item{micro_block_length}{Integer specifying the block length for within-state
+sampling. Use 1 for iid sampling (default), or >1 to preserve local
+temporal dependence within states. Only used when \code{bs_type = "hmm"}.}
+
+\item{regime_basis}{For multivariate HMM bootstrap, specifies how to identify
+regimes. One of:
+\itemize{
+\item \code{"market"}: Use equal-weighted average of all columns (default)
+\item \code{"first_pc"}: Use first principal component
+\item Integer: Use the specified column index
+}
+Only used when \code{bs_type = "hmm"} with multivariate data.}
+
+\item{seed}{Integer random seed for reproducibility of HMM bootstrap.
+Only used when \code{bs_type = "hmm"}.}
+
 \item{return_fit}{If \code{TRUE}, \code{tsbs()} will return model fit. Default is
 \code{return_fit = FALSE}. If \code{return_fit = TRUE} and
 \code{bs_type = "ms_varma_garch"}, diagnostics can be extracted from
@@ -202,6 +241,87 @@ of the individual blocks for that particular series. Truncation ensures equal
 length of bootstrapped series for bootstrap types with random block length.
 For stationary bootstrap, \code{block_length} is the expected block length, when
 \code{p_method="1/n"}.
+}
+
+\subsection{\code{bs_type="hmm"}}{
+
+The HMM bootstrap uses a Hidden Markov Model to capture regime-switching
+behavior in the data. The bootstrap procedure is semi-parametric:
+\itemize{
+\item \strong{Parametric}: State sequences are simulated from the fitted
+Markov chain transition matrix
+\item \strong{Nonparametric}: Observations are resampled from empirical
+state-specific pools
+}
+
+\strong{Distribution Options:}
+
+The \code{distribution} parameter controls which backend is used:
+
+\tabular{llll}{
+\strong{Distribution} \tab \strong{Backend} \tab \strong{GARCH} \tab \strong{Description} \cr
+\code{"gaussian"} \tab depmixS4 \tab No \tab Original behavior (default) \cr
+\code{"norm"} \tab MSGARCH \tab Yes \tab Normal with GARCH \cr
+\code{"std"} \tab MSGARCH \tab Yes \tab Student-t with GARCH \cr
+\code{"sstd"} \tab MSGARCH \tab Yes \tab Skew Student-t with GARCH \cr
+\code{"snorm"} \tab MSGARCH \tab Yes \tab Skew normal with GARCH \cr
+\code{"ged"} \tab MSGARCH \tab Yes \tab GED with GARCH \cr
+\code{"sged"} \tab MSGARCH \tab Yes \tab Skew GED with GARCH \cr
+\code{"norm_raw"} \tab EM/fGarch \tab No \tab Normal, no GARCH \cr
+\code{"std_raw"} \tab EM/fGarch \tab No \tab Student-t, no GARCH \cr
+\code{"sstd_raw"} \tab EM/fGarch \tab No \tab Skew Student-t, no GARCH \cr
+}
+
+\strong{MSGARCH Distributions} (\code{"norm"}, \code{"std"}, \code{"sstd"}, etc.):
+These use the MSGARCH package to fit Markov-switching GARCH models following
+Haas, Mittnik & Paolella (2004). The skewed distributions use the
+Fernández & Steel (1998) transformation. Requires the MSGARCH package.
+
+\strong{Raw Distributions} (\code{"norm_raw"}, \code{"std_raw"}, \code{"sstd_raw"}):
+These fit a standard HMM with state-specific emission distributions but
+without GARCH dynamics. Uses an EM algorithm with the fGarch package for
+density evaluation.
+
+\strong{Multivariate Data:}
+For multivariate data, the \code{regime_basis} parameter determines how
+regimes are identified:
+\itemize{
+\item \code{"market"}: Fits the regime model to the equal-weighted average
+\item \code{"first_pc"}: Fits to the first principal component
+\item Integer column index: Fits to a specific column
+}
+Bootstrap samples use synchronized sampling: the same time indices are
+sampled for all variables, preserving cross-sectional dependence.
+
+\strong{Micro-Block Sampling:}
+The \code{micro_block_length} parameter enables block sampling within states.
+With \code{micro_block_length = 1} (default), observations are sampled iid
+from state pools. With \code{micro_block_length > 1}, consecutive blocks
+are sampled, preserving some local autocorrelation while still allowing
+the Markov chain to drive regime dynamics.
+
+If \code{n_boot} is set, bootstrap series are truncated to this length.
+Otherwise, the length matches the original series.
+
+\strong{Dependencies:}
+\itemize{
+\item \code{"gaussian"}: Requires depmixS4
+\item MSGARCH distributions: Requires MSGARCH
+\item Raw distributions: Requires fGarch (except \code{"norm_raw"})
+}
+
+\strong{References:}
+\itemize{
+\item Hamilton, J. D. (1989). A New Approach to the Economic Analysis of
+Nonstationary Time Series and the Business Cycle. Econometrica, 57(2),
+357-384.
+\item Haas, M., Mittnik, S., & Paolella, M. S. (2004). A New Approach to
+Markov-Switching GARCH Models. Journal of Financial Econometrics, 2,
+493-530.
+\item Fernández, C., & Steel, M. F. (1998). On Bayesian modeling of fat
+tails and skewness. Journal of the American Statistical Association,
+93(441), 359-371.
+}
 }
 
 \subsection{\code{bs_type="wild"}}{
@@ -369,6 +489,7 @@ include gamma parameters in \code{dcc_pars}:
 }
 }
 \examples{
+\dontrun{
 set.seed(123)
 x <- arima.sim(n = 100, list(ar = 0.8))
 result <- tsbs(
@@ -381,6 +502,65 @@ result <- tsbs(
   apply_func_to = "cols"
 )
 print(result$func_out_means)
+
+# ---- HMM Bootstrap Examples ----
+
+# Generate regime-switching data
+set.seed(42)
+y <- c(rnorm(150, 0.02, 0.01), rnorm(150, -0.01, 0.03))
+
+# Basic Gaussian HMM (original behavior)
+result_gaussian <- tsbs(
+  x = y,
+  bs_type = "hmm",
+  num_states = 2,
+  num_boots = 100
+)
+
+# MSGARCH with skew Student-t distribution
+result_sstd <- tsbs(
+  x = y,
+  bs_type = "hmm",
+  num_states = 2,
+  num_boots = 100,
+  distribution = "sstd",
+  variance_model = "sGARCH",
+  seed = 123
+)
+
+# Raw HMM without GARCH
+result_raw <- tsbs(
+  x = y,
+  bs_type = "hmm",
+  num_states = 2,
+  num_boots = 100,
+  distribution = "norm_raw",
+  seed = 123
+)
+
+# Multivariate with market-based regime identification
+Y <- matrix(rnorm(600), ncol = 3)
+result_multi <- tsbs(
+  x = Y,
+  bs_type = "hmm",
+  num_states = 2,
+  num_boots = 50,
+  distribution = "norm",
+  regime_basis = "market",
+  seed = 123
+)
+
+# With micro-block sampling to preserve local dependence
+result_blocks <- tsbs(
+  x = y,
+  bs_type = "hmm",
+  num_states = 2,
+  num_boots = 100,
+  distribution = "norm",
+  micro_block_length = 5,
+  seed = 123
+)
+}
 
 }
 \references{

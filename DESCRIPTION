@@ -26,12 +26,14 @@ Imports:
     future.apply,
     mvtnorm,
     ggplot2,
-    JADE
+    JADE,
+    fGarch
 Suggests: 
     knitr,
     rmarkdown,
     quantmod,
-    gridExtra
+    gridExtra,
+    MSGARCH
 VignetteBuilder: knitr
 LinkingTo: Rcpp, RcppArmadillo
 Encoding: UTF-8

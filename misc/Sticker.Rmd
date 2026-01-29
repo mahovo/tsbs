@@ -16,6 +16,28 @@ library(dplyr)
 library(purrr)
 ```
 
+```{r}
+# --- Helper Function ---
+
+# Function to calculate vertices of a circumscribed regular polygon
+# Formula: Circumradius R = r / cos(pi/n)
+get_circum_poly <- function(n, r) {
+  # We rotate by pi/2 so the hexagon has a point at the top, 
+  # matching the hexSticker orientation.
+  angles <- seq(from = pi/2, to = 2*pi + pi/2, length.out = n + 1)
+  
+  # Calculate distance from center to vertex
+  R <- r / cos(pi / n)
+  
+  tibble(
+    x = R * cos(angles),
+    y = R * sin(angles),
+    sides = n,
+    group = as.factor(n)
+  )
+}
+```
+
 
 ```{r}
 # --- 1. Parameters to Tweal ---
@@ -36,26 +58,6 @@ pkg_color  <- "#030303" # Text color
 # Option B: Blues/Purples
 col_low  <- "#00688B" #"#440154"  # Color for the hexagon (n=6)
 col_high <- "#009ACD" #"#41958C"  # Color for the circle-approximation (n=high)
-
-# --- 2. Helper Function ---
-
-# Function to calculate vertices of a circumscribed regular polygon
-# Formula: Circumradius R = r / cos(pi/n)
-get_circum_poly <- function(n, r) {
-  # We rotate by pi/2 so the hexagon has a point at the top, 
-  # matching the hexSticker orientation.
-  angles <- seq(from = pi/2, to = 2*pi + pi/2, length.out = n + 1)
-  
-  # Calculate distance from center to vertex
-  R <- r / cos(pi / n)
-  
-  tibble(
-    x = R * cos(angles),
-    y = R * sin(angles),
-    sides = n,
-    group = as.factor(n)
-  )
-}
 
 # --- 3. Generate Data ---
 
@@ -94,7 +96,7 @@ sticker(
   p_size = 40,           # Font size
   p_y = 1,               # Text vertical position (center)
   p_color = pkg_color,   # Text color
-  p_family = "IosevkaLight",     # Font family (try "Aller" or google fonts if installed)
+  p_family = "IosevkaThin",     # Font family (try "Aller" or google fonts if installed)
   
   # Sticker Border/Background
   h_fill = sticker_bg,   # Sticker background
@@ -103,7 +105,224 @@ sticker(
   dpi = 300,
   
   # Output
-  filename = "tsbs_sticker.png"
+  filename = "tsbs_sticker_test.png"
 )
 ```
 
+
+## Colors spaced evenly around the HCL color wheel
+
+```{r}
+# --- Parameters ---
+# Geometry settings
+start_n <- 6        # Starting sides (Hexagon)
+m_polygons <- 6    # How many polygons to draw? (Higher = closer to circle)
+radius <- 1.5         # Radius of the inner invisible circle
+
+# Aesthetics
+line_alpha <- 1   # Transparency of lines
+line_size <- 0.3    # Thickness of lines
+sticker_bg <- "#FFFFFF" # Background color of the whole sticker
+pkg_color  <- "#030303" # Text color
+
+# --- Generate the HCL Palette ---
+#"Dynamic" is a great palette for this, but you can also use "Zissou 1" or "Viridis"
+my_colors <- hcl.colors(n = m_polygons, palette = "Dynamic")
+# my_colors <- rainbow(n = m_polygons)
+# my_colors <- heat.colors(n = m_polygons)
+# my_colors <- terrain.colors(n = m_polygons)
+# my_colors <- cm.colors(n = m_polygons)
+
+# --- Generate Data ---
+poly_data <- map_dfr(start_n:(start_n + m_polygons - 1), 
+                     ~get_circum_poly(.x, radius))
+
+# --- Create the Subplot ---
+p <- ggplot(poly_data, aes(x = x, y = y, group = group, color = as.factor(sides))) +
+  geom_path(size = line_size, alpha = line_alpha) +
+  coord_fixed() +
+  scale_color_manual(values = my_colors) + # Apply the HCL colors manually
+  theme_void() +
+  theme(legend.position = "none")
+
+print(p)
+```
+
+
+```{r}
+# --- 5. Generate the Sticker ---
+
+sticker(
+  subplot = p, 
+  package = "tsbs", 
+  
+  # Subplot positioning
+  s_x = 1,          # Horizontal center
+  s_y = 1,          # Vertical center
+  s_width = 1.9,    # Width of the plot relative to sticker
+  s_height = 1.9,   # Height of the plot relative to sticker
+  
+  # Text positioning
+  p_size = 40,           # Font size
+  p_y = 1,               # Text vertical position (center)
+  p_color = pkg_color,   # Text color
+  p_family = "IosevkaThin",     # Font family (try "Aller" or google fonts if installed)
+  
+  # Sticker Border/Background
+  h_fill = sticker_bg,   # Sticker background
+  h_color = col_high,    # Border color (matches the outer polygon)
+  h_size = 0,          # Border thickness
+  dpi = 300,
+  
+  # Output
+  filename = "tsbs_sticker_test.png"
+)
+```
+
+
+## Green to yellow
+
+```{r}
+# --- Parameters ---
+# Geometry settings
+start_n <- 6        # Starting sides (Hexagon)
+m_polygons <- 6    # How many polygons to draw? (Higher = closer to circle)
+radius <- 1.5         # Radius of the inner invisible circle
+
+# Aesthetics
+line_alpha <- 1   # Transparency of lines
+line_size <- 0.3    # Thickness of lines
+sticker_bg <- "#FFFFFF" # Background color of the whole sticker
+pkg_color  <- "#030303" # Text color
+
+# --- Generate the HCL Palette ---
+#"Dynamic" is a great palette for this, but you can also use "Zissou 1" or "Viridis"
+# my_colors <- hcl.colors(n = m_polygons, palette = "Dynamic")
+# my_colors <- rainbow(n = m_polygons)
+# my_colors <- heat.colors(n = m_polygons)
+my_colors <- terrain.colors(n = m_polygons)
+# my_colors <- cm.colors(n = m_polygons)
+
+# --- Generate Data ---
+poly_data <- map_dfr(start_n:(start_n + m_polygons - 1), 
+                     ~get_circum_poly(.x, radius))
+
+# --- Create the Subplot ---
+p <- ggplot(poly_data, aes(x = x, y = y, group = group, color = as.factor(sides))) +
+  geom_path(size = line_size, alpha = line_alpha) +
+  coord_fixed() +
+  scale_color_manual(values = my_colors) + # Apply the HCL colors manually
+  theme_void() +
+  theme(legend.position = "none")
+
+print(p)
+```
+
+
+```{r}
+# --- 5. Generate the Sticker ---
+
+sticker(
+  subplot = p, 
+  package = "atdt", 
+  
+  # Subplot positioning
+  s_x = 1,          # Horizontal center
+  s_y = 1,          # Vertical center
+  s_width = 1.9,    # Width of the plot relative to sticker
+  s_height = 1.9,   # Height of the plot relative to sticker
+  
+  # Text positioning
+  p_size = 40,           # Font size
+  p_y = 1,               # Text vertical position (center)
+  p_color = pkg_color,   # Text color
+  p_family = "IosevkaThin",     # Font family (try "Aller" or google fonts if installed)
+  
+  # Sticker Border/Background
+  h_fill = sticker_bg,   # Sticker background
+  h_color = col_high,    # Border color (matches the outer polygon)
+  h_size = 0,          # Border thickness
+  dpi = 300,
+  
+  # Output
+  filename = "tsbs_sticker_test.png"
+)
+```
+
+
+## With offset
+```{r}
+library(colorspace)
+```
+
+```{r}
+# --- Parameters ---
+# Geometry settings
+start_n <- 6        # Starting sides (Hexagon)
+m_polygons <- 6    # How many polygons to draw? (Higher = closer to circle)
+radius <- 1.5         # Radius of the inner invisible circle
+
+# Aesthetics
+line_alpha <- 1   # Transparency of lines
+line_size <- 0.3    # Thickness of lines
+sticker_bg <- "#FFFFFF" # Background color of the whole sticker
+pkg_color  <- "#030303" # Text color
+
+hue_offset <- 0  # Try 0 (Red), 120 (Green), or 240 (Blue) as a starting point
+hue_range  <-200  # How far around the wheel to go (e.g., 360 for full circle)
+
+# --- Generate the Offset Colors ---
+# start and end are in degrees (0-360)
+my_colors <- rainbow_hcl(
+  n = m_polygons, 
+  start = hue_offset, 
+  end = hue_offset + hue_range,
+  c = 180, # Chroma (Intensity)
+  l = 30  # Luminance (Brightness)
+)
+
+# --- Generate Data ---
+poly_data <- map_dfr(start_n:(start_n + m_polygons - 1), 
+                     ~get_circum_poly(.x, radius))
+
+# --- Create the Subplot ---
+p <- ggplot(poly_data, aes(x = x, y = y, group = group, color = as.factor(sides))) +
+  geom_path(size = line_size, alpha = line_alpha) +
+  coord_fixed() +
+  scale_color_manual(values = my_colors) + # Apply the HCL colors manually
+  theme_void() +
+  theme(legend.position = "none")
+
+print(p)
+```
+
+
+```{r}
+# --- 5. Generate the Sticker ---
+
+sticker(
+  subplot = p, 
+  package = "lpplsF", 
+  
+  # Subplot positioning
+  s_x = 1,          # Horizontal center
+  s_y = 1,          # Vertical center
+  s_width = 1.9,    # Width of the plot relative to sticker
+  s_height = 1.9,   # Height of the plot relative to sticker
+  
+  # Text positioning
+  p_size = 32,           # Font size
+  p_y = 1,               # Text vertical position (center)
+  p_color = pkg_color,   # Text color
+  p_family = "IosevkaThin",     # Font family (try "Aller" or google fonts if installed)
+  
+  # Sticker Border/Background
+  h_fill = sticker_bg,   # Sticker background
+  h_color = col_high,    # Border color (matches the outer polygon)
+  h_size = 0,          # Border thickness
+  dpi = 300,
+  
+  # Output
+  filename = "tsbs_sticker_test.png"
+)
+```
