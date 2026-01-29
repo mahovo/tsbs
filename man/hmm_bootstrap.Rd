@@ -10,38 +10,80 @@ hmm_bootstrap(
   num_states = 2,
   num_blocks = NULL,
   num_boots = 100,
+  distribution = c("gaussian", "sstd", "std", "snorm", "sged", "norm", "ged", "sstd_raw",
+    "std_raw", "norm_raw"),
+  variance_model = c("sGARCH", "eGARCH", "gjrGARCH", "tGARCH"),
+  micro_block_length = 1L,
+  regime_basis = "market",
   parallel = FALSE,
   num_cores = 1L,
   return_fit = FALSE,
   collect_diagnostics = FALSE,
-  verbose = FALSE
+  verbose = FALSE,
+  seed = NULL,
+  ...
 )
 }
 \arguments{
 \item{x}{Numeric vector or matrix representing the time series.}
 
-\item{n_boot}{Length of bootstrap series.}
+\item{n_boot}{Integer, length of each bootstrap series. If NULL, defaults to
+the length of the original series.}
 
-\item{num_states}{Integer number of hidden states for the HMM.}
+\item{num_states}{Integer, number of hidden states for the HMM. Default is 2.}
 
-\item{num_blocks}{Integer number of blocks to sample for each bootstrap
-replicate.}
+\item{num_blocks}{Integer, number of blocks to sample for each bootstrap
+replicate. Only used when \code{distribution = "gaussian"}.}
 
-\item{num_boots}{Integer number of bootstrap replicates to generate.}
+\item{num_boots}{Integer, number of bootstrap replicates to generate.
+Default is 100.}
 
-\item{parallel}{Parallelize computation? \code{TRUE} or \code{FALSE}.}
+\item{distribution}{Character, emission distribution for the HMM. One of:
+\describe{
+\item{"gaussian"}{(Default) Gaussian emissions via depmixS4.
+This is the original behavior.}
+\item{"sstd"}{Skew Student-t via MSGARCH (with GARCH dynamics).}
+\item{"std"}{Student-t via MSGARCH (with GARCH dynamics).}
+\item{"snorm"}{Skew normal via MSGARCH (with GARCH dynamics).}
+\item{"sged"}{Skew GED via MSGARCH (with GARCH dynamics).}
+\item{"norm"}{Normal via MSGARCH (with GARCH dynamics).}
+\item{"ged"}{GED via MSGARCH (with GARCH dynamics).}
+\item{"sstd_raw"}{Skew Student-t without GARCH (standalone HMM-EM).}
+\item{"std_raw"}{Student-t without GARCH (standalone HMM-EM).}
+\item{"norm_raw"}{Normal without GARCH (standalone HMM-EM, equivalent
+to depmixS4 but using our EM implementation).}
+}}
 
-\item{num_cores}{Number of cores.}
+\item{variance_model}{Character, GARCH specification when using MSGARCH-based
+distributions. One of \code{"sGARCH"} (default), \code{"eGARCH"},
+\code{"gjrGARCH"}, or \code{"tGARCH"}. Ignored for Gaussian and raw
+distributions.}
 
-\item{return_fit}{Logical. If TRUE, returns the fitted HMM model along with
+\item{micro_block_length}{Integer, block length for within-state sampling
+when using MSGARCH-based bootstrap. Use 1 (default) for iid sampling
+within states, or >1 to preserve some local dependence. Ignored for
+Gaussian distribution which uses the traditional block sampling.}
+
+\item{regime_basis}{For multivariate data with MSGARCH: how to identify
+regimes. One of \code{"market"} (equal-weighted average, default),
+\code{"first_pc"} (first principal component), or an integer column index.
+Ignored for Gaussian distribution.}
+
+\item{parallel}{Logical, parallelize computation? Default is FALSE.}
+
+\item{num_cores}{Integer, number of cores for parallel processing.}
+
+\item{return_fit}{Logical. If TRUE, returns the fitted model along with
 bootstrap samples. Default is FALSE.}
 
 \item{collect_diagnostics}{Logical. If TRUE, collects detailed diagnostic
-information including regime composition of each bootstrap replicate.
-Default is FALSE.}
+information including regime composition. Default is FALSE.}
 
-\item{verbose}{Logical. If TRUE, prints HMM fitting information and warnings.
-Defaults to FALSE.}
+\item{verbose}{Logical. If TRUE, prints fitting information. Default is FALSE.}
+
+\item{seed}{Integer, random seed for reproducibility. Default is NULL.}
+
+\item{...}{Additional arguments passed to the underlying fitting functions.}
 }
 \value{
 If \code{return_fit = FALSE} and \code{collect_diagnostics = FALSE}:
@@ -51,210 +93,114 @@ If \code{return_fit = TRUE} or \code{collect_diagnostics = TRUE}:
 A list containing:
 \describe{
 \item{bootstrap_series}{List of bootstrap replicate matrices}
-\item{fit}{(if return_fit = TRUE) The fitted depmixS4 model object}
+\item{fit}{(if return_fit = TRUE) The fitted model object}
 \item{states}{The Viterbi state sequence for the original data}
-\item{diagnostics}{(if collect_diagnostics = TRUE) A tsbs_diagnostics object}
+\item{smoothed_probabilities}{State probabilities matrix}
+\item{diagnostics}{(if collect_diagnostics = TRUE) A tsbs_diagnostics
+object}
+\item{method}{Character indicating which method was used}
 }
 }
 \description{
-Fits a Gaussian Hidden Markov Model (HMM) to a multivariate time series
-and generates bootstrap replicates by resampling regime-specific blocks.
+Fits a Hidden Markov Model (HMM) to a multivariate time series and generates
+bootstrap replicates by resampling regime-specific blocks. Supports both
+Gaussian emissions (via depmixS4) and non-Gaussian emissions including
+skew Student-t distributions (via MSGARCH or standalone EM).
 }
 \details{
-This function:
-\itemize{
-\item Fits a Gaussian HMM to \code{x} using \code{depmixS4::depmix()} and
-\code{depmixS4::fit()}.
-\item Uses Viterbi decoding (\code{posterior(fit, type = "viterbi")$state})
-to assign each observation to a state.
-\item Samples contiguous blocks of observations belonging to each state.
+\subsection{Method Selection}{
+
+When \code{distribution = "gaussian"}, uses depmixS4 for HMM fitting with
+Gaussian emissions. This is the original behavior and uses block resampling
+within identified regimes.
+
+When \code{distribution} is one of the MSGARCH distributions ("sstd", "std",
+etc.), uses the MSGARCH package for Markov-switching GARCH estimation. The
+bootstrap is then semi-parametric: state sequences are simulated from the
+fitted Markov chain, while observations are resampled from state-specific
+empirical pools.
+
+When \code{distribution} ends with "_raw" (e.g., "sstd_raw"), fits an HMM
+directly to the returns without the GARCH volatility layer, using a
+standalone EM algorithm with the specified emission distribution.
 }
 
-If \code{n_boot} is set, the last block will be trimmed when necessary.
-If \code{n_boot} is not set, and \code{num_blocks} is set, the length of each
-bootstrap series will be determined by the number of blocks and the random
-lengths of the individual blocks for that particular series.
-If neither \code{n_boot} nor \code{num_blocks} is set, \code{n_boot} will default to the
-number of rows in \code{x} and the last block will be trimmed when necessary.
+\subsection{Literature Background}{
 
-For multivariate series (matrices or data frames), the function fits a single
-HMM where all variables are assumed to depend on the same underlying hidden
-state sequence. The returned bootstrap samples are matrices with the same
-number of columns as the input \code{x}.
+The MSGARCH-based implementation combines several established techniques:
 
-Hidden Markov Model definition:
 \itemize{
-\item \eqn{T}: sequence length
-\item \eqn{K}: number of hidden states
-\item \eqn{\mathbf{X} = (X_1, \dots, X_T)}: observed sequence
-\item \eqn{\mathbf{S} = (S_1, \dots, S_T)}: hidden (latent) state sequence
-\item \eqn{\pi_i = \mathbb{P}(S_1 = i)}: initial state distribution
-\item \eqn{A = [a_{ij}], \text{ where } a_{ij} = \mathbb{P}(S_{t+1} = j \mid S_t = i)}: transition matrix
-\item \eqn{b_j(x_t) = \mathbb{P}(X_t = x_t \mid S_t = j)}: output probability
+\item \strong{Markov-switching GARCH}: Haas, Mittnik & Paolella (2004),
+implemented via the MSGARCH package (Ardia et al., 2019)
+\item \strong{Skew Student-t distribution}: Fernández & Steel (1998)
+transformation
+\item \strong{Semi-parametric bootstrap}: State sequences are simulated
+from the fitted Markov chain (parametric), while innovations are
+resampled from empirical state-specific pools (nonparametric)
+}
 }
 
-Joint probability of the observations and the hidden states:
+\subsection{Multivariate Handling}{
 
-\eqn{\mathbb{P}(\mathbf{X}, \mathbf{S}) = \pi_{S_1} b_{S_1}(X_1) \prod_{t=2}^{T} a_{S_{t-1} S_t} b_{S_t}(X_t)}
-
-Marginal probability of the observed data is obtained by summing over all
-possible hidden state sequences:
-
-\eqn{\mathbb{P}(\mathbf{X}) = \sum_{\mathbf{S}} \mathbb{P}(\mathbf{X}, \mathbf{S})}
-
-(Beware of the "double use of data" problem: The bootstrap procedure relies
-on regime classification, but the regimes themselves are estimated from the
-same data and depend on the parameters being resampled.)
-
-When \code{collect_diagnostics = TRUE}, the function records:
+For multivariate data:
 \itemize{
-\item Original state sequence from Viterbi decoding
-\item State sequence for each bootstrap replicate
-\item Block information (lengths, source positions)
+\item With Gaussian: fits a joint HMM where all variables depend on the
+same hidden state sequence.
+\item With MSGARCH: fits the regime model to an aggregate series (see
+\code{regime_basis}), then samples full cross-sections synchronously
+to preserve empirical dependence structure.
 }
-This information can be used with \code{plot_regime_composition()} to visualize
-how the bootstrap samples are composed from different regimes.
+}
 }
 \examples{
 \donttest{
-# Requires depmixS4 package
-if (requireNamespace("depmixS4", quietly = TRUE)) {
-  
-  ## Example 1: Univariate time series with regime switching
-  set.seed(123)
-  # Generate data with two regimes
-  n1 <- 100
-  n2 <- 100
-  regime1 <- rnorm(n1, mean = 0, sd = 1)
-  regime2 <- rnorm(n2, mean = 5, sd = 2)
-  x_univar <- c(regime1, regime2)
-  
-  # Generate bootstrap samples
-  boot_samples <- hmm_bootstrap(
-    x = x_univar,
-    n_boot = 150,
-    num_states = 2,
-    num_boots = 100
-  )
-  
-  # Inspect results
-  length(boot_samples)  # 100 bootstrap replicates
-  dim(boot_samples[[1]])  # Each is a 150 x 1 matrix
-  
-  # Compare original and bootstrap distributions
-  original_mean <- mean(x_univar)
-  boot_means <- sapply(boot_samples, mean)
-  
-  hist(boot_means, main = "Bootstrap Distribution of Mean",
-       xlab = "Mean", col = "lightblue")
-  abline(v = original_mean, col = "red", lwd = 2, lty = 2)
-  
-  
-  ## Example 2: Multivariate time series
-  set.seed(456)
-  n <- 200
-  # Two correlated series with regime switching
-  states_true <- rep(1:2, each = n/2)
-  x1 <- ifelse(states_true == 1, 
-               rnorm(n, 0, 1), 
-               rnorm(n, 4, 2))
-  x2 <- 0.7 * x1 + rnorm(n, 0, 0.5)
-  x_multivar <- cbind(x1, x2)
-  
-  boot_samples_mv <- hmm_bootstrap(
-    x = x_multivar,
-    n_boot = 180,
-    num_states = 2,
-    num_boots = 50
-  )
-  
-  dim(boot_samples_mv[[1]])  # 180 x 2 matrix
-  
-  # Compute bootstrap correlation estimates
-  boot_cors <- sapply(boot_samples_mv, function(b) cor(b[,1], b[,2]))
-  original_cor <- cor(x_multivar[,1], x_multivar[,2])
-  
-  hist(boot_cors, main = "Bootstrap Distribution of Correlation",
-       xlab = "Correlation", col = "lightgreen")
-  abline(v = original_cor, col = "red", lwd = 2, lty = 2)
-  
-  
-  ## Example 3: Variable-length bootstrap samples
-  set.seed(789)
-  x_ar <- arima.sim(n = 150, list(ar = 0.8))
-  
-  # Don't specify n_boot to get variable-length samples
-  boot_samples_var <- hmm_bootstrap(
-    x = x_ar,
-    n_boot = NULL,  # Variable length
-    num_states = 2,
-    num_blocks = 15,
-    num_boots = 20
-  )
-  
-  # Check lengths vary
-  sample_lengths <- sapply(boot_samples_var, nrow)
-  summary(sample_lengths)
-  
-  
-  ## Example 4: Using verbose mode for diagnostics
-  set.seed(321)
-  x_diag <- rnorm(100)
-  
-  boot_samples_verbose <- hmm_bootstrap(
-    x = x_diag,
-    n_boot = 80,
-    num_states = 3,
-    num_boots = 5,
-    verbose = TRUE  # Print diagnostic information
-  )
-  
-  
-  ## Example 5: Bootstrap confidence intervals
-  set.seed(654)
-  # Data with heteroskedasticity
-  n <- 200
-  x_hetero <- numeric(n)
-  for (i in 1:n) {
-    sigma <- ifelse(i <= n/2, 1, 3)
-    x_hetero[i] <- rnorm(1, mean = 2, sd = sigma)
-  }
-  
-  boot_samples_ci <- hmm_bootstrap(
-    x = x_hetero,
-    n_boot = 200,
-    num_states = 2,
-    num_boots = 500
-  )
-  
-  # Compute bootstrap confidence interval for the mean
-  boot_means_ci <- sapply(boot_samples_ci, mean)
-  ci_95 <- quantile(boot_means_ci, c(0.025, 0.975))
-  
-  cat("95\% Bootstrap CI for mean:", ci_95[1], "to", ci_95[2], "\n")
-  cat("Original mean:", mean(x_hetero), "\n")
-  
-  
-  ## Example 6: Basic usage
-  set.seed(123)
-  x <- matrix(rnorm(500), ncol = 2)
-  boot_samples <- hmm_bootstrap(x, n_boot = 400, num_states = 2, num_boots = 50)
+## Example 1: Traditional Gaussian HMM bootstrap (original behavior)
+set.seed(123)
+x <- matrix(rnorm(500), ncol = 2)
+boot_gaussian <- hmm_bootstrap(x, n_boot = 400, num_states = 2, num_boots = 50)
 
-  ## With diagnostics for regime visualization
-  result <- hmm_bootstrap(
-    x, n_boot = 400, num_states = 2, num_boots = 10,
-    collect_diagnostics = TRUE, return_fit = TRUE
-  )
+## Example 2: Skew Student-t with MSGARCH (requires MSGARCH package)
+if (requireNamespace("MSGARCH", quietly = TRUE)) {
+  # Univariate
+  y <- rnorm(300)
+  boot_sstd <- hmm_bootstrap(y, num_states = 2, num_boots = 50,
+                              distribution = "sstd")
 
-  ## Plot regime composition
-  plot_regime_composition(result, x)
+  # With diagnostics
+  result <- hmm_bootstrap(y, num_states = 2, num_boots = 20,
+                           distribution = "sstd",
+                           return_fit = TRUE,
+                           collect_diagnostics = TRUE)
+}
+
+## Example 3: Raw returns HMM without GARCH (requires fGarch)
+if (requireNamespace("fGarch", quietly = TRUE)) {
+  boot_raw <- hmm_bootstrap(y, num_states = 2, num_boots = 50,
+                             distribution = "sstd_raw")
 }
 }
-  
+
 }
 \references{
+Ardia, D., Bluteau, K., Boudt, K., Catania, L., & Trottier, D.-A. (2019).
+Markov-Switching GARCH Models in R: The MSGARCH Package.
+Journal of Statistical Software, 91(4), 1-38. doi:10.18637/jss.v091.i04
+
+Fernández, C., & Steel, M. F. (1998). On Bayesian modeling of fat tails
+and skewness. Journal of the American Statistical Association, 93(441),
+359-371.
+
+Haas, M., Mittnik, S., & Paolella, M. S. (2004). A New Approach to Markov-
+Switching GARCH Models. Journal of Financial Econometrics, 2, 493-530.
+
+Hamilton, J. D. (1989). A New Approach to the Economic Analysis of
+Nonstationary Time Series and the Business Cycle. Econometrica, 57(2),
+357-384.
+
 Holst, U., Lindgren, G., Holst, J. and Thuvesholmen, M. (1994), Recursive
 Estimation In Switching Autoregressions With A Markov Regime. Journal of
 Time Series Analysis, 15: 489-506.
-\url{https://doi.org/10.1111/j.1467-9892.1994.tb00206.x}
+}
+\seealso{
+\code{\link{msvar_bootstrap}}, \code{\link{ms_varma_garch_bs}}
 }

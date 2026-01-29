@@ -55,7 +55,6 @@ NULL
 #'
 #' @details
 #' This function creates a Markov-switching GARCH specification using the
-
 #' Haas et al. (2004) approach, which avoids the path-dependency problem by
 #' defining K separate GARCH processes that evolve in parallel.
 #'
@@ -72,7 +71,7 @@ fit_msgarch_model <- function(
     variance_model = c("sGARCH", "eGARCH", "gjrGARCH", "tGARCH"),
     distribution = c("sstd", "std", "norm", "snorm", "sged", "ged"),
     ...
-  ) {
+) {
   
   ## ---- Input Validation ----
   
@@ -99,6 +98,7 @@ fit_msgarch_model <- function(
   if (n_states < 2L) {
     stop("'n_states' must be at least 2.", call. = FALSE)
   }
+  
   if (n_states > 5L) {
     warning("More than 5 states may lead to estimation difficulties.",
             call. = FALSE)
@@ -112,11 +112,11 @@ fit_msgarch_model <- function(
   
   # Map variance model names to MSGARCH format
   msgarch_model <- switch(variance_model,
-    "sGARCH" = "sGARCH",
-    "eGARCH" = "eGARCH", 
-    "gjrGARCH" = "gjrGARCH",
-    "tGARCH" = "tGARCH",
-    stop("Unknown variance model: ", variance_model, call. = FALSE)
+                          "sGARCH" = "sGARCH",
+                          "eGARCH" = "eGARCH",
+                          "gjrGARCH" = "gjrGARCH",
+                          "tGARCH" = "tGARCH",
+                          stop("Unknown variance model: ", variance_model, call. = FALSE)
   )
   
   # Create specification
@@ -131,14 +131,14 @@ fit_msgarch_model <- function(
   fit <- tryCatch({
     MSGARCH::FitML(spec = spec, data = y, ...)
   }, error = function(e) {
-    stop("MSGARCH model fitting failed: ", e$message, 
+    stop("MSGARCH model fitting failed: ", e$message,
          "\nConsider trying different starting values or fewer states.",
          call. = FALSE)
   })
   
   # Check convergence
   if (!is.null(fit$convergence) && fit$convergence != 0) {
-    warning("MSGARCH optimization may not have converged (code: ", 
+    warning("MSGARCH optimization may not have converged (code: ",
             fit$convergence, ").", call. = FALSE)
   }
   
@@ -186,15 +186,25 @@ extract_msgarch_states <- function(fit, y) {
   state_probs <- MSGARCH::State(fit)
   
   # Viterbi decoding gives most likely state sequence
-  viterbi <- state_probs$Viterbi
+  # Viterbi is returned as a matrix/array, convert to vector
+  viterbi <- as.vector(state_probs$Viterbi)
+  T_len <- length(viterbi)
   
-  # Smoothed probabilities (T x K matrix)
-  # State() returns a list with SmoothProb as a 3D array [T, K, 1]
-  smoothed <- state_probs$SmoothProb[, , 1, drop = TRUE]
-  if (is.vector(smoothed)) {
-    # Single state edge case (shouldn't happen with n_states >= 2)
-    smoothed <- matrix(smoothed, ncol = 1)
-  }
+  # Smoothed probabilities
+  # State() returns SmoothProb as a 3D array with dimensions [T+1, n_draws, K]
+  # where:
+  #   - First dimension is time (T+1 because it includes initial state prob)
+  #   - Second dimension is number of draws (1 for ML estimation)
+  #   - Third dimension is the K states
+  # We need a [T, K] matrix, so we:
+  #   1. Drop the first time point (initial state prob before any observations)
+  #   2. Take the first draw (index 1 in second dimension)
+  #   3. Keep all states (third dimension)
+  smoothed_raw <- state_probs$SmoothProb
+  n_states <- dim(smoothed_raw)[3]
+  
+  # Extract [T, K] matrix: drop first row, take first draw, all states
+  smoothed <- matrix(smoothed_raw[-1, 1, ], nrow = T_len, ncol = n_states)
   
   ## ---- Get Transition Matrix ----
   
@@ -269,7 +279,7 @@ extract_state_pools <- function(fit, y, state_info) {
   
   # Check alignment
   if (length(states) != T_len) {
-    stop("Length mismatch: states (", length(states), 
+    stop("Length mismatch: states (", length(states),
          ") vs y (", T_len, ").", call. = FALSE)
   }
   
@@ -286,10 +296,22 @@ extract_state_pools <- function(fit, y, state_info) {
     )
   }
   
+  # Check for empty pools (model found fewer effective states than requested)
+  pool_sizes <- sapply(pools, function(p) p$n)
+  empty_states <- which(pool_sizes == 0)
+  
+  if (length(empty_states) > 0) {
+    stop("Viterbi decoding assigned no observations to state(s): ",
+         paste(empty_states, collapse = ", "), ". ",
+         "The model effectively has fewer states than specified. ",
+         "Consider reducing 'num_states' or using different data.",
+         call. = FALSE)
+  }
+  
   # Warn if any pool is very small
-  min_pool_size <- min(sapply(pools, function(p) p$n))
+  min_pool_size <- min(pool_sizes)
   if (min_pool_size < 10) {
-    warning("State ", which.min(sapply(pools, function(p) p$n)),
+    warning("State ", which.min(pool_sizes),
             " has only ", min_pool_size, " observations. ",
             "Bootstrap samples may have limited diversity.", call. = FALSE)
   }
@@ -611,7 +633,7 @@ get_regime_series <- function(y_mat, regime_basis = "market") {
     # Use specified column
     col_idx <- as.integer(regime_basis)
     if (col_idx < 1L || col_idx > N) {
-      stop("'regime_basis' column index ", col_idx, 
+      stop("'regime_basis' column index ", col_idx,
            " is out of range [1, ", N, "].", call. = FALSE)
     }
     return(y_mat[, col_idx])
@@ -705,7 +727,7 @@ generate_msgarch_bootstrap <- function(
     micro_block_length = 1L,
     sync_sampling = TRUE,
     seed = NULL
-  ) {
+) {
   
   ## ---- Input Validation ----
   
@@ -843,7 +865,7 @@ fit_hmm_sstd <- function(
     max_iter = 200L,
     tol = 1e-6,
     verbose = FALSE
-  ) {
+) {
   
   ## ---- Input Validation ----
   
@@ -875,6 +897,7 @@ fit_hmm_sstd <- function(
   ## ---- Initialize Parameters ----
   
   # Use k-means for initial state assignment
+  
   km <- kmeans(y, centers = n_states, nstart = 10)
   init_states <- km$cluster
   
@@ -911,7 +934,7 @@ fit_hmm_sstd <- function(
     
     ## ---- E-Step: Forward-Backward ----
     
-    fb_result <- .forward_backward_hmm(y, trans_mat, init_probs, 
+    fb_result <- .forward_backward_hmm(y, trans_mat, init_probs,
                                        state_params, distribution)
     
     gamma <- fb_result$gamma      # T x K smoothed probs
@@ -995,8 +1018,13 @@ fit_hmm_sstd <- function(
 #' @return List with gamma (smoothed probs), xi (transition probs), loglik.
 #'
 #' @keywords internal
-.forward_backward_hmm <- function(y, trans_mat, init_probs, 
-                                   state_params, distribution) {
+.forward_backward_hmm <- function(
+    y,
+    trans_mat,
+    init_probs,
+    state_params,
+    distribution
+) {
   
   T_len <- length(y)
   K <- length(init_probs)
@@ -1085,20 +1113,20 @@ fit_hmm_sstd <- function(
   sigma <- params$sigma
   
   switch(distribution,
-    "norm" = dnorm(y, mean = mu, sd = sigma),
-    "std" = {
-      nu <- params$nu
-      # Standardize and use fGarch
-      z <- (y - mu) / sigma
-      fGarch::dstd(z, mean = 0, sd = 1, nu = nu) / sigma
-    },
-    "sstd" = {
-      nu <- params$nu
-      xi <- params$xi
-      # fGarch::dsstd handles location/scale internally
-      fGarch::dsstd(y, mean = mu, sd = sigma, nu = nu, xi = xi)
-    },
-    stop("Unknown distribution: ", distribution)
+         "norm" = dnorm(y, mean = mu, sd = sigma),
+         "std" = {
+           nu <- params$nu
+           # Standardize and use fGarch
+           z <- (y - mu) / sigma
+           fGarch::dstd(z, mean = 0, sd = 1, nu = nu) / sigma
+         },
+         "sstd" = {
+           nu <- params$nu
+           xi <- params$xi
+           # fGarch::dsstd handles location/scale internally
+           fGarch::dsstd(y, mean = mu, sd = sigma, nu = nu, xi = xi)
+         },
+         stop("Unknown distribution: ", distribution)
   )
 }
 
@@ -1189,7 +1217,13 @@ fit_hmm_sstd <- function(
 #' @return Integer vector of most likely states.
 #'
 #' @keywords internal
-.viterbi_hmm <- function(y, trans_mat, init_probs, state_params, distribution) {
+.viterbi_hmm <- function(
+    y,
+    trans_mat,
+    init_probs,
+    state_params,
+    distribution
+) {
   
   T_len <- length(y)
   K <- length(init_probs)
