@@ -91,6 +91,9 @@ The package includes vignettes for specialized topics:
 
 ### Demos
 
+See a pre-rendered version of “portfolio-optimization.Rmd” :  
+<https://github.com/mahovo/tsbs/blob/main/inst/demos/portfolio-optimization.md>
+
 ``` r
 library(tsbs)
 
@@ -110,9 +113,6 @@ get_demo_path(demo_list[[1]]) |>
 ```
 
 See also <https://github.com/mahovo/tsbs/tree/main/inst/demos>
-
-See a pre-rendered version of “portfolio-optimization.Rmd” :  
-<https://github.com/mahovo/tsbs/blob/main/inst/demos/portfolio-optimization.md>
 
 ### Learning from Test Files
 
@@ -363,6 +363,8 @@ on [GitHub](https://github.com/mahovo/tsbs).
 - [`gogarch_standard_errors()`](https://mahovo.github.io/tsbs/reference/gogarch_standard_errors.md)
   : Compute Standard Errors for GOGARCH Models
 - [`hmm_bootstrap()`](https://mahovo.github.io/tsbs/reference/hmm_bootstrap.md)
+  : Hidden Markov Model (HMM) Bootstrap for Multivariate Time Series
+- [`hmm_bootstrap_old()`](https://mahovo.github.io/tsbs/reference/hmm_bootstrap_old.md)
   : Hidden Markov Model (HMM) Bootstrap for Multivariate Time Series
 - [`identify_problematic_states()`](https://mahovo.github.io/tsbs/reference/identify_problematic_states.md)
   : Identify Problematic States

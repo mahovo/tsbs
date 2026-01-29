@@ -182,6 +182,8 @@
   : Compute Standard Errors for GOGARCH Models
 - [`hmm_bootstrap()`](https://mahovo.github.io/tsbs/reference/hmm_bootstrap.md)
   : Hidden Markov Model (HMM) Bootstrap for Multivariate Time Series
+- [`hmm_bootstrap_old()`](https://mahovo.github.io/tsbs/reference/hmm_bootstrap_old.md)
+  : Hidden Markov Model (HMM) Bootstrap for Multivariate Time Series
 - [`identify_problematic_states()`](https://mahovo.github.io/tsbs/reference/identify_problematic_states.md)
   : Identify Problematic States
 - [`improved_ica_decomposition()`](https://mahovo.github.io/tsbs/reference/improved_ica_decomposition.md)

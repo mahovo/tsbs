@@ -955,11 +955,11 @@ if (!is.null(summary_dcc)) {
     ## 
     ## |Asset |   Mean|     SD| CI_Lower| CI_Upper| CI_Width|
     ## |:-----|------:|------:|--------:|--------:|--------:|
-    ## |SPY   | 0.0745| 0.0174|   0.0441|   0.1060|   0.0619|
-    ## |EFA   | 0.0891| 0.0226|   0.0596|   0.1363|   0.0766|
-    ## |BND   | 0.5946| 0.1214|   0.3856|   0.6929|   0.3073|
-    ## |GLD   | 0.1677| 0.0744|   0.1210|   0.3036|   0.1826|
-    ## |VNQ   | 0.0741| 0.0194|   0.0498|   0.1065|   0.0567|
+    ## |SPY   | 0.0763| 0.0184|   0.0534|   0.1104|   0.0570|
+    ## |EFA   | 0.0864| 0.0209|   0.0644|   0.1303|   0.0659|
+    ## |BND   | 0.5842| 0.1196|   0.3732|   0.6822|   0.3090|
+    ## |GLD   | 0.1754| 0.0704|   0.1172|   0.3010|   0.1838|
+    ## |VNQ   | 0.0778| 0.0223|   0.0519|   0.1180|   0.0661|
 
 ``` r
 if (!is.null(summary_cgarch)) {
@@ -975,11 +975,11 @@ if (!is.null(summary_cgarch)) {
     ## 
     ## |Asset |   Mean|     SD| CI_Lower| CI_Upper| CI_Width|
     ## |:-----|------:|------:|--------:|--------:|--------:|
-    ## |SPY   | 0.0665| 0.0167|   0.0350|   0.0890|   0.0541|
-    ## |EFA   | 0.0752| 0.0184|   0.0414|   0.1008|   0.0594|
-    ## |BND   | 0.6345| 0.0400|   0.5496|   0.7069|   0.1573|
-    ## |GLD   | 0.1497| 0.0274|   0.1128|   0.2038|   0.0910|
-    ## |VNQ   | 0.0742| 0.0140|   0.0623|   0.1040|   0.0417|
+    ## |SPY   | 0.0617| 0.0145|   0.0322|   0.0795|   0.0473|
+    ## |EFA   | 0.0746| 0.0177|   0.0364|   0.0979|   0.0616|
+    ## |BND   | 0.6427| 0.0348|   0.5841|   0.6983|   0.1142|
+    ## |GLD   | 0.1510| 0.0241|   0.1191|   0.1994|   0.0804|
+    ## |VNQ   | 0.0700| 0.0133|   0.0549|   0.0975|   0.0426|
 
 ``` r
 if (!is.null(summary_gogarch)) {
@@ -995,11 +995,11 @@ if (!is.null(summary_gogarch)) {
     ## 
     ## |Asset |   Mean|     SD| CI_Lower| CI_Upper| CI_Width|
     ## |:-----|------:|------:|--------:|--------:|--------:|
-    ## |SPY   | 0.0818| 0.0317|   0.0472|   0.1594|   0.1123|
-    ## |EFA   | 0.0924| 0.0298|   0.0617|   0.1699|   0.1082|
-    ## |BND   | 0.5503| 0.1920|   0.0000|   0.6900|   0.6900|
-    ## |GLD   | 0.1892| 0.0998|   0.1085|   0.4874|   0.3789|
-    ## |VNQ   | 0.0862| 0.0412|   0.0575|   0.2137|   0.1562|
+    ## |SPY   | 0.0831| 0.0485|   0.0307|   0.2169|   0.1862|
+    ## |EFA   | 0.0946| 0.0590|   0.0404|   0.2346|   0.1942|
+    ## |BND   | 0.5626| 0.1967|   0.0000|   0.6977|   0.6977|
+    ## |GLD   | 0.1670| 0.0828|   0.0674|   0.4236|   0.3562|
+    ## |VNQ   | 0.0928| 0.0675|   0.0512|   0.2662|   0.2150|
 
 ``` r
 ## Compare uncertainty across available models (works with 2+ models)
@@ -1029,16 +1029,16 @@ if (length(available_summaries) >= 2) {
     ## 
     ## |Asset |    DCC| CGARCH| GOGARCH|
     ## |:-----|------:|------:|-------:|
-    ## |SPY   | 0.0619| 0.0541|  0.1123|
-    ## |EFA   | 0.0766| 0.0594|  0.1082|
-    ## |BND   | 0.3073| 0.1573|  0.6900|
-    ## |GLD   | 0.1826| 0.0910|  0.3789|
-    ## |VNQ   | 0.0567| 0.0417|  0.1562|
+    ## |SPY   | 0.0570| 0.0473|  0.1862|
+    ## |EFA   | 0.0659| 0.0616|  0.1942|
+    ## |BND   | 0.3090| 0.1142|  0.6977|
+    ## |GLD   | 0.1838| 0.0804|  0.3562|
+    ## |VNQ   | 0.0661| 0.0426|  0.2150|
     ## 
     ## Average CI Width by Model:
-    ##   DCC: 0.137
-    ##   CGARCH: 0.0807
-    ##   GOGARCH: 0.2891
+    ##   DCC: 0.1364
+    ##   CGARCH: 0.0692
+    ##   GOGARCH: 0.3299
 
 ``` r
 ## =============================================================================
@@ -1516,30 +1516,30 @@ if (!is.null(stability_all) && nrow(stability_all) > 0) {
     ## 
     ## |Model   |Asset |    CV|Stability |
     ## |:-------|:-----|-----:|:---------|
-    ## |DCC     |SPY   | 0.233|Stable    |
-    ## |DCC     |EFA   | 0.253|Stable    |
-    ## |DCC     |BND   | 0.204|Stable    |
-    ## |DCC     |GLD   | 0.444|Moderate  |
-    ## |DCC     |VNQ   | 0.262|Stable    |
-    ## |CGARCH  |SPY   | 0.251|Stable    |
-    ## |CGARCH  |EFA   | 0.245|Stable    |
-    ## |CGARCH  |BND   | 0.063|Stable    |
-    ## |CGARCH  |GLD   | 0.183|Stable    |
+    ## |DCC     |SPY   | 0.241|Stable    |
+    ## |DCC     |EFA   | 0.241|Stable    |
+    ## |DCC     |BND   | 0.205|Stable    |
+    ## |DCC     |GLD   | 0.402|Moderate  |
+    ## |DCC     |VNQ   | 0.287|Stable    |
+    ## |CGARCH  |SPY   | 0.235|Stable    |
+    ## |CGARCH  |EFA   | 0.238|Stable    |
+    ## |CGARCH  |BND   | 0.054|Stable    |
+    ## |CGARCH  |GLD   | 0.160|Stable    |
     ## |CGARCH  |VNQ   | 0.189|Stable    |
-    ## |GOGARCH |SPY   | 0.387|Moderate  |
-    ## |GOGARCH |EFA   | 0.322|Moderate  |
-    ## |GOGARCH |BND   | 0.349|Moderate  |
-    ## |GOGARCH |GLD   | 0.527|Moderate  |
-    ## |GOGARCH |VNQ   | 0.478|Moderate  |
+    ## |GOGARCH |SPY   | 0.584|Moderate  |
+    ## |GOGARCH |EFA   | 0.624|Unstable  |
+    ## |GOGARCH |BND   | 0.350|Moderate  |
+    ## |GOGARCH |GLD   | 0.496|Moderate  |
+    ## |GOGARCH |VNQ   | 0.727|Unstable  |
     ## 
     ## Stability Summary by Model:
-    ##   DCC: Mean CV = 0.279, 4 Stable, 1 Moderate, 0 Unstable
-    ##   CGARCH: Mean CV = 0.186, 5 Stable, 0 Moderate, 0 Unstable
-    ##   GOGARCH: Mean CV = 0.413, 0 Stable, 5 Moderate, 0 Unstable
+    ##   DCC: Mean CV = 0.275, 4 Stable, 1 Moderate, 0 Unstable
+    ##   CGARCH: Mean CV = 0.175, 5 Stable, 0 Moderate, 0 Unstable
+    ##   GOGARCH: Mean CV = 0.556, 0 Stable, 3 Moderate, 2 Unstable
     ## 
     ## Interpretation:
-    ##   Overall weight estimates are stable across bootstrap replicates.
-    ##   The portfolio optimization is well-identified for this data.
+    ##   Weight estimates show moderate variability across bootstrap replicates.
+    ##   Consider using robust estimates (median or winsorized mean).
 
 ## Part 9: Performance Visualizations
 
@@ -1696,19 +1696,19 @@ if (length(available_perf) > 0) {
     ## Performance distributions from converged models:
     ## 
     ## DCC Performance Distribution:
-    ##   Ann_Return: Median=19.42, 95% CI=[14.88, 24.24]
-    ##   Ann_Vol: Median=3.05, 95% CI=[2.82, 4.32]
-    ##   Sharpe: Median=6.17, 95% CI=[4.72, 6.93]
+    ##   Ann_Return: Median=18.68, 95% CI=[15.51, 24.86]
+    ##   Ann_Vol: Median=3.17, 95% CI=[2.78, 4.36]
+    ##   Sharpe: Median=6.13, 95% CI=[4.50, 6.92]
     ## 
     ## CGARCH Performance Distribution:
-    ##   Ann_Return: Median=18.25, 95% CI=[15.73, 20.93]
-    ##   Ann_Vol: Median=2.99, 95% CI=[2.74, 3.48]
-    ##   Sharpe: Median=6.25, 95% CI=[5.04, 6.87]
+    ##   Ann_Return: Median=17.81, 95% CI=[14.41, 20.08]
+    ##   Ann_Vol: Median=2.93, 95% CI=[2.80, 3.36]
+    ##   Sharpe: Median=6.00, 95% CI=[4.92, 6.76]
     ## 
     ## GOGARCH Performance Distribution:
-    ##   Ann_Return: Median=19.07, 95% CI=[15.65, 33.67]
-    ##   Ann_Vol: Median=3.10, 95% CI=[2.75, 6.60]
-    ##   Sharpe: Median=6.20, 95% CI=[4.61, 6.98]
+    ##   Ann_Return: Median=18.93, 95% CI=[15.82, 43.65]
+    ##   Ann_Vol: Median=3.08, 95% CI=[2.76, 7.42]
+    ##   Sharpe: Median=6.15, 95% CI=[4.82, 7.18]
 
 ``` r
 ## Visualization - works with any number of available models
@@ -1853,44 +1853,44 @@ if (length(robust_results) > 0) {
     ## 
     ## |Asset | Point| Boot_Mean| Boot_Median| Winsorized| Conservative|
     ## |:-----|-----:|---------:|-----------:|----------:|------------:|
-    ## |SPY   | 0.069|     0.075|       0.078|      0.074|        0.068|
-    ## |EFA   | 0.080|     0.089|       0.083|      0.087|        0.085|
-    ## |BND   | 0.627|     0.595|       0.615|      0.612|        0.626|
-    ## |GLD   | 0.153|     0.168|       0.160|      0.155|        0.147|
-    ## |VNQ   | 0.071|     0.074|       0.074|      0.073|        0.074|
+    ## |SPY   | 0.069|     0.076|       0.072|      0.075|        0.069|
+    ## |EFA   | 0.080|     0.086|       0.083|      0.084|        0.078|
+    ## |BND   | 0.627|     0.584|       0.610|      0.601|        0.619|
+    ## |GLD   | 0.153|     0.175|       0.167|      0.165|        0.163|
+    ## |VNQ   | 0.071|     0.078|       0.074|      0.075|        0.072|
     ## 
     ## --- CGARCH Model ---
     ## 
     ## 
     ## |Asset | Point| Boot_Mean| Boot_Median| Winsorized| Conservative|
     ## |:-----|-----:|---------:|-----------:|----------:|------------:|
-    ## |SPY   | 0.069|     0.066|       0.067|      0.068|        0.064|
-    ## |EFA   | 0.080|     0.075|       0.077|      0.077|        0.074|
-    ## |BND   | 0.627|     0.634|       0.644|      0.637|        0.653|
-    ## |GLD   | 0.153|     0.150|       0.146|      0.147|        0.136|
-    ## |VNQ   | 0.071|     0.074|       0.071|      0.072|        0.073|
+    ## |SPY   | 0.069|     0.062|       0.063|      0.063|        0.062|
+    ## |EFA   | 0.080|     0.075|       0.077|      0.076|        0.075|
+    ## |BND   | 0.627|     0.643|       0.641|      0.643|        0.656|
+    ## |GLD   | 0.153|     0.151|       0.144|      0.149|        0.139|
+    ## |VNQ   | 0.071|     0.070|       0.067|      0.068|        0.067|
     ## 
     ## --- GOGARCH Model ---
     ## 
     ## 
     ## |Asset | Point| Boot_Mean| Boot_Median| Winsorized| Conservative|
     ## |:-----|-----:|---------:|-----------:|----------:|------------:|
-    ## |SPY   | 0.069|     0.082|       0.075|      0.076|        0.072|
-    ## |EFA   | 0.080|     0.092|       0.083|      0.087|        0.079|
-    ## |BND   | 0.627|     0.550|       0.612|      0.601|        0.616|
-    ## |GLD   | 0.153|     0.189|       0.161|      0.164|        0.160|
-    ## |VNQ   | 0.071|     0.086|       0.073|      0.075|        0.073|
+    ## |SPY   | 0.069|     0.083|       0.073|      0.073|        0.072|
+    ## |EFA   | 0.080|     0.095|       0.081|      0.084|        0.081|
+    ## |BND   | 0.627|     0.563|       0.625|      0.616|        0.641|
+    ## |GLD   | 0.153|     0.167|       0.150|      0.156|        0.139|
+    ## |VNQ   | 0.071|     0.093|       0.072|      0.076|        0.067|
     ## 
     ## --- Cross-Model Comparison (Bootstrap Means) ---
     ## 
     ## 
     ## |Asset | Point|   DCC| CGARCH| GOGARCH|
     ## |:-----|-----:|-----:|------:|-------:|
-    ## |SPY   | 0.069| 0.075|  0.066|   0.082|
-    ## |EFA   | 0.080| 0.089|  0.075|   0.092|
-    ## |BND   | 0.627| 0.595|  0.634|   0.550|
-    ## |GLD   | 0.153| 0.168|  0.150|   0.189|
-    ## |VNQ   | 0.071| 0.074|  0.074|   0.086|
+    ## |SPY   | 0.069| 0.076|  0.062|   0.083|
+    ## |EFA   | 0.080| 0.086|  0.075|   0.095|
+    ## |BND   | 0.627| 0.584|  0.643|   0.563|
+    ## |GLD   | 0.153| 0.175|  0.151|   0.167|
+    ## |VNQ   | 0.071| 0.078|  0.070|   0.093|
     ## 
     ## The bootstrap means across models are generally consistent, suggesting
     ## the uncertainty estimates are robust to the choice of correlation model.
@@ -2279,19 +2279,19 @@ msgarch_result <- tryCatch({
     ## 
     ## 
     ## ==========================================================
-    ## EM Iteration 1... Log-Likelihood: -855.394 (Duration: 00:01:56)
+    ## EM Iteration 1... Log-Likelihood: -855.394 (Duration: 00:01:54)
     ## 
     ## 
     ## ==========================================================
-    ## EM Iteration 2... Log-Likelihood: -845.699 (Duration: 00:01:57)
+    ## EM Iteration 2... Log-Likelihood: -845.699 (Duration: 00:01:56)
     ## 
     ## 
     ## ==========================================================
-    ## EM Iteration 3... Log-Likelihood: -846.659 (Duration: 00:02:09)
+    ## EM Iteration 3... Log-Likelihood: -846.659 (Duration: 00:02:06)
     ## 
     ## 
     ## ==========================================================
-    ## EM Iteration 1... Log-Likelihood: -856.923 (Duration: 00:01:55)
+    ## EM Iteration 1... Log-Likelihood: -856.923 (Duration: 00:01:52)
     ## 
     ## 
     ## ==========================================================
@@ -2301,7 +2301,7 @@ msgarch_result <- tryCatch({
     ## ==========================================================
     ## EM Iteration 3...
 
-    ## Log-Likelihood: -847.706 (Duration: 00:02:16)
+    ## Log-Likelihood: -847.706 (Duration: 00:02:13)
 
 ``` r
 if (!is.null(msgarch_result)) bootstrap_methods[["MS-VARMA-GARCH"]] <- msgarch_result
@@ -2645,13 +2645,13 @@ if (!is.null(bench_result)) {
     ## Mean runtime (seconds) by setup and num_boots :
     ## 
     ##  Value   HMM Moving Block Plain (iid) Stationary    Wild
-    ##      8 0.162      0.00081     0.00085   0.000913 0.00367
-    ##     16 0.144      0.00126     0.00133   0.003051 0.00501
-    ##     32 0.159      0.00224     0.00230   0.002902 0.00781
-    ##     64 0.178      0.01524     0.00397   0.004611 0.01392
-    ##    128 0.267      0.00820     0.00756   0.010567 0.02692
-    ##    256 0.277      0.01843     0.01954   0.018931 0.04973
-    ##    512 0.458      0.03617     0.04150   0.039737 0.10301
+    ##      8 0.218     0.000934    0.000839   0.000997 0.00367
+    ##     16 0.194     0.001241    0.001367   0.001546 0.00499
+    ##     32 0.130     0.002229    0.002174   0.002384 0.00773
+    ##     64 0.147     0.006138    0.003914   0.004351 0.01354
+    ##    128 0.189     0.018224    0.007487   0.010899 0.02745
+    ##    256 0.342     0.016238    0.019680   0.021094 0.04814
+    ##    512 0.443     0.038313    0.040444   0.037390 0.09842
 
 ![](portfolio-optimization-demo_files/figure-html/benchmark_run-1.png)
 
@@ -2754,11 +2754,11 @@ if (!is.null(bench_result)) {
     ## Mean runtime (seconds) by setup and n_boot :
     ## 
     ##  Value   HMM Moving Block Plain (iid) Stationary   Wild
-    ##     64 0.129      0.00473     0.00799    0.00468 0.0205
-    ##    128 0.148      0.00505     0.00521    0.00514 0.0203
-    ##    256 0.184      0.00823     0.00846    0.00612 0.0229
-    ##    512 0.254      0.08647     0.01162    0.00980 0.0202
-    ##   1024 0.447      0.01184     0.01888    0.01308 0.0205
+    ##     64 0.129      0.00465     0.00466    0.00628 0.0217
+    ##    128 0.148      0.00498     0.00509    0.00519 0.0200
+    ##    256 0.183      0.00570     0.00592    0.00604 0.0201
+    ##    512 0.331      0.00933     0.00979    0.00968 0.0205
+    ##   1024 0.423      0.01188     0.01752    0.01618 0.0221
 
 ![](portfolio-optimization-demo_files/figure-html/benchmark_run_nboot-1.png)
 
@@ -2864,12 +2864,12 @@ if (!is.null(bench_result)) {
     ## Mean runtime (seconds) by setup and n_assets :
     ## 
     ##  Value   HMM Moving Block Plain (iid) Stationary   Wild
-    ##      4 0.340      0.08461     0.00531    0.00534 0.0226
-    ##      8 0.600      0.00778     0.00810    0.00819 0.0221
-    ##     16 0.988      0.01346     0.01596    0.01577 0.0279
-    ##     32 1.919      0.02681     0.03333    0.02845 0.0434
-    ##     64 2.361      0.05408     0.13507    0.13003 0.1448
-    ##    128 5.968      0.18051     0.18903    0.17902 0.1110
+    ##      4 0.333      0.00494     0.00513    0.00531 0.0219
+    ##      8 0.666      0.01003     0.00797    0.00985 0.0216
+    ##     16 0.899      0.01337     0.01516    0.01513 0.0273
+    ##     32 1.891      0.02801     0.03355    0.10014 0.0424
+    ##     64 2.250      0.13016     0.12914    0.05153 0.1395
+    ##    128 5.788      0.10277     0.28260    0.25529 0.1132
 
 ![](portfolio-optimization-demo_files/figure-html/benchmark_run_nassets-1.png)
 
@@ -3187,6 +3187,6 @@ for runtime benchmarking
     ## =======================================================================
 
     ## 
-    ## Vignette completed at: 2026-01-29 08:10:17
+    ## Vignette completed at: 2026-01-29 22:26:02
 
     ## R version: R version 4.5.2 (2025-10-31)

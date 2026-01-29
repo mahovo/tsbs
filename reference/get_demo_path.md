@@ -24,6 +24,7 @@ Full path to the demo Rmd file
 # Get path to a demo
 demo_path <- get_demo_path("example-demo")
 #> Error in get_demo_path("example-demo"): Demo 'example-demo.Rmd' not found. Available demos:
+#> - hmm_bootstrap_demo.Rmd
 #> - ms-varma-garch_diagnostics_report.Rmd
 #> - ms-varma-garch_inference_demo.Rmd
 #> - multivar_garch_comparison.Rmd

@@ -78,6 +78,11 @@ wild bootstrap types.</p>
 <span>  score_func <span class="op">=</span> <span class="va">mse</span>,</span>
 <span>  stationary_max_percentile <span class="op">=</span> <span class="fl">0.99</span>,</span>
 <span>  stationary_max_fraction_of_n <span class="op">=</span> <span class="fl">0.1</span>,</span>
+<span>  distribution <span class="op">=</span> <span class="st">"gaussian"</span>,</span>
+<span>  variance_model <span class="op">=</span> <span class="st">"sGARCH"</span>,</span>
+<span>  micro_block_length <span class="op">=</span> <span class="fl">1L</span>,</span>
+<span>  regime_basis <span class="op">=</span> <span class="st">"market"</span>,</span>
+<span>  seed <span class="op">=</span> <span class="cn">NULL</span>,</span>
 <span>  return_fit <span class="op">=</span> <span class="cn">FALSE</span>,</span>
 <span>  return_diagnostics <span class="op">=</span> <span class="cn">FALSE</span>,</span>
 <span>  fail_mode <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"predictably"</span>, <span class="st">"gracefully"</span><span class="op">)</span>,</span>
@@ -236,6 +241,44 @@ See <a href="k_fold_cv_ts.html">k_fold_cv_ts</a>.</p></dd>
 <dd><p>Stationary max fraction of n.</p></dd>
 
 
+<dt id="arg-distribution">distribution<a class="anchor" aria-label="anchor" href="#arg-distribution"></a></dt>
+<dd><p>Character string specifying the conditional distribution
+for HMM bootstrap. One of:</p><ul><li><p><code>"gaussian"</code>: Gaussian HMM via depmixS4 (default, backward
+compatible)</p></li>
+<li><p><code>"norm"</code>, <code>"std"</code>, <code>"sstd"</code>, <code>"snorm"</code>,
+<code>"ged"</code>, <code>"sged"</code>: MSGARCH-based with GARCH dynamics</p></li>
+<li><p><code>"norm_raw"</code>, <code>"std_raw"</code>, <code>"sstd_raw"</code>: Raw HMM
+without GARCH layer</p></li>
+</ul><p>Only used when <code>bs_type = "hmm"</code>. See Details for more information.</p></dd>
+
+
+<dt id="arg-variance-model">variance_model<a class="anchor" aria-label="anchor" href="#arg-variance-model"></a></dt>
+<dd><p>Character string specifying the GARCH model for
+MSGARCH-based HMM. One of <code>"sGARCH"</code>, <code>"eGARCH"</code>,
+<code>"gjrGARCH"</code>, or <code>"tGARCH"</code>. Default is <code>"sGARCH"</code>.
+Only used when <code>bs_type = "hmm"</code> and <code>distribution</code> is an
+MSGARCH distribution.</p></dd>
+
+
+<dt id="arg-micro-block-length">micro_block_length<a class="anchor" aria-label="anchor" href="#arg-micro-block-length"></a></dt>
+<dd><p>Integer specifying the block length for within-state
+sampling. Use 1 for iid sampling (default), or &gt;1 to preserve local
+temporal dependence within states. Only used when <code>bs_type = "hmm"</code>.</p></dd>
+
+
+<dt id="arg-regime-basis">regime_basis<a class="anchor" aria-label="anchor" href="#arg-regime-basis"></a></dt>
+<dd><p>For multivariate HMM bootstrap, specifies how to identify
+regimes. One of:</p><ul><li><p><code>"market"</code>: Use equal-weighted average of all columns (default)</p></li>
+<li><p><code>"first_pc"</code>: Use first principal component</p></li>
+<li><p>Integer: Use the specified column index</p></li>
+</ul><p>Only used when <code>bs_type = "hmm"</code> with multivariate data.</p></dd>
+
+
+<dt id="arg-seed">seed<a class="anchor" aria-label="anchor" href="#arg-seed"></a></dt>
+<dd><p>Integer random seed for reproducibility of HMM bootstrap.
+Only used when <code>bs_type = "hmm"</code>.</p></dd>
+
+
 <dt id="arg-return-fit">return_fit<a class="anchor" aria-label="anchor" href="#arg-return-fit"></a></dt>
 <dd><p>If <code>TRUE</code>, <code>tsbs()</code> will return model fit. Default is
 <code>return_fit = FALSE</code>. If <code>return_fit = TRUE</code> and
@@ -314,6 +357,54 @@ length of bootstrapped series for bootstrap types with random block length.
 For stationary bootstrap, <code>block_length</code> is the expected block length, when
 <code>p_method="1/n"</code>.</p>
 </div>
+
+<div class="section">
+<h4 id="bs-type-hmm-"><code>bs_type="hmm"</code><a class="anchor" aria-label="anchor" href="#bs-type-hmm-"></a></h4>
+
+
+<p>The HMM bootstrap uses a Hidden Markov Model to capture regime-switching
+behavior in the data. The bootstrap procedure is semi-parametric:</p><ul><li><p><strong>Parametric</strong>: State sequences are simulated from the fitted
+Markov chain transition matrix</p></li>
+<li><p><strong>Nonparametric</strong>: Observations are resampled from empirical
+state-specific pools</p></li>
+</ul><p><strong>Distribution Options:</strong></p>
+<p>The <code>distribution</code> parameter controls which backend is used:</p>
+<table class="table table"><tr><td><strong>Distribution</strong></td><td><strong>Backend</strong></td><td><strong>GARCH</strong></td><td><strong>Description</strong></td></tr><tr><td><code>"gaussian"</code></td><td>depmixS4</td><td>No</td><td>Original behavior (default)</td></tr><tr><td><code>"norm"</code></td><td>MSGARCH</td><td>Yes</td><td>Normal with GARCH</td></tr><tr><td><code>"std"</code></td><td>MSGARCH</td><td>Yes</td><td>Student-t with GARCH</td></tr><tr><td><code>"sstd"</code></td><td>MSGARCH</td><td>Yes</td><td>Skew Student-t with GARCH</td></tr><tr><td><code>"snorm"</code></td><td>MSGARCH</td><td>Yes</td><td>Skew normal with GARCH</td></tr><tr><td><code>"ged"</code></td><td>MSGARCH</td><td>Yes</td><td>GED with GARCH</td></tr><tr><td><code>"sged"</code></td><td>MSGARCH</td><td>Yes</td><td>Skew GED with GARCH</td></tr><tr><td><code>"norm_raw"</code></td><td>EM/fGarch</td><td>No</td><td>Normal, no GARCH</td></tr><tr><td><code>"std_raw"</code></td><td>EM/fGarch</td><td>No</td><td>Student-t, no GARCH</td></tr><tr><td><code>"sstd_raw"</code></td><td>EM/fGarch</td><td>No</td><td>Skew Student-t, no GARCH</td></tr></table><p><strong>MSGARCH Distributions</strong> (<code>"norm"</code>, <code>"std"</code>, <code>"sstd"</code>, etc.):
+These use the MSGARCH package to fit Markov-switching GARCH models following
+Haas, Mittnik &amp; Paolella (2004). The skewed distributions use the
+Fernández &amp; Steel (1998) transformation. Requires the MSGARCH package.</p>
+<p><strong>Raw Distributions</strong> (<code>"norm_raw"</code>, <code>"std_raw"</code>, <code>"sstd_raw"</code>):
+These fit a standard HMM with state-specific emission distributions but
+without GARCH dynamics. Uses an EM algorithm with the fGarch package for
+density evaluation.</p>
+<p><strong>Multivariate Data:</strong>
+For multivariate data, the <code>regime_basis</code> parameter determines how
+regimes are identified:</p><ul><li><p><code>"market"</code>: Fits the regime model to the equal-weighted average</p></li>
+<li><p><code>"first_pc"</code>: Fits to the first principal component</p></li>
+<li><p>Integer column index: Fits to a specific column</p></li>
+</ul><p>Bootstrap samples use synchronized sampling: the same time indices are
+sampled for all variables, preserving cross-sectional dependence.</p>
+<p><strong>Micro-Block Sampling:</strong>
+The <code>micro_block_length</code> parameter enables block sampling within states.
+With <code>micro_block_length = 1</code> (default), observations are sampled iid
+from state pools. With <code>micro_block_length &gt; 1</code>, consecutive blocks
+are sampled, preserving some local autocorrelation while still allowing
+the Markov chain to drive regime dynamics.</p>
+<p>If <code>n_boot</code> is set, bootstrap series are truncated to this length.
+Otherwise, the length matches the original series.</p>
+<p><strong>Dependencies:</strong></p><ul><li><p><code>"gaussian"</code>: Requires depmixS4</p></li>
+<li><p>MSGARCH distributions: Requires MSGARCH</p></li>
+<li><p>Raw distributions: Requires fGarch (except <code>"norm_raw"</code>)</p></li>
+</ul><p><strong>References:</strong></p><ul><li><p>Hamilton, J. D. (1989). A New Approach to the Economic Analysis of
+Nonstationary Time Series and the Business Cycle. Econometrica, 57(2),
+357-384.</p></li>
+<li><p>Haas, M., Mittnik, S., &amp; Paolella, M. S. (2004). A New Approach to
+Markov-Switching GARCH Models. Journal of Financial Econometrics, 2,
+493-530.</p></li>
+<li><p>Fernández, C., &amp; Steel, M. F. (1998). On Bayesian modeling of fat
+tails and skewness. Journal of the American Statistical Association,
+93(441), 359-371.</p></li>
+</ul></div>
 
 <div class="section">
 <h4 id="bs-type-wild-"><code>bs_type="wild"</code><a class="anchor" aria-label="anchor" href="#bs-type-wild-"></a></h4>
@@ -686,7 +777,8 @@ index be \(i = 0, 1, \dots, N\).</p>
 
     <div class="section level2">
     <h2 id="ref-examples">Examples<a class="anchor" aria-label="anchor" href="#ref-examples"></a></h2>
-    <div class="sourceCode"><pre class="sourceCode r"><code><span class="r-in"><span><span class="fu"><a href="https://rdrr.io/r/base/Random.html" class="external-link">set.seed</a></span><span class="op">(</span><span class="fl">123</span><span class="op">)</span></span></span>
+    <div class="sourceCode"><pre class="sourceCode r"><code><span class="r-in"><span><span class="kw">if</span> <span class="op">(</span><span class="cn">FALSE</span><span class="op">)</span> <span class="op">{</span> <span class="co"># \dontrun{</span></span></span>
+<span class="r-in"><span><span class="fu"><a href="https://rdrr.io/r/base/Random.html" class="external-link">set.seed</a></span><span class="op">(</span><span class="fl">123</span><span class="op">)</span></span></span>
 <span class="r-in"><span><span class="va">x</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/stats/arima.sim.html" class="external-link">arima.sim</a></span><span class="op">(</span>n <span class="op">=</span> <span class="fl">100</span>, <span class="fu"><a href="https://rdrr.io/r/base/list.html" class="external-link">list</a></span><span class="op">(</span>ar <span class="op">=</span> <span class="fl">0.8</span><span class="op">)</span><span class="op">)</span></span></span>
 <span class="r-in"><span><span class="va">result</span> <span class="op">&lt;-</span> <span class="fu">tsbs</span><span class="op">(</span></span></span>
 <span class="r-in"><span>  x <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/matrix.html" class="external-link">as.matrix</a></span><span class="op">(</span><span class="va">x</span><span class="op">)</span>,</span></span>
@@ -698,7 +790,65 @@ index be \(i = 0, 1, \dots, N\).</p>
 <span class="r-in"><span>  apply_func_to <span class="op">=</span> <span class="st">"cols"</span></span></span>
 <span class="r-in"><span><span class="op">)</span></span></span>
 <span class="r-in"><span><span class="fu"><a href="https://rdrr.io/r/base/print.html" class="external-link">print</a></span><span class="op">(</span><span class="va">result</span><span class="op">$</span><span class="va">func_out_means</span><span class="op">)</span></span></span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> [1] 0.02802642</span>
+<span class="r-in"><span></span></span>
+<span class="r-in"><span><span class="co"># ---- HMM Bootstrap Examples ----</span></span></span>
+<span class="r-in"><span></span></span>
+<span class="r-in"><span><span class="co"># Generate regime-switching data</span></span></span>
+<span class="r-in"><span><span class="fu"><a href="https://rdrr.io/r/base/Random.html" class="external-link">set.seed</a></span><span class="op">(</span><span class="fl">42</span><span class="op">)</span></span></span>
+<span class="r-in"><span><span class="va">y</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/stats/Normal.html" class="external-link">rnorm</a></span><span class="op">(</span><span class="fl">150</span>, <span class="fl">0.02</span>, <span class="fl">0.01</span><span class="op">)</span>, <span class="fu"><a href="https://rdrr.io/r/stats/Normal.html" class="external-link">rnorm</a></span><span class="op">(</span><span class="fl">150</span>, <span class="op">-</span><span class="fl">0.01</span>, <span class="fl">0.03</span><span class="op">)</span><span class="op">)</span></span></span>
+<span class="r-in"><span></span></span>
+<span class="r-in"><span><span class="co"># Basic Gaussian HMM (original behavior)</span></span></span>
+<span class="r-in"><span><span class="va">result_gaussian</span> <span class="op">&lt;-</span> <span class="fu">tsbs</span><span class="op">(</span></span></span>
+<span class="r-in"><span>  x <span class="op">=</span> <span class="va">y</span>,</span></span>
+<span class="r-in"><span>  bs_type <span class="op">=</span> <span class="st">"hmm"</span>,</span></span>
+<span class="r-in"><span>  num_states <span class="op">=</span> <span class="fl">2</span>,</span></span>
+<span class="r-in"><span>  num_boots <span class="op">=</span> <span class="fl">100</span></span></span>
+<span class="r-in"><span><span class="op">)</span></span></span>
+<span class="r-in"><span></span></span>
+<span class="r-in"><span><span class="co"># MSGARCH with skew Student-t distribution</span></span></span>
+<span class="r-in"><span><span class="va">result_sstd</span> <span class="op">&lt;-</span> <span class="fu">tsbs</span><span class="op">(</span></span></span>
+<span class="r-in"><span>  x <span class="op">=</span> <span class="va">y</span>,</span></span>
+<span class="r-in"><span>  bs_type <span class="op">=</span> <span class="st">"hmm"</span>,</span></span>
+<span class="r-in"><span>  num_states <span class="op">=</span> <span class="fl">2</span>,</span></span>
+<span class="r-in"><span>  num_boots <span class="op">=</span> <span class="fl">100</span>,</span></span>
+<span class="r-in"><span>  distribution <span class="op">=</span> <span class="st">"sstd"</span>,</span></span>
+<span class="r-in"><span>  variance_model <span class="op">=</span> <span class="st">"sGARCH"</span>,</span></span>
+<span class="r-in"><span>  seed <span class="op">=</span> <span class="fl">123</span></span></span>
+<span class="r-in"><span><span class="op">)</span></span></span>
+<span class="r-in"><span></span></span>
+<span class="r-in"><span><span class="co"># Raw HMM without GARCH</span></span></span>
+<span class="r-in"><span><span class="va">result_raw</span> <span class="op">&lt;-</span> <span class="fu">tsbs</span><span class="op">(</span></span></span>
+<span class="r-in"><span>  x <span class="op">=</span> <span class="va">y</span>,</span></span>
+<span class="r-in"><span>  bs_type <span class="op">=</span> <span class="st">"hmm"</span>,</span></span>
+<span class="r-in"><span>  num_states <span class="op">=</span> <span class="fl">2</span>,</span></span>
+<span class="r-in"><span>  num_boots <span class="op">=</span> <span class="fl">100</span>,</span></span>
+<span class="r-in"><span>  distribution <span class="op">=</span> <span class="st">"norm_raw"</span>,</span></span>
+<span class="r-in"><span>  seed <span class="op">=</span> <span class="fl">123</span></span></span>
+<span class="r-in"><span><span class="op">)</span></span></span>
+<span class="r-in"><span></span></span>
+<span class="r-in"><span><span class="co"># Multivariate with market-based regime identification</span></span></span>
+<span class="r-in"><span><span class="va">Y</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/matrix.html" class="external-link">matrix</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/stats/Normal.html" class="external-link">rnorm</a></span><span class="op">(</span><span class="fl">600</span><span class="op">)</span>, ncol <span class="op">=</span> <span class="fl">3</span><span class="op">)</span></span></span>
+<span class="r-in"><span><span class="va">result_multi</span> <span class="op">&lt;-</span> <span class="fu">tsbs</span><span class="op">(</span></span></span>
+<span class="r-in"><span>  x <span class="op">=</span> <span class="va">Y</span>,</span></span>
+<span class="r-in"><span>  bs_type <span class="op">=</span> <span class="st">"hmm"</span>,</span></span>
+<span class="r-in"><span>  num_states <span class="op">=</span> <span class="fl">2</span>,</span></span>
+<span class="r-in"><span>  num_boots <span class="op">=</span> <span class="fl">50</span>,</span></span>
+<span class="r-in"><span>  distribution <span class="op">=</span> <span class="st">"norm"</span>,</span></span>
+<span class="r-in"><span>  regime_basis <span class="op">=</span> <span class="st">"market"</span>,</span></span>
+<span class="r-in"><span>  seed <span class="op">=</span> <span class="fl">123</span></span></span>
+<span class="r-in"><span><span class="op">)</span></span></span>
+<span class="r-in"><span></span></span>
+<span class="r-in"><span><span class="co"># With micro-block sampling to preserve local dependence</span></span></span>
+<span class="r-in"><span><span class="va">result_blocks</span> <span class="op">&lt;-</span> <span class="fu">tsbs</span><span class="op">(</span></span></span>
+<span class="r-in"><span>  x <span class="op">=</span> <span class="va">y</span>,</span></span>
+<span class="r-in"><span>  bs_type <span class="op">=</span> <span class="st">"hmm"</span>,</span></span>
+<span class="r-in"><span>  num_states <span class="op">=</span> <span class="fl">2</span>,</span></span>
+<span class="r-in"><span>  num_boots <span class="op">=</span> <span class="fl">100</span>,</span></span>
+<span class="r-in"><span>  distribution <span class="op">=</span> <span class="st">"norm"</span>,</span></span>
+<span class="r-in"><span>  micro_block_length <span class="op">=</span> <span class="fl">5</span>,</span></span>
+<span class="r-in"><span>  seed <span class="op">=</span> <span class="fl">123</span></span></span>
+<span class="r-in"><span><span class="op">)</span></span></span>
+<span class="r-in"><span><span class="op">}</span> <span class="co"># }</span></span></span>
 <span class="r-in"><span></span></span>
 </code></pre></div>
     </div>
