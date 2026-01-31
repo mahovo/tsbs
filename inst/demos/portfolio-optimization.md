@@ -953,11 +953,11 @@ if (!is.null(summary_dcc)) {
     ## 
     ## |Asset |   Mean|     SD| CI_Lower| CI_Upper| CI_Width|
     ## |:-----|------:|------:|--------:|--------:|--------:|
-    ## |SPY   | 0.0696| 0.0248|   0.0347|   0.1217|   0.0870|
-    ## |EFA   | 0.0830| 0.0348|   0.0394|   0.1640|   0.1246|
-    ## |BND   | 0.5809| 0.1662|   0.0000|   0.6958|   0.6958|
-    ## |GLD   | 0.1811| 0.0926|   0.1148|   0.4844|   0.3696|
-    ## |VNQ   | 0.0855| 0.0336|   0.0593|   0.1928|   0.1335|
+    ## |SPY   | 0.0695| 0.0220|   0.0481|   0.1096|   0.0616|
+    ## |EFA   | 0.0807| 0.0219|   0.0578|   0.1236|   0.0658|
+    ## |BND   | 0.6132| 0.1235|   0.3930|   0.7064|   0.3134|
+    ## |GLD   | 0.1597| 0.0451|   0.1202|   0.2486|   0.1284|
+    ## |VNQ   | 0.0768| 0.0405|   0.0523|   0.1420|   0.0897|
 
 ``` r
 if (!is.null(summary_cgarch)) {
@@ -973,11 +973,11 @@ if (!is.null(summary_cgarch)) {
     ## 
     ## |Asset |   Mean|     SD| CI_Lower| CI_Upper| CI_Width|
     ## |:-----|------:|------:|--------:|--------:|--------:|
-    ## |SPY   | 0.0703| 0.0146|   0.0473|   0.1045|   0.0572|
-    ## |EFA   | 0.0822| 0.0164|   0.0550|   0.1175|   0.0625|
-    ## |BND   | 0.6269| 0.0412|   0.5547|   0.6987|   0.1440|
-    ## |GLD   | 0.1494| 0.0218|   0.1130|   0.1970|   0.0840|
-    ## |VNQ   | 0.0712| 0.0118|   0.0546|   0.0955|   0.0410|
+    ## |SPY   | 0.0717| 0.0217|   0.0478|   0.1193|   0.0715|
+    ## |EFA   | 0.0827| 0.0198|   0.0595|   0.1255|   0.0660|
+    ## |BND   | 0.6066| 0.1242|   0.3773|   0.7058|   0.3286|
+    ## |GLD   | 0.1631| 0.0586|   0.1135|   0.2662|   0.1527|
+    ## |VNQ   | 0.0760| 0.0322|   0.0509|   0.1308|   0.0800|
 
 ``` r
 if (!is.null(summary_gogarch)) {
@@ -993,11 +993,11 @@ if (!is.null(summary_gogarch)) {
     ## 
     ## |Asset |   Mean|     SD| CI_Lower| CI_Upper| CI_Width|
     ## |:-----|------:|------:|--------:|--------:|--------:|
-    ## |SPY   | 0.0748| 0.0226|   0.0484|   0.1295|   0.0812|
-    ## |EFA   | 0.0841| 0.0214|   0.0609|   0.1308|   0.0699|
-    ## |BND   | 0.6050| 0.1199|   0.3883|   0.6917|   0.3034|
-    ## |GLD   | 0.1544| 0.0472|   0.1022|   0.2367|   0.1344|
-    ## |VNQ   | 0.0817| 0.0387|   0.0564|   0.1519|   0.0955|
+    ## |SPY   | 0.0834| 0.0333|   0.0426|   0.1548|   0.1123|
+    ## |EFA   | 0.0918| 0.0269|   0.0614|   0.1684|   0.1071|
+    ## |BND   | 0.5648| 0.1632|   0.0000|   0.7100|   0.7100|
+    ## |GLD   | 0.1713| 0.0661|   0.1137|   0.3735|   0.2597|
+    ## |VNQ   | 0.0887| 0.0538|   0.0523|   0.2677|   0.2154|
 
 ``` r
 ## Compare uncertainty across available models (works with 2+ models)
@@ -1027,16 +1027,16 @@ if (length(available_summaries) >= 2) {
     ## 
     ## |Asset |    DCC| CGARCH| GOGARCH|
     ## |:-----|------:|------:|-------:|
-    ## |SPY   | 0.0870| 0.0572|  0.0812|
-    ## |EFA   | 0.1246| 0.0625|  0.0699|
-    ## |BND   | 0.6958| 0.1440|  0.3034|
-    ## |GLD   | 0.3696| 0.0840|  0.1344|
-    ## |VNQ   | 0.1335| 0.0410|  0.0955|
+    ## |SPY   | 0.0616| 0.0715|  0.1123|
+    ## |EFA   | 0.0658| 0.0660|  0.1071|
+    ## |BND   | 0.3134| 0.3286|  0.7100|
+    ## |GLD   | 0.1284| 0.1527|  0.2597|
+    ## |VNQ   | 0.0897| 0.0800|  0.2154|
     ## 
     ## Average CI Width by Model:
-    ##   DCC: 0.2821
-    ##   CGARCH: 0.0777
-    ##   GOGARCH: 0.1369
+    ##   DCC: 0.1318
+    ##   CGARCH: 0.1398
+    ##   GOGARCH: 0.2809
 
 ``` r
 ## =============================================================================
@@ -1207,7 +1207,7 @@ summary(moving_diag)
     ##   Original series length: 252 
     ##   Number of variables: 5 
     ##   Number of replicates: 30 
-    ##   Generated: 2026-01-25 23:20:40 
+    ##   Generated: 2026-01-31 10:49:58 
     ## 
     ## CONFIGURATION PARAMETERS:
     ##   block_length: 10
@@ -1302,7 +1302,7 @@ summary(stationary_diag)
     ##   Original series length: 252 
     ##   Number of variables: 5 
     ##   Number of replicates: 30 
-    ##   Generated: 2026-01-25 23:20:41 
+    ##   Generated: 2026-01-31 10:49:58 
     ## 
     ## CONFIGURATION PARAMETERS:
     ##   p: 0.1
@@ -1569,88 +1569,10 @@ for (model_info in list(
 
     ## 
     ## --- DCC Model ---
-    ## === MS-VARMA-GARCH Diagnostic Summary ===
-    ## 
-    ## EM ITERATIONS:
-    ##   Total iterations: 3 
-    ##   Initial LL: -1105.119 
-    ##   Final LL: -847.9102 
-    ##   Total LL improvement: 257.2084 
-    ##   LL decreased in 1 iterations
-    ##   Mean LL change per iteration: 85.73613 
-    ##   Min LL change: -0.7519931 
-    ##   Max LL change: 248.3278 
-    ##   Total computation time: 153.53 seconds
-    ## 
-    ## BOUNDARY EVENTS:
-    ##   Total boundary events: 1 
-    ##     Iteration 3 : State 2 - omega_series_5 = 0 at lower boundary -> warning_issued 
-    ## 
-    ## WARNINGS:
-    ##   Total warnings: 1 
-    ##     ll_decrease : 1 
-    ## 
-    ## PARAMETER EVOLUTION:
-    ##   States tracked: 2 
-    ## 
-    ## SIGMA EVOLUTION:
-    ##   Series tracked: 5 
     ## 
     ## --- CGARCH Model ---
-    ## === MS-VARMA-GARCH Diagnostic Summary ===
-    ## 
-    ## EM ITERATIONS:
-    ##   Total iterations: 3 
-    ##   Initial LL: -937.0135 
-    ##   Final LL: -890.6873 
-    ##   Total LL improvement: 46.32621 
-    ##   LL decreased in 1 iterations
-    ##   Mean LL change per iteration: 15.44207 
-    ##   Min LL change: -1.008813 
-    ##   Max LL change: 37.68112 
-    ##   Total computation time: 139.22 seconds
-    ## 
-    ## BOUNDARY EVENTS:
-    ##   Total boundary events: 2 
-    ##     Iteration 2 : State 1 - omega_series_4 = 0 at lower boundary -> warning_issued 
-    ##     Iteration 3 : State 1 - omega_series_1 = 0 at lower boundary -> warning_issued 
-    ## 
-    ## WARNINGS:
-    ##   Total warnings: 1 
-    ##     ll_decrease : 1 
-    ## 
-    ## PARAMETER EVOLUTION:
-    ##   States tracked: 2 
-    ## 
-    ## SIGMA EVOLUTION:
-    ##   Series tracked: 0 
     ## 
     ## --- GOGARCH Model ---
-    ## === MS-VARMA-GARCH Diagnostic Summary ===
-    ## 
-    ## EM ITERATIONS:
-    ##   Total iterations: 3 
-    ##   Initial LL: -1733.196 
-    ##   Final LL: -2852.037 
-    ##   Total LL improvement: -1118.841 
-    ##   LL decreased in 2 iterations
-    ##   Mean LL change per iteration: -372.947 
-    ##   Min LL change: -3280.454 
-    ##   Max LL change: 2257.825 
-    ##   Total computation time: 3.69 seconds
-    ## 
-    ## BOUNDARY EVENTS:
-    ##   Total boundary events: 0 
-    ## 
-    ## WARNINGS:
-    ##   Total warnings: 2 
-    ##     ll_decrease : 2 
-    ## 
-    ## PARAMETER EVOLUTION:
-    ##   States tracked: 2 
-    ## 
-    ## SIGMA EVOLUTION:
-    ##   Series tracked: 0
 
 ## Weight Stability Analysis
 
@@ -1740,30 +1662,30 @@ if (!is.null(stability_all) && nrow(stability_all) > 0) {
     ## 
     ## |Model   |Asset |    CV|Stability |
     ## |:-------|:-----|-----:|:---------|
-    ## |DCC     |SPY   | 0.356|Moderate  |
-    ## |DCC     |EFA   | 0.419|Moderate  |
-    ## |DCC     |BND   | 0.286|Stable    |
-    ## |DCC     |GLD   | 0.511|Moderate  |
-    ## |DCC     |VNQ   | 0.393|Moderate  |
-    ## |CGARCH  |SPY   | 0.208|Stable    |
-    ## |CGARCH  |EFA   | 0.200|Stable    |
-    ## |CGARCH  |BND   | 0.066|Stable    |
-    ## |CGARCH  |GLD   | 0.146|Stable    |
-    ## |CGARCH  |VNQ   | 0.166|Stable    |
-    ## |GOGARCH |SPY   | 0.302|Moderate  |
-    ## |GOGARCH |EFA   | 0.255|Stable    |
-    ## |GOGARCH |BND   | 0.198|Stable    |
-    ## |GOGARCH |GLD   | 0.306|Moderate  |
-    ## |GOGARCH |VNQ   | 0.473|Moderate  |
+    ## |DCC     |SPY   | 0.316|Moderate  |
+    ## |DCC     |EFA   | 0.272|Stable    |
+    ## |DCC     |BND   | 0.201|Stable    |
+    ## |DCC     |GLD   | 0.282|Stable    |
+    ## |DCC     |VNQ   | 0.527|Moderate  |
+    ## |CGARCH  |SPY   | 0.303|Moderate  |
+    ## |CGARCH  |EFA   | 0.239|Stable    |
+    ## |CGARCH  |BND   | 0.205|Stable    |
+    ## |CGARCH  |GLD   | 0.359|Moderate  |
+    ## |CGARCH  |VNQ   | 0.424|Moderate  |
+    ## |GOGARCH |SPY   | 0.400|Moderate  |
+    ## |GOGARCH |EFA   | 0.293|Stable    |
+    ## |GOGARCH |BND   | 0.289|Stable    |
+    ## |GOGARCH |GLD   | 0.386|Moderate  |
+    ## |GOGARCH |VNQ   | 0.606|Unstable  |
     ## 
     ## Stability Summary by Model:
-    ##   DCC: Mean CV = 0.393, 1 Stable, 4 Moderate, 0 Unstable
-    ##   CGARCH: Mean CV = 0.157, 5 Stable, 0 Moderate, 0 Unstable
-    ##   GOGARCH: Mean CV = 0.307, 2 Stable, 3 Moderate, 0 Unstable
+    ##   DCC: Mean CV = 0.320, 3 Stable, 2 Moderate, 0 Unstable
+    ##   CGARCH: Mean CV = 0.306, 2 Stable, 3 Moderate, 0 Unstable
+    ##   GOGARCH: Mean CV = 0.395, 2 Stable, 2 Moderate, 1 Unstable
     ## 
     ## Interpretation:
-    ##   Overall weight estimates are stable across bootstrap replicates.
-    ##   The portfolio optimization is well-identified for this data.
+    ##   Weight estimates show moderate variability across bootstrap replicates.
+    ##   Consider using robust estimates (median or winsorized mean).
 
 # Part 9: Performance Visualizations
 
@@ -1920,19 +1842,19 @@ if (length(available_perf) > 0) {
     ## Performance distributions from converged models:
     ## 
     ## DCC Performance Distribution:
-    ##   Ann_Return: Median=18.47, 95% CI=[15.19, 29.96]
-    ##   Ann_Vol: Median=3.08, 95% CI=[2.76, 6.59]
-    ##   Sharpe: Median=6.06, 95% CI=[4.21, 6.94]
+    ##   Ann_Return: Median=18.34, 95% CI=[15.56, 26.39]
+    ##   Ann_Vol: Median=2.99, 95% CI=[2.79, 4.29]
+    ##   Sharpe: Median=6.05, 95% CI=[5.39, 6.79]
     ## 
     ## CGARCH Performance Distribution:
-    ##   Ann_Return: Median=18.52, 95% CI=[15.20, 23.11]
-    ##   Ann_Vol: Median=3.02, 95% CI=[2.75, 3.35]
-    ##   Sharpe: Median=6.23, 95% CI=[5.30, 7.03]
+    ##   Ann_Return: Median=18.54, 95% CI=[15.38, 25.92]
+    ##   Ann_Vol: Median=3.03, 95% CI=[2.75, 4.33]
+    ##   Sharpe: Median=6.12, 95% CI=[5.36, 6.75]
     ## 
     ## GOGARCH Performance Distribution:
-    ##   Ann_Return: Median=19.13, 95% CI=[16.60, 27.79]
-    ##   Ann_Vol: Median=3.02, 95% CI=[2.74, 4.31]
-    ##   Sharpe: Median=6.36, 95% CI=[5.47, 6.98]
+    ##   Ann_Return: Median=19.34, 95% CI=[15.09, 37.72]
+    ##   Ann_Vol: Median=3.13, 95% CI=[2.84, 6.57]
+    ##   Sharpe: Median=6.19, 95% CI=[4.93, 7.38]
 
 ``` r
 ## Visualization - works with any number of available models
@@ -2077,44 +1999,44 @@ if (length(robust_results) > 0) {
     ## 
     ## |Asset | Point| Boot_Mean| Boot_Median| Winsorized| Conservative|
     ## |:-----|-----:|---------:|-----------:|----------:|------------:|
-    ## |SPY   | 0.069|     0.070|       0.067|      0.068|        0.064|
-    ## |EFA   | 0.080|     0.083|       0.075|      0.079|        0.073|
-    ## |BND   | 0.627|     0.581|       0.623|      0.617|        0.634|
-    ## |GLD   | 0.153|     0.181|       0.156|      0.160|        0.152|
-    ## |VNQ   | 0.071|     0.085|       0.076|      0.078|        0.077|
+    ## |SPY   | 0.069|     0.070|       0.066|      0.067|        0.062|
+    ## |EFA   | 0.080|     0.081|       0.075|      0.078|        0.072|
+    ## |BND   | 0.627|     0.613|       0.633|      0.632|        0.651|
+    ## |GLD   | 0.153|     0.160|       0.153|      0.152|        0.147|
+    ## |VNQ   | 0.071|     0.077|       0.071|      0.070|        0.067|
     ## 
     ## --- CGARCH Model ---
     ## 
     ## 
     ## |Asset | Point| Boot_Mean| Boot_Median| Winsorized| Conservative|
     ## |:-----|-----:|---------:|-----------:|----------:|------------:|
-    ## |SPY   | 0.069|     0.070|       0.069|      0.069|        0.063|
-    ## |EFA   | 0.080|     0.082|       0.082|      0.081|        0.076|
-    ## |BND   | 0.627|     0.627|       0.627|      0.627|        0.649|
-    ## |GLD   | 0.153|     0.149|       0.146|      0.149|        0.144|
-    ## |VNQ   | 0.071|     0.071|       0.070|      0.070|        0.067|
+    ## |SPY   | 0.069|     0.072|       0.067|      0.069|        0.063|
+    ## |EFA   | 0.080|     0.083|       0.078|      0.080|        0.076|
+    ## |BND   | 0.627|     0.607|       0.624|      0.626|        0.647|
+    ## |GLD   | 0.153|     0.163|       0.155|      0.155|        0.143|
+    ## |VNQ   | 0.071|     0.076|       0.071|      0.071|        0.070|
     ## 
     ## --- GOGARCH Model ---
     ## 
     ## 
     ## |Asset | Point| Boot_Mean| Boot_Median| Winsorized| Conservative|
     ## |:-----|-----:|---------:|-----------:|----------:|------------:|
-    ## |SPY   | 0.069|     0.075|       0.069|      0.071|        0.069|
-    ## |EFA   | 0.080|     0.084|       0.081|      0.081|        0.078|
-    ## |BND   | 0.627|     0.605|       0.626|      0.624|        0.637|
-    ## |GLD   | 0.153|     0.154|       0.149|      0.149|        0.142|
-    ## |VNQ   | 0.071|     0.082|       0.074|      0.075|        0.074|
+    ## |SPY   | 0.069|     0.083|       0.079|      0.080|        0.066|
+    ## |EFA   | 0.080|     0.092|       0.084|      0.088|        0.084|
+    ## |BND   | 0.627|     0.565|       0.607|      0.599|        0.623|
+    ## |GLD   | 0.153|     0.171|       0.156|      0.159|        0.153|
+    ## |VNQ   | 0.071|     0.089|       0.076|      0.076|        0.073|
     ## 
     ## --- Cross-Model Comparison (Bootstrap Means) ---
     ## 
     ## 
     ## |Asset | Point|   DCC| CGARCH| GOGARCH|
     ## |:-----|-----:|-----:|------:|-------:|
-    ## |SPY   | 0.069| 0.070|  0.070|   0.075|
-    ## |EFA   | 0.080| 0.083|  0.082|   0.084|
-    ## |BND   | 0.627| 0.581|  0.627|   0.605|
-    ## |GLD   | 0.153| 0.181|  0.149|   0.154|
-    ## |VNQ   | 0.071| 0.085|  0.071|   0.082|
+    ## |SPY   | 0.069| 0.070|  0.072|   0.083|
+    ## |EFA   | 0.080| 0.081|  0.083|   0.092|
+    ## |BND   | 0.627| 0.613|  0.607|   0.565|
+    ## |GLD   | 0.153| 0.160|  0.163|   0.171|
+    ## |VNQ   | 0.071| 0.077|  0.076|   0.089|
     ## 
     ## The bootstrap means across models are generally consistent, suggesting
     ## the uncertainty estimates are robust to the choice of correlation model.
@@ -2455,8 +2377,11 @@ hmm_result <- tryCatch({
   result <- tsbs(
     x = y_compare,
     bs_type = "hmm",
-    num_boots = num_boots_compare,
     num_states = 2,
+    num_boots = num_boots_compare,
+    distribution = "sstd",
+    variance_model = "sGARCH",
+    seed = 123,
     func = risk_parity_portfolio,
     apply_func_to = "all"
   )
@@ -2465,11 +2390,6 @@ hmm_result <- tryCatch({
   message("  Failed: ", e$message)
   NULL
 })
-```
-
-    ## converged at iteration 34 with logLik: -1084.145
-
-``` r
 if (!is.null(hmm_result)) bootstrap_methods[["HMM"]] <- hmm_result
 
 ## -------------------------------------------------------------------------
@@ -2504,29 +2424,29 @@ msgarch_result <- tryCatch({
     ## 
     ## 
     ## ==========================================================
-    ## EM Iteration 1... Log-Likelihood: -855.202 (Duration: 00:00:55)
+    ## EM Iteration 1... Log-Likelihood: -855.202 (Duration: 00:00:54)
     ## 
     ## 
     ## ==========================================================
-    ## EM Iteration 2... Log-Likelihood: -845.926 (Duration: 00:00:55)
+    ## EM Iteration 2... Log-Likelihood: -845.926 (Duration: 00:00:54)
     ## 
     ## 
     ## ==========================================================
-    ## EM Iteration 3... Log-Likelihood: -846.815 (Duration: 00:00:59)
+    ## EM Iteration 3... Log-Likelihood: -846.815 (Duration: 00:00:57)
     ## 
     ## 
     ## ==========================================================
-    ## EM Iteration 1... Log-Likelihood: -856.791 (Duration: 00:00:55)
+    ## EM Iteration 1... Log-Likelihood: -856.791 (Duration: 00:00:54)
     ## 
     ## 
     ## ==========================================================
-    ## EM Iteration 2... Log-Likelihood: -847.158 (Duration: 00:00:55)
+    ## EM Iteration 2... Log-Likelihood: -847.158 (Duration: 00:00:54)
     ## 
     ## 
     ## ==========================================================
     ## EM Iteration 3...
 
-    ## Log-Likelihood: -847.91 (Duration: 00:00:49)
+    ## Log-Likelihood: -847.91 (Duration: 00:00:47)
 
 ``` r
 if (!is.null(msgarch_result)) bootstrap_methods[["MS-VARMA-GARCH"]] <- msgarch_result
@@ -2607,22 +2527,22 @@ cat("\nCompleted", length(bootstrap_methods), "of 6 bootstrap methods.\n")
     ## 
     ## |Asset | Point| Boot_Mean| Boot_SD| CI_Width|
     ## |:-----|-----:|---------:|-------:|--------:|
-    ## |SPY   | 0.069|     0.069|   0.007|    0.025|
-    ## |EFA   | 0.080|     0.081|   0.006|    0.021|
-    ## |BND   | 0.627|     0.627|   0.016|    0.056|
-    ## |GLD   | 0.153|     0.152|   0.011|    0.037|
-    ## |VNQ   | 0.071|     0.070|   0.005|    0.018|
+    ## |SPY   | 0.069|     0.076|   0.014|    0.049|
+    ## |EFA   | 0.080|     0.085|   0.010|    0.034|
+    ## |BND   | 0.627|     0.615|   0.027|    0.099|
+    ## |GLD   | 0.153|     0.151|   0.011|    0.038|
+    ## |VNQ   | 0.071|     0.074|   0.007|    0.027|
     ## 
     ## --- MS-VARMA-GARCH ---
     ## 
     ## 
     ## |Asset | Point| Boot_Mean| Boot_SD| CI_Width|
     ## |:-----|-----:|---------:|-------:|--------:|
-    ## |SPY   | 0.069|     0.070|   0.022|    0.080|
-    ## |EFA   | 0.080|     0.083|   0.027|    0.087|
-    ## |BND   | 0.627|     0.611|   0.128|    0.346|
-    ## |GLD   | 0.153|     0.163|   0.069|    0.171|
-    ## |VNQ   | 0.071|     0.074|   0.029|    0.083|
+    ## |SPY   | 0.069|     0.075|   0.024|    0.080|
+    ## |EFA   | 0.080|     0.083|   0.019|    0.065|
+    ## |BND   | 0.627|     0.617|   0.061|    0.205|
+    ## |GLD   | 0.153|     0.151|   0.020|    0.071|
+    ## |VNQ   | 0.071|     0.074|   0.015|    0.048|
     ## 
     ## --- Wild ---
     ## 
@@ -2631,8 +2551,8 @@ cat("\nCompleted", length(bootstrap_methods), "of 6 bootstrap methods.\n")
     ## |:-----|-----:|---------:|-------:|--------:|
     ## |SPY   | 0.069|     0.069|   0.000|    0.001|
     ## |EFA   | 0.080|     0.080|   0.000|    0.001|
-    ## |BND   | 0.627|     0.627|   0.001|    0.003|
-    ## |GLD   | 0.153|     0.153|   0.001|    0.002|
+    ## |BND   | 0.627|     0.627|   0.001|    0.005|
+    ## |GLD   | 0.153|     0.153|   0.001|    0.003|
     ## |VNQ   | 0.071|     0.071|   0.000|    0.001|
     ## 
     ## -----------------------------------------------------------------------
@@ -2643,11 +2563,11 @@ cat("\nCompleted", length(bootstrap_methods), "of 6 bootstrap methods.\n")
     ## 
     ## |Asset | Point| Plain (iid)| Moving Block| Stationary|   HMM| MS-VARMA-GARCH|  Wild|
     ## |:-----|-----:|-----------:|------------:|----------:|-----:|--------------:|-----:|
-    ## |SPY   | 0.069|        0.07|        0.068|      0.071| 0.069|          0.070| 0.069|
-    ## |EFA   | 0.080|        0.08|        0.079|      0.082| 0.081|          0.083| 0.080|
-    ## |BND   | 0.627|        0.63|        0.634|      0.622| 0.627|          0.611| 0.627|
-    ## |GLD   | 0.153|        0.15|        0.149|      0.153| 0.152|          0.163| 0.153|
-    ## |VNQ   | 0.071|        0.07|        0.070|      0.071| 0.070|          0.074| 0.071|
+    ## |SPY   | 0.069|        0.07|        0.068|      0.071| 0.076|          0.075| 0.069|
+    ## |EFA   | 0.080|        0.08|        0.079|      0.082| 0.085|          0.083| 0.080|
+    ## |BND   | 0.627|        0.63|        0.634|      0.622| 0.615|          0.617| 0.627|
+    ## |GLD   | 0.153|        0.15|        0.149|      0.153| 0.151|          0.151| 0.153|
+    ## |VNQ   | 0.071|        0.07|        0.070|      0.071| 0.074|          0.074| 0.071|
     ## 
     ## -----------------------------------------------------------------------
     ## UNCERTAINTY BY METHOD (Mean 95% CI Width)
@@ -2657,12 +2577,12 @@ cat("\nCompleted", length(bootstrap_methods), "of 6 bootstrap methods.\n")
     ## 
     ## |Method         | Mean_CI_Width|
     ## |:--------------|-------------:|
-    ## |Wild           |        0.0014|
-    ## |HMM            |        0.0313|
+    ## |Wild           |        0.0023|
     ## |Plain (iid)    |        0.0345|
     ## |Moving Block   |        0.0351|
     ## |Stationary     |        0.0375|
-    ## |MS-VARMA-GARCH |        0.1535|
+    ## |HMM            |        0.0496|
+    ## |MS-VARMA-GARCH |        0.0937|
 
 ``` r
 ## Visualization: Weight distributions across all bootstrap methods
@@ -2816,27 +2736,27 @@ bench_result <- tryCatch({
 })
 ```
 
-    ## [1/105] Plain (iid): num_boots = 8 (rep 1/3)    [2/105] Plain (iid): num_boots = 8 (rep 2/3)    [3/105] Plain (iid): num_boots = 8 (rep 3/3)    [4/105] Plain (iid): num_boots = 16 (rep 1/3)    [5/105] Plain (iid): num_boots = 16 (rep 2/3)    [6/105] Plain (iid): num_boots = 16 (rep 3/3)    [7/105] Plain (iid): num_boots = 32 (rep 1/3)    [8/105] Plain (iid): num_boots = 32 (rep 2/3)    [9/105] Plain (iid): num_boots = 32 (rep 3/3)    [10/105] Plain (iid): num_boots = 64 (rep 1/3)    [11/105] Plain (iid): num_boots = 64 (rep 2/3)    [12/105] Plain (iid): num_boots = 64 (rep 3/3)    [13/105] Plain (iid): num_boots = 128 (rep 1/3)    [14/105] Plain (iid): num_boots = 128 (rep 2/3)    [15/105] Plain (iid): num_boots = 128 (rep 3/3)    [16/105] Plain (iid): num_boots = 256 (rep 1/3)    [17/105] Plain (iid): num_boots = 256 (rep 2/3)    [18/105] Plain (iid): num_boots = 256 (rep 3/3)    [19/105] Plain (iid): num_boots = 512 (rep 1/3)    [20/105] Plain (iid): num_boots = 512 (rep 2/3)    [21/105] Plain (iid): num_boots = 512 (rep 3/3)    [22/105] Moving Block: num_boots = 8 (rep 1/3)    [23/105] Moving Block: num_boots = 8 (rep 2/3)    [24/105] Moving Block: num_boots = 8 (rep 3/3)    [25/105] Moving Block: num_boots = 16 (rep 1/3)    [26/105] Moving Block: num_boots = 16 (rep 2/3)    [27/105] Moving Block: num_boots = 16 (rep 3/3)    [28/105] Moving Block: num_boots = 32 (rep 1/3)    [29/105] Moving Block: num_boots = 32 (rep 2/3)    [30/105] Moving Block: num_boots = 32 (rep 3/3)    [31/105] Moving Block: num_boots = 64 (rep 1/3)    [32/105] Moving Block: num_boots = 64 (rep 2/3)    [33/105] Moving Block: num_boots = 64 (rep 3/3)    [34/105] Moving Block: num_boots = 128 (rep 1/3)    [35/105] Moving Block: num_boots = 128 (rep 2/3)    [36/105] Moving Block: num_boots = 128 (rep 3/3)    [37/105] Moving Block: num_boots = 256 (rep 1/3)    [38/105] Moving Block: num_boots = 256 (rep 2/3)    [39/105] Moving Block: num_boots = 256 (rep 3/3)    [40/105] Moving Block: num_boots = 512 (rep 1/3)    [41/105] Moving Block: num_boots = 512 (rep 2/3)    [42/105] Moving Block: num_boots = 512 (rep 3/3)    [43/105] Stationary: num_boots = 8 (rep 1/3)    [44/105] Stationary: num_boots = 8 (rep 2/3)    [45/105] Stationary: num_boots = 8 (rep 3/3)    [46/105] Stationary: num_boots = 16 (rep 1/3)    [47/105] Stationary: num_boots = 16 (rep 2/3)    [48/105] Stationary: num_boots = 16 (rep 3/3)    [49/105] Stationary: num_boots = 32 (rep 1/3)    [50/105] Stationary: num_boots = 32 (rep 2/3)    [51/105] Stationary: num_boots = 32 (rep 3/3)    [52/105] Stationary: num_boots = 64 (rep 1/3)    [53/105] Stationary: num_boots = 64 (rep 2/3)    [54/105] Stationary: num_boots = 64 (rep 3/3)    [55/105] Stationary: num_boots = 128 (rep 1/3)    [56/105] Stationary: num_boots = 128 (rep 2/3)    [57/105] Stationary: num_boots = 128 (rep 3/3)    [58/105] Stationary: num_boots = 256 (rep 1/3)    [59/105] Stationary: num_boots = 256 (rep 2/3)    [60/105] Stationary: num_boots = 256 (rep 3/3)    [61/105] Stationary: num_boots = 512 (rep 1/3)    [62/105] Stationary: num_boots = 512 (rep 2/3)    [63/105] Stationary: num_boots = 512 (rep 3/3)    [64/105] HMM: num_boots = 8 (rep 1/3)    converged at iteration 32 with logLik: -1084.145 
-    ## [65/105] HMM: num_boots = 8 (rep 2/3)    converged at iteration 33 with logLik: -1084.145 
-    ## [66/105] HMM: num_boots = 8 (rep 3/3)    converged at iteration 33 with logLik: -1084.145 
+    ## [1/105] Plain (iid): num_boots = 8 (rep 1/3)    [2/105] Plain (iid): num_boots = 8 (rep 2/3)    [3/105] Plain (iid): num_boots = 8 (rep 3/3)    [4/105] Plain (iid): num_boots = 16 (rep 1/3)    [5/105] Plain (iid): num_boots = 16 (rep 2/3)    [6/105] Plain (iid): num_boots = 16 (rep 3/3)    [7/105] Plain (iid): num_boots = 32 (rep 1/3)    [8/105] Plain (iid): num_boots = 32 (rep 2/3)    [9/105] Plain (iid): num_boots = 32 (rep 3/3)    [10/105] Plain (iid): num_boots = 64 (rep 1/3)    [11/105] Plain (iid): num_boots = 64 (rep 2/3)    [12/105] Plain (iid): num_boots = 64 (rep 3/3)    [13/105] Plain (iid): num_boots = 128 (rep 1/3)    [14/105] Plain (iid): num_boots = 128 (rep 2/3)    [15/105] Plain (iid): num_boots = 128 (rep 3/3)    [16/105] Plain (iid): num_boots = 256 (rep 1/3)    [17/105] Plain (iid): num_boots = 256 (rep 2/3)    [18/105] Plain (iid): num_boots = 256 (rep 3/3)    [19/105] Plain (iid): num_boots = 512 (rep 1/3)    [20/105] Plain (iid): num_boots = 512 (rep 2/3)    [21/105] Plain (iid): num_boots = 512 (rep 3/3)    [22/105] Moving Block: num_boots = 8 (rep 1/3)    [23/105] Moving Block: num_boots = 8 (rep 2/3)    [24/105] Moving Block: num_boots = 8 (rep 3/3)    [25/105] Moving Block: num_boots = 16 (rep 1/3)    [26/105] Moving Block: num_boots = 16 (rep 2/3)    [27/105] Moving Block: num_boots = 16 (rep 3/3)    [28/105] Moving Block: num_boots = 32 (rep 1/3)    [29/105] Moving Block: num_boots = 32 (rep 2/3)    [30/105] Moving Block: num_boots = 32 (rep 3/3)    [31/105] Moving Block: num_boots = 64 (rep 1/3)    [32/105] Moving Block: num_boots = 64 (rep 2/3)    [33/105] Moving Block: num_boots = 64 (rep 3/3)    [34/105] Moving Block: num_boots = 128 (rep 1/3)    [35/105] Moving Block: num_boots = 128 (rep 2/3)    [36/105] Moving Block: num_boots = 128 (rep 3/3)    [37/105] Moving Block: num_boots = 256 (rep 1/3)    [38/105] Moving Block: num_boots = 256 (rep 2/3)    [39/105] Moving Block: num_boots = 256 (rep 3/3)    [40/105] Moving Block: num_boots = 512 (rep 1/3)    [41/105] Moving Block: num_boots = 512 (rep 2/3)    [42/105] Moving Block: num_boots = 512 (rep 3/3)    [43/105] Stationary: num_boots = 8 (rep 1/3)    [44/105] Stationary: num_boots = 8 (rep 2/3)    [45/105] Stationary: num_boots = 8 (rep 3/3)    [46/105] Stationary: num_boots = 16 (rep 1/3)    [47/105] Stationary: num_boots = 16 (rep 2/3)    [48/105] Stationary: num_boots = 16 (rep 3/3)    [49/105] Stationary: num_boots = 32 (rep 1/3)    [50/105] Stationary: num_boots = 32 (rep 2/3)    [51/105] Stationary: num_boots = 32 (rep 3/3)    [52/105] Stationary: num_boots = 64 (rep 1/3)    [53/105] Stationary: num_boots = 64 (rep 2/3)    [54/105] Stationary: num_boots = 64 (rep 3/3)    [55/105] Stationary: num_boots = 128 (rep 1/3)    [56/105] Stationary: num_boots = 128 (rep 2/3)    [57/105] Stationary: num_boots = 128 (rep 3/3)    [58/105] Stationary: num_boots = 256 (rep 1/3)    [59/105] Stationary: num_boots = 256 (rep 2/3)    [60/105] Stationary: num_boots = 256 (rep 3/3)    [61/105] Stationary: num_boots = 512 (rep 1/3)    [62/105] Stationary: num_boots = 512 (rep 2/3)    [63/105] Stationary: num_boots = 512 (rep 3/3)    [64/105] HMM: num_boots = 8 (rep 1/3)    converged at iteration 35 with logLik: -1084.145 
+    ## [65/105] HMM: num_boots = 8 (rep 2/3)    converged at iteration 34 with logLik: -1084.145 
+    ## [66/105] HMM: num_boots = 8 (rep 3/3)    converged at iteration 34 with logLik: -1084.145 
     ## [67/105] HMM: num_boots = 16 (rep 1/3)    converged at iteration 36 with logLik: -1084.145 
     ## [68/105] HMM: num_boots = 16 (rep 2/3)    converged at iteration 35 with logLik: -1084.145 
-    ## [69/105] HMM: num_boots = 16 (rep 3/3)    converged at iteration 35 with logLik: -1084.145 
-    ## [70/105] HMM: num_boots = 32 (rep 1/3)    converged at iteration 35 with logLik: -1084.145 
-    ## [71/105] HMM: num_boots = 32 (rep 2/3)    converged at iteration 36 with logLik: -1084.145 
+    ## [69/105] HMM: num_boots = 16 (rep 3/3)    converged at iteration 34 with logLik: -1084.145 
+    ## [70/105] HMM: num_boots = 32 (rep 1/3)    converged at iteration 34 with logLik: -1084.145 
+    ## [71/105] HMM: num_boots = 32 (rep 2/3)    converged at iteration 34 with logLik: -1084.145 
     ## [72/105] HMM: num_boots = 32 (rep 3/3)    converged at iteration 34 with logLik: -1084.145 
-    ## [73/105] HMM: num_boots = 64 (rep 1/3)    converged at iteration 33 with logLik: -1084.145 
-    ## [74/105] HMM: num_boots = 64 (rep 2/3)    converged at iteration 33 with logLik: -1084.145 
-    ## [75/105] HMM: num_boots = 64 (rep 3/3)    converged at iteration 32 with logLik: -1084.145 
+    ## [73/105] HMM: num_boots = 64 (rep 1/3)    converged at iteration 36 with logLik: -1084.145 
+    ## [74/105] HMM: num_boots = 64 (rep 2/3)    converged at iteration 35 with logLik: -1084.145 
+    ## [75/105] HMM: num_boots = 64 (rep 3/3)    converged at iteration 35 with logLik: -1084.145 
     ## [76/105] HMM: num_boots = 128 (rep 1/3)    converged at iteration 35 with logLik: -1084.145 
-    ## [77/105] HMM: num_boots = 128 (rep 2/3)    converged at iteration 23 with logLik: -1084.145 
+    ## [77/105] HMM: num_boots = 128 (rep 2/3)    converged at iteration 36 with logLik: -1084.145 
     ## [78/105] HMM: num_boots = 128 (rep 3/3)    converged at iteration 33 with logLik: -1084.145 
-    ## [79/105] HMM: num_boots = 256 (rep 1/3)    converged at iteration 33 with logLik: -1084.145 
-    ## [80/105] HMM: num_boots = 256 (rep 2/3)    converged at iteration 34 with logLik: -1084.145 
-    ## [81/105] HMM: num_boots = 256 (rep 3/3)    converged at iteration 28 with logLik: -1084.145 
-    ## [82/105] HMM: num_boots = 512 (rep 1/3)    converged at iteration 32 with logLik: -1084.145 
-    ## [83/105] HMM: num_boots = 512 (rep 2/3)    converged at iteration 29 with logLik: -1084.145 
-    ## [84/105] HMM: num_boots = 512 (rep 3/3)    converged at iteration 33 with logLik: -1084.145 
+    ## [79/105] HMM: num_boots = 256 (rep 1/3)    converged at iteration 35 with logLik: -1084.145 
+    ## [80/105] HMM: num_boots = 256 (rep 2/3)    converged at iteration 35 with logLik: -1084.145 
+    ## [81/105] HMM: num_boots = 256 (rep 3/3)    converged at iteration 32 with logLik: -1084.145 
+    ## [82/105] HMM: num_boots = 512 (rep 1/3)    converged at iteration 29 with logLik: -1084.145 
+    ## [83/105] HMM: num_boots = 512 (rep 2/3)    converged at iteration 36 with logLik: -1084.145 
+    ## [84/105] HMM: num_boots = 512 (rep 3/3)    converged at iteration 34 with logLik: -1084.145 
     ## [85/105] Wild: num_boots = 8 (rep 1/3)    [86/105] Wild: num_boots = 8 (rep 2/3)    [87/105] Wild: num_boots = 8 (rep 3/3)    [88/105] Wild: num_boots = 16 (rep 1/3)    [89/105] Wild: num_boots = 16 (rep 2/3)    [90/105] Wild: num_boots = 16 (rep 3/3)    [91/105] Wild: num_boots = 32 (rep 1/3)    [92/105] Wild: num_boots = 32 (rep 2/3)    [93/105] Wild: num_boots = 32 (rep 3/3)    [94/105] Wild: num_boots = 64 (rep 1/3)    [95/105] Wild: num_boots = 64 (rep 2/3)    [96/105] Wild: num_boots = 64 (rep 3/3)    [97/105] Wild: num_boots = 128 (rep 1/3)    [98/105] Wild: num_boots = 128 (rep 2/3)    [99/105] Wild: num_boots = 128 (rep 3/3)    [100/105] Wild: num_boots = 256 (rep 1/3)    [101/105] Wild: num_boots = 256 (rep 2/3)    [102/105] Wild: num_boots = 256 (rep 3/3)    [103/105] Wild: num_boots = 512 (rep 1/3)    [104/105] Wild: num_boots = 512 (rep 2/3)    [105/105] Wild: num_boots = 512 (rep 3/3)
 
 ``` r
@@ -2869,13 +2789,13 @@ if (!is.null(bench_result)) {
     ## Mean runtime (seconds) by setup and num_boots :
     ## 
     ##  Value    HMM Moving Block Plain (iid) Stationary    Wild
-    ##      8 0.0564     0.000282    0.000371   0.000305 0.00138
-    ##     16 0.0489     0.000453    0.000857   0.000492 0.00178
-    ##     32 0.0585     0.000833    0.001008   0.000865 0.00286
-    ##     64 0.0619     0.001542    0.001740   0.001655 0.00520
-    ##    128 0.0781     0.005144    0.003068   0.003197 0.01357
-    ##    256 0.1151     0.006013    0.006101   0.008650 0.01852
-    ##    512 0.1928     0.013845    0.014631   0.014194 0.04191
+    ##      8 0.1038      0.00050    0.000535   0.000361 0.00145
+    ##     16 0.0587      0.00082    0.000801   0.000558 0.00184
+    ##     32 0.0615      0.00133    0.001465   0.000980 0.00567
+    ##     64 0.0710      0.00184    0.002454   0.001647 0.00840
+    ##    128 0.0955      0.00338    0.003509   0.003365 0.01091
+    ##    256 0.1444      0.00635    0.006681   0.011470 0.02191
+    ##    512 0.2150      0.01872    0.017298   0.016981 0.04493
 
 ![](portfolio-optimization_files/figure-markdown_github/benchmark_run-1.png)
 
@@ -2931,20 +2851,20 @@ bench_result <- tryCatch({
 })
 ```
 
-    ## [1/75] Plain (iid): n_boot = 64 (rep 1/3)    [2/75] Plain (iid): n_boot = 64 (rep 2/3)    [3/75] Plain (iid): n_boot = 64 (rep 3/3)    [4/75] Plain (iid): n_boot = 128 (rep 1/3)    [5/75] Plain (iid): n_boot = 128 (rep 2/3)    [6/75] Plain (iid): n_boot = 128 (rep 3/3)    [7/75] Plain (iid): n_boot = 256 (rep 1/3)    [8/75] Plain (iid): n_boot = 256 (rep 2/3)    [9/75] Plain (iid): n_boot = 256 (rep 3/3)    [10/75] Plain (iid): n_boot = 512 (rep 1/3)    [11/75] Plain (iid): n_boot = 512 (rep 2/3)    [12/75] Plain (iid): n_boot = 512 (rep 3/3)    [13/75] Plain (iid): n_boot = 1024 (rep 1/3)    [14/75] Plain (iid): n_boot = 1024 (rep 2/3)    [15/75] Plain (iid): n_boot = 1024 (rep 3/3)    [16/75] Moving Block: n_boot = 64 (rep 1/3)    [17/75] Moving Block: n_boot = 64 (rep 2/3)    [18/75] Moving Block: n_boot = 64 (rep 3/3)    [19/75] Moving Block: n_boot = 128 (rep 1/3)    [20/75] Moving Block: n_boot = 128 (rep 2/3)    [21/75] Moving Block: n_boot = 128 (rep 3/3)    [22/75] Moving Block: n_boot = 256 (rep 1/3)    [23/75] Moving Block: n_boot = 256 (rep 2/3)    [24/75] Moving Block: n_boot = 256 (rep 3/3)    [25/75] Moving Block: n_boot = 512 (rep 1/3)    [26/75] Moving Block: n_boot = 512 (rep 2/3)    [27/75] Moving Block: n_boot = 512 (rep 3/3)    [28/75] Moving Block: n_boot = 1024 (rep 1/3)    [29/75] Moving Block: n_boot = 1024 (rep 2/3)    [30/75] Moving Block: n_boot = 1024 (rep 3/3)    [31/75] Stationary: n_boot = 64 (rep 1/3)    [32/75] Stationary: n_boot = 64 (rep 2/3)    [33/75] Stationary: n_boot = 64 (rep 3/3)    [34/75] Stationary: n_boot = 128 (rep 1/3)    [35/75] Stationary: n_boot = 128 (rep 2/3)    [36/75] Stationary: n_boot = 128 (rep 3/3)    [37/75] Stationary: n_boot = 256 (rep 1/3)    [38/75] Stationary: n_boot = 256 (rep 2/3)    [39/75] Stationary: n_boot = 256 (rep 3/3)    [40/75] Stationary: n_boot = 512 (rep 1/3)    [41/75] Stationary: n_boot = 512 (rep 2/3)    [42/75] Stationary: n_boot = 512 (rep 3/3)    [43/75] Stationary: n_boot = 1024 (rep 1/3)    [44/75] Stationary: n_boot = 1024 (rep 2/3)    [45/75] Stationary: n_boot = 1024 (rep 3/3)    [46/75] HMM: n_boot = 64 (rep 1/3)    converged at iteration 34 with logLik: -1084.145 
-    ## [47/75] HMM: n_boot = 64 (rep 2/3)    converged at iteration 29 with logLik: -1084.145 
-    ## [48/75] HMM: n_boot = 64 (rep 3/3)    converged at iteration 34 with logLik: -1084.145 
-    ## [49/75] HMM: n_boot = 128 (rep 1/3)    converged at iteration 35 with logLik: -1084.145 
+    ## [1/75] Plain (iid): n_boot = 64 (rep 1/3)    [2/75] Plain (iid): n_boot = 64 (rep 2/3)    [3/75] Plain (iid): n_boot = 64 (rep 3/3)    [4/75] Plain (iid): n_boot = 128 (rep 1/3)    [5/75] Plain (iid): n_boot = 128 (rep 2/3)    [6/75] Plain (iid): n_boot = 128 (rep 3/3)    [7/75] Plain (iid): n_boot = 256 (rep 1/3)    [8/75] Plain (iid): n_boot = 256 (rep 2/3)    [9/75] Plain (iid): n_boot = 256 (rep 3/3)    [10/75] Plain (iid): n_boot = 512 (rep 1/3)    [11/75] Plain (iid): n_boot = 512 (rep 2/3)    [12/75] Plain (iid): n_boot = 512 (rep 3/3)    [13/75] Plain (iid): n_boot = 1024 (rep 1/3)    [14/75] Plain (iid): n_boot = 1024 (rep 2/3)    [15/75] Plain (iid): n_boot = 1024 (rep 3/3)    [16/75] Moving Block: n_boot = 64 (rep 1/3)    [17/75] Moving Block: n_boot = 64 (rep 2/3)    [18/75] Moving Block: n_boot = 64 (rep 3/3)    [19/75] Moving Block: n_boot = 128 (rep 1/3)    [20/75] Moving Block: n_boot = 128 (rep 2/3)    [21/75] Moving Block: n_boot = 128 (rep 3/3)    [22/75] Moving Block: n_boot = 256 (rep 1/3)    [23/75] Moving Block: n_boot = 256 (rep 2/3)    [24/75] Moving Block: n_boot = 256 (rep 3/3)    [25/75] Moving Block: n_boot = 512 (rep 1/3)    [26/75] Moving Block: n_boot = 512 (rep 2/3)    [27/75] Moving Block: n_boot = 512 (rep 3/3)    [28/75] Moving Block: n_boot = 1024 (rep 1/3)    [29/75] Moving Block: n_boot = 1024 (rep 2/3)    [30/75] Moving Block: n_boot = 1024 (rep 3/3)    [31/75] Stationary: n_boot = 64 (rep 1/3)    [32/75] Stationary: n_boot = 64 (rep 2/3)    [33/75] Stationary: n_boot = 64 (rep 3/3)    [34/75] Stationary: n_boot = 128 (rep 1/3)    [35/75] Stationary: n_boot = 128 (rep 2/3)    [36/75] Stationary: n_boot = 128 (rep 3/3)    [37/75] Stationary: n_boot = 256 (rep 1/3)    [38/75] Stationary: n_boot = 256 (rep 2/3)    [39/75] Stationary: n_boot = 256 (rep 3/3)    [40/75] Stationary: n_boot = 512 (rep 1/3)    [41/75] Stationary: n_boot = 512 (rep 2/3)    [42/75] Stationary: n_boot = 512 (rep 3/3)    [43/75] Stationary: n_boot = 1024 (rep 1/3)    [44/75] Stationary: n_boot = 1024 (rep 2/3)    [45/75] Stationary: n_boot = 1024 (rep 3/3)    [46/75] HMM: n_boot = 64 (rep 1/3)    converged at iteration 33 with logLik: -1084.145 
+    ## [47/75] HMM: n_boot = 64 (rep 2/3)    converged at iteration 33 with logLik: -1084.145 
+    ## [48/75] HMM: n_boot = 64 (rep 3/3)    converged at iteration 35 with logLik: -1084.145 
+    ## [49/75] HMM: n_boot = 128 (rep 1/3)    converged at iteration 39 with logLik: -1084.145 
     ## [50/75] HMM: n_boot = 128 (rep 2/3)    converged at iteration 35 with logLik: -1084.145 
-    ## [51/75] HMM: n_boot = 128 (rep 3/3)    converged at iteration 33 with logLik: -1084.145 
+    ## [51/75] HMM: n_boot = 128 (rep 3/3)    converged at iteration 32 with logLik: -1084.145 
     ## [52/75] HMM: n_boot = 256 (rep 1/3)    converged at iteration 32 with logLik: -1084.145 
-    ## [53/75] HMM: n_boot = 256 (rep 2/3)    converged at iteration 36 with logLik: -1084.145 
-    ## [54/75] HMM: n_boot = 256 (rep 3/3)    converged at iteration 35 with logLik: -1084.145 
-    ## [55/75] HMM: n_boot = 512 (rep 1/3)    converged at iteration 34 with logLik: -1084.145 
-    ## [56/75] HMM: n_boot = 512 (rep 2/3)    converged at iteration 34 with logLik: -1084.145 
-    ## [57/75] HMM: n_boot = 512 (rep 3/3)    converged at iteration 33 with logLik: -1084.145 
-    ## [58/75] HMM: n_boot = 1024 (rep 1/3)    converged at iteration 33 with logLik: -1084.145 
-    ## [59/75] HMM: n_boot = 1024 (rep 2/3)    converged at iteration 26 with logLik: -1084.145 
+    ## [53/75] HMM: n_boot = 256 (rep 2/3)    converged at iteration 27 with logLik: -1084.145 
+    ## [54/75] HMM: n_boot = 256 (rep 3/3)    converged at iteration 32 with logLik: -1084.145 
+    ## [55/75] HMM: n_boot = 512 (rep 1/3)    converged at iteration 35 with logLik: -1084.145 
+    ## [56/75] HMM: n_boot = 512 (rep 2/3)    converged at iteration 33 with logLik: -1084.145 
+    ## [57/75] HMM: n_boot = 512 (rep 3/3)    converged at iteration 24 with logLik: -1084.145 
+    ## [58/75] HMM: n_boot = 1024 (rep 1/3)    converged at iteration 34 with logLik: -1084.145 
+    ## [59/75] HMM: n_boot = 1024 (rep 2/3)    converged at iteration 37 with logLik: -1084.145 
     ## [60/75] HMM: n_boot = 1024 (rep 3/3)    converged at iteration 34 with logLik: -1084.145 
     ## [61/75] Wild: n_boot = 64 (rep 1/3)    [62/75] Wild: n_boot = 64 (rep 2/3)    [63/75] Wild: n_boot = 64 (rep 3/3)    [64/75] Wild: n_boot = 128 (rep 1/3)    [65/75] Wild: n_boot = 128 (rep 2/3)    [66/75] Wild: n_boot = 128 (rep 3/3)    [67/75] Wild: n_boot = 256 (rep 1/3)    [68/75] Wild: n_boot = 256 (rep 2/3)    [69/75] Wild: n_boot = 256 (rep 3/3)    [70/75] Wild: n_boot = 512 (rep 1/3)    [71/75] Wild: n_boot = 512 (rep 2/3)    [72/75] Wild: n_boot = 512 (rep 3/3)    [73/75] Wild: n_boot = 1024 (rep 1/3)    [74/75] Wild: n_boot = 1024 (rep 2/3)    [75/75] Wild: n_boot = 1024 (rep 3/3)
 
@@ -2978,11 +2898,11 @@ if (!is.null(bench_result)) {
     ## Mean runtime (seconds) by setup and n_boot :
     ## 
     ##  Value    HMM Moving Block Plain (iid) Stationary    Wild
-    ##     64 0.0536      0.00240     0.00370    0.00247 0.00896
-    ##    128 0.0634      0.00209     0.00225    0.00221 0.00751
-    ##    256 0.0815      0.00229     0.00241    0.00248 0.00787
-    ##    512 0.1363      0.00532     0.00345    0.00503 0.00931
-    ##   1024 0.1848      0.00681     0.00765    0.00768 0.00744
+    ##     64 0.1129      0.00357     0.00225    0.00357 0.00759
+    ##    128 0.0527      0.00287     0.00241    0.00363 0.00756
+    ##    256 0.0643      0.00268     0.00258    0.00304 0.00800
+    ##    512 0.0972      0.00546     0.00356    0.00532 0.01007
+    ##   1024 0.1861      0.00831     0.00813    0.00830 0.00744
 
 ![](portfolio-optimization_files/figure-markdown_github/benchmark_run_nboot-1.png)
 
@@ -3038,24 +2958,24 @@ bench_result <- tryCatch({
 })
 ```
 
-    ## [1/90] Plain (iid): n_assets = 4 (rep 1/3)    [2/90] Plain (iid): n_assets = 4 (rep 2/3)    [3/90] Plain (iid): n_assets = 4 (rep 3/3)    [4/90] Plain (iid): n_assets = 8 (rep 1/3)    [5/90] Plain (iid): n_assets = 8 (rep 2/3)    [6/90] Plain (iid): n_assets = 8 (rep 3/3)    [7/90] Plain (iid): n_assets = 16 (rep 1/3)    [8/90] Plain (iid): n_assets = 16 (rep 2/3)    [9/90] Plain (iid): n_assets = 16 (rep 3/3)    [10/90] Plain (iid): n_assets = 32 (rep 1/3)    [11/90] Plain (iid): n_assets = 32 (rep 2/3)    [12/90] Plain (iid): n_assets = 32 (rep 3/3)    [13/90] Plain (iid): n_assets = 64 (rep 1/3)    [14/90] Plain (iid): n_assets = 64 (rep 2/3)    [15/90] Plain (iid): n_assets = 64 (rep 3/3)    [16/90] Plain (iid): n_assets = 128 (rep 1/3)    [17/90] Plain (iid): n_assets = 128 (rep 2/3)    [18/90] Plain (iid): n_assets = 128 (rep 3/3)    [19/90] Moving Block: n_assets = 4 (rep 1/3)    [20/90] Moving Block: n_assets = 4 (rep 2/3)    [21/90] Moving Block: n_assets = 4 (rep 3/3)    [22/90] Moving Block: n_assets = 8 (rep 1/3)    [23/90] Moving Block: n_assets = 8 (rep 2/3)    [24/90] Moving Block: n_assets = 8 (rep 3/3)    [25/90] Moving Block: n_assets = 16 (rep 1/3)    [26/90] Moving Block: n_assets = 16 (rep 2/3)    [27/90] Moving Block: n_assets = 16 (rep 3/3)    [28/90] Moving Block: n_assets = 32 (rep 1/3)    [29/90] Moving Block: n_assets = 32 (rep 2/3)    [30/90] Moving Block: n_assets = 32 (rep 3/3)    [31/90] Moving Block: n_assets = 64 (rep 1/3)    [32/90] Moving Block: n_assets = 64 (rep 2/3)    [33/90] Moving Block: n_assets = 64 (rep 3/3)    [34/90] Moving Block: n_assets = 128 (rep 1/3)    [35/90] Moving Block: n_assets = 128 (rep 2/3)    [36/90] Moving Block: n_assets = 128 (rep 3/3)    [37/90] Stationary: n_assets = 4 (rep 1/3)    [38/90] Stationary: n_assets = 4 (rep 2/3)    [39/90] Stationary: n_assets = 4 (rep 3/3)    [40/90] Stationary: n_assets = 8 (rep 1/3)    [41/90] Stationary: n_assets = 8 (rep 2/3)    [42/90] Stationary: n_assets = 8 (rep 3/3)    [43/90] Stationary: n_assets = 16 (rep 1/3)    [44/90] Stationary: n_assets = 16 (rep 2/3)    [45/90] Stationary: n_assets = 16 (rep 3/3)    [46/90] Stationary: n_assets = 32 (rep 1/3)    [47/90] Stationary: n_assets = 32 (rep 2/3)    [48/90] Stationary: n_assets = 32 (rep 3/3)    [49/90] Stationary: n_assets = 64 (rep 1/3)    [50/90] Stationary: n_assets = 64 (rep 2/3)    [51/90] Stationary: n_assets = 64 (rep 3/3)    [52/90] Stationary: n_assets = 128 (rep 1/3)    [53/90] Stationary: n_assets = 128 (rep 2/3)    [54/90] Stationary: n_assets = 128 (rep 3/3)    [55/90] HMM: n_assets = 4 (rep 1/3)    converged at iteration 126 with logLik: -1457.335 
-    ## [56/90] HMM: n_assets = 4 (rep 2/3)    converged at iteration 116 with logLik: -1457.335 
-    ## [57/90] HMM: n_assets = 4 (rep 3/3)    converged at iteration 139 with logLik: -1457.335 
-    ## [58/90] HMM: n_assets = 8 (rep 1/3)    converged at iteration 147 with logLik: -2867.839 
-    ## [59/90] HMM: n_assets = 8 (rep 2/3)    converged at iteration 124 with logLik: -2867.429 
-    ## [60/90] HMM: n_assets = 8 (rep 3/3)    converged at iteration 133 with logLik: -2867.429 
-    ## [61/90] HMM: n_assets = 16 (rep 1/3)    converged at iteration 78 with logLik: -5693.949 
-    ## [62/90] HMM: n_assets = 16 (rep 2/3)    converged at iteration 164 with logLik: -5702.279 
-    ## [63/90] HMM: n_assets = 16 (rep 3/3)    converged at iteration 75 with logLik: -5693.949 
-    ## [64/90] HMM: n_assets = 32 (rep 1/3)    converged at iteration 197 with logLik: -11405.85 
-    ## [65/90] HMM: n_assets = 32 (rep 2/3)    converged at iteration 60 with logLik: -11399.32 
-    ## [66/90] HMM: n_assets = 32 (rep 3/3)    converged at iteration 135 with logLik: -11405.85 
-    ## [67/90] HMM: n_assets = 64 (rep 1/3)    converged at iteration 79 with logLik: -22775.09 
-    ## [68/90] HMM: n_assets = 64 (rep 2/3)    converged at iteration 37 with logLik: -22770.01 
-    ## [69/90] HMM: n_assets = 64 (rep 3/3)    converged at iteration 112 with logLik: -22770.01 
-    ## [70/90] HMM: n_assets = 128 (rep 1/3)    converged at iteration 83 with logLik: -45462.6 
-    ## [71/90] HMM: n_assets = 128 (rep 2/3)    converged at iteration 55 with logLik: -45462.55 
-    ## [72/90] HMM: n_assets = 128 (rep 3/3)    converged at iteration 165 with logLik: -45478.75 
+    ## [1/90] Plain (iid): n_assets = 4 (rep 1/3)    [2/90] Plain (iid): n_assets = 4 (rep 2/3)    [3/90] Plain (iid): n_assets = 4 (rep 3/3)    [4/90] Plain (iid): n_assets = 8 (rep 1/3)    [5/90] Plain (iid): n_assets = 8 (rep 2/3)    [6/90] Plain (iid): n_assets = 8 (rep 3/3)    [7/90] Plain (iid): n_assets = 16 (rep 1/3)    [8/90] Plain (iid): n_assets = 16 (rep 2/3)    [9/90] Plain (iid): n_assets = 16 (rep 3/3)    [10/90] Plain (iid): n_assets = 32 (rep 1/3)    [11/90] Plain (iid): n_assets = 32 (rep 2/3)    [12/90] Plain (iid): n_assets = 32 (rep 3/3)    [13/90] Plain (iid): n_assets = 64 (rep 1/3)    [14/90] Plain (iid): n_assets = 64 (rep 2/3)    [15/90] Plain (iid): n_assets = 64 (rep 3/3)    [16/90] Plain (iid): n_assets = 128 (rep 1/3)    [17/90] Plain (iid): n_assets = 128 (rep 2/3)    [18/90] Plain (iid): n_assets = 128 (rep 3/3)    [19/90] Moving Block: n_assets = 4 (rep 1/3)    [20/90] Moving Block: n_assets = 4 (rep 2/3)    [21/90] Moving Block: n_assets = 4 (rep 3/3)    [22/90] Moving Block: n_assets = 8 (rep 1/3)    [23/90] Moving Block: n_assets = 8 (rep 2/3)    [24/90] Moving Block: n_assets = 8 (rep 3/3)    [25/90] Moving Block: n_assets = 16 (rep 1/3)    [26/90] Moving Block: n_assets = 16 (rep 2/3)    [27/90] Moving Block: n_assets = 16 (rep 3/3)    [28/90] Moving Block: n_assets = 32 (rep 1/3)    [29/90] Moving Block: n_assets = 32 (rep 2/3)    [30/90] Moving Block: n_assets = 32 (rep 3/3)    [31/90] Moving Block: n_assets = 64 (rep 1/3)    [32/90] Moving Block: n_assets = 64 (rep 2/3)    [33/90] Moving Block: n_assets = 64 (rep 3/3)    [34/90] Moving Block: n_assets = 128 (rep 1/3)    [35/90] Moving Block: n_assets = 128 (rep 2/3)    [36/90] Moving Block: n_assets = 128 (rep 3/3)    [37/90] Stationary: n_assets = 4 (rep 1/3)    [38/90] Stationary: n_assets = 4 (rep 2/3)    [39/90] Stationary: n_assets = 4 (rep 3/3)    [40/90] Stationary: n_assets = 8 (rep 1/3)    [41/90] Stationary: n_assets = 8 (rep 2/3)    [42/90] Stationary: n_assets = 8 (rep 3/3)    [43/90] Stationary: n_assets = 16 (rep 1/3)    [44/90] Stationary: n_assets = 16 (rep 2/3)    [45/90] Stationary: n_assets = 16 (rep 3/3)    [46/90] Stationary: n_assets = 32 (rep 1/3)    [47/90] Stationary: n_assets = 32 (rep 2/3)    [48/90] Stationary: n_assets = 32 (rep 3/3)    [49/90] Stationary: n_assets = 64 (rep 1/3)    [50/90] Stationary: n_assets = 64 (rep 2/3)    [51/90] Stationary: n_assets = 64 (rep 3/3)    [52/90] Stationary: n_assets = 128 (rep 1/3)    [53/90] Stationary: n_assets = 128 (rep 2/3)    [54/90] Stationary: n_assets = 128 (rep 3/3)    [55/90] HMM: n_assets = 4 (rep 1/3)    converged at iteration 217 with logLik: -1427.283 
+    ## [56/90] HMM: n_assets = 4 (rep 2/3)    converged at iteration 280 with logLik: -1427.296 
+    ## [57/90] HMM: n_assets = 4 (rep 3/3)    converged at iteration 215 with logLik: -1427.296 
+    ## [58/90] HMM: n_assets = 8 (rep 1/3)    converged at iteration 220 with logLik: -2861.552 
+    ## [59/90] HMM: n_assets = 8 (rep 2/3)    converged at iteration 195 with logLik: -2858.011 
+    ## [60/90] HMM: n_assets = 8 (rep 3/3)    converged at iteration 224 with logLik: -2861.552 
+    ## [61/90] HMM: n_assets = 16 (rep 1/3)    converged at iteration 70 with logLik: -5709.737 
+    ## [62/90] HMM: n_assets = 16 (rep 2/3)    converged at iteration 134 with logLik: -5714.436 
+    ## [63/90] HMM: n_assets = 16 (rep 3/3)    converged at iteration 149 with logLik: -5709.737 
+    ## [64/90] HMM: n_assets = 32 (rep 1/3)    converged at iteration 205 with logLik: -11400.8 
+    ## [65/90] HMM: n_assets = 32 (rep 2/3)    converged at iteration 156 with logLik: -11402.41 
+    ## [66/90] HMM: n_assets = 32 (rep 3/3)    converged at iteration 146 with logLik: -11400.79 
+    ## [67/90] HMM: n_assets = 64 (rep 1/3)    converged at iteration 45 with logLik: -22806.1 
+    ## [68/90] HMM: n_assets = 64 (rep 2/3)    converged at iteration 70 with logLik: -22830.25 
+    ## [69/90] HMM: n_assets = 64 (rep 3/3)    converged at iteration 92 with logLik: -22822.23 
+    ## [70/90] HMM: n_assets = 128 (rep 1/3)    converged at iteration 93 with logLik: -45575.11 
+    ## [71/90] HMM: n_assets = 128 (rep 2/3)    converged at iteration 50 with logLik: -45549 
+    ## [72/90] HMM: n_assets = 128 (rep 3/3)    converged at iteration 106 with logLik: -45549.23 
     ## [73/90] Wild: n_assets = 4 (rep 1/3)    [74/90] Wild: n_assets = 4 (rep 2/3)    [75/90] Wild: n_assets = 4 (rep 3/3)    [76/90] Wild: n_assets = 8 (rep 1/3)    [77/90] Wild: n_assets = 8 (rep 2/3)    [78/90] Wild: n_assets = 8 (rep 3/3)    [79/90] Wild: n_assets = 16 (rep 1/3)    [80/90] Wild: n_assets = 16 (rep 2/3)    [81/90] Wild: n_assets = 16 (rep 3/3)    [82/90] Wild: n_assets = 32 (rep 1/3)    [83/90] Wild: n_assets = 32 (rep 2/3)    [84/90] Wild: n_assets = 32 (rep 3/3)    [85/90] Wild: n_assets = 64 (rep 1/3)    [86/90] Wild: n_assets = 64 (rep 2/3)    [87/90] Wild: n_assets = 64 (rep 3/3)    [88/90] Wild: n_assets = 128 (rep 1/3)    [89/90] Wild: n_assets = 128 (rep 2/3)    [90/90] Wild: n_assets = 128 (rep 3/3)
 
 ``` r
@@ -3088,12 +3008,12 @@ if (!is.null(bench_result)) {
     ## Mean runtime (seconds) by setup and n_assets :
     ## 
     ##  Value   HMM Moving Block Plain (iid) Stationary    Wild
-    ##      4 0.126      0.00188     0.00204    0.00232 0.00734
-    ##      8 0.262      0.00322     0.00409    0.00507 0.01055
-    ##     16 0.400      0.00688     0.00580    0.00585 0.01060
-    ##     32 0.721      0.01163     0.01298    0.01302 0.01846
-    ##     64 0.906      0.06056     0.02608    0.02375 0.02942
-    ##    128 2.428      0.07800     0.11739    0.11255 0.11986
+    ##      4 0.293      0.00195     0.00208    0.04818 0.00721
+    ##      8 0.333      0.00313     0.00337    0.00338 0.00830
+    ##     16 0.399      0.00692     0.00588    0.00599 0.01240
+    ##     32 1.045      0.01171     0.01222    0.01254 0.01664
+    ##     64 0.871      0.02495     0.02229    0.02305 0.03064
+    ##    128 2.248      0.08976     0.09278    0.04679 0.09405
 
 ![](portfolio-optimization_files/figure-markdown_github/benchmark_run_nassets-1.png)
 
@@ -3394,6 +3314,6 @@ extraction - `?benchmark_tsbs` for runtime benchmarking
     ## =======================================================================
 
     ## 
-    ## Vignette completed at: 2026-01-25 23:26:35
+    ## Vignette completed at: 2026-01-31 10:55:47
 
     ## R version: R version 4.5.2 (2025-10-31)
