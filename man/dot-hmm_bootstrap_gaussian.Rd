@@ -2,7 +2,7 @@
 % Please edit documentation in R/bootstrap_functions.R
 \name{.hmm_bootstrap_gaussian}
 \alias{.hmm_bootstrap_gaussian}
-\title{Gaussian HMM Bootstrap (Original Implementation)}
+\title{Gaussian HMM Bootstran}
 \usage{
 .hmm_bootstrap_gaussian(
   x,

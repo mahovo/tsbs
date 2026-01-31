@@ -1,6 +1,6 @@
 ---
-title: "HMM Bootstrap Demo"
-subtitle: "Regime-Switching Bootstrap with MSGARCH and Skewed Distributions"
+title: "HMM Bootstrap with tsbs()"
+subtitle: "Regime-Switching Bootstrap for Financial Time Series"
 author: "tsbs Package"
 date: "`r Sys.Date()`"
 output:
@@ -17,7 +17,7 @@ output:
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(
- echo = TRUE,
+  echo = TRUE,
   message = FALSE,
   warning = FALSE,
   fig.align = "center"
@@ -25,18 +25,26 @@ knitr::opts_chunk$set(
 ```
 
 ## Overview
-This vignette demonstrates the extended `hmm_bootstrap()` function in the tsbs package, which now supports:
 
-1. **Gaussian HMM** (original behavior via depmixS4)
-2. **MSGARCH-based HMM** with GARCH dynamics and flexible distributions (skew Student-t, Student-t, GED, etc.)
-3. **Raw HMM** with non-Gaussian emissions but no GARCH layer
+This vignette demonstrates how to use `tsbs()` with `bs_type = "hmm"` for 
+Hidden Markov Model bootstrap of financial time series. The HMM bootstrap is 
+particularly useful for data exhibiting regime-switching behavior, such as:
 
-The key innovation is **semi-parametric bootstrap**: state sequences are simulated parametrically from the fitted Markov chain, while observations are resampled non-parametrically from state-specific pools.
+- Bull/bear market cycles
+- High/low volatility regimes
+- Different economic states
+
+The extended HMM bootstrap in tsbs supports:
+
+1. **Gaussian HMM** (default) - Original behavior via depmixS4
+2. **MSGARCH-based HMM** - GARCH dynamics with flexible distributions
+3. **Raw HMM** - Non-Gaussian emissions without GARCH
 
 ## Setup
 
 ```{r load-packages}
 library(tsbs)
+library(ggplot2)
 
 # Check optional dependencies
 has_msgarch <- requireNamespace("MSGARCH", quietly = TRUE)
@@ -45,415 +53,454 @@ has_depmix <- requireNamespace("depmixS4", quietly = TRUE)
 
 cat("Available backends:\n")
 cat("- depmixS4 (Gaussian HMM):", has_depmix, "\n")
-cat("- MSGARCH (GARCH + flexible distributions):", has_msgarch, "\n
-")
+cat("- MSGARCH (GARCH + flexible distributions):", has_msgarch, "\n")
 cat("- fGarch (raw HMM with skew-t):", has_fgarch, "\n")
 ```
 
 ## Simulating Regime-Switching Data
 
-We'll create test data with clear regime structure to demonstrate the different bootstrap methods.
+We create test data with clear regime structure - a common pattern in financial 
+markets with distinct bull and bear regimes.
 
 ```{r simulate-data}
+# Use parameters known to work well with MSGARCH estimation
 set.seed(42)
-
-# Simulate regime-switching returns
-# State 1: Bull market - positive drift, low volatility
-# State 2: Bear market - negative drift, high volatility
-
-# Use parameters that are known to work well with MSGARCH
 n <- 300
 n1 <- 150
 n2 <- 150
 
-# Gaussian regimes - parameters tuned for reliable MSGARCH estimation
-y_gaussian <- c(
+# Gaussian regime-switching returns
+# State 1 (Bull): Positive drift, low volatility
+# State 2 (Bear): Negative drift, high volatility
+y_returns <- c(
   rnorm(n1, mean = 0.02, sd = 0.01),
   rnorm(n2, mean = -0.01, sd = 0.03)
 )
 
-# Skew Student-t regimes (if fGarch available)
-if (has_fgarch) {
-  set.seed(42)  # Reset seed for reproducibility
-  y_sstd <- c(
-    fGarch::rsstd(n1, mean = 0.02, sd = 0.01, nu = 10, xi = 1.2),  # Right skew
-    fGarch::rsstd(n2, mean = -0.01, sd = 0.03, nu = 6, xi = 0.8)   # Left skew, heavier tails
-  )
-} else {
-  y_sstd <- y_gaussian
-}
-
-# Multivariate data with common factor
+# Multivariate data with common market factor
+set.seed(42)
 k <- 3
-set.seed(42)  # Reset seed
-factor_series <- c(
+market_factor <- c(
   rnorm(n1, mean = 0.02, sd = 0.01),
   rnorm(n2, mean = -0.01, sd = 0.03)
 )
 Y_multi <- matrix(0, nrow = n, ncol = k)
 for (j in 1:k) {
-  Y_multi[, j] <- factor_series + rnorm(n, sd = 0.002)
+  Y_multi[, j] <- market_factor + rnorm(n, sd = 0.002)
 }
-colnames(Y_multi) <- c("Asset1", "Asset2", "Asset3")
+colnames(Y_multi) <- c("Stock_A", "Stock_B", "Stock_C")
 ```
 
-```{r plot-data, fig.height=8}
-par(mfrow = c(3, 1), mar = c(4, 4, 2, 1))
+```{r plot-data, fig.height=6}
+par(mfrow = c(2, 1), mar = c(4, 4, 3, 1))
 
-plot(y_gaussian, type = "l", col = "steelblue",
-     main = "Gaussian Regime-Switching Returns",
+# Univariate returns
+plot(y_returns, type = "l", col = "steelblue",
+     main = "Simulated Regime-Switching Returns",
      xlab = "Time", ylab = "Returns")
-abline(v = n1, col = "red", lty = 2)
-legend("topright", "Regime change", lty = 2, col = "red", bty = "n")
+abline(v = n1, col = "red", lty = 2, lwd = 2)
+legend("topright", c("Returns", "Regime Change"), 
+       col = c("steelblue", "red"), lty = c(1, 2), bty = "n")
 
-if (has_fgarch) {
-  plot(y_sstd, type = "l", col = "darkgreen",
-       main = "Skew Student-t Regime-Switching Returns",
-       xlab = "Time", ylab = "Returns")
-  abline(v = n1, col = "red", lty = 2)
-}
-
-matplot(Y_multi, type = "l", lty = 1,
-        main = "Multivariate Returns (Common Factor)",
+# Multivariate returns
+matplot(Y_multi, type = "l", lty = 1, col = 2:4,
+        main = "Multivariate Returns (Common Factor Structure)",
         xlab = "Time", ylab = "Returns")
-abline(v = n1, col = "red", lty = 2)
+abline(v = n1, col = "red", lty = 2, lwd = 2)
+legend("topright", colnames(Y_multi), col = 2:4, lty = 1, bty = "n")
 
 par(mfrow = c(1, 1))
 ```
 
-## 1. Gaussian HMM Bootstrap (Original Behavior)
+## 1. Basic Gaussian HMM Bootstrap
 
-The default `distribution = "gaussian"` uses depmixS4 for HMM fitting, preserving backward compatibility.
+The default `distribution = "gaussian"` uses depmixS4 for HMM fitting. This is 
+the original behavior and requires only the depmixS4 package.
 
-```{r gaussian-hmm, eval=has_depmix}
-# Gaussian HMM bootstrap
-result_gaussian <- hmm_bootstrap(
-  x = y_gaussian,
+```{r gaussian-basic, eval=has_depmix}
+# Basic HMM bootstrap with Gaussian emissions
+result_gaussian <- tsbs(
+  x = y_returns,
+  bs_type = "hmm",
   num_states = 2,
   num_boots = 100,
-  distribution = "gaussian",
-  return_fit = TRUE
+  func = mean  # Compute mean of each replicate
 )
 
-cat("Method:", result_gaussian$method, "\n")
-cat("Number of bootstrap samples:", length(result_gaussian$bootstrap_series), "\n")
-cat("States identified:", length(unique(result_gaussian$states)), "\n")
+cat("Number of bootstrap replicates:", length(result_gaussian$bootstrap_series), "\n")
+cat("Length of each replicate:", nrow(result_gaussian$bootstrap_series[[1]]), "\n")
 ```
 
-```{r gaussian-results, eval=has_depmix, fig.height=5}
-# Compare original and bootstrap distributions
+### Analyzing Bootstrap Results
+
+```{r gaussian-analysis, eval=has_depmix, fig.height=5}
+# Extract statistics from bootstrap replicates
 boot_means <- sapply(result_gaussian$bootstrap_series, mean)
 boot_sds <- sapply(result_gaussian$bootstrap_series, sd)
+boot_skews <- sapply(result_gaussian$bootstrap_series, function(x) {
+  mean((x - mean(x))^3) / sd(x)^3
+})
 
-par(mfrow = c(1, 2))
+# Summary statistics
+cat("\nBootstrap Mean Distribution:\n")
+cat("  Original mean:", round(mean(y_returns), 5), "\n")
+cat("  Bootstrap mean of means:", round(mean(boot_means), 5), "\n")
+cat("  Bootstrap SE of mean:", round(sd(boot_means), 5), "\n")
+cat("  95% CI:", round(quantile(boot_means, c(0.025, 0.975)), 5), "\n")
 
-hist(boot_means, breaks = 30, col = "steelblue", border = "white",
-     main = "Bootstrap Distribution of Mean",
-     xlab = "Mean")
-abline(v = mean(y_gaussian), col = "red", lwd = 2)
-legend("topright", "Original mean", lty = 1, col = "red", lwd = 2, bty = "n")
+# Visualize
+par(mfrow = c(1, 3))
 
-hist(boot_sds, breaks = 30, col = "steelblue", border = "white",
-     main = "Bootstrap Distribution of Std Dev",
-     xlab = "Standard Deviation")
-abline(v = sd(y_gaussian), col = "red", lwd = 2)
+hist(boot_means, breaks = 25, col = "steelblue", border = "white",
+     main = "Bootstrap Distribution of Mean", xlab = "Mean", probability = TRUE)
+abline(v = mean(y_returns), col = "red", lwd = 2)
+abline(v = quantile(boot_means, c(0.025, 0.975)), col = "darkgreen", lty = 2)
+
+hist(boot_sds, breaks = 25, col = "coral", border = "white",
+     main = "Bootstrap Distribution of SD", xlab = "Standard Deviation", probability = TRUE)
+abline(v = sd(y_returns), col = "red", lwd = 2)
+
+hist(boot_skews, breaks = 25, col = "mediumpurple", border = "white",
+     main = "Bootstrap Distribution of Skewness", xlab = "Skewness", probability = TRUE)
+abline(v = 0, col = "red", lwd = 2)
 
 par(mfrow = c(1, 1))
 ```
 
-## 2. MSGARCH-Based HMM Bootstrap
+## 2. Using Diagnostics
 
-The MSGARCH backend adds GARCH dynamics and supports flexible conditional distributions.
+The `tsbs()` function can return detailed diagnostics about the bootstrap 
+procedure when `return_diagnostics = TRUE`.
 
-### 2.1 Normal Distribution with GARCH
+```{r diagnostics-basic, eval=has_depmix}
+# Run with diagnostics enabled
+result_diag <- tsbs(
+  x = y_returns,
+  bs_type = "hmm",
+  num_states = 2,
+  num_boots = 50,
+  return_diagnostics = TRUE
+)
+
+# Check what's returned
+cat("Result components:", names(result_diag), "\n")
+```
+
+### Summary of Diagnostics
+
+```{r diagnostics-summary, eval=has_depmix}
+if (!is.null(result_diag$diagnostics)) {
+  # Print summary
+  summary(result_diag$diagnostics)
+}
+```
+
+### Visualizing Bootstrap Quality
+
+```{r diagnostics-plots, eval=has_depmix, fig.height=8}
+if (!is.null(result_diag$diagnostics)) {
+  # Plot diagnostics
+  plot(result_diag$diagnostics)
+}
+```
+
+### Comparing Original vs Bootstrap Statistics
+
+```{r compare-stats, eval=has_depmix, fig.height=5}
+if (!is.null(result_diag$diagnostics)) {
+  diag <- result_diag$diagnostics
+  
+  # Extract replicate statistics
+  rep_means <- unlist(diag$series_stats$replicate_means)
+  rep_sds <- unlist(diag$series_stats$replicate_sds)
+  rep_ac1 <- unlist(diag$series_stats$replicate_ac1)
+  
+  # Original statistics
+  orig_mean <- diag$original_stats$means
+  orig_sd <- diag$original_stats$sds
+  orig_ac1 <- diag$original_stats$ac1
+  
+  par(mfrow = c(1, 3))
+  
+  # Mean comparison
+  hist(rep_means, breaks = 20, col = "lightblue", border = "white",
+       main = "Mean: Bootstrap vs Original", xlab = "Mean")
+  abline(v = orig_mean, col = "red", lwd = 2)
+  legend("topright", "Original", col = "red", lwd = 2, bty = "n")
+  
+  # SD comparison
+  hist(rep_sds, breaks = 20, col = "lightgreen", border = "white",
+       main = "SD: Bootstrap vs Original", xlab = "Standard Deviation")
+  abline(v = orig_sd, col = "red", lwd = 2)
+  
+  # Autocorrelation comparison
+  hist(rep_ac1, breaks = 20, col = "lightyellow", border = "white",
+       main = "AC(1): Bootstrap vs Original", xlab = "Lag-1 Autocorrelation")
+  abline(v = orig_ac1, col = "red", lwd = 2)
+  
+  par(mfrow = c(1, 1))
+}
+```
+
+## 3. MSGARCH-Based HMM Bootstrap
+
+When MSGARCH is available, you can use distributions that capture heavy tails 
+and skewness common in financial returns.
+
+### Normal Distribution with GARCH Dynamics
 
 ```{r msgarch-norm, eval=has_msgarch}
-# MSGARCH with normal distribution
-# Using seed=123 which is tested to work with this data
-result_norm <- hmm_bootstrap(
-  x = y_gaussian,
+# MSGARCH with normal distribution and sGARCH dynamics
+result_msgarch <- tsbs(
+  x = y_returns,
+  bs_type = "hmm",
   num_states = 2,
   num_boots = 100,
   distribution = "norm",
   variance_model = "sGARCH",
-  seed = 123,
-  return_fit = TRUE
+  seed = 123
 )
 
-cat("Method:", result_norm$method, "\n")
-cat("Transition matrix:\n")
-print(round(result_norm$transition_matrix, 3))
+cat("MSGARCH bootstrap completed\n")
+cat("Number of replicates:", length(result_msgarch$bootstrap_series), "\n")
 ```
 
-### 2.2 Skew Student-t Distribution
+### Skew Student-t Distribution
 
-The skew Student-t distribution captures both heavy tails and asymmetry common in financial returns.
+The skew Student-t distribution (`distribution = "sstd"`) captures both heavy 
+tails and asymmetry - two stylized facts of financial returns.
 
 ```{r msgarch-sstd, eval=has_msgarch && has_fgarch}
-# MSGARCH with skew Student-t distribution
-result_sstd <- hmm_bootstrap(
+# Generate skew-t data for demonstration
+set.seed(42)
+y_sstd <- c(
+  fGarch::rsstd(150, mean = 0.02, sd = 0.01, nu = 10, xi = 1.2),
+  fGarch::rsstd(150, mean = -0.01, sd = 0.03, nu = 6, xi = 0.8)
+)
+
+# MSGARCH with skew Student-t
+result_sstd <- tsbs(
   x = y_sstd,
+  bs_type = "hmm",
   num_states = 2,
   num_boots = 100,
   distribution = "sstd",
   variance_model = "sGARCH",
-  seed = 123,
-  return_fit = TRUE
-)
-
-cat("Method:", result_sstd$method, "\n")
-cat("Smoothed probabilities dimension:", dim(result_sstd$smoothed_probabilities), "\n")
-```
-```{r msgarch-sstd-plot, eval=has_msgarch && has_fgarch, fig.height=5}
-# Plot smoothed state probabilities
-plot(result_sstd$smoothed_probabilities[, 1], type = "l", col = "steelblue",
-     main = "Smoothed State Probabilities (State 1)",
-     xlab = "Time", ylab = "P(State = 1)", ylim = c(0, 1))
-abline(v = n1, col = "red", lty = 2)
-abline(h = 0.5, col = "gray", lty = 3)
-```
-
-### 2.3 Different GARCH Specifications
-
-```{r msgarch-egarch, eval=has_msgarch}
-# eGARCH captures leverage effects
-result_egarch <- hmm_bootstrap(
-  x = y_gaussian,
-  num_states = 2,
-  num_boots = 50,
-  distribution = "norm",
-  variance_model = "eGARCH",
   seed = 123
 )
 
-cat("eGARCH bootstrap completed:", length(result_egarch), "samples\n")
+cat("Skew-t MSGARCH bootstrap completed\n")
 ```
 
-### 2.4 Micro-Block Sampling
+### Comparing Distributions
 
-Micro-blocks preserve local dependence within states while still allowing regime-driven dynamics.
-
-```{r micro-blocks, eval=has_msgarch}
-# Without micro-blocks (iid within state)
-result_iid <- hmm_bootstrap(
-  x = y_gaussian,
-  num_states = 2,
-  num_boots = 50,
-  distribution = "norm",
-  micro_block_length = 1,
-  seed = 123
-)
-
-# With micro-blocks (preserves local autocorrelation)
-result_blocks <- hmm_bootstrap(
-  x = y_gaussian,
-  num_states = 2,
-  num_boots = 50,
-  distribution = "norm",
-  micro_block_length = 5,
-  seed = 123
-)
-
-cat("IID sampling completed\n")
-cat("Micro-block sampling (length=5) completed\n")
-```
-
-## 3. Raw HMM Bootstrap (No GARCH)
-
-For cases where you want regime-switching based purely on distributional characteristics without GARCH dynamics.
-
-```{r raw-hmm-norm}
-# Raw HMM with normal emissions
-result_raw_norm <- hmm_bootstrap(
-  x = y_gaussian,
-  num_states = 2,
-  num_boots = 100,
-  distribution = "norm_raw",
-  seed = 123,
-  return_fit = TRUE
-)
-
-cat("Method:", result_raw_norm$method, "\n")
-cat("EM converged:", result_raw_norm$fit$converged, "\n")
-cat("Log-likelihood:", round(result_raw_norm$fit$loglik, 2), "\n")
-```
-
-```{r raw-hmm-sstd, eval=has_fgarch}
-# Raw HMM with skew Student-t emissions
-result_raw_sstd <- hmm_bootstrap(
-  x = y_sstd,
-  num_states = 2,
-  num_boots = 100,
-  distribution = "sstd_raw",
-  seed = 123,
-  return_fit = TRUE
-)
-
-cat("Method:", result_raw_sstd$method, "\n")
-
-# State parameters
-cat("\nState 1 parameters:\n")
-print(result_raw_sstd$state_params[[1]])
-cat("\nState 2 parameters:\n")
-print(result_raw_sstd$state_params[[2]])
-```
-
-## 4. Multivariate Bootstrap
-
-For multivariate data, synchronized sampling preserves cross-sectional dependence.
-
-### 4.1 Market-Based Regime Identification
-
-```{r multi-market, eval=has_msgarch}
-# Use equal-weighted average to identify regimes
-result_multi_market <- hmm_bootstrap(
-  x = Y_multi,
-  num_states = 2,
-  num_boots = 50,
-  distribution = "norm",
-  regime_basis = "market",
-  seed = 123
-)
-
-cat("Multivariate bootstrap with market regime basis\n")
-cat("Sample dimensions:", dim(result_multi_market[[1]]), "\n")
-```
-
-### 4.2 First Principal Component Regime Identification
-
-```{r multi-pc, eval=has_msgarch}
-# Use first PC to identify regimes
-result_multi_pc <- hmm_bootstrap(
-  x = Y_multi,
-  num_states = 2,
-  num_boots = 50,
-  distribution = "norm",
-  regime_basis = "first_pc",
-  seed = 123
-)
-
-cat("Multivariate bootstrap with first_pc regime basis\n")
-```
-
-### 4.3 Single Asset Regime Identification
-
-```{r multi-col, eval=has_msgarch}
-# Use specific column to identify regimes
-result_multi_col <- hmm_bootstrap(
-  x = Y_multi,
-  num_states = 2,
-  num_boots = 50,
-  distribution = "norm",
-  regime_basis = 1,  # Use first column
-  seed = 123
-)
-
-cat("Multivariate bootstrap using column 1 for regime identification\n")
-```
-
-## 5. Comparing Bootstrap Methods
-
-```{r compare-methods, eval=has_depmix && has_msgarch, fig.height=6}
-# Run all methods on same data
-set.seed(42)
-compare_data <- y_gaussian
-
-results <- list()
+```{r compare-distributions, eval=has_msgarch, fig.height=5}
+# Compare bootstrap distributions from different methods
+results_list <- list()
 
 if (has_depmix) {
-  results$gaussian <- hmm_bootstrap(compare_data, num_states = 2, num_boots = 200,
-                                     distribution = "gaussian")
+  results_list$Gaussian <- result_gaussian$bootstrap_series
 }
+results_list$MSGARCH_norm <- result_msgarch$bootstrap_series
 
-if (has_msgarch) {
-  results$msgarch_norm <- hmm_bootstrap(compare_data, num_states = 2, num_boots = 200,
-                                         distribution = "norm", seed = 123)
-}
-
-results$raw_norm <- hmm_bootstrap(compare_data, num_states = 2, num_boots = 200,
-                                   distribution = "norm_raw", seed = 123)
-
-# Compare bootstrap distributions
-boot_stats <- lapply(results, function(r) {
+# Compute statistics
+stats_df <- do.call(rbind, lapply(names(results_list), function(nm) {
   data.frame(
-    mean = sapply(r, mean),
-    sd = sapply(r, sd),
-    skew = sapply(r, function(x) mean((x - mean(x))^3) / sd(x)^3)
+    method = nm,
+    mean = sapply(results_list[[nm]], mean),
+    sd = sapply(results_list[[nm]], sd)
   )
-})
+}))
 
 # Plot comparison
-par(mfrow = c(1, 3))
+par(mfrow = c(1, 2))
 
-# Means
-boxplot(lapply(boot_stats, `[[`, "mean"),
-        main = "Bootstrap Means by Method",
-        col = c("steelblue", "darkgreen", "coral")[1:length(boot_stats)],
-        ylab = "Mean")
-abline(h = mean(compare_data), col = "red", lty = 2)
+boxplot(mean ~ method, data = stats_df, col = c("steelblue", "coral")[1:length(unique(stats_df$method))],
+        main = "Bootstrap Means by Method", ylab = "Mean")
+abline(h = mean(y_returns), col = "red", lty = 2)
 
-# Standard deviations
-boxplot(lapply(boot_stats, `[[`, "sd"),
-        main = "Bootstrap Std Devs by Method",
-        col = c("steelblue", "darkgreen", "coral")[1:length(boot_stats)],
-        ylab = "Std Dev")
-abline(h = sd(compare_data), col = "red", lty = 2)
-
-# Skewness
-boxplot(lapply(boot_stats, `[[`, "skew"),
-        main = "Bootstrap Skewness by Method",
-        col = c("steelblue", "darkgreen", "coral")[1:length(boot_stats)],
-        ylab = "Skewness")
-abline(h = 0, col = "red", lty = 2)
+boxplot(sd ~ method, data = stats_df, col = c("steelblue", "coral")[1:length(unique(stats_df$method))],
+        main = "Bootstrap SDs by Method", ylab = "Standard Deviation")
+abline(h = sd(y_returns), col = "red", lty = 2)
 
 par(mfrow = c(1, 1))
 ```
 
-## 6. Using with tsbs()
-The `hmm_bootstrap()` function integrates with the main `tsbs()` interface:
+## 4. Raw HMM Bootstrap (No GARCH)
 
-```{r tsbs-integration, eval=has_depmix}
-# Using tsbs() with HMM bootstrap
-result_tsbs <- tsbs(
-  x = y_gaussian,
+For simpler models without GARCH dynamics, use the `"_raw"` distribution variants.
+
+```{r raw-hmm, eval=TRUE}
+# Raw HMM with normal emissions (no GARCH)
+result_raw <- tsbs(
+  x = y_returns,
+  bs_type = "hmm",
+  num_states = 2,
+  num_boots = 100,
+  distribution = "norm_raw",
+  seed = 123
+)
+
+cat("Raw HMM bootstrap completed\n")
+cat("Number of replicates:", length(result_raw$bootstrap_series), "\n")
+```
+
+## 5. Multivariate Bootstrap
+
+For multivariate data, `tsbs()` uses synchronized sampling to preserve 
+cross-sectional dependence.
+
+```{r multivariate, eval=has_msgarch}
+# Multivariate HMM bootstrap
+result_multi <- tsbs(
+  x = Y_multi,
   bs_type = "hmm",
   num_states = 2,
   num_boots = 50,
-  func = function(x) c(mean = mean(x), sd = sd(x))
+  distribution = "norm",
+  regime_basis = "market",  # Use equal-weighted average for regime identification
+  seed = 123
 )
 
-cat("Bootstrap statistics:\n")
-cat("Mean of means:", round(mean(sapply(result_tsbs$func_outs, function(x) x["mean", ])), 4), "\n")
-cat("Mean of sds:", round(mean(sapply(result_tsbs$func_outs, function(x) x["sd", ])), 4), "\n")
+cat("Multivariate bootstrap completed\n")
+cat("Dimensions of first replicate:", dim(result_multi$bootstrap_series[[1]]), "\n")
 ```
 
-## 7. Distribution Comparison
+### Cross-Sectional Dependence Preservation
 
-```{r distribution-table, echo=FALSE}
-dist_table <- data.frame(
-  Distribution = c("gaussian", "norm", "std", "sstd", "snorm", "ged", "sged",
-                   "norm_raw", "std_raw", "sstd_raw"),
-  Backend = c("depmixS4", rep("MSGARCH", 6), rep("fGarch/EM", 3)),
-  GARCH = c("No", rep("Yes", 6), rep("No", 3)),
-  `Heavy Tails` = c("No", "No", "Yes", "Yes", "No", "Yes", "Yes",
-                    "No", "Yes", "Yes"),
-  Skewness = c("No", "No", "No", "Yes", "Yes", "No", "Yes",
-               "No", "No", "Yes"),
-  check.names = FALSE
+```{r multivariate-corr, eval=has_msgarch, fig.height=5}
+# Compare correlations: original vs bootstrap
+orig_cor <- cor(Y_multi)
+
+# Compute correlation for each bootstrap replicate
+boot_cors <- lapply(result_multi$bootstrap_series, cor)
+
+# Average bootstrap correlation
+avg_boot_cor <- Reduce(`+`, boot_cors) / length(boot_cors)
+
+cat("Original Correlation Matrix:\n")
+print(round(orig_cor, 3))
+
+cat("\nAverage Bootstrap Correlation Matrix:\n")
+print(round(avg_boot_cor, 3))
+
+cat("\nDifference (Bootstrap - Original):\n")
+print(round(avg_boot_cor - orig_cor, 4))
+```
+
+## 6. Applying Custom Functions
+
+Use the `func` parameter to compute statistics on each bootstrap replicate.
+
+```{r custom-func, eval=has_depmix}
+# Define a custom function: Sharpe ratio (annualized)
+sharpe_ratio <- function(x) {
+  mean(x) / sd(x) * sqrt(252)
+}
+
+# Bootstrap the Sharpe ratio
+result_sharpe <- tsbs(
+  x = y_returns,
+  bs_type = "hmm",
+  num_states = 2,
+  num_boots = 500,
+  func = sharpe_ratio
 )
 
-knitr::kable(dist_table, caption = "Available Distributions in hmm_bootstrap()")
+# Analyze results
+sharpe_values <- unlist(result_sharpe$func_outs)
+original_sharpe <- sharpe_ratio(y_returns)
+
+cat("Sharpe Ratio Analysis:\n")
+cat("  Original Sharpe:", round(original_sharpe, 3), "\n")
+cat("  Bootstrap Mean:", round(mean(sharpe_values), 3), "\n")
+cat("  Bootstrap SE:", round(sd(sharpe_values), 3), "\n")
+cat("  95% CI:", round(quantile(sharpe_values, c(0.025, 0.975)), 3), "\n")
 ```
+
+```{r sharpe-plot, eval=has_depmix, fig.height=4}
+hist(sharpe_values, breaks = 30, col = "steelblue", border = "white",
+     main = "Bootstrap Distribution of Sharpe Ratio",
+     xlab = "Annualized Sharpe Ratio", probability = TRUE)
+abline(v = original_sharpe, col = "red", lwd = 2)
+abline(v = quantile(sharpe_values, c(0.025, 0.975)), col = "darkgreen", lty = 2, lwd = 2)
+legend("topright", c("Original", "95% CI"), col = c("red", "darkgreen"), 
+       lty = c(1, 2), lwd = 2, bty = "n")
+```
+
+## 7. Advanced: Multiple Statistics
+
+For multivariate analysis, compute multiple statistics simultaneously.
+
+```{r multi-stats, eval=has_depmix}
+# Function returning multiple portfolio statistics
+portfolio_stats <- function(x) {
+  weights <- rep(1/ncol(x), ncol(x))  # Equal weight
+  port_ret <- as.vector(x %*% weights)
+  
+  list(
+    mean_return = mean(port_ret),
+    volatility = sd(port_ret),
+    sharpe = mean(port_ret) / sd(port_ret) * sqrt(252),
+    max_drawdown = max(cummax(cumsum(port_ret)) - cumsum(port_ret))
+  )
+}
+
+# Bootstrap portfolio statistics
+result_portfolio <- tsbs(
+  x = Y_multi,
+  bs_type = "hmm",
+  num_states = 2,
+  num_boots = 200,
+  func = portfolio_stats,
+  apply_func_to = "all"
+)
+
+# Extract and summarize
+stats_names <- names(result_portfolio$func_outs[[1]])
+cat("Portfolio Statistics Bootstrap Results:\n\n")
+
+for (stat in stats_names) {
+  values <- sapply(result_portfolio$func_outs, `[[`, stat)
+  cat(sprintf("%-15s Mean: %8.4f  SE: %8.4f  95%% CI: [%8.4f, %8.4f]\n",
+              paste0(stat, ":"),
+              mean(values), sd(values),
+              quantile(values, 0.025), quantile(values, 0.975)))
+}
+```
+
+## 8. Distribution Reference
+
+| Distribution | Backend | GARCH | Heavy Tails | Skewness | Use Case |
+|-------------|---------|-------|-------------|----------|----------|
+| `"gaussian"` | depmixS4 | No | No | No | Simple regime-switching |
+| `"norm"` | MSGARCH | Yes | No | No | Volatility clustering |
+| `"std"` | MSGARCH | Yes | Yes | No | Fat-tailed returns |
+| `"sstd"` | MSGARCH | Yes | Yes | Yes | Asymmetric fat tails |
+| `"snorm"` | MSGARCH | Yes | No | Yes | Asymmetric returns |
+| `"ged"` | MSGARCH | Yes | Yes | No | Flexible tail weight |
+| `"sged"` | MSGARCH | Yes | Yes | Yes | Full flexibility |
+| `"norm_raw"` | EM | No | No | No | Simple, no GARCH |
+| `"std_raw"` | EM/fGarch | No | Yes | No | Fat tails, no GARCH |
+| `"sstd_raw"` | EM/fGarch | No | Yes | Yes | Skew-t, no GARCH |
 
 ## Summary
 
-The extended `hmm_bootstrap()` provides a flexible framework for regime-switching bootstrap:
+Key takeaways for using HMM bootstrap with `tsbs()`:
 
-- **Backward compatible**: Default `distribution = "gaussian"` preserves original behavior
-- **MSGARCH integration**: Access to GARCH dynamics with skewed and heavy-tailed distributions
-- **Raw HMM option**: Regime-switching without GARCH for simpler models
-- **Multivariate support**: Synchronized sampling preserves cross-sectional dependence
-- **Micro-blocks**: Optional preservation of local temporal dependence within states
+1. **Default behavior** (`distribution = "gaussian"`) is backward compatible and 
+   requires only depmixS4
+
+2. **MSGARCH distributions** add GARCH dynamics - use for data with volatility 
+   clustering
+
+3. **Raw distributions** (`"_raw"` suffix) are simpler models without GARCH
+
+4. **Multivariate data** uses synchronized sampling via `regime_basis` parameter
+
+5. **Diagnostics** (`return_diagnostics = TRUE`) help assess bootstrap quality
+
+6. **Custom functions** allow bootstrapping any statistic of interest
 
 ## Session Info
 

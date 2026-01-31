@@ -64,11 +64,6 @@
 #
 # ==============================================================================
 
-#library(testthat)
-
-# Source the file being tested (adjust path as needed for your package structure)
-# source("R/bootstrap_diagnostics.R")
-
 # ==============================================================================
 # Test Fixtures and Helper Functions
 # ==============================================================================
@@ -1225,13 +1220,13 @@ test_that("summarize_block_diagnostics produces output", {
 
 context("plot.tsbs_diagnostics()")
 
-
 test_that("plot.tsbs_diagnostics accepts valid type arguments", {
+  skip_on_cran()
   diag <- create_populated_diagnostics()
-  
-  valid_types <- c("all", "block_lengths", "start_positions", 
+
+  valid_types <- c("all", "block_lengths", "start_positions",
                    "means_comparison", "acf_comparison", "length_distribution")
-  
+
   for (type in valid_types) {
     # Should not error (messages are OK, errors are not)
     expect_no_error(
@@ -1263,6 +1258,7 @@ skip_if_no_ggplot2 <- function() {
 }
 
 test_that("plot_block_lengths creates ggplot object", {
+  skip_on_cran()
   skip_if_no_ggplot2()
   
   diag <- create_populated_diagnostics()
@@ -1274,6 +1270,7 @@ test_that("plot_block_lengths creates ggplot object", {
 })
 
 test_that("plot_start_positions creates ggplot object", {
+  skip_on_cran()
   skip_if_no_ggplot2()
   
   diag <- create_populated_diagnostics()
@@ -1284,6 +1281,7 @@ test_that("plot_start_positions creates ggplot object", {
 })
 
 test_that("plot_means_comparison creates ggplot object", {
+  skip_on_cran()
   skip_if_no_ggplot2()
   
   diag <- create_populated_diagnostics()
@@ -1294,6 +1292,7 @@ test_that("plot_means_comparison creates ggplot object", {
 })
 
 test_that("plot_acf_comparison creates ggplot object", {
+  skip_on_cran()
   skip_if_no_ggplot2()
   
   diag <- create_populated_diagnostics()
@@ -1307,6 +1306,7 @@ test_that("plot_acf_comparison creates ggplot object", {
 context("plot_block_coverage()")
 
 test_that("plot_block_coverage accepts valid types", {
+  skip_on_cran()
   skip_if_no_ggplot2()
   
   diag <- create_populated_diagnostics()
@@ -1617,7 +1617,3 @@ test_that(".sample_blocks_with_diagnostics works without explicit num_cores", {
   expect_length(result$samples, 3)
 })
 
-
-# ==============================================================================
-# End of test file
-# ==============================================================================

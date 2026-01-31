@@ -913,6 +913,8 @@ tsbs <- function(
       variance_model = variance_model,
       micro_block_length = micro_block_length,
       regime_basis = regime_basis,
+      return_fit = return_fit,
+      collect_diagnostics = return_diagnostics,
       seed = seed,
       parallel = parallel, 
       num_cores = num_cores
@@ -923,7 +925,9 @@ tsbs <- function(
       num_blocks = num_blocks, 
       num_boots = num_boots, 
       parallel = parallel, 
-      num_cores = num_cores
+      num_cores = num_cores,
+      return_fit = return_fit,
+      collect_diagnostics = return_diagnostics
     ),
     ms_varma_garch = ms_varma_garch_bs(
       x = x,
@@ -952,12 +956,39 @@ tsbs <- function(
     stop("Unsupported bootstrap type.")
   )
   
-  ## Unpack if ms_varma_garch with return_fit
-  fit_object <- NULL
-  if (bs_type == "ms_varma_garch" && return_fit) {
-    fit_object <- bootstrap_series$fit
-    bootstrap_series <- bootstrap_series$bootstrap_series
-  }
+    ## Unpack if model-based bootstrap returns a list structure
+    fit_object <- NULL
+    method_diagnostics <- NULL
+    method_extra <- list()
+
+    ## HMM and MSVAR return list when return_fit = TRUE or collect_diagnostics = TRUE
+    if (bs_type %in% c("hmm", "msvar") && (return_fit || return_diagnostics)) {
+      if (is.list(bootstrap_series) && "bootstrap_series" %in% names(bootstrap_series)) {
+        if (return_fit) {
+          fit_object <- bootstrap_series$fit
+          ## Capture additional model info
+          method_extra$states <- bootstrap_series$states
+          method_extra$smoothed_probabilities <- bootstrap_series$smoothed_probabilities
+          if (!is.null(bootstrap_series$transition_matrix)) {
+            method_extra$transition_matrix <- bootstrap_series$transition_matrix
+          }
+          if (!is.null(bootstrap_series$state_params)) {
+            method_extra$state_params <- bootstrap_series$state_params
+          }
+        }
+        if (return_diagnostics && !is.null(bootstrap_series$diagnostics)) {
+          method_diagnostics <- bootstrap_series$diagnostics
+        }
+        ## Extract the actual bootstrap series
+        bootstrap_series <- bootstrap_series$bootstrap_series
+      }
+    }
+
+    ## ms_varma_garch unpacking (existing logic)
+    if (bs_type == "ms_varma_garch" && return_fit) {
+      fit_object <- bootstrap_series$fit
+      bootstrap_series <- bootstrap_series$bootstrap_series
+    }
   
   func_outs <- lapply(bootstrap_series, function(sampled) {
     if (apply_func_to == "all") {
@@ -984,7 +1015,7 @@ tsbs <- function(
   diagnostics_object <- NULL
   if (return_diagnostics) {
     
-    # Build configuration list
+    ## Build configuration list
     config <- list(
       bs_type = bs_type,
       block_type = block_type,
@@ -999,7 +1030,7 @@ tsbs <- function(
       num_states = if (bs_type %in% c("hmm", "msvar", "ms_varma_garch")) num_states else NA
     )
     
-    # Compute diagnostics from bootstrap series
+    ## Compute diagnostics from bootstrap series
     diagnostics_object <- compute_bootstrap_diagnostics(
       bootstrap_series = bootstrap_series,
       original_data = x,
@@ -1007,7 +1038,23 @@ tsbs <- function(
       config = config
     )
     
-    # Add method-specific diagnostics
+    ## Use method-specific diagnostics if available (from hmm/msvar)
+    if (!is.null(method_diagnostics)) {
+      diagnostics_object <- method_diagnostics
+    }
+
+    ## Add method-specific extras to diagnostics
+    if (bs_type %in% c("hmm", "msvar") && length(method_extra) > 0) {
+      diagnostics_object <- record_method_specific(
+        diagnostics_object,
+        states = method_extra$states,
+        smoothed_probabilities = method_extra$smoothed_probabilities,
+        transition_matrix = method_extra$transition_matrix,
+        state_params = method_extra$state_params
+      )
+    }
+    
+    ## Add method-specific diagnostics
     if (bs_type == "stationary") {
       diagnostics_object <- record_method_specific(
         diagnostics_object,
@@ -1015,16 +1062,42 @@ tsbs <- function(
         expected_block_length = if (!is.null(p)) 1/p else NA
       )
     }
-    
-    if (bs_type %in% c("hmm", "msvar", "ms_varma_garch") && !is.null(fit_object)) {
-      # Extract state sequence if available
-      if (!is.null(fit_object$smoothed_probabilities)) {
-        state_seq <- apply(fit_object$smoothed_probabilities, 1, which.max)
+
+    ## Add state-related diagnostics for regime-switching models
+    if (bs_type %in% c("hmm", "msvar")) {
+      ## For hmm/msvar, smoothed_probabilities is in method_extra
+      if (!is.null(method_extra$smoothed_probabilities)) {
+        smoothed_probs <- method_extra$smoothed_probabilities
+        state_seq <- apply(smoothed_probs, 1, which.max)
         state_counts <- table(state_seq)
         diagnostics_object <- record_method_specific(
           diagnostics_object,
+          state_counts = as.list(state_counts)
+        )
+      }
+      ## Add transition matrix if available
+      if (!is.null(method_extra$transition_matrix)) {
+        diagnostics_object <- record_method_specific(
+          diagnostics_object,
+          transition_matrix = method_extra$transition_matrix
+        )
+      }
+    }
+
+    if (bs_type == "ms_varma_garch" && !is.null(fit_object)) {
+      ## For ms_varma_garch, smoothed_probabilities is in fit_object
+      smoothed_probs <- tryCatch(
+        fit_object$smoothed_probabilities,
+        error = function(e) NULL
+      )
+      if (!is.null(smoothed_probs)) {
+        state_seq <- apply(smoothed_probs, 1, which.max)
+        state_counts <- table(state_seq)
+        trans_mat <- tryCatch(fit_object$P, error = function(e) NULL)
+        diagnostics_object <- record_method_specific(
+          diagnostics_object,
           state_counts = as.list(state_counts),
-          transition_matrix = if (!is.null(fit_object$P)) fit_object$P else NA
+          transition_matrix = if (!is.null(trans_mat)) trans_mat else NA
         )
       }
     }

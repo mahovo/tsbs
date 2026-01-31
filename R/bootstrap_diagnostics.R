@@ -355,6 +355,7 @@ estimate_block_lengths_from_series <- function(
 #' @param ... Additional arguments (unused).
 #'
 #' @return Invisibly returns the object. Called for side effects (printing).
+#' @method summary tsbs_diagnostics
 #' @export
 summary.tsbs_diagnostics <- function(object, ...) {
   
@@ -492,6 +493,7 @@ summary.tsbs_diagnostics <- function(object, ...) {
 #' @param ... Additional arguments passed to summary.
 #'
 #' @return Invisibly returns the object.
+#' @method print tsbs_diagnostics
 #' @export
 print.tsbs_diagnostics <- function(x, ...) {
   cat("tsbs Bootstrap Diagnostics\n")
@@ -524,6 +526,7 @@ print.tsbs_diagnostics <- function(x, ...) {
 #'
 #' @return Invisibly returns list of ggplot objects if ggplot2 available,
 #'   otherwise uses base R graphics.
+#' @method plot tsbs_diagnostics
 #' @export
 plot.tsbs_diagnostics <- function(
     x, 

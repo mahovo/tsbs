@@ -430,8 +430,11 @@ hmm_bootstrap_old <- function(
     result$states <- states
 
     ## Extract and store smoothed probabilities for plotting
+    ## type = "viterbi" - Returns the most likely state sequence (used for $state)
+    ## type = "smoothing" - Returns smoothed state probabilities P(S_t | all data) 
+    ## (used for $S1, $S2, etc.)
     result$smoothed_probabilities <- tryCatch({
-      post <- depmixS4::posterior(fit)
+      post <- depmixS4::posterior(fit, type = "smoothing")
       prob_cols <- grep("^S", names(post), value = TRUE)
       as.matrix(post[, prob_cols])
     }, error = function(e) NULL)
@@ -685,7 +688,7 @@ hmm_bootstrap <- function(
 }
 
 
-#' Gaussian HMM Bootstrap (Original Implementation)
+#' Gaussian HMM Bootstran
 #'
 #' Internal function implementing the original Gaussian HMM bootstrap via
 #' depmixS4. This preserves the original behavior for backward compatibility.
@@ -888,7 +891,7 @@ hmm_bootstrap <- function(
     result$states <- states
     
     result$smoothed_probabilities <- tryCatch({
-      post <- depmixS4::posterior(fit)
+      post <- depmixS4::posterior(fit, type = "smoothing")
       prob_cols <- grep("^S", names(post), value = TRUE)
       as.matrix(post[, prob_cols])
     }, error = function(e) NULL)
