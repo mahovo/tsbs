@@ -52,7 +52,7 @@ summary(result$diagnostics)
 #>   Original series length: 300 
 #>   Number of variables: 1 
 #>   Number of replicates: 100 
-#>   Generated: 2026-01-31 08:44:41 
+#>   Generated: 2026-01-31 10:05:43 
 #> 
 #> CONFIGURATION PARAMETERS:
 #>   bs_type: moving
@@ -160,7 +160,7 @@ summary(result$diagnostics)
 #>   Original series length: 300 
 #>   Number of variables: 1 
 #>   Number of replicates: 100 
-#>   Generated: 2026-01-31 08:44:41 
+#>   Generated: 2026-01-31 10:05:43 
 #> 
 #> CONFIGURATION PARAMETERS:
 #>   bs_type: moving
@@ -466,7 +466,7 @@ summary(result_mbb$diagnostics)
 #>   Original series length: 200 
 #>   Number of variables: 1 
 #>   Number of replicates: 100 
-#>   Generated: 2026-01-31 08:44:44 
+#>   Generated: 2026-01-31 10:05:45 
 #> 
 #> CONFIGURATION PARAMETERS:
 #>   bs_type: moving
@@ -549,7 +549,7 @@ summary(result_sb$diagnostics)
 #>   Original series length: 200 
 #>   Number of variables: 1 
 #>   Number of replicates: 100 
-#>   Generated: 2026-01-31 08:44:45 
+#>   Generated: 2026-01-31 10:05:46 
 #> 
 #> CONFIGURATION PARAMETERS:
 #>   bs_type: stationary
@@ -647,7 +647,7 @@ summary(result_tapered$diagnostics)
 #>   Original series length: 200 
 #>   Number of variables: 1 
 #>   Number of replicates: 50 
-#>   Generated: 2026-01-31 08:44:46 
+#>   Generated: 2026-01-31 10:05:47 
 #> 
 #> CONFIGURATION PARAMETERS:
 #>   bs_type: moving
@@ -730,7 +730,7 @@ summary(result_wild$diagnostics)
 #>   Original series length: 150 
 #>   Number of variables: 1 
 #>   Number of replicates: 200 
-#>   Generated: 2026-01-31 08:44:46 
+#>   Generated: 2026-01-31 10:05:48 
 #> 
 #> CONFIGURATION PARAMETERS:
 #>   bs_type: wild
@@ -820,7 +820,7 @@ summary(result_mv$diagnostics)
 #>   Original series length: 200 
 #>   Number of variables: 2 
 #>   Number of replicates: 100 
-#>   Generated: 2026-01-31 08:44:47 
+#>   Generated: 2026-01-31 10:05:48 
 #> 
 #> CONFIGURATION PARAMETERS:
 #>   bs_type: moving

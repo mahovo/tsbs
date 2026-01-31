@@ -64,7 +64,7 @@
                         <h4 data-toc-skip class="author">Martin Hoshi
 Vognsen</h4>
             
-            <h4 data-toc-skip class="date">08:45 31 January 2026</h4>
+            <h4 data-toc-skip class="date">10:06 31 January 2026</h4>
       
 
       <div class="d-none name"><code>portfolio-optimization-demo.Rmd</code></div>
@@ -982,11 +982,11 @@ GOGARCH models.</p>
 <span><span class="co">## </span></span>
 <span><span class="co">## |Asset |   Mean|     SD| CI_Lower| CI_Upper| CI_Width|</span></span>
 <span><span class="co">## |:-----|------:|------:|--------:|--------:|--------:|</span></span>
-<span><span class="co">## |SPY   | 0.0711| 0.0173|   0.0496|   0.1079|   0.0583|</span></span>
-<span><span class="co">## |EFA   | 0.0817| 0.0217|   0.0543|   0.1267|   0.0724|</span></span>
-<span><span class="co">## |BND   | 0.6115| 0.1222|   0.4093|   0.6932|   0.2839|</span></span>
-<span><span class="co">## |GLD   | 0.1607| 0.0671|   0.1143|   0.2713|   0.1570|</span></span>
-<span><span class="co">## |VNQ   | 0.0750| 0.0260|   0.0511|   0.1184|   0.0673|</span></span></code></pre>
+<span><span class="co">## |SPY   | 0.0692| 0.0224|   0.0332|   0.1094|   0.0763|</span></span>
+<span><span class="co">## |EFA   | 0.0798| 0.0129|   0.0612|   0.1078|   0.0466|</span></span>
+<span><span class="co">## |BND   | 0.6309| 0.0476|   0.5446|   0.7204|   0.1757|</span></span>
+<span><span class="co">## |GLD   | 0.1473| 0.0226|   0.1025|   0.1801|   0.0776|</span></span>
+<span><span class="co">## |VNQ   | 0.0729| 0.0127|   0.0552|   0.1002|   0.0450|</span></span></code></pre>
 <div class="sourceCode" id="cb60"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="kw">if</span> <span class="op">(</span><span class="op">!</span><span class="fu"><a href="https://rdrr.io/r/base/NULL.html" class="external-link">is.null</a></span><span class="op">(</span><span class="va">summary_cgarch</span><span class="op">)</span><span class="op">)</span> <span class="op">{</span></span>
 <span>  <span class="fu"><a href="https://rdrr.io/r/base/cat.html" class="external-link">cat</a></span><span class="op">(</span><span class="st">"\nCGARCH Model:\n"</span><span class="op">)</span></span>
@@ -999,11 +999,11 @@ GOGARCH models.</p>
 <span><span class="co">## </span></span>
 <span><span class="co">## |Asset |   Mean|     SD| CI_Lower| CI_Upper| CI_Width|</span></span>
 <span><span class="co">## |:-----|------:|------:|--------:|--------:|--------:|</span></span>
-<span><span class="co">## |SPY   | 0.0682| 0.0123|   0.0472|   0.0995|   0.0523|</span></span>
-<span><span class="co">## |EFA   | 0.0790| 0.0138|   0.0546|   0.1023|   0.0477|</span></span>
-<span><span class="co">## |BND   | 0.6317| 0.0386|   0.5663|   0.6954|   0.1291|</span></span>
-<span><span class="co">## |GLD   | 0.1504| 0.0208|   0.1183|   0.1895|   0.0712|</span></span>
-<span><span class="co">## |VNQ   | 0.0707| 0.0107|   0.0547|   0.0910|   0.0363|</span></span></code></pre>
+<span><span class="co">## |SPY   | 0.0733| 0.0231|   0.0519|   0.1398|   0.0879|</span></span>
+<span><span class="co">## |EFA   | 0.0841| 0.0216|   0.0622|   0.1337|   0.0715|</span></span>
+<span><span class="co">## |BND   | 0.6050| 0.1221|   0.3992|   0.6957|   0.2965|</span></span>
+<span><span class="co">## |GLD   | 0.1598| 0.0580|   0.1124|   0.2643|   0.1519|</span></span>
+<span><span class="co">## |VNQ   | 0.0778| 0.0350|   0.0612|   0.1364|   0.0752|</span></span></code></pre>
 <div class="sourceCode" id="cb62"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="kw">if</span> <span class="op">(</span><span class="op">!</span><span class="fu"><a href="https://rdrr.io/r/base/NULL.html" class="external-link">is.null</a></span><span class="op">(</span><span class="va">summary_gogarch</span><span class="op">)</span><span class="op">)</span> <span class="op">{</span></span>
 <span>  <span class="fu"><a href="https://rdrr.io/r/base/cat.html" class="external-link">cat</a></span><span class="op">(</span><span class="st">"\nGOGARCH Model:\n"</span><span class="op">)</span></span>
@@ -1016,11 +1016,11 @@ GOGARCH models.</p>
 <span><span class="co">## </span></span>
 <span><span class="co">## |Asset |   Mean|     SD| CI_Lower| CI_Upper| CI_Width|</span></span>
 <span><span class="co">## |:-----|------:|------:|--------:|--------:|--------:|</span></span>
-<span><span class="co">## |SPY   | 0.0744| 0.0395|   0.0455|   0.1427|   0.0971|</span></span>
-<span><span class="co">## |EFA   | 0.0911| 0.0589|   0.0642|   0.2016|   0.1374|</span></span>
-<span><span class="co">## |BND   | 0.6144| 0.1245|   0.3776|   0.7257|   0.3482|</span></span>
-<span><span class="co">## |GLD   | 0.1412| 0.0449|   0.0000|   0.1938|   0.1938|</span></span>
-<span><span class="co">## |VNQ   | 0.0789| 0.0500|   0.0478|   0.1745|   0.1268|</span></span></code></pre>
+<span><span class="co">## |SPY   | 0.0887| 0.0465|   0.0505|   0.2153|   0.1648|</span></span>
+<span><span class="co">## |EFA   | 0.0969| 0.0545|   0.0537|   0.2209|   0.1672|</span></span>
+<span><span class="co">## |BND   | 0.5451| 0.1904|   0.0000|   0.6779|   0.6779|</span></span>
+<span><span class="co">## |GLD   | 0.1749| 0.0878|   0.0699|   0.4385|   0.3686|</span></span>
+<span><span class="co">## |VNQ   | 0.0944| 0.0635|   0.0579|   0.2637|   0.2058|</span></span></code></pre>
 <div class="sourceCode" id="cb64"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="co">## Compare uncertainty across available models (works with 2+ models)</span></span>
 <span><span class="kw">if</span> <span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/length.html" class="external-link">length</a></span><span class="op">(</span><span class="va">available_summaries</span><span class="op">)</span> <span class="op">&gt;=</span> <span class="fl">2</span><span class="op">)</span> <span class="op">{</span></span>
@@ -1047,16 +1047,16 @@ GOGARCH models.</p>
 <span><span class="co">## </span></span>
 <span><span class="co">## |Asset |    DCC| CGARCH| GOGARCH|</span></span>
 <span><span class="co">## |:-----|------:|------:|-------:|</span></span>
-<span><span class="co">## |SPY   | 0.0583| 0.0523|  0.0971|</span></span>
-<span><span class="co">## |EFA   | 0.0724| 0.0477|  0.1374|</span></span>
-<span><span class="co">## |BND   | 0.2839| 0.1291|  0.3482|</span></span>
-<span><span class="co">## |GLD   | 0.1570| 0.0712|  0.1938|</span></span>
-<span><span class="co">## |VNQ   | 0.0673| 0.0363|  0.1268|</span></span>
+<span><span class="co">## |SPY   | 0.0763| 0.0879|  0.1648|</span></span>
+<span><span class="co">## |EFA   | 0.0466| 0.0715|  0.1672|</span></span>
+<span><span class="co">## |BND   | 0.1757| 0.2965|  0.6779|</span></span>
+<span><span class="co">## |GLD   | 0.0776| 0.1519|  0.3686|</span></span>
+<span><span class="co">## |VNQ   | 0.0450| 0.0752|  0.2058|</span></span>
 <span><span class="co">## </span></span>
 <span><span class="co">## Average CI Width by Model:</span></span>
-<span><span class="co">##   DCC: 0.1278</span></span>
-<span><span class="co">##   CGARCH: 0.0673</span></span>
-<span><span class="co">##   GOGARCH: 0.1807</span></span></code></pre>
+<span><span class="co">##   DCC: 0.0842</span></span>
+<span><span class="co">##   CGARCH: 0.1366</span></span>
+<span><span class="co">##   GOGARCH: 0.3169</span></span></code></pre>
 <div class="sourceCode" id="cb66"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="co">## =============================================================================</span></span>
 <span><span class="co">## VISUALIZATION: Multi-Model Weight Comparison</span></span>
@@ -1235,7 +1235,7 @@ of bootstrap characteristics.</p>
 <span><span class="co">##   Original series length: 252 </span></span>
 <span><span class="co">##   Number of variables: 5 </span></span>
 <span><span class="co">##   Number of replicates: 30 </span></span>
-<span><span class="co">##   Generated: 2026-01-31 09:48:50 </span></span>
+<span><span class="co">##   Generated: 2026-01-31 11:07:34 </span></span>
 <span><span class="co">## </span></span>
 <span><span class="co">## CONFIGURATION PARAMETERS:</span></span>
 <span><span class="co">##   block_length: 10</span></span>
@@ -1324,7 +1324,7 @@ of bootstrap characteristics.</p>
 <span><span class="co">##   Original series length: 252 </span></span>
 <span><span class="co">##   Number of variables: 5 </span></span>
 <span><span class="co">##   Number of replicates: 30 </span></span>
-<span><span class="co">##   Generated: 2026-01-31 09:48:51 </span></span>
+<span><span class="co">##   Generated: 2026-01-31 11:07:34 </span></span>
 <span><span class="co">## </span></span>
 <span><span class="co">## CONFIGURATION PARAMETERS:</span></span>
 <span><span class="co">##   p: 0.1</span></span>
@@ -1637,26 +1637,26 @@ replicates using the coefficient of variation (CV).</p>
 <span><span class="co">## </span></span>
 <span><span class="co">## |Model   |Asset |    CV|Stability |</span></span>
 <span><span class="co">## |:-------|:-----|-----:|:---------|</span></span>
-<span><span class="co">## |DCC     |SPY   | 0.243|Stable    |</span></span>
-<span><span class="co">## |DCC     |EFA   | 0.266|Stable    |</span></span>
-<span><span class="co">## |DCC     |BND   | 0.200|Stable    |</span></span>
-<span><span class="co">## |DCC     |GLD   | 0.418|Moderate  |</span></span>
-<span><span class="co">## |DCC     |VNQ   | 0.346|Moderate  |</span></span>
-<span><span class="co">## |CGARCH  |SPY   | 0.181|Stable    |</span></span>
-<span><span class="co">## |CGARCH  |EFA   | 0.174|Stable    |</span></span>
-<span><span class="co">## |CGARCH  |BND   | 0.061|Stable    |</span></span>
-<span><span class="co">## |CGARCH  |GLD   | 0.139|Stable    |</span></span>
-<span><span class="co">## |CGARCH  |VNQ   | 0.151|Stable    |</span></span>
-<span><span class="co">## |GOGARCH |SPY   | 0.531|Moderate  |</span></span>
-<span><span class="co">## |GOGARCH |EFA   | 0.647|Unstable  |</span></span>
-<span><span class="co">## |GOGARCH |BND   | 0.203|Stable    |</span></span>
-<span><span class="co">## |GOGARCH |GLD   | 0.318|Moderate  |</span></span>
-<span><span class="co">## |GOGARCH |VNQ   | 0.633|Unstable  |</span></span>
+<span><span class="co">## |DCC     |SPY   | 0.323|Moderate  |</span></span>
+<span><span class="co">## |DCC     |EFA   | 0.161|Stable    |</span></span>
+<span><span class="co">## |DCC     |BND   | 0.075|Stable    |</span></span>
+<span><span class="co">## |DCC     |GLD   | 0.153|Stable    |</span></span>
+<span><span class="co">## |DCC     |VNQ   | 0.174|Stable    |</span></span>
+<span><span class="co">## |CGARCH  |SPY   | 0.316|Moderate  |</span></span>
+<span><span class="co">## |CGARCH  |EFA   | 0.257|Stable    |</span></span>
+<span><span class="co">## |CGARCH  |BND   | 0.202|Stable    |</span></span>
+<span><span class="co">## |CGARCH  |GLD   | 0.363|Moderate  |</span></span>
+<span><span class="co">## |CGARCH  |VNQ   | 0.450|Moderate  |</span></span>
+<span><span class="co">## |GOGARCH |SPY   | 0.525|Moderate  |</span></span>
+<span><span class="co">## |GOGARCH |EFA   | 0.562|Moderate  |</span></span>
+<span><span class="co">## |GOGARCH |BND   | 0.349|Moderate  |</span></span>
+<span><span class="co">## |GOGARCH |GLD   | 0.502|Moderate  |</span></span>
+<span><span class="co">## |GOGARCH |VNQ   | 0.673|Unstable  |</span></span>
 <span><span class="co">## </span></span>
 <span><span class="co">## Stability Summary by Model:</span></span>
-<span><span class="co">##   DCC: Mean CV = 0.295, 3 Stable, 2 Moderate, 0 Unstable</span></span>
-<span><span class="co">##   CGARCH: Mean CV = 0.141, 5 Stable, 0 Moderate, 0 Unstable</span></span>
-<span><span class="co">##   GOGARCH: Mean CV = 0.466, 1 Stable, 2 Moderate, 2 Unstable</span></span>
+<span><span class="co">##   DCC: Mean CV = 0.177, 4 Stable, 1 Moderate, 0 Unstable</span></span>
+<span><span class="co">##   CGARCH: Mean CV = 0.318, 2 Stable, 3 Moderate, 0 Unstable</span></span>
+<span><span class="co">##   GOGARCH: Mean CV = 0.522, 0 Stable, 4 Moderate, 1 Unstable</span></span>
 <span><span class="co">## </span></span>
 <span><span class="co">## Interpretation:</span></span>
 <span><span class="co">##   Weight estimates show moderate variability across bootstrap replicates.</span></span>
@@ -1804,19 +1804,19 @@ replicates using the coefficient of variation (CV).</p>
 <span><span class="co">## Performance distributions from converged models:</span></span>
 <span><span class="co">## </span></span>
 <span><span class="co">## DCC Performance Distribution:</span></span>
-<span><span class="co">##   Ann_Return: Median=18.64, 95% CI=[15.58, 24.40]</span></span>
-<span><span class="co">##   Ann_Vol: Median=2.97, 95% CI=[2.78, 4.17]</span></span>
-<span><span class="co">##   Sharpe: Median=6.13, 95% CI=[5.09, 7.06]</span></span>
+<span><span class="co">##   Ann_Return: Median=18.29, 95% CI=[15.00, 23.45]</span></span>
+<span><span class="co">##   Ann_Vol: Median=3.02, 95% CI=[2.69, 3.38]</span></span>
+<span><span class="co">##   Sharpe: Median=6.19, 95% CI=[5.15, 7.09]</span></span>
 <span><span class="co">## </span></span>
 <span><span class="co">## CGARCH Performance Distribution:</span></span>
-<span><span class="co">##   Ann_Return: Median=18.40, 95% CI=[15.68, 22.56]</span></span>
-<span><span class="co">##   Ann_Vol: Median=2.99, 95% CI=[2.76, 3.30]</span></span>
-<span><span class="co">##   Sharpe: Median=6.08, 95% CI=[5.21, 7.02]</span></span>
+<span><span class="co">##   Ann_Return: Median=18.27, 95% CI=[16.67, 28.13]</span></span>
+<span><span class="co">##   Ann_Vol: Median=3.05, 95% CI=[2.79, 4.23]</span></span>
+<span><span class="co">##   Sharpe: Median=6.08, 95% CI=[5.45, 7.41]</span></span>
 <span><span class="co">## </span></span>
 <span><span class="co">## GOGARCH Performance Distribution:</span></span>
-<span><span class="co">##   Ann_Return: Median=18.39, 95% CI=[15.31, 33.72]</span></span>
-<span><span class="co">##   Ann_Vol: Median=3.00, 95% CI=[2.63, 5.15]</span></span>
-<span><span class="co">##   Sharpe: Median=6.20, 95% CI=[4.93, 7.38]</span></span></code></pre>
+<span><span class="co">##   Ann_Return: Median=18.90, 95% CI=[15.85, 44.21]</span></span>
+<span><span class="co">##   Ann_Vol: Median=3.15, 95% CI=[2.80, 7.38]</span></span>
+<span><span class="co">##   Sharpe: Median=6.12, 95% CI=[4.87, 7.26]</span></span></code></pre>
 <div class="sourceCode" id="cb128"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="co">## Visualization - works with any number of available models</span></span>
 <span><span class="kw">if</span> <span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/length.html" class="external-link">length</a></span><span class="op">(</span><span class="va">available_perf</span><span class="op">)</span> <span class="op">&gt;=</span> <span class="fl">1</span><span class="op">)</span> <span class="op">{</span></span>
@@ -1953,44 +1953,44 @@ replicates using the coefficient of variation (CV).</p>
 <span><span class="co">## </span></span>
 <span><span class="co">## |Asset | Point| Boot_Mean| Boot_Median| Winsorized| Conservative|</span></span>
 <span><span class="co">## |:-----|-----:|---------:|-----------:|----------:|------------:|</span></span>
-<span><span class="co">## |SPY   | 0.069|     0.071|       0.066|      0.069|        0.065|</span></span>
-<span><span class="co">## |EFA   | 0.080|     0.082|       0.082|      0.079|        0.078|</span></span>
-<span><span class="co">## |BND   | 0.627|     0.611|       0.635|      0.630|        0.646|</span></span>
-<span><span class="co">## |GLD   | 0.153|     0.161|       0.149|      0.150|        0.142|</span></span>
-<span><span class="co">## |VNQ   | 0.071|     0.075|       0.072|      0.072|        0.069|</span></span>
+<span><span class="co">## |SPY   | 0.069|     0.069|       0.065|      0.069|        0.065|</span></span>
+<span><span class="co">## |EFA   | 0.080|     0.080|       0.078|      0.079|        0.077|</span></span>
+<span><span class="co">## |BND   | 0.627|     0.631|       0.629|      0.631|        0.647|</span></span>
+<span><span class="co">## |GLD   | 0.153|     0.147|       0.151|      0.149|        0.142|</span></span>
+<span><span class="co">## |VNQ   | 0.071|     0.073|       0.070|      0.072|        0.069|</span></span>
 <span><span class="co">## </span></span>
 <span><span class="co">## --- CGARCH Model ---</span></span>
 <span><span class="co">## </span></span>
 <span><span class="co">## </span></span>
 <span><span class="co">## |Asset | Point| Boot_Mean| Boot_Median| Winsorized| Conservative|</span></span>
 <span><span class="co">## |:-----|-----:|---------:|-----------:|----------:|------------:|</span></span>
-<span><span class="co">## |SPY   | 0.069|     0.068|       0.068|      0.067|        0.067|</span></span>
-<span><span class="co">## |EFA   | 0.080|     0.079|       0.077|      0.079|        0.076|</span></span>
-<span><span class="co">## |BND   | 0.627|     0.632|       0.634|      0.632|        0.644|</span></span>
-<span><span class="co">## |GLD   | 0.153|     0.150|       0.147|      0.149|        0.145|</span></span>
-<span><span class="co">## |VNQ   | 0.071|     0.071|       0.071|      0.070|        0.068|</span></span>
+<span><span class="co">## |SPY   | 0.069|     0.073|       0.066|      0.068|        0.065|</span></span>
+<span><span class="co">## |EFA   | 0.080|     0.084|       0.078|      0.081|        0.078|</span></span>
+<span><span class="co">## |BND   | 0.627|     0.605|       0.632|      0.623|        0.641|</span></span>
+<span><span class="co">## |GLD   | 0.153|     0.160|       0.147|      0.151|        0.142|</span></span>
+<span><span class="co">## |VNQ   | 0.071|     0.078|       0.070|      0.071|        0.074|</span></span>
 <span><span class="co">## </span></span>
 <span><span class="co">## --- GOGARCH Model ---</span></span>
 <span><span class="co">## </span></span>
 <span><span class="co">## </span></span>
 <span><span class="co">## |Asset | Point| Boot_Mean| Boot_Median| Winsorized| Conservative|</span></span>
 <span><span class="co">## |:-----|-----:|---------:|-----------:|----------:|------------:|</span></span>
-<span><span class="co">## |SPY   | 0.069|     0.074|       0.067|      0.068|        0.063|</span></span>
-<span><span class="co">## |EFA   | 0.080|     0.091|       0.077|      0.080|        0.078|</span></span>
-<span><span class="co">## |BND   | 0.627|     0.614|       0.637|      0.632|        0.652|</span></span>
-<span><span class="co">## |GLD   | 0.153|     0.141|       0.147|      0.148|        0.142|</span></span>
-<span><span class="co">## |VNQ   | 0.071|     0.079|       0.071|      0.069|        0.065|</span></span>
+<span><span class="co">## |SPY   | 0.069|     0.089|       0.076|      0.079|        0.072|</span></span>
+<span><span class="co">## |EFA   | 0.080|     0.097|       0.087|      0.085|        0.080|</span></span>
+<span><span class="co">## |BND   | 0.627|     0.545|       0.605|      0.596|        0.617|</span></span>
+<span><span class="co">## |GLD   | 0.153|     0.175|       0.161|      0.163|        0.157|</span></span>
+<span><span class="co">## |VNQ   | 0.071|     0.094|       0.076|      0.078|        0.075|</span></span>
 <span><span class="co">## </span></span>
 <span><span class="co">## --- Cross-Model Comparison (Bootstrap Means) ---</span></span>
 <span><span class="co">## </span></span>
 <span><span class="co">## </span></span>
 <span><span class="co">## |Asset | Point|   DCC| CGARCH| GOGARCH|</span></span>
 <span><span class="co">## |:-----|-----:|-----:|------:|-------:|</span></span>
-<span><span class="co">## |SPY   | 0.069| 0.071|  0.068|   0.074|</span></span>
-<span><span class="co">## |EFA   | 0.080| 0.082|  0.079|   0.091|</span></span>
-<span><span class="co">## |BND   | 0.627| 0.611|  0.632|   0.614|</span></span>
-<span><span class="co">## |GLD   | 0.153| 0.161|  0.150|   0.141|</span></span>
-<span><span class="co">## |VNQ   | 0.071| 0.075|  0.071|   0.079|</span></span>
+<span><span class="co">## |SPY   | 0.069| 0.069|  0.073|   0.089|</span></span>
+<span><span class="co">## |EFA   | 0.080| 0.080|  0.084|   0.097|</span></span>
+<span><span class="co">## |BND   | 0.627| 0.631|  0.605|   0.545|</span></span>
+<span><span class="co">## |GLD   | 0.153| 0.147|  0.160|   0.175|</span></span>
+<span><span class="co">## |VNQ   | 0.071| 0.073|  0.078|   0.094|</span></span>
 <span><span class="co">## </span></span>
 <span><span class="co">## The bootstrap means across models are generally consistent, suggesting</span></span>
 <span><span class="co">## the uncertainty estimates are robust to the choice of correlation model.</span></span></code></pre>
@@ -2335,28 +2335,28 @@ Wild bootstrap is designed for heteroskedastic data.</p>
 <pre><code><span><span class="co">## </span></span>
 <span><span class="co">## </span></span>
 <span><span class="co">## ==========================================================</span></span>
-<span><span class="co">## EM Iteration 1... Log-Likelihood: -855.394 (Duration: 00:01:53)</span></span>
+<span><span class="co">## EM Iteration 1... Log-Likelihood: -855.394 (Duration: 00:02:09)</span></span>
 <span><span class="co">## </span></span>
 <span><span class="co">## </span></span>
 <span><span class="co">## ==========================================================</span></span>
-<span><span class="co">## EM Iteration 2... Log-Likelihood: -845.699 (Duration: 00:01:57)</span></span>
+<span><span class="co">## EM Iteration 2... Log-Likelihood: -845.701 (Duration: 00:02:00)</span></span>
 <span><span class="co">## </span></span>
 <span><span class="co">## </span></span>
 <span><span class="co">## ==========================================================</span></span>
-<span><span class="co">## EM Iteration 3... Log-Likelihood: -846.659 (Duration: 00:02:08)</span></span>
+<span><span class="co">## EM Iteration 3... Log-Likelihood: -846.658 (Duration: 00:02:13)</span></span>
 <span><span class="co">## </span></span>
 <span><span class="co">## </span></span>
 <span><span class="co">## ==========================================================</span></span>
-<span><span class="co">## EM Iteration 1... Log-Likelihood: -856.923 (Duration: 00:01:52)</span></span>
+<span><span class="co">## EM Iteration 1... Log-Likelihood: -856.924 (Duration: 00:02:07)</span></span>
 <span><span class="co">## </span></span>
 <span><span class="co">## </span></span>
 <span><span class="co">## ==========================================================</span></span>
-<span><span class="co">## EM Iteration 2... Log-Likelihood: -846.938 (Duration: 00:01:55)</span></span>
+<span><span class="co">## EM Iteration 2... Log-Likelihood: -846.938 (Duration: 00:02:12)</span></span>
 <span><span class="co">## </span></span>
 <span><span class="co">## </span></span>
 <span><span class="co">## ==========================================================</span></span>
 <span><span class="co">## EM Iteration 3...</span></span></code></pre>
-<pre><code><span><span class="co">## Log-Likelihood: -847.706 (Duration: 00:02:13)</span></span></code></pre>
+<pre><code><span><span class="co">## Log-Likelihood: -847.703 (Duration: 00:02:12)</span></span></code></pre>
 <div class="sourceCode" id="cb201"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="kw">if</span> <span class="op">(</span><span class="op">!</span><span class="fu"><a href="https://rdrr.io/r/base/NULL.html" class="external-link">is.null</a></span><span class="op">(</span><span class="va">msgarch_result</span><span class="op">)</span><span class="op">)</span> <span class="va">bootstrap_methods</span><span class="op">[[</span><span class="st">"MS-VARMA-GARCH"</span><span class="op">]</span><span class="op">]</span> <span class="op">&lt;-</span> <span class="va">msgarch_result</span></span>
 <span></span>
@@ -2675,13 +2675,13 @@ of the other bootstrap methods.</p>
 <span><span class="co">## Mean runtime (seconds) by setup and num_boots :</span></span>
 <span><span class="co">## </span></span>
 <span><span class="co">##  Value   HMM Moving Block Plain (iid) Stationary    Wild</span></span>
-<span><span class="co">##      8 0.147     0.000707    0.000794   0.000809 0.00365</span></span>
-<span><span class="co">##     16 0.127     0.001128    0.001200   0.001239 0.00494</span></span>
-<span><span class="co">##     32 0.138     0.001974    0.002111   0.002144 0.00965</span></span>
-<span><span class="co">##     64 0.155     0.005075    0.003892   0.005724 0.01356</span></span>
-<span><span class="co">##    128 0.196     0.015936    0.010104   0.007479 0.02492</span></span>
-<span><span class="co">##    256 0.361     0.015873    0.014351   0.016491 0.05035</span></span>
-<span><span class="co">##    512 0.440     0.030791    0.032325   0.033914 0.09706</span></span></code></pre>
+<span><span class="co">##      8 0.196      0.00074    0.000726   0.000809 0.00330</span></span>
+<span><span class="co">##     16 0.113      0.00113    0.001099   0.001238 0.00432</span></span>
+<span><span class="co">##     32 0.122      0.01398    0.001908   0.003674 0.00676</span></span>
+<span><span class="co">##     64 0.136      0.00443    0.003476   0.004915 0.01128</span></span>
+<span><span class="co">##    128 0.174      0.00714    0.006567   0.007980 0.02463</span></span>
+<span><span class="co">##    256 0.261      0.01712    0.018228   0.019970 0.04025</span></span>
+<span><span class="co">##    512 0.433      0.03401    0.039309   0.102731 0.08424</span></span></code></pre>
 <p><img src="portfolio-optimization-demo_files/figure-html/benchmark_run-1.png" class="r-plt" alt="" width="960"></p>
 <div class="sourceCode" id="cb217"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="co">## Define setups to benchmark (excluding slow MS-VARMA-GARCH for quick demo)</span></span>
@@ -2774,11 +2774,11 @@ of the other bootstrap methods.</p>
 <span><span class="co">## Mean runtime (seconds) by setup and n_boot :</span></span>
 <span><span class="co">## </span></span>
 <span><span class="co">##  Value   HMM Moving Block Plain (iid) Stationary   Wild</span></span>
-<span><span class="co">##     64 0.196      0.00456     0.00483    0.00469 0.0204</span></span>
-<span><span class="co">##    128 0.145      0.00671     0.01109    0.00686 0.0202</span></span>
-<span><span class="co">##    256 0.177      0.00573     0.00594    0.00601 0.0224</span></span>
-<span><span class="co">##    512 0.251      0.00718     0.00769    0.00796 0.0199</span></span>
-<span><span class="co">##   1024 0.431      0.01281     0.01299    0.01478 0.0205</span></span></code></pre>
+<span><span class="co">##     64 0.123      0.00473     0.00434    0.00419 0.0169</span></span>
+<span><span class="co">##    128 0.207      0.00439     0.00469    0.00682 0.0168</span></span>
+<span><span class="co">##    256 0.164      0.00494     0.00833    0.00529 0.0195</span></span>
+<span><span class="co">##    512 0.239      0.00878     0.00889    0.00938 0.0169</span></span>
+<span><span class="co">##   1024 0.430      0.01288     0.01791    0.01428 0.0174</span></span></code></pre>
 <p><img src="portfolio-optimization-demo_files/figure-html/benchmark_run_nboot-1.png" class="r-plt" alt="" width="960"></p>
 <div class="sourceCode" id="cb223"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="co">## Define setups to benchmark (excluding slow MS-VARMA-GARCH for quick demo)</span></span>
@@ -2874,12 +2874,12 @@ of the other bootstrap methods.</p>
 <span><span class="co">## Mean runtime (seconds) by setup and n_assets :</span></span>
 <span><span class="co">## </span></span>
 <span><span class="co">##  Value   HMM Moving Block Plain (iid) Stationary   Wild</span></span>
-<span><span class="co">##      4 0.341      0.00503     0.00529    0.00533 0.0215</span></span>
-<span><span class="co">##      8 0.609      0.00945     0.00820    0.00976 0.0218</span></span>
-<span><span class="co">##     16 0.971      0.01470     0.01576    0.01511 0.0291</span></span>
-<span><span class="co">##     32 1.968      0.02784     0.10479    0.10061 0.0393</span></span>
-<span><span class="co">##     64 2.386      0.12237     0.05383    0.05276 0.0653</span></span>
-<span><span class="co">##    128 5.955      0.10264     0.25046    0.11075 0.1809</span></span></code></pre>
+<span><span class="co">##      4 0.373      0.00433     0.00472    0.00468 0.0162</span></span>
+<span><span class="co">##      8 0.532      0.00883     0.00715    0.00885 0.0185</span></span>
+<span><span class="co">##     16 0.812      0.01158     0.01420    0.01371 0.0269</span></span>
+<span><span class="co">##     32 1.676      0.02517     0.03374    0.09605 0.0356</span></span>
+<span><span class="co">##     64 2.073      0.11823     0.11937    0.04633 0.0661</span></span>
+<span><span class="co">##    128 5.490      0.09393     0.23989    0.16548 0.1690</span></span></code></pre>
 <p><img src="portfolio-optimization-demo_files/figure-html/benchmark_run_nassets-1.png" class="r-plt" alt="" width="960"></p>
 <pre><code><span><span class="co">## </span></span>
 <span><span class="co">## -----------------------------------------------------------------------</span></span>
@@ -3153,7 +3153,7 @@ benchmarking</p>
 <pre><code><span><span class="co">## SESSION INFO</span></span></code></pre>
 <pre><code><span><span class="co">## =======================================================================</span></span></code></pre>
 <pre><code><span><span class="co">## </span></span>
-<span><span class="co">## Vignette completed at: 2026-01-31 10:01:56</span></span></code></pre>
+<span><span class="co">## Vignette completed at: 2026-01-31 11:21:28</span></span></code></pre>
 <pre><code><span><span class="co">## R version: R version 4.5.2 (2025-10-31)</span></span></code></pre>
 </div>
   </main><aside class="col-md-3"><nav id="toc" aria-label="Table of contents"><h2>On this page</h2>

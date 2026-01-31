@@ -24,5 +24,4 @@ list_package_demos()
 #> [3] "ms-varma-garch_inference_demo.Rmd"    
 #> [4] "multivar_garch_comparison.Rmd"        
 #> [5] "portfolio-optimization.Rmd"           
-#> [6] "portfolio-optimization_2.Rmd"         
 ```
