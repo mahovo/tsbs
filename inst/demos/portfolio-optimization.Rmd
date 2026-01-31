@@ -1993,8 +1993,11 @@ hmm_result <- tryCatch({
   result <- tsbs(
     x = y_compare,
     bs_type = "hmm",
-    num_boots = num_boots_compare,
     num_states = 2,
+    num_boots = num_boots_compare,
+    distribution = "sstd",
+    variance_model = "sGARCH",
+    seed = 123,
     func = risk_parity_portfolio,
     apply_func_to = "all"
   )
