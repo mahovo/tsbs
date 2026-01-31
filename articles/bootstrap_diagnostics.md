@@ -43,13 +43,62 @@ x = as.matrix(x),
 
 # View diagnostics summary
 summary(result$diagnostics)
-#>                 Length Class  Mode
-#> meta             5     -none- list
-#> blocks           3     -none- list
-#> series_stats     4     -none- list
-#> original_stats   3     -none- list
-#> method_specific  0     -none- list
-#> config          11     -none- list
+#> ========================================
+#>   tsbs Bootstrap Diagnostics Summary
+#> ========================================
+#> 
+#> BOOTSTRAP CONFIGURATION:
+#>   Bootstrap type: moving 
+#>   Original series length: 300 
+#>   Number of variables: 1 
+#>   Number of replicates: 100 
+#>   Generated: 2026-01-31 08:44:41 
+#> 
+#> CONFIGURATION PARAMETERS:
+#>   bs_type: moving
+#>   block_type: overlapping
+#>   taper_type: NA
+#>   tukey_alpha: NA
+#>   block_length: 10
+#>   n_boot: 300
+#>   num_blocks: NULL (auto-computed)
+#>   num_boots: 100
+#>   p: NULL (auto-computed)
+#>   p_method: NA
+#>   num_states: NA
+#> 
+#> BOOTSTRAP SERIES LENGTHS:
+#>   Min: 300 
+#>   Max: 300 
+#>   Mean: 300 
+#> 
+#> BLOCK LENGTH STATISTICS:
+#>   Total blocks sampled: 2993 
+#>   Mean block length: 10.02 
+#>   SD block length: 0.48 
+#>   Min block length: 10 
+#>   Max block length: 20 
+#>   Median block length: 10 
+#>   25th percentile: 10 
+#>   75th percentile: 10 
+#>   Mean blocks per replicate: 29.93 
+#> 
+#> ORIGINAL vs BOOTSTRAP STATISTICS:
+#> 
+#>   MEANS:
+#>     Variable 1 :
+#>       Original: -0.1558 
+#>       Bootstrap avg: -0.1047 
+#>       Bootstrap SD: 0.1271 
+#>       Bias: 0.0511 
+#> 
+#>   LAG-1 AUTOCORRELATION:
+#>     Variable 1 :
+#>       Original: 0.6094 
+#>       Bootstrap avg: 0.5377 
+#>       Bootstrap SD: 0.0467 
+#> 
+#> ========================================
 ```
 
 ## The Diagnostics Object
@@ -102,13 +151,62 @@ analysis.
 
 ``` r
 summary(result$diagnostics)
-#>                 Length Class  Mode
-#> meta             5     -none- list
-#> blocks           3     -none- list
-#> series_stats     4     -none- list
-#> original_stats   3     -none- list
-#> method_specific  0     -none- list
-#> config          11     -none- list
+#> ========================================
+#>   tsbs Bootstrap Diagnostics Summary
+#> ========================================
+#> 
+#> BOOTSTRAP CONFIGURATION:
+#>   Bootstrap type: moving 
+#>   Original series length: 300 
+#>   Number of variables: 1 
+#>   Number of replicates: 100 
+#>   Generated: 2026-01-31 08:44:41 
+#> 
+#> CONFIGURATION PARAMETERS:
+#>   bs_type: moving
+#>   block_type: overlapping
+#>   taper_type: NA
+#>   tukey_alpha: NA
+#>   block_length: 10
+#>   n_boot: 300
+#>   num_blocks: NULL (auto-computed)
+#>   num_boots: 100
+#>   p: NULL (auto-computed)
+#>   p_method: NA
+#>   num_states: NA
+#> 
+#> BOOTSTRAP SERIES LENGTHS:
+#>   Min: 300 
+#>   Max: 300 
+#>   Mean: 300 
+#> 
+#> BLOCK LENGTH STATISTICS:
+#>   Total blocks sampled: 2993 
+#>   Mean block length: 10.02 
+#>   SD block length: 0.48 
+#>   Min block length: 10 
+#>   Max block length: 20 
+#>   Median block length: 10 
+#>   25th percentile: 10 
+#>   75th percentile: 10 
+#>   Mean blocks per replicate: 29.93 
+#> 
+#> ORIGINAL vs BOOTSTRAP STATISTICS:
+#> 
+#>   MEANS:
+#>     Variable 1 :
+#>       Original: -0.1558 
+#>       Bootstrap avg: -0.1047 
+#>       Bootstrap SD: 0.1271 
+#>       Bias: 0.0511 
+#> 
+#>   LAG-1 AUTOCORRELATION:
+#>     Variable 1 :
+#>       Original: 0.6094 
+#>       Bootstrap avg: 0.5377 
+#>       Bootstrap SD: 0.0467 
+#> 
+#> ========================================
 ```
 
 ### Interpreting the Summary
@@ -359,13 +457,62 @@ result_mbb <- tsbs(
 )
 
 summary(result_mbb$diagnostics)
-#>                 Length Class  Mode
-#> meta             5     -none- list
-#> blocks           3     -none- list
-#> series_stats     4     -none- list
-#> original_stats   3     -none- list
-#> method_specific  0     -none- list
-#> config          11     -none- list
+#> ========================================
+#>   tsbs Bootstrap Diagnostics Summary
+#> ========================================
+#> 
+#> BOOTSTRAP CONFIGURATION:
+#>   Bootstrap type: moving 
+#>   Original series length: 200 
+#>   Number of variables: 1 
+#>   Number of replicates: 100 
+#>   Generated: 2026-01-31 08:44:44 
+#> 
+#> CONFIGURATION PARAMETERS:
+#>   bs_type: moving
+#>   block_type: overlapping
+#>   taper_type: NA
+#>   tukey_alpha: NA
+#>   block_length: 12
+#>   n_boot: 200
+#>   num_blocks: NULL (auto-computed)
+#>   num_boots: 100
+#>   p: NULL (auto-computed)
+#>   p_method: NA
+#>   num_states: NA
+#> 
+#> BOOTSTRAP SERIES LENGTHS:
+#>   Min: 200 
+#>   Max: 200 
+#>   Mean: 200 
+#> 
+#> BLOCK LENGTH STATISTICS:
+#>   Total blocks sampled: 1688 
+#>   Mean block length: 11.85 
+#>   SD block length: 1.38 
+#>   Min block length: 8 
+#>   Max block length: 24 
+#>   Median block length: 12 
+#>   25th percentile: 12 
+#>   75th percentile: 12 
+#>   Mean blocks per replicate: 16.88 
+#> 
+#> ORIGINAL vs BOOTSTRAP STATISTICS:
+#> 
+#>   MEANS:
+#>     Variable 1 :
+#>       Original: -0.0018 
+#>       Bootstrap avg: -0.0176 
+#>       Bootstrap SD: 0.1312 
+#>       Bias: -0.0158 
+#> 
+#>   LAG-1 AUTOCORRELATION:
+#>     Variable 1 :
+#>       Original: 0.5159 
+#>       Bootstrap avg: 0.4697 
+#>       Bootstrap SD: 0.061 
+#> 
+#> ========================================
 ```
 
 **Key diagnostics for moving block bootstrap:**
@@ -393,13 +540,66 @@ result_sb <- tsbs(
 )
 
 summary(result_sb$diagnostics)
-#>                 Length Class  Mode
-#> meta             5     -none- list
-#> blocks           3     -none- list
-#> series_stats     4     -none- list
-#> original_stats   3     -none- list
-#> method_specific  2     -none- list
-#> config          11     -none- list
+#> ========================================
+#>   tsbs Bootstrap Diagnostics Summary
+#> ========================================
+#> 
+#> BOOTSTRAP CONFIGURATION:
+#>   Bootstrap type: stationary 
+#>   Original series length: 200 
+#>   Number of variables: 1 
+#>   Number of replicates: 100 
+#>   Generated: 2026-01-31 08:44:45 
+#> 
+#> CONFIGURATION PARAMETERS:
+#>   bs_type: stationary
+#>   block_type: overlapping
+#>   taper_type: NA
+#>   tukey_alpha: NA
+#>   block_length: NULL (auto-computed)
+#>   n_boot: 200
+#>   num_blocks: NULL (auto-computed)
+#>   num_boots: 100
+#>   p: 0.484146996484453
+#>   p_method: plugin
+#>   num_states: NA
+#> 
+#> BOOTSTRAP SERIES LENGTHS:
+#>   Min: 200 
+#>   Max: 200 
+#>   Mean: 200 
+#> 
+#> BLOCK LENGTH STATISTICS:
+#>   Total blocks sampled: 9796 
+#>   Mean block length: 2.04 
+#>   SD block length: 1.38 
+#>   Min block length: 1 
+#>   Max block length: 11 
+#>   Median block length: 2 
+#>   25th percentile: 1 
+#>   75th percentile: 3 
+#>   Mean blocks per replicate: 97.96 
+#> 
+#> ORIGINAL vs BOOTSTRAP STATISTICS:
+#> 
+#>   MEANS:
+#>     Variable 1 :
+#>       Original: -0.0018 
+#>       Bootstrap avg: 0.0098 
+#>       Bootstrap SD: 0.0901 
+#>       Bias: 0.0116 
+#> 
+#>   LAG-1 AUTOCORRELATION:
+#>     Variable 1 :
+#>       Original: 0.5159 
+#>       Bootstrap avg: 0.2604 
+#>       Bootstrap SD: 0.0864 
+#> 
+#> METHOD-SPECIFIC DIAGNOSTICS:
+#>   p_estimated: 0.484146996484453
+#>   expected_block_length: 2.06548838939686
+#> 
+#> ========================================
 ```
 
 ``` r
@@ -438,13 +638,62 @@ result_tapered <- tsbs(
 )
 
 summary(result_tapered$diagnostics)
-#>                 Length Class  Mode
-#> meta             5     -none- list
-#> blocks           3     -none- list
-#> series_stats     4     -none- list
-#> original_stats   3     -none- list
-#> method_specific  0     -none- list
-#> config          11     -none- list
+#> ========================================
+#>   tsbs Bootstrap Diagnostics Summary
+#> ========================================
+#> 
+#> BOOTSTRAP CONFIGURATION:
+#>   Bootstrap type: moving 
+#>   Original series length: 200 
+#>   Number of variables: 1 
+#>   Number of replicates: 50 
+#>   Generated: 2026-01-31 08:44:46 
+#> 
+#> CONFIGURATION PARAMETERS:
+#>   bs_type: moving
+#>   block_type: tapered
+#>   taper_type: tukey
+#>   tukey_alpha: 0.5
+#>   block_length: 15
+#>   n_boot: 200
+#>   num_blocks: NULL (auto-computed)
+#>   num_boots: 50
+#>   p: NULL (auto-computed)
+#>   p_method: NA
+#>   num_states: NA
+#> 
+#> BOOTSTRAP SERIES LENGTHS:
+#>   Min: 200 
+#>   Max: 200 
+#>   Mean: 200 
+#> 
+#> BLOCK LENGTH STATISTICS:
+#>   Total blocks sampled: 5438 
+#>   Mean block length: 1.84 
+#>   SD block length: 3.21 
+#>   Min block length: 1 
+#>   Max block length: 16 
+#>   Median block length: 1 
+#>   25th percentile: 1 
+#>   75th percentile: 1 
+#>   Mean blocks per replicate: 108.76 
+#> 
+#> ORIGINAL vs BOOTSTRAP STATISTICS:
+#> 
+#>   MEANS:
+#>     Variable 1 :
+#>       Original: -0.0018 
+#>       Bootstrap avg: -0.016 
+#>       Bootstrap SD: 0.1457 
+#>       Bias: -0.0142 
+#> 
+#>   LAG-1 AUTOCORRELATION:
+#>     Variable 1 :
+#>       Original: 0.5159 
+#>       Bootstrap avg: 0.4533 
+#>       Bootstrap SD: 0.0899 
+#> 
+#> ========================================
 ```
 
 **Note**: Tapered blocks modify values at block boundaries, which
@@ -472,13 +721,51 @@ result_wild <- tsbs(
 )
 
 summary(result_wild$diagnostics)
-#>                 Length Class  Mode
-#> meta             5     -none- list
-#> blocks           3     -none- list
-#> series_stats     4     -none- list
-#> original_stats   3     -none- list
-#> method_specific  0     -none- list
-#> config          11     -none- list
+#> ========================================
+#>   tsbs Bootstrap Diagnostics Summary
+#> ========================================
+#> 
+#> BOOTSTRAP CONFIGURATION:
+#>   Bootstrap type: wild 
+#>   Original series length: 150 
+#>   Number of variables: 1 
+#>   Number of replicates: 200 
+#>   Generated: 2026-01-31 08:44:46 
+#> 
+#> CONFIGURATION PARAMETERS:
+#>   bs_type: wild
+#>   block_type: overlapping
+#>   taper_type: NA
+#>   tukey_alpha: NA
+#>   block_length: NULL (auto-computed)
+#>   n_boot: NULL (auto-computed)
+#>   num_blocks: NULL (auto-computed)
+#>   num_boots: 200
+#>   p: NULL (auto-computed)
+#>   p_method: NA
+#>   num_states: NA
+#> 
+#> BOOTSTRAP SERIES LENGTHS:
+#>   Min: 150 
+#>   Max: 150 
+#>   Mean: 150 
+#> 
+#> ORIGINAL vs BOOTSTRAP STATISTICS:
+#> 
+#>   MEANS:
+#>     Variable 1 :
+#>       Original: 0.0665 
+#>       Bootstrap avg: 0.0024 
+#>       Bootstrap SD: 0.0811 
+#>       Bias: -0.0641 
+#> 
+#>   LAG-1 AUTOCORRELATION:
+#>     Variable 1 :
+#>       Original: -0.0167 
+#>       Bootstrap avg: -0.0156 
+#>       Bootstrap SD: 0.0919 
+#> 
+#> ========================================
 ```
 
 **Key diagnostics for wild bootstrap:**
@@ -524,13 +811,71 @@ result_mv <- tsbs(
 )
 
 summary(result_mv$diagnostics)
-#>                 Length Class  Mode
-#> meta             5     -none- list
-#> blocks           3     -none- list
-#> series_stats     4     -none- list
-#> original_stats   3     -none- list
-#> method_specific  0     -none- list
-#> config          11     -none- list
+#> ========================================
+#>   tsbs Bootstrap Diagnostics Summary
+#> ========================================
+#> 
+#> BOOTSTRAP CONFIGURATION:
+#>   Bootstrap type: moving 
+#>   Original series length: 200 
+#>   Number of variables: 2 
+#>   Number of replicates: 100 
+#>   Generated: 2026-01-31 08:44:47 
+#> 
+#> CONFIGURATION PARAMETERS:
+#>   bs_type: moving
+#>   block_type: overlapping
+#>   taper_type: NA
+#>   tukey_alpha: NA
+#>   block_length: 10
+#>   n_boot: 200
+#>   num_blocks: NULL (auto-computed)
+#>   num_boots: 100
+#>   p: NULL (auto-computed)
+#>   p_method: NA
+#>   num_states: NA
+#> 
+#> BOOTSTRAP SERIES LENGTHS:
+#>   Min: 200 
+#>   Max: 200 
+#>   Mean: 200 
+#> 
+#> BLOCK LENGTH STATISTICS:
+#>   Total blocks sampled: 1993 
+#>   Mean block length: 10.04 
+#>   SD block length: 0.59 
+#>   Min block length: 10 
+#>   Max block length: 20 
+#>   Median block length: 10 
+#>   25th percentile: 10 
+#>   75th percentile: 10 
+#>   Mean blocks per replicate: 19.93 
+#> 
+#> ORIGINAL vs BOOTSTRAP STATISTICS:
+#> 
+#>   MEANS:
+#>     Variable 1 :
+#>       Original: 0.0191 
+#>       Bootstrap avg: 0.0175 
+#>       Bootstrap SD: 0.0449 
+#>       Bias: -0.0016 
+#>     Variable 2 :
+#>       Original: 0.0171 
+#>       Bootstrap avg: 0.0259 
+#>       Bootstrap SD: 0.0661 
+#>       Bias: 0.0088 
+#> 
+#>   LAG-1 AUTOCORRELATION:
+#>     Variable 1 :
+#>       Original: 0.3195 
+#>       Bootstrap avg: 0.2934 
+#>       Bootstrap SD: 0.0634 
+#>     Variable 2 :
+#>       Original: 0.3538 
+#>       Bootstrap avg: 0.2995 
+#>       Bootstrap SD: 0.0883 
+#> 
+#> ========================================
 ```
 
 ``` r
@@ -769,7 +1114,7 @@ sessionInfo()
 #>   [5] fastmap_1.2.0               tsgarch_1.0.3              
 #>   [7] JADE_2.0-4                  fontquiver_0.2.1           
 #>   [9] GeneralizedHyperbolic_0.8-7 digest_0.6.39              
-#>  [11] timechange_0.3.0            lifecycle_1.0.5            
+#>  [11] timechange_0.4.0            lifecycle_1.0.5            
 #>  [13] cluster_2.1.8.1             tsmarch_1.0.0              
 #>  [15] Rsolnp_2.0.1                mev_2.1                    
 #>  [17] magrittr_2.0.4              compiler_4.5.2             

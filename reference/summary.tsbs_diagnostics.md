@@ -5,7 +5,8 @@ Summary Method for Bootstrap Diagnostics
 ## Usage
 
 ``` r
-summary.tsbs_diagnostics(object, ...)
+# S3 method for class 'tsbs_diagnostics'
+summary(object, ...)
 ```
 
 ## Arguments

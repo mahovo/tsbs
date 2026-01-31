@@ -955,11 +955,11 @@ if (!is.null(summary_dcc)) {
     ## 
     ## |Asset |   Mean|     SD| CI_Lower| CI_Upper| CI_Width|
     ## |:-----|------:|------:|--------:|--------:|--------:|
-    ## |SPY   | 0.0763| 0.0184|   0.0534|   0.1104|   0.0570|
-    ## |EFA   | 0.0864| 0.0209|   0.0644|   0.1303|   0.0659|
-    ## |BND   | 0.5842| 0.1196|   0.3732|   0.6822|   0.3090|
-    ## |GLD   | 0.1754| 0.0704|   0.1172|   0.3010|   0.1838|
-    ## |VNQ   | 0.0778| 0.0223|   0.0519|   0.1180|   0.0661|
+    ## |SPY   | 0.0711| 0.0173|   0.0496|   0.1079|   0.0583|
+    ## |EFA   | 0.0817| 0.0217|   0.0543|   0.1267|   0.0724|
+    ## |BND   | 0.6115| 0.1222|   0.4093|   0.6932|   0.2839|
+    ## |GLD   | 0.1607| 0.0671|   0.1143|   0.2713|   0.1570|
+    ## |VNQ   | 0.0750| 0.0260|   0.0511|   0.1184|   0.0673|
 
 ``` r
 if (!is.null(summary_cgarch)) {
@@ -975,11 +975,11 @@ if (!is.null(summary_cgarch)) {
     ## 
     ## |Asset |   Mean|     SD| CI_Lower| CI_Upper| CI_Width|
     ## |:-----|------:|------:|--------:|--------:|--------:|
-    ## |SPY   | 0.0617| 0.0145|   0.0322|   0.0795|   0.0473|
-    ## |EFA   | 0.0746| 0.0177|   0.0364|   0.0979|   0.0616|
-    ## |BND   | 0.6427| 0.0348|   0.5841|   0.6983|   0.1142|
-    ## |GLD   | 0.1510| 0.0241|   0.1191|   0.1994|   0.0804|
-    ## |VNQ   | 0.0700| 0.0133|   0.0549|   0.0975|   0.0426|
+    ## |SPY   | 0.0682| 0.0123|   0.0472|   0.0995|   0.0523|
+    ## |EFA   | 0.0790| 0.0138|   0.0546|   0.1023|   0.0477|
+    ## |BND   | 0.6317| 0.0386|   0.5663|   0.6954|   0.1291|
+    ## |GLD   | 0.1504| 0.0208|   0.1183|   0.1895|   0.0712|
+    ## |VNQ   | 0.0707| 0.0107|   0.0547|   0.0910|   0.0363|
 
 ``` r
 if (!is.null(summary_gogarch)) {
@@ -995,11 +995,11 @@ if (!is.null(summary_gogarch)) {
     ## 
     ## |Asset |   Mean|     SD| CI_Lower| CI_Upper| CI_Width|
     ## |:-----|------:|------:|--------:|--------:|--------:|
-    ## |SPY   | 0.0831| 0.0485|   0.0307|   0.2169|   0.1862|
-    ## |EFA   | 0.0946| 0.0590|   0.0404|   0.2346|   0.1942|
-    ## |BND   | 0.5626| 0.1967|   0.0000|   0.6977|   0.6977|
-    ## |GLD   | 0.1670| 0.0828|   0.0674|   0.4236|   0.3562|
-    ## |VNQ   | 0.0928| 0.0675|   0.0512|   0.2662|   0.2150|
+    ## |SPY   | 0.0744| 0.0395|   0.0455|   0.1427|   0.0971|
+    ## |EFA   | 0.0911| 0.0589|   0.0642|   0.2016|   0.1374|
+    ## |BND   | 0.6144| 0.1245|   0.3776|   0.7257|   0.3482|
+    ## |GLD   | 0.1412| 0.0449|   0.0000|   0.1938|   0.1938|
+    ## |VNQ   | 0.0789| 0.0500|   0.0478|   0.1745|   0.1268|
 
 ``` r
 ## Compare uncertainty across available models (works with 2+ models)
@@ -1029,16 +1029,16 @@ if (length(available_summaries) >= 2) {
     ## 
     ## |Asset |    DCC| CGARCH| GOGARCH|
     ## |:-----|------:|------:|-------:|
-    ## |SPY   | 0.0570| 0.0473|  0.1862|
-    ## |EFA   | 0.0659| 0.0616|  0.1942|
-    ## |BND   | 0.3090| 0.1142|  0.6977|
-    ## |GLD   | 0.1838| 0.0804|  0.3562|
-    ## |VNQ   | 0.0661| 0.0426|  0.2150|
+    ## |SPY   | 0.0583| 0.0523|  0.0971|
+    ## |EFA   | 0.0724| 0.0477|  0.1374|
+    ## |BND   | 0.2839| 0.1291|  0.3482|
+    ## |GLD   | 0.1570| 0.0712|  0.1938|
+    ## |VNQ   | 0.0673| 0.0363|  0.1268|
     ## 
     ## Average CI Width by Model:
-    ##   DCC: 0.1364
-    ##   CGARCH: 0.0692
-    ##   GOGARCH: 0.3299
+    ##   DCC: 0.1278
+    ##   CGARCH: 0.0673
+    ##   GOGARCH: 0.1807
 
 ``` r
 ## =============================================================================
@@ -1201,13 +1201,89 @@ cat("\n--- Moving Block Bootstrap Diagnostics ---\n")
 summary(moving_diag)
 ```
 
-    ##                 Length Class  Mode
-    ## meta            5      -none- list
-    ## blocks          3      -none- list
-    ## series_stats    4      -none- list
-    ## original_stats  3      -none- list
-    ## method_specific 0      -none- list
-    ## config          2      -none- list
+    ## ========================================
+    ##   tsbs Bootstrap Diagnostics Summary
+    ## ========================================
+    ## 
+    ## BOOTSTRAP CONFIGURATION:
+    ##   Bootstrap type: moving 
+    ##   Original series length: 252 
+    ##   Number of variables: 5 
+    ##   Number of replicates: 30 
+    ##   Generated: 2026-01-31 09:48:50 
+    ## 
+    ## CONFIGURATION PARAMETERS:
+    ##   block_length: 10
+    ##   block_type: overlapping
+    ## 
+    ## BOOTSTRAP SERIES LENGTHS:
+    ##   Min: 252 
+    ##   Max: 252 
+    ##   Mean: 252 
+    ## 
+    ## BLOCK LENGTH STATISTICS:
+    ##   Total blocks sampled: 774 
+    ##   Mean block length: 9.77 
+    ##   SD block length: 1.79 
+    ##   Min block length: 2 
+    ##   Max block length: 20 
+    ##   Median block length: 10 
+    ##   25th percentile: 10 
+    ##   75th percentile: 10 
+    ##   Mean blocks per replicate: 25.8 
+    ## 
+    ## ORIGINAL vs BOOTSTRAP STATISTICS:
+    ## 
+    ##   MEANS:
+    ##     Variable 1 :
+    ##       Original: 0.0995 
+    ##       Bootstrap avg: 0.0927 
+    ##       Bootstrap SD: 0.049 
+    ##       Bias: -0.0069 
+    ##     Variable 2 :
+    ##       Original: 0.0566 
+    ##       Bootstrap avg: 0.0396 
+    ##       Bootstrap SD: 0.0466 
+    ##       Bias: -0.017 
+    ##     Variable 3 :
+    ##       Original: 0.0185 
+    ##       Bootstrap avg: 0.0175 
+    ##       Bootstrap SD: 0.0272 
+    ##       Bias: -0.0011 
+    ##     Variable 4 :
+    ##       Original: 0.08 
+    ##       Bootstrap avg: 0.0583 
+    ##       Bootstrap SD: 0.0481 
+    ##       Bias: -0.0217 
+    ##     Variable 5 :
+    ##       Original: 0.0171 
+    ##       Bootstrap avg: 0.0132 
+    ##       Bootstrap SD: 0.0896 
+    ##       Bias: -0.0039 
+    ## 
+    ##   LAG-1 AUTOCORRELATION:
+    ##     Variable 1 :
+    ##       Original: 0.0749 
+    ##       Bootstrap avg: 0.0677 
+    ##       Bootstrap SD: 0.0554 
+    ##     Variable 2 :
+    ##       Original: 0.1013 
+    ##       Bootstrap avg: 0.07 
+    ##       Bootstrap SD: 0.0558 
+    ##     Variable 3 :
+    ##       Original: -0.0454 
+    ##       Bootstrap avg: -0.0367 
+    ##       Bootstrap SD: 0.0587 
+    ##     Variable 4 :
+    ##       Original: -0.055 
+    ##       Bootstrap avg: -0.0641 
+    ##       Bootstrap SD: 0.0768 
+    ##     Variable 5 :
+    ##       Original: 0.0142 
+    ##       Bootstrap avg: 0.0118 
+    ##       Bootstrap SD: 0.0484 
+    ## 
+    ## ========================================
 
 ``` r
 cat("\n--- Stationary Block Bootstrap Diagnostics ---\n")
@@ -1220,13 +1296,89 @@ cat("\n--- Stationary Block Bootstrap Diagnostics ---\n")
 summary(stationary_diag)
 ```
 
-    ##                 Length Class  Mode
-    ## meta            5      -none- list
-    ## blocks          3      -none- list
-    ## series_stats    4      -none- list
-    ## original_stats  3      -none- list
-    ## method_specific 0      -none- list
-    ## config          2      -none- list
+    ## ========================================
+    ##   tsbs Bootstrap Diagnostics Summary
+    ## ========================================
+    ## 
+    ## BOOTSTRAP CONFIGURATION:
+    ##   Bootstrap type: stationary 
+    ##   Original series length: 252 
+    ##   Number of variables: 5 
+    ##   Number of replicates: 30 
+    ##   Generated: 2026-01-31 09:48:51 
+    ## 
+    ## CONFIGURATION PARAMETERS:
+    ##   p: 0.1
+    ##   block_type: overlapping
+    ## 
+    ## BOOTSTRAP SERIES LENGTHS:
+    ##   Min: 252 
+    ##   Max: 252 
+    ##   Mean: 252 
+    ## 
+    ## BLOCK LENGTH STATISTICS:
+    ##   Total blocks sampled: 865 
+    ##   Mean block length: 8.74 
+    ##   SD block length: 7.16 
+    ##   Min block length: 1 
+    ##   Max block length: 26 
+    ##   Median block length: 7 
+    ##   25th percentile: 3 
+    ##   75th percentile: 12 
+    ##   Mean blocks per replicate: 28.83 
+    ## 
+    ## ORIGINAL vs BOOTSTRAP STATISTICS:
+    ## 
+    ##   MEANS:
+    ##     Variable 1 :
+    ##       Original: 0.0995 
+    ##       Bootstrap avg: 0.1058 
+    ##       Bootstrap SD: 0.0455 
+    ##       Bias: 0.0063 
+    ##     Variable 2 :
+    ##       Original: 0.0566 
+    ##       Bootstrap avg: 0.0533 
+    ##       Bootstrap SD: 0.0478 
+    ##       Bias: -0.0033 
+    ##     Variable 3 :
+    ##       Original: 0.0185 
+    ##       Bootstrap avg: 0.021 
+    ##       Bootstrap SD: 0.0294 
+    ##       Bias: 0.0025 
+    ##     Variable 4 :
+    ##       Original: 0.08 
+    ##       Bootstrap avg: 0.0578 
+    ##       Bootstrap SD: 0.0473 
+    ##       Bias: -0.0222 
+    ##     Variable 5 :
+    ##       Original: 0.0171 
+    ##       Bootstrap avg: 0.0228 
+    ##       Bootstrap SD: 0.0647 
+    ##       Bias: 0.0056 
+    ## 
+    ##   LAG-1 AUTOCORRELATION:
+    ##     Variable 1 :
+    ##       Original: 0.0749 
+    ##       Bootstrap avg: 0.0736 
+    ##       Bootstrap SD: 0.064 
+    ##     Variable 2 :
+    ##       Original: 0.1013 
+    ##       Bootstrap avg: 0.0903 
+    ##       Bootstrap SD: 0.067 
+    ##     Variable 3 :
+    ##       Original: -0.0454 
+    ##       Bootstrap avg: -0.0363 
+    ##       Bootstrap SD: 0.0648 
+    ##     Variable 4 :
+    ##       Original: -0.055 
+    ##       Bootstrap avg: -0.052 
+    ##       Bootstrap SD: 0.0743 
+    ##     Variable 5 :
+    ##       Original: 0.0142 
+    ##       Bootstrap avg: 0.0112 
+    ##       Bootstrap SD: 0.0474 
+    ## 
+    ## ========================================
 
 ### Plot Method: `plot.tsbs_diagnostics()`
 
@@ -1516,26 +1668,26 @@ if (!is.null(stability_all) && nrow(stability_all) > 0) {
     ## 
     ## |Model   |Asset |    CV|Stability |
     ## |:-------|:-----|-----:|:---------|
-    ## |DCC     |SPY   | 0.241|Stable    |
-    ## |DCC     |EFA   | 0.241|Stable    |
-    ## |DCC     |BND   | 0.205|Stable    |
-    ## |DCC     |GLD   | 0.402|Moderate  |
-    ## |DCC     |VNQ   | 0.287|Stable    |
-    ## |CGARCH  |SPY   | 0.235|Stable    |
-    ## |CGARCH  |EFA   | 0.238|Stable    |
-    ## |CGARCH  |BND   | 0.054|Stable    |
-    ## |CGARCH  |GLD   | 0.160|Stable    |
-    ## |CGARCH  |VNQ   | 0.189|Stable    |
-    ## |GOGARCH |SPY   | 0.584|Moderate  |
-    ## |GOGARCH |EFA   | 0.624|Unstable  |
-    ## |GOGARCH |BND   | 0.350|Moderate  |
-    ## |GOGARCH |GLD   | 0.496|Moderate  |
-    ## |GOGARCH |VNQ   | 0.727|Unstable  |
+    ## |DCC     |SPY   | 0.243|Stable    |
+    ## |DCC     |EFA   | 0.266|Stable    |
+    ## |DCC     |BND   | 0.200|Stable    |
+    ## |DCC     |GLD   | 0.418|Moderate  |
+    ## |DCC     |VNQ   | 0.346|Moderate  |
+    ## |CGARCH  |SPY   | 0.181|Stable    |
+    ## |CGARCH  |EFA   | 0.174|Stable    |
+    ## |CGARCH  |BND   | 0.061|Stable    |
+    ## |CGARCH  |GLD   | 0.139|Stable    |
+    ## |CGARCH  |VNQ   | 0.151|Stable    |
+    ## |GOGARCH |SPY   | 0.531|Moderate  |
+    ## |GOGARCH |EFA   | 0.647|Unstable  |
+    ## |GOGARCH |BND   | 0.203|Stable    |
+    ## |GOGARCH |GLD   | 0.318|Moderate  |
+    ## |GOGARCH |VNQ   | 0.633|Unstable  |
     ## 
     ## Stability Summary by Model:
-    ##   DCC: Mean CV = 0.275, 4 Stable, 1 Moderate, 0 Unstable
-    ##   CGARCH: Mean CV = 0.175, 5 Stable, 0 Moderate, 0 Unstable
-    ##   GOGARCH: Mean CV = 0.556, 0 Stable, 3 Moderate, 2 Unstable
+    ##   DCC: Mean CV = 0.295, 3 Stable, 2 Moderate, 0 Unstable
+    ##   CGARCH: Mean CV = 0.141, 5 Stable, 0 Moderate, 0 Unstable
+    ##   GOGARCH: Mean CV = 0.466, 1 Stable, 2 Moderate, 2 Unstable
     ## 
     ## Interpretation:
     ##   Weight estimates show moderate variability across bootstrap replicates.
@@ -1696,19 +1848,19 @@ if (length(available_perf) > 0) {
     ## Performance distributions from converged models:
     ## 
     ## DCC Performance Distribution:
-    ##   Ann_Return: Median=18.68, 95% CI=[15.51, 24.86]
-    ##   Ann_Vol: Median=3.17, 95% CI=[2.78, 4.36]
-    ##   Sharpe: Median=6.13, 95% CI=[4.50, 6.92]
+    ##   Ann_Return: Median=18.64, 95% CI=[15.58, 24.40]
+    ##   Ann_Vol: Median=2.97, 95% CI=[2.78, 4.17]
+    ##   Sharpe: Median=6.13, 95% CI=[5.09, 7.06]
     ## 
     ## CGARCH Performance Distribution:
-    ##   Ann_Return: Median=17.81, 95% CI=[14.41, 20.08]
-    ##   Ann_Vol: Median=2.93, 95% CI=[2.80, 3.36]
-    ##   Sharpe: Median=6.00, 95% CI=[4.92, 6.76]
+    ##   Ann_Return: Median=18.40, 95% CI=[15.68, 22.56]
+    ##   Ann_Vol: Median=2.99, 95% CI=[2.76, 3.30]
+    ##   Sharpe: Median=6.08, 95% CI=[5.21, 7.02]
     ## 
     ## GOGARCH Performance Distribution:
-    ##   Ann_Return: Median=18.93, 95% CI=[15.82, 43.65]
-    ##   Ann_Vol: Median=3.08, 95% CI=[2.76, 7.42]
-    ##   Sharpe: Median=6.15, 95% CI=[4.82, 7.18]
+    ##   Ann_Return: Median=18.39, 95% CI=[15.31, 33.72]
+    ##   Ann_Vol: Median=3.00, 95% CI=[2.63, 5.15]
+    ##   Sharpe: Median=6.20, 95% CI=[4.93, 7.38]
 
 ``` r
 ## Visualization - works with any number of available models
@@ -1853,44 +2005,44 @@ if (length(robust_results) > 0) {
     ## 
     ## |Asset | Point| Boot_Mean| Boot_Median| Winsorized| Conservative|
     ## |:-----|-----:|---------:|-----------:|----------:|------------:|
-    ## |SPY   | 0.069|     0.076|       0.072|      0.075|        0.069|
-    ## |EFA   | 0.080|     0.086|       0.083|      0.084|        0.078|
-    ## |BND   | 0.627|     0.584|       0.610|      0.601|        0.619|
-    ## |GLD   | 0.153|     0.175|       0.167|      0.165|        0.163|
-    ## |VNQ   | 0.071|     0.078|       0.074|      0.075|        0.072|
+    ## |SPY   | 0.069|     0.071|       0.066|      0.069|        0.065|
+    ## |EFA   | 0.080|     0.082|       0.082|      0.079|        0.078|
+    ## |BND   | 0.627|     0.611|       0.635|      0.630|        0.646|
+    ## |GLD   | 0.153|     0.161|       0.149|      0.150|        0.142|
+    ## |VNQ   | 0.071|     0.075|       0.072|      0.072|        0.069|
     ## 
     ## --- CGARCH Model ---
     ## 
     ## 
     ## |Asset | Point| Boot_Mean| Boot_Median| Winsorized| Conservative|
     ## |:-----|-----:|---------:|-----------:|----------:|------------:|
-    ## |SPY   | 0.069|     0.062|       0.063|      0.063|        0.062|
-    ## |EFA   | 0.080|     0.075|       0.077|      0.076|        0.075|
-    ## |BND   | 0.627|     0.643|       0.641|      0.643|        0.656|
-    ## |GLD   | 0.153|     0.151|       0.144|      0.149|        0.139|
-    ## |VNQ   | 0.071|     0.070|       0.067|      0.068|        0.067|
+    ## |SPY   | 0.069|     0.068|       0.068|      0.067|        0.067|
+    ## |EFA   | 0.080|     0.079|       0.077|      0.079|        0.076|
+    ## |BND   | 0.627|     0.632|       0.634|      0.632|        0.644|
+    ## |GLD   | 0.153|     0.150|       0.147|      0.149|        0.145|
+    ## |VNQ   | 0.071|     0.071|       0.071|      0.070|        0.068|
     ## 
     ## --- GOGARCH Model ---
     ## 
     ## 
     ## |Asset | Point| Boot_Mean| Boot_Median| Winsorized| Conservative|
     ## |:-----|-----:|---------:|-----------:|----------:|------------:|
-    ## |SPY   | 0.069|     0.083|       0.073|      0.073|        0.072|
-    ## |EFA   | 0.080|     0.095|       0.081|      0.084|        0.081|
-    ## |BND   | 0.627|     0.563|       0.625|      0.616|        0.641|
-    ## |GLD   | 0.153|     0.167|       0.150|      0.156|        0.139|
-    ## |VNQ   | 0.071|     0.093|       0.072|      0.076|        0.067|
+    ## |SPY   | 0.069|     0.074|       0.067|      0.068|        0.063|
+    ## |EFA   | 0.080|     0.091|       0.077|      0.080|        0.078|
+    ## |BND   | 0.627|     0.614|       0.637|      0.632|        0.652|
+    ## |GLD   | 0.153|     0.141|       0.147|      0.148|        0.142|
+    ## |VNQ   | 0.071|     0.079|       0.071|      0.069|        0.065|
     ## 
     ## --- Cross-Model Comparison (Bootstrap Means) ---
     ## 
     ## 
     ## |Asset | Point|   DCC| CGARCH| GOGARCH|
     ## |:-----|-----:|-----:|------:|-------:|
-    ## |SPY   | 0.069| 0.076|  0.062|   0.083|
-    ## |EFA   | 0.080| 0.086|  0.075|   0.095|
-    ## |BND   | 0.627| 0.584|  0.643|   0.563|
-    ## |GLD   | 0.153| 0.175|  0.151|   0.167|
-    ## |VNQ   | 0.071| 0.078|  0.070|   0.093|
+    ## |SPY   | 0.069| 0.071|  0.068|   0.074|
+    ## |EFA   | 0.080| 0.082|  0.079|   0.091|
+    ## |BND   | 0.627| 0.611|  0.632|   0.614|
+    ## |GLD   | 0.153| 0.161|  0.150|   0.141|
+    ## |VNQ   | 0.071| 0.075|  0.071|   0.079|
     ## 
     ## The bootstrap means across models are generally consistent, suggesting
     ## the uncertainty estimates are robust to the choice of correlation model.
@@ -2279,15 +2431,15 @@ msgarch_result <- tryCatch({
     ## 
     ## 
     ## ==========================================================
-    ## EM Iteration 1... Log-Likelihood: -855.394 (Duration: 00:01:54)
+    ## EM Iteration 1... Log-Likelihood: -855.394 (Duration: 00:01:53)
     ## 
     ## 
     ## ==========================================================
-    ## EM Iteration 2... Log-Likelihood: -845.699 (Duration: 00:01:56)
+    ## EM Iteration 2... Log-Likelihood: -845.699 (Duration: 00:01:57)
     ## 
     ## 
     ## ==========================================================
-    ## EM Iteration 3... Log-Likelihood: -846.659 (Duration: 00:02:06)
+    ## EM Iteration 3... Log-Likelihood: -846.659 (Duration: 00:02:08)
     ## 
     ## 
     ## ==========================================================
@@ -2295,7 +2447,7 @@ msgarch_result <- tryCatch({
     ## 
     ## 
     ## ==========================================================
-    ## EM Iteration 2... Log-Likelihood: -846.938 (Duration: 00:01:57)
+    ## EM Iteration 2... Log-Likelihood: -846.938 (Duration: 00:01:55)
     ## 
     ## 
     ## ==========================================================
@@ -2645,13 +2797,13 @@ if (!is.null(bench_result)) {
     ## Mean runtime (seconds) by setup and num_boots :
     ## 
     ##  Value   HMM Moving Block Plain (iid) Stationary    Wild
-    ##      8 0.218     0.000934    0.000839   0.000997 0.00367
-    ##     16 0.194     0.001241    0.001367   0.001546 0.00499
-    ##     32 0.130     0.002229    0.002174   0.002384 0.00773
-    ##     64 0.147     0.006138    0.003914   0.004351 0.01354
-    ##    128 0.189     0.018224    0.007487   0.010899 0.02745
-    ##    256 0.342     0.016238    0.019680   0.021094 0.04814
-    ##    512 0.443     0.038313    0.040444   0.037390 0.09842
+    ##      8 0.147     0.000707    0.000794   0.000809 0.00365
+    ##     16 0.127     0.001128    0.001200   0.001239 0.00494
+    ##     32 0.138     0.001974    0.002111   0.002144 0.00965
+    ##     64 0.155     0.005075    0.003892   0.005724 0.01356
+    ##    128 0.196     0.015936    0.010104   0.007479 0.02492
+    ##    256 0.361     0.015873    0.014351   0.016491 0.05035
+    ##    512 0.440     0.030791    0.032325   0.033914 0.09706
 
 ![](portfolio-optimization-demo_files/figure-html/benchmark_run-1.png)
 
@@ -2754,11 +2906,11 @@ if (!is.null(bench_result)) {
     ## Mean runtime (seconds) by setup and n_boot :
     ## 
     ##  Value   HMM Moving Block Plain (iid) Stationary   Wild
-    ##     64 0.129      0.00465     0.00466    0.00628 0.0217
-    ##    128 0.148      0.00498     0.00509    0.00519 0.0200
-    ##    256 0.183      0.00570     0.00592    0.00604 0.0201
-    ##    512 0.331      0.00933     0.00979    0.00968 0.0205
-    ##   1024 0.423      0.01188     0.01752    0.01618 0.0221
+    ##     64 0.196      0.00456     0.00483    0.00469 0.0204
+    ##    128 0.145      0.00671     0.01109    0.00686 0.0202
+    ##    256 0.177      0.00573     0.00594    0.00601 0.0224
+    ##    512 0.251      0.00718     0.00769    0.00796 0.0199
+    ##   1024 0.431      0.01281     0.01299    0.01478 0.0205
 
 ![](portfolio-optimization-demo_files/figure-html/benchmark_run_nboot-1.png)
 
@@ -2864,12 +3016,12 @@ if (!is.null(bench_result)) {
     ## Mean runtime (seconds) by setup and n_assets :
     ## 
     ##  Value   HMM Moving Block Plain (iid) Stationary   Wild
-    ##      4 0.333      0.00494     0.00513    0.00531 0.0219
-    ##      8 0.666      0.01003     0.00797    0.00985 0.0216
-    ##     16 0.899      0.01337     0.01516    0.01513 0.0273
-    ##     32 1.891      0.02801     0.03355    0.10014 0.0424
-    ##     64 2.250      0.13016     0.12914    0.05153 0.1395
-    ##    128 5.788      0.10277     0.28260    0.25529 0.1132
+    ##      4 0.341      0.00503     0.00529    0.00533 0.0215
+    ##      8 0.609      0.00945     0.00820    0.00976 0.0218
+    ##     16 0.971      0.01470     0.01576    0.01511 0.0291
+    ##     32 1.968      0.02784     0.10479    0.10061 0.0393
+    ##     64 2.386      0.12237     0.05383    0.05276 0.0653
+    ##    128 5.955      0.10264     0.25046    0.11075 0.1809
 
 ![](portfolio-optimization-demo_files/figure-html/benchmark_run_nassets-1.png)
 
@@ -3187,6 +3339,6 @@ for runtime benchmarking
     ## =======================================================================
 
     ## 
-    ## Vignette completed at: 2026-01-29 22:26:02
+    ## Vignette completed at: 2026-01-31 10:01:56
 
     ## R version: R version 4.5.2 (2025-10-31)

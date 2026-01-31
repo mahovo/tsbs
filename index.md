@@ -142,7 +142,9 @@ Key test files include:
 - [tsgarch](https://github.com/tsmodels/tsgarch) — Univariate GARCH
   models
 - [tsmarch](https://github.com/tsmodels/tsmarch) — Multivariate GARCH
-  (DCC, Copula)
+  (DCC, Copula, GOGARCH)
+- [MGARCH](https://github.com/keblu/MSGARCH) — Markov-Switching GARCH
+  models
 
 ## Key Features
 
@@ -154,8 +156,6 @@ Key test files include:
 - **Parallel Processing**: Built-in support for parallel computation
 - **Comprehensive Diagnostics**: Monitor convergence and numerical
   stability for complex models
-- **Automatic Block Length Selection**: Data-driven heuristics for block
-  bootstrap methods
 
 ## Dependencies
 

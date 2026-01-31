@@ -29,6 +29,7 @@ demo_path <- get_demo_path("example-demo")
 #> - ms-varma-garch_inference_demo.Rmd
 #> - multivar_garch_comparison.Rmd
 #> - portfolio-optimization.Rmd
+#> - portfolio-optimization_2.Rmd
 
 # If you want to render it
 # rmarkdown::render(demo_path, output_dir = tempdir())

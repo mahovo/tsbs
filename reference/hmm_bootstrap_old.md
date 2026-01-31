@@ -375,7 +375,6 @@ if (requireNamespace("depmixS4", quietly = TRUE)) {
 #> Original mean: 1.747322 
 #> converged at iteration 184 with logLik: -687.2476 
 #> converged at iteration 175 with logLik: -687.2476 
-#> Warning: Argument 'type' not specified and will default to 'viterbi'. This default may change in future releases of depmixS4. Please see ?posterior for alternative options.
 
 # }
 ```

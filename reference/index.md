@@ -276,7 +276,7 @@
   : Summarize Diagnostics
 - [`summary.tsbs_benchmark()`](https://mahovo.github.io/tsbs/reference/summary.tsbs_benchmark.md)
   : Summary Method for tsbs_benchmark
-- [`summary.tsbs_diagnostics()`](https://mahovo.github.io/tsbs/reference/summary.tsbs_diagnostics.md)
+- [`summary(`*`<tsbs_diagnostics>`*`)`](https://mahovo.github.io/tsbs/reference/summary.tsbs_diagnostics.md)
   : Summary Method for Bootstrap Diagnostics
 - [`test_estimate_normality()`](https://mahovo.github.io/tsbs/reference/test_estimate_normality.md)
   : Test Normality of Standardized Estimates

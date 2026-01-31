@@ -1,4 +1,4 @@
-# Gaussian HMM Bootstrap (Original Implementation)
+# Gaussian HMM Bootstran
 
 Internal function implementing the original Gaussian HMM bootstrap via
 depmixS4. This preserves the original behavior for backward

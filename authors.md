@@ -7,11 +7,11 @@
 
 ## Citation
 
-Vognsen M (2026). *tsbs: Flexible Block Bootstrap for Time Series*. R
+Vognsen M (2026). *tsbs: Advanced Time Series Bootstrap Tools*. R
 package version 0.1.0, <https://mahovo.github.io/tsbs/>.
 
     @Manual{,
-      title = {tsbs: Flexible Block Bootstrap for Time Series},
+      title = {tsbs: Advanced Time Series Bootstrap Tools},
       author = {Martin Hoshi Vognsen},
       year = {2026},
       note = {R package version 0.1.0},
