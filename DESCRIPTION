@@ -1,6 +1,6 @@
 Package: tsbs
 Type: Package
-Title: Flexible Block Bootstrap for Time Series
+Title: Advanced Time Series Bootstrap Tools
 Version: 0.1.0
 Authors@R: 
     person("Martin Hoshi", "Vognsen", email = "martinvognsen@gmail.com", role = c("aut", "cre"),

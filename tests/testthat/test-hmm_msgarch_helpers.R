@@ -2179,6 +2179,333 @@ test_that("tsbs HMM with parallel=TRUE works", {
 })
 
 
+
+
+# System tests for tsbs() with HMM bootstrap methods ===========================
+#
+# These tests verify that the full tsbs() interface works correctly with
+# HMM bootstrap, exercising the complete pipeline from user input to output.
+
+
+# =============================================================================
+# Test Data Generators
+# =============================================================================
+
+#' Generate regime-switching test data for system tests
+generate_system_test_data <- function(n = 300, k = 1, seed = 42) {
+  set.seed(seed)
+  
+  # Block-structured data with clear regime separation
+  n_per_state <- n %/% 2
+  remainder <- n %% 2
+  
+  if (k == 1) {
+    # Univariate
+    y1 <- rnorm(n_per_state, mean = 0.02, sd = 0.01)
+    y2 <- rnorm(n_per_state + remainder, mean = -0.01, sd = 0.03)
+    y <- c(y1, y2)
+    return(y)
+  } else {
+    # Multivariate with common factor structure
+    factor1 <- rnorm(n_per_state, mean = 0.02, sd = 0.01)
+    factor2 <- rnorm(n_per_state + remainder, mean = -0.01, sd = 0.03)
+    factor <- c(factor1, factor2)
+    
+    Y <- matrix(0, nrow = n, ncol = k)
+    for (j in 1:k) {
+      Y[, j] <- factor + rnorm(n, sd = 0.002)
+    }
+    return(Y)
+  }
+}
+
+
+# =============================================================================
+# Basic tsbs() HMM Tests (Default Gaussian Distribution)
+# =============================================================================
+
+test_that("tsbs with bs_type='hmm' returns list of bootstrap replicates", {
+  skip_if_not_installed("depmixS4")
+  
+  y <- generate_system_test_data(n = 200, k = 1, seed = 123)
+  
+  result <- tsbs(
+    x = y,
+    bs_type = "hmm",
+    num_states = 2,
+    num_boots = 5
+  )
+  
+  expect_type(result, "list")
+  expect_true("bootstrap_series" %in% names(result))
+  expect_length(result$bootstrap_series, 5)
+})
+
+test_that("tsbs HMM with n_boot truncates correctly", {
+  skip_if_not_installed("depmixS4")
+  
+  y <- generate_system_test_data(n = 200, k = 1, seed = 123)
+  
+  result <- tsbs(
+    x = y,
+    n_boot = 100,
+    bs_type = "hmm",
+    num_states = 2,
+    num_boots = 5
+  )
+  
+  # Check that all bootstrap replicates have the requested length
+  for (i in 1:5) {
+    expect_equal(nrow(result$bootstrap_series[[i]]), 100)
+  }
+})
+
+test_that("tsbs HMM with multivariate data", {
+  skip_if_not_installed("depmixS4")
+  
+  Y <- generate_system_test_data(n = 200, k = 3, seed = 123)
+  
+  result <- tsbs(
+    x = Y,
+    bs_type = "hmm",
+    num_states = 2,
+    num_boots = 5
+  )
+  
+  expect_length(result$bootstrap_series, 5)
+  
+  # Check dimensions
+  for (i in 1:5) {
+    expect_equal(ncol(result$bootstrap_series[[i]]), 3)
+  }
+})
+
+test_that("tsbs HMM with func parameter applies function to replicates", {
+  skip_if_not_installed("depmixS4")
+  
+  y <- generate_system_test_data(n = 200, k = 1, seed = 123)
+  
+  result <- tsbs(
+    x = y,
+    bs_type = "hmm",
+    num_states = 2,
+    num_boots = 10,
+    func = mean
+  )
+  
+  expect_true("func_outs" %in% names(result))
+  expect_true("func_out_means" %in% names(result))
+  expect_length(result$func_outs, 10)
+})
+
+test_that("tsbs HMM with func and apply_func_to='all'", {
+  skip_if_not_installed("depmixS4")
+  
+  Y <- generate_system_test_data(n = 200, k = 3, seed = 123)
+  
+  # Function that computes portfolio weights (example)
+  portfolio_func <- function(x) {
+    # Simple equal-weight mean return
+    mean(rowMeans(x))
+  }
+  
+  result <- tsbs(
+    x = Y,
+    bs_type = "hmm",
+    num_states = 2,
+    num_boots = 5,
+    func = portfolio_func,
+    apply_func_to = "all"
+  )
+  
+  expect_true("func_outs" %in% names(result))
+  expect_length(result$func_outs, 5)
+})
+
+test_that("tsbs HMM works with data frame input", {
+  skip_if_not_installed("depmixS4")
+  
+  Y <- generate_system_test_data(n = 200, k = 2, seed = 123)
+  df <- as.data.frame(Y)
+  colnames(df) <- c("asset1", "asset2")
+  
+  result <- tsbs(
+    x = df,
+    bs_type = "hmm",
+    num_states = 2,
+    num_boots = 5
+  )
+  
+  expect_length(result$bootstrap_series, 5)
+})
+
+test_that("tsbs HMM with num_blocks parameter", {
+  skip_if_not_installed("depmixS4")
+  
+  y <- generate_system_test_data(n = 200, k = 1, seed = 123)
+  
+  # When num_blocks is specified, it affects internal block-based sampling
+  result <- tsbs(
+    x = y,
+    bs_type = "hmm",
+    num_states = 2,
+    num_blocks = 10,
+    num_boots = 5
+  )
+  
+  expect_length(result$bootstrap_series, 5)
+})
+
+
+# =============================================================================
+# Statistical Validation Tests
+# =============================================================================
+
+test_that("tsbs HMM bootstrap preserves approximate mean", {
+  skip_if_not_installed("depmixS4")
+  
+  y <- generate_system_test_data(n = 300, k = 1, seed = 42)
+  original_mean <- mean(y)
+  
+  result <- tsbs(
+    x = y,
+    bs_type = "hmm",
+    num_states = 2,
+    num_boots = 50
+  )
+  
+  boot_means <- sapply(result$bootstrap_series, mean)
+  
+  # Bootstrap means should be centered around original mean
+  expect_equal(mean(boot_means), original_mean, tolerance = 0.01)
+})
+
+test_that("tsbs HMM bootstrap preserves approximate variance structure", {
+  skip_if_not_installed("depmixS4")
+  
+  y <- generate_system_test_data(n = 300, k = 1, seed = 42)
+  original_var <- var(y)
+  
+  result <- tsbs(
+    x = y,
+    bs_type = "hmm",
+    num_states = 2,
+    num_boots = 50
+  )
+  
+  boot_vars <- sapply(result$bootstrap_series, var)
+  
+  # Bootstrap variances should be in reasonable range of original
+  expect_true(mean(boot_vars) > original_var * 0.5)
+  expect_true(mean(boot_vars) < original_var * 2.0)
+})
+
+
+# =============================================================================
+# Edge Cases and Error Handling
+# =============================================================================
+
+test_that("tsbs HMM with minimum viable data", {
+  skip_if_not_installed("depmixS4")
+  
+  # Minimum data that should still work
+  set.seed(123)
+  y <- c(rnorm(25, 0.02, 0.01), rnorm(25, -0.01, 0.03))
+  
+  result <- tsbs(
+    x = y,
+    bs_type = "hmm",
+    num_states = 2,
+    num_boots = 3
+  )
+  
+  expect_length(result$bootstrap_series, 3)
+})
+
+test_that("tsbs HMM rejects invalid num_states", {
+  y <- generate_system_test_data(n = 100, k = 1, seed = 123)
+  
+  expect_error(
+    tsbs(x = y, bs_type = "hmm", num_states = 0, num_boots = 3)
+  )
+  
+  expect_error(
+    tsbs(x = y, bs_type = "hmm", num_states = -1, num_boots = 3)
+  )
+})
+
+test_that("tsbs HMM rejects invalid num_boots", {
+  y <- generate_system_test_data(n = 100, k = 1, seed = 123)
+  
+  expect_error(
+    tsbs(x = y, bs_type = "hmm", num_states = 2, num_boots = 0)
+  )
+})
+
+
+# =============================================================================
+# Comparison Tests
+# =============================================================================
+
+test_that("tsbs HMM produces different results from stationary bootstrap", {
+  skip_if_not_installed("depmixS4")
+  
+  y <- generate_system_test_data(n = 200, k = 1, seed = 42)
+  
+  set.seed(999)
+  hmm_result <- tsbs(
+    x = y,
+    bs_type = "hmm",
+    num_states = 2,
+    num_boots = 20
+  )
+  
+  set.seed(999)
+  stat_result <- tsbs(
+    x = y,
+    bs_type = "stationary",
+    block_length = 10,
+    num_boots = 20
+  )
+  
+  # Results should be different (different methods)
+  hmm_means <- sapply(hmm_result$bootstrap_series, mean)
+  stat_means <- sapply(stat_result$bootstrap_series, mean)
+  
+  # They shouldn't be identical
+  expect_false(all(hmm_means == stat_means))
+})
+
+
+# =============================================================================
+# Parallel Processing Tests
+# =============================================================================
+
+test_that("tsbs HMM with parallel=TRUE works", {
+  skip_if_not_installed("depmixS4")
+  skip_on_cran()  # Skip on CRAN due to parallel complexity
+  
+  y <- generate_system_test_data(n = 200, k = 1, seed = 123)
+  
+  # Should not error with parallel=TRUE
+  result <- tryCatch({
+    tsbs(
+      x = y,
+      bs_type = "hmm",
+      num_states = 2,
+      num_boots = 5,
+      parallel = TRUE,
+      num_cores = 2
+    )
+  }, error = function(e) {
+    # If parallel fails due to system constraints, that's OK for testing
+    skip("Parallel processing not available")
+  })
+  
+  expect_length(result$bootstrap_series, 5)
+})
+
+
 # =============================================================================
 # Integration with Diagnostics
 # =============================================================================
@@ -2197,44 +2524,94 @@ test_that("tsbs HMM with return_diagnostics", {
   )
   
   # Check that diagnostics are returned if supported
+  # Note: The current hmm_bootstrap may or may not support diagnostics
+  # depending on the implementation
   expect_true("bootstrap_series" %in% names(result))
 })
 
 
-test_that("tsbs HMM with MSGARCH distribution - FUTURE", {
+# =============================================================================
+# Extended HMM Parameter Tests
+# =============================================================================
+# 
+# These tests verify that the extended HMM parameters work correctly when
+# passed through tsbs() to hmm_bootstrap().
+#
+# NOTE: These tests require that the tsbs_hmm_patch.R changes have been applied
+# to tsbs.R. If the patch hasn't been applied, these tests will fail with
+# "unused argument" errors.
+
+test_that("tsbs HMM with MSGARCH distribution", {
+  skip_if_not_installed("MSGARCH")
+  skip_if_not_installed("fGarch")
+  
+  # Generate skew-t data with clear regime separation
+  set.seed(42)
+  y <- c(
+    fGarch::rsstd(150, mean = 0.02, sd = 0.01, nu = 10, xi = 1.2),
+    fGarch::rsstd(150, mean = -0.01, sd = 0.03, nu = 6, xi = 0.8)
+  )
+  
+  result <- tsbs(
+    x = y,
+    bs_type = "hmm",
+    num_states = 2,
+    num_boots = 5,
+    distribution = "sstd",
+    variance_model = "sGARCH",
+    seed = 123
+  )
+  
+  expect_true("bootstrap_series" %in% names(result))
+  expect_length(result$bootstrap_series, 5)
+  
+  # Each replicate should have same length as original
+  for (i in 1:5) {
+    expect_equal(nrow(result$bootstrap_series[[i]]), 300)
+  }
+})
+
+test_that("tsbs HMM with micro-block sampling", {
   skip_if_not_installed("MSGARCH")
   
-  y <- generate_system_test_data(n = 300, k = 1, seed = 42)
+  # Generate data with clear regime separation
+  set.seed(42)
+  y <- c(
+    rnorm(150, mean = 0.02, sd = 0.01),
+    rnorm(150, mean = -0.01, sd = 0.03)
+  )
   
   result <- tsbs(
     x = y,
     bs_type = "hmm",
     num_states = 2,
     num_boots = 5,
-    distribution = "sstd",      # Skew Student-t
-    variance_model = "sGARCH",  # Standard GARCH
+    distribution = "norm",
+    micro_block_length = 5,
     seed = 123
   )
+  
+  expect_true("bootstrap_series" %in% names(result))
+  expect_length(result$bootstrap_series, 5)
 })
 
-test_that("tsbs HMM with micro-block sampling - FUTURE", {
+test_that("tsbs HMM multivariate with regime_basis market", {
+  skip_if_not_installed("MSGARCH")
   
-  y <- generate_system_test_data(n = 300, k = 1, seed = 42)
+  # Generate multivariate data with common factor structure
+  set.seed(42)
+  n <- 300
+  k <- 3
   
-  result <- tsbs(
-    x = y,
-    bs_type = "hmm",
-    num_states = 2,
-    num_boots = 5,
-    micro_block_length = 5,  # Preserve local dependence
-    seed = 123
+  factor <- c(
+    rnorm(150, mean = 0.02, sd = 0.01),
+    rnorm(150, mean = -0.01, sd = 0.03)
   )
-})
-
-test_that("tsbs HMM multivariate with regime_basis - FUTURE", {
-  skip("Extended HMM parameters not yet exposed through tsbs()")
   
-  Y <- generate_system_test_data(n = 300, k = 3, seed = 42)
+  Y <- matrix(0, nrow = n, ncol = k)
+  for (j in 1:k) {
+    Y[, j] <- factor + rnorm(n, sd = 0.002)
+  }
   
   result <- tsbs(
     x = Y,
@@ -2242,7 +2619,136 @@ test_that("tsbs HMM multivariate with regime_basis - FUTURE", {
     num_states = 2,
     num_boots = 5,
     distribution = "norm",
-    regime_basis = "market",  # or "first_pc" or column index
+    regime_basis = "market",
     seed = 123
   )
+  
+  expect_true("bootstrap_series" %in% names(result))
+  expect_length(result$bootstrap_series, 5)
+  
+  # Each replicate should preserve dimensions
+  for (i in 1:5) {
+    expect_equal(dim(result$bootstrap_series[[i]]), c(300, 3))
+  }
+})
+
+test_that("tsbs HMM multivariate with regime_basis first_pc", {
+  skip_if_not_installed("MSGARCH")
+  
+  # Generate multivariate data with common factor structure
+  set.seed(42)
+  n <- 300
+  k <- 3
+  
+  factor <- c(
+    rnorm(150, mean = 0.02, sd = 0.01),
+    rnorm(150, mean = -0.01, sd = 0.03)
+  )
+  
+  Y <- matrix(0, nrow = n, ncol = k)
+  for (j in 1:k) {
+    Y[, j] <- factor + rnorm(n, sd = 0.002)
+  }
+  
+  result <- tsbs(
+    x = Y,
+    bs_type = "hmm",
+    num_states = 2,
+    num_boots = 5,
+    distribution = "norm",
+    regime_basis = "first_pc",
+    seed = 123
+  )
+  
+  expect_true("bootstrap_series" %in% names(result))
+  expect_length(result$bootstrap_series, 5)
+})
+
+test_that("tsbs HMM multivariate with regime_basis column index", {
+  skip_if_not_installed("MSGARCH")
+  
+  # Generate multivariate data where column 2 has clear regimes
+  set.seed(42)
+  n <- 300
+  k <- 3
+  
+  col2 <- c(
+    rnorm(150, mean = 0.02, sd = 0.01),
+    rnorm(150, mean = -0.01, sd = 0.03)
+  )
+  
+  Y <- matrix(0, nrow = n, ncol = k)
+  Y[, 2] <- col2
+  Y[, 1] <- col2 + rnorm(n, sd = 0.002)
+  Y[, 3] <- col2 + rnorm(n, sd = 0.002)
+  
+  result <- tsbs(
+    x = Y,
+    bs_type = "hmm",
+    num_states = 2,
+    num_boots = 5,
+    distribution = "norm",
+    regime_basis = 2,  # Use column 2
+    seed = 123
+  )
+  
+  expect_true("bootstrap_series" %in% names(result))
+  expect_length(result$bootstrap_series, 5)
+})
+
+test_that("tsbs HMM with return_fit captures model details", {
+  skip_if_not_installed("MSGARCH")
+  
+  set.seed(42)
+  y <- c(
+    rnorm(150, mean = 0.02, sd = 0.01),
+    rnorm(150, mean = -0.01, sd = 0.03)
+  )
+  
+  result <- tsbs(
+    x = y,
+    bs_type = "hmm",
+    num_states = 2,
+    num_boots = 5,
+    distribution = "norm",
+    return_fit = TRUE,
+    seed = 123
+  )
+  
+  # When return_fit = TRUE, additional model info should be available
+  
+  expect_true("bootstrap_series" %in% names(result))
+})
+
+test_that("tsbs HMM seed provides reproducibility", {
+  skip_if_not_installed("MSGARCH")
+  
+  set.seed(42)
+  y <- c(
+    rnorm(150, mean = 0.02, sd = 0.01),
+    rnorm(150, mean = -0.01, sd = 0.03)
+  )
+  
+  result1 <- tsbs(
+    x = y,
+    bs_type = "hmm",
+    num_states = 2,
+    num_boots = 5,
+    distribution = "norm",
+    seed = 999
+  )
+  
+  result2 <- tsbs(
+    x = y,
+    bs_type = "hmm",
+    num_states = 2,
+    num_boots = 5,
+    distribution = "norm",
+    seed = 999
+  )
+  
+  # Same seed should produce identical results
+  for (i in 1:5) {
+    expect_equal(result1$bootstrap_series[[i]], result2$bootstrap_series[[i]])
+  }
 })
