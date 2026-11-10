@@ -68,7 +68,7 @@ The main entry point for the package is the
 which provides comprehensive documentation including detailed
 specification examples:
 
-[https://mahovo.github.io/tsbs/reference/tsbs.html](file:///Users/mhvpbp13/git/tsbs/docs/reference/tsbs.md)
+<https://mahovo.github.io/tsbs/reference/tsbs.html>
 
 In R with tsbs package installed and loaded:
 
@@ -77,7 +77,8 @@ In R with tsbs package installed and loaded:
 ?tsbs
 ```
 
-Full reference manual:  
+Full reference manual:
+
 <https://mahovo.github.io/tsbs/>
 
 ### Vignettes
