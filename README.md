@@ -57,7 +57,7 @@ abline(v = result$func_out_means, col = "red", lwd = 2)
 
 The main entry point for the package is the `tsbs()` function, which provides comprehensive documentation including detailed specification examples:
 
-[https://mahovo.github.io/tsbs/reference/tsbs.html](file:///Users/mhvpbp13/git/tsbs/docs/reference/tsbs.html)
+[https://mahovo.github.io/tsbs/reference/tsbs.html](https://mahovo.github.io/tsbs/reference/tsbs.html)
 
 In R with tsbs package installed and loaded:
 ```r
