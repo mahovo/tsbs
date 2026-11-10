@@ -30,7 +30,7 @@ target.
 ``` r
 default_model_func(matrix(rnorm(100), ncol = 1), rnorm(100))
 #> $mean_y
-#> [1] 0.1482784
+#> [1] 0.1390585
 #> 
 #> attr(,"class")
 #> [1] "default_model"

@@ -45,16 +45,22 @@ for model estimation.
 
 The DCC model specifies correlation dynamics directly:
 
-$$Q_{t} = \bar{Q}(1 - \alpha - \beta) + \alpha z_{t - 1}z_{t - 1}\prime + \beta Q_{t - 1}$$
+``` math
+Q_t = \bar{Q}(1 - \alpha - \beta) + \alpha z_{t-1}z_{t-1}' + \beta Q_{t-1}
+```
 
-$$R_{t} = \text{diag}\left( Q_{t} \right)^{- 1/2}Q_{t}\text{diag}\left( Q_{t} \right)^{- 1/2}$$
+``` math
+R_t = \text{diag}(Q_t)^{-1/2} Q_t \text{diag}(Q_t)^{-1/2}
+```
 
-where $z_{t} = \Sigma_{t}^{- 1/2}\varepsilon_{t}$ are standardized
-residuals and $\Sigma_{t}$ is the conditional covariance matrix.
+where $`z_t = \Sigma_t^{-1/2} \varepsilon_t`$ are standardized residuals
+and $`\Sigma_t`$ is the conditional covariance matrix.
 
 The log-likelihood combines univariate GARCH and correlation components:
 
-$$\ell = \sum\limits_{t}\left\lbrack - \frac{1}{2}\log\left| R_{t} \right| - \frac{1}{2}z_{t}\prime R_{t}^{- 1}z_{t} + \frac{1}{2}z_{t}\prime z_{t} \right\rbrack + \sum\limits_{i}\ell_{i}^{GARCH}$$
+``` math
+\ell = \sum_t \left[ -\frac{1}{2} \log|R_t| - \frac{1}{2} z_t' R_t^{-1} z_t + \frac{1}{2} z_t' z_t \right] + \sum_i \ell_i^{GARCH}
+```
 
 ### Copula GARCH Model
 
@@ -62,49 +68,56 @@ Copula GARCH separates the problem into marginals and dependence:
 
 **Step 1: Probability Integral Transform (PIT)**
 
-Transform standardized residuals $z_{it}$ to uniform margins:
+Transform standardized residuals $`z_{it}`$ to uniform margins:
 
-$$u_{it} = F_{i}\left( z_{it} \right)$$
+``` math
+u_{it} = F_i(z_{it})
+```
 
-where $F_{i}$ is the marginal CDF (parametric, empirical, or
+where $`F_i`$ is the marginal CDF (parametric, empirical, or
 semi-parametric).
 
 **Step 2: Copula Transformation**
 
 Transform uniform margins to copula space:
 
-- Gaussian copula:
-  ${\widetilde{z}}_{it} = \Phi^{- 1}\left( u_{it} \right)$
+- Gaussian copula: $`\tilde{z}_{it} = \Phi^{-1}(u_{it})`$
 - Student-t copula:
-  ${\widetilde{z}}_{it} = t_{\nu}^{- 1}\left( u_{it} \right)/\sqrt{\nu/(\nu - 2)}$
+  $`\tilde{z}_{it} = t_\nu^{-1}(u_{it}) / \sqrt{\nu/(\nu-2)}`$
 
 **Step 3: Correlation Dynamics**
 
-Apply DCC/ADCC dynamics to ${\widetilde{z}}_{t}$ (same as DCC, but on
-copula residuals).
+Apply DCC/ADCC dynamics to $`\tilde{z}_t`$ (same as DCC, but on copula
+residuals).
 
 **Copula Log-Likelihood**
 
 For Gaussian copula:
-$$\ell_{c} = \sum\limits_{t}\left\lbrack - \frac{1}{2}\log\left| R_{t} \right| - \frac{1}{2}{\widetilde{z}}_{t}\prime R_{t}^{- 1}{\widetilde{z}}_{t} + \frac{1}{2}{\widetilde{z}}_{t}\prime{\widetilde{z}}_{t} \right\rbrack$$
+``` math
+\ell_c = \sum_t \left[ -\frac{1}{2} \log|R_t| - \frac{1}{2} \tilde{z}_t' R_t^{-1} \tilde{z}_t + \frac{1}{2} \tilde{z}_t' \tilde{z}_t \right]
+```
 
 For Student-t copula (adds tail dependence):
-$$\ell_{c} = \sum\limits_{t}\left\lbrack \log\Gamma\left( \frac{k + \nu}{2} \right) - \log\Gamma\left( \frac{\nu}{2} \right) - \frac{k}{2}\log\left( \pi(\nu - 2) \right) - \frac{1}{2}\log\left| R_{t} \right| - \frac{\nu + k}{2}\log\left( 1 + \frac{q_{t}}{\nu - 2} \right) - \sum\limits_{i}\log f_{t}\left( {\widetilde{z}}_{it} \right) \right\rbrack$$
+``` math
+\ell_c = \sum_t \left[ \log \Gamma\left(\frac{k+\nu}{2}\right) - \log \Gamma\left(\frac{\nu}{2}\right) - \frac{k}{2}\log(\pi(\nu-2)) - \frac{1}{2}\log|R_t| - \frac{\nu+k}{2}\log\left(1 + \frac{q_t}{\nu-2}\right) - \sum_i \log f_t(\tilde{z}_{it}) \right]
+```
 
 ### ADCC Extension
 
 Both DCC and Copula GARCH support asymmetric dynamics (ADCC):
 
-$$Q_{t} = \Omega + \alpha z_{t - 1}z_{t - 1}\prime + \gamma n_{t - 1}n_{t - 1}\prime + \beta Q_{t - 1}$$
+``` math
+Q_t = \Omega + \alpha z_{t-1}z_{t-1}' + \gamma n_{t-1}n_{t-1}' + \beta Q_{t-1}
+```
 
-where $n_{t} = z_{t} \odot \mathbf{1}_{z_{t} < 0}$ captures negative
-shocks.
+where $`n_t = z_t \odot \mathbf{1}_{z_t < 0}`$ captures negative shocks.
 
 ## Practical Comparison
 
 ### Setup
 
 ``` r
+
 library(tsbs)
 library(tsgarch)
 library(tsmarch)
@@ -118,6 +131,7 @@ We’ll simulate data with known correlation structure to compare both
 models:
 
 ``` r
+
 set.seed(42)
 
 # Simulate bivariate series with time-varying correlation
@@ -152,6 +166,7 @@ cat("  Empirical correlation:", round(cor(y_sim)[1,2], 4), "\n")
 ### DCC Specification
 
 ``` r
+
 # Define univariate GARCH specification
 spec_uni <- list(
   model = "garch",
@@ -209,6 +224,7 @@ spec_dcc <- list(
 ### Copula GARCH Specification
 
 ``` r
+
 # CGARCH specification - note the key differences:
 # - garch_spec_fun = "cgarch_modelspec"
 # - transformation argument
@@ -265,6 +281,7 @@ spec_cgarch <- list(
 ### Fitting Both Models
 
 ``` r
+
 # Fit DCC model
 fit_dcc <- fit_ms_varma_garch(
   y = y_sim,
@@ -296,6 +313,7 @@ cat("CGARCH final log-likelihood:", fit_cgarch$log_likelihood, "\n")
 ### Convergence Analysis
 
 ``` r
+
 # Extract log-likelihood trajectories
 ll_dcc <- sapply(fit_dcc$diagnostics$em_iterations, 
                  function(x) x$log_lik_after_mstep)
@@ -325,6 +343,7 @@ ggplot(df_conv, aes(x = iteration, y = log_likelihood, color = model)) +
 ### Parameter Estimates Comparison
 
 ``` r
+
 # Extract final parameters
 get_dcc_params <- function(fit, state) {
   pars <- fit$model_fits[[state]]
@@ -348,6 +367,7 @@ cat("  CGARCH Model:", unlist(get_dcc_params(fit_cgarch, 2)), "\n")
 ### State Probabilities
 
 ``` r
+
 # Compare smoothed state probabilities
 prob_dcc <- fit_dcc$smoothed_probabilities[, 1]
 prob_cgarch <- fit_cgarch$smoothed_probabilities[, 1]
@@ -389,6 +409,7 @@ The CGARCH model supports three transformation methods:
 3.  **SPD**: Semi-parametric distribution (kernel + parametric tails)
 
 ``` r
+
 # Create specs with different transformations
 transformations <- c("parametric", "empirical", "spd")
 
@@ -435,6 +456,7 @@ The Student-t copula captures tail dependence, which is important when
 extreme observations tend to occur together.
 
 ``` r
+
 # MVT copula specification
 spec_mvt <- spec_cgarch
 for (s in 1:2) {
@@ -462,17 +484,18 @@ cat("  MVT shape (df) estimates:",
 
 ### Tail Dependence Interpretation
 
-For a Student-t copula with $\nu$ degrees of freedom, the lower and
+For a Student-t copula with $`\nu`$ degrees of freedom, the lower and
 upper tail dependence coefficients are:
 
-$$\lambda_{L} = \lambda_{U} = 2t_{\nu + 1}\left( - \sqrt{\frac{(\nu + 1)(1 - \rho)}{1 + \rho}} \right)$$
+``` math
+\lambda_L = \lambda_U = 2 t_{\nu+1}\left( -\sqrt{\frac{(\nu+1)(1-\rho)}{1+\rho}} \right)
+```
 
-where $\rho$ is the correlation. As
-$\left. \nu\rightarrow\infty \right.$,
-$\left. \lambda\rightarrow 0 \right.$ (Gaussian copula has no tail
-dependence).
+where $`\rho`$ is the correlation. As $`\nu \to \infty`$,
+$`\lambda \to 0`$ (Gaussian copula has no tail dependence).
 
 ``` r
+
 # Function to compute tail dependence
 tail_dependence <- function(rho, nu) {
   if (nu > 1000) return(0)  # Gaussian limit
@@ -498,6 +521,7 @@ ADCC captures the tendency for correlations to increase after negative
 shocks (market stress).
 
 ``` r
+
 # ADCC specification
 spec_adcc <- spec_cgarch
 for (s in 1:2) {
@@ -533,6 +557,7 @@ cat("  p-value (χ² with 2 df):",
 ### Running Bootstrap with Both Models
 
 ``` r
+
 # DCC bootstrap
 boot_dcc <- tsbs(
   x = y_sim,
@@ -614,5 +639,6 @@ Test for asymmetry if using ADCC
 ## Session Info
 
 ``` r
+
 sessionInfo()
 ```

@@ -22,6 +22,7 @@ and validate your bootstrap analysis.
 ## Quick Start
 
 ``` r
+
 library(tsbs)
 
 # Generate sample data: AR(1) process
@@ -52,7 +53,7 @@ summary(result$diagnostics)
 #>   Original series length: 300 
 #>   Number of variables: 1 
 #>   Number of replicates: 100 
-#>   Generated: 2026-01-31 10:05:43 
+#>   Generated: 2026-11-10 12:36:14 
 #> 
 #> CONFIGURATION PARAMETERS:
 #>   bs_type: moving
@@ -110,6 +111,7 @@ information and supports [`print()`](https://rdrr.io/r/base/print.html),
 [`plot()`](https://rdrr.io/r/graphics/plot.default.html) methods.
 
 ``` r
+
 # Basic info
 print(result$diagnostics)
 #> tsbs Bootstrap Diagnostics
@@ -150,6 +152,7 @@ comprehensive text report covering all aspects of the bootstrap
 analysis.
 
 ``` r
+
 summary(result$diagnostics)
 #> ========================================
 #>   tsbs Bootstrap Diagnostics Summary
@@ -160,7 +163,7 @@ summary(result$diagnostics)
 #>   Original series length: 300 
 #>   Number of variables: 1 
 #>   Number of replicates: 100 
-#>   Generated: 2026-01-31 10:05:43 
+#>   Generated: 2026-11-10 12:36:14 
 #> 
 #> CONFIGURATION PARAMETERS:
 #>   bs_type: moving
@@ -244,6 +247,7 @@ or generate all applicable plots.
 ### Available Plot Types
 
 ``` r
+
 # All applicable plots
 plot(result$diagnostics, type = "all")
 
@@ -262,6 +266,7 @@ For moving block bootstrap, this should be constant; for stationary
 bootstrap, it follows a geometric distribution.
 
 ``` r
+
 plot(result$diagnostics, type = "block_lengths")
 ```
 
@@ -273,6 +278,7 @@ Shows where blocks are sampled from in the original series. A uniform
 distribution indicates good coverage of the original data.
 
 ``` r
+
 plot(result$diagnostics, type = "start_positions")
 ```
 
@@ -282,6 +288,7 @@ Compares the distribution of bootstrap means against the original series
 mean. The red dashed line shows the original value.
 
 ``` r
+
 plot(result$diagnostics, type = "means_comparison")
 ```
 
@@ -293,6 +300,7 @@ Shows how well the bootstrap preserves the lag-1 autocorrelation
 structure of the original series.
 
 ``` r
+
 plot(result$diagnostics, type = "acf_comparison")
 ```
 
@@ -305,6 +313,7 @@ For custom analysis, you can extract diagnostic data in various formats.
 ### Block Information
 
 ``` r
+
 # Get all block information
 blocks_df <- extract_blocks(result$diagnostics)
 head(blocks_df)
@@ -355,6 +364,7 @@ blocks_rep1
 ### Summary Statistics
 
 ``` r
+
 # Get comprehensive summary statistics
 stats <- extract_summary_stats(result$diagnostics)
 
@@ -409,6 +419,7 @@ For integration with other analysis workflows, convert diagnostics to a
 data frame.
 
 ``` r
+
 # Per-replicate statistics
 stats_df <- as.data.frame(result$diagnostics, what = "stats")
 head(stats_df)
@@ -443,6 +454,7 @@ The moving block bootstrap samples fixed-length, overlapping blocks from
 the original series.
 
 ``` r
+
 set.seed(123)
 x_ar <- as.matrix(arima.sim(n = 200, list(ar = 0.6)))
 
@@ -466,7 +478,7 @@ summary(result_mbb$diagnostics)
 #>   Original series length: 200 
 #>   Number of variables: 1 
 #>   Number of replicates: 100 
-#>   Generated: 2026-01-31 10:05:45 
+#>   Generated: 2026-11-10 12:36:17 
 #> 
 #> CONFIGURATION PARAMETERS:
 #>   bs_type: moving
@@ -528,6 +540,7 @@ The stationary bootstrap uses geometrically distributed block lengths,
 providing a stationary resampling scheme.
 
 ``` r
+
 set.seed(456)
 
 result_sb <- tsbs(
@@ -549,7 +562,7 @@ summary(result_sb$diagnostics)
 #>   Original series length: 200 
 #>   Number of variables: 1 
 #>   Number of replicates: 100 
-#>   Generated: 2026-01-31 10:05:46 
+#>   Generated: 2026-11-10 12:36:18 
 #> 
 #> CONFIGURATION PARAMETERS:
 #>   bs_type: stationary
@@ -603,6 +616,7 @@ summary(result_sb$diagnostics)
 ```
 
 ``` r
+
 # Block lengths follow geometric distribution
 plot(result_sb$diagnostics, type = "block_lengths")
 ```
@@ -623,6 +637,7 @@ Tapered blocks apply window functions to smooth transitions between
 blocks.
 
 ``` r
+
 set.seed(789)
 
 result_tapered <- tsbs(
@@ -647,7 +662,7 @@ summary(result_tapered$diagnostics)
 #>   Original series length: 200 
 #>   Number of variables: 1 
 #>   Number of replicates: 50 
-#>   Generated: 2026-01-31 10:05:47 
+#>   Generated: 2026-11-10 12:36:19 
 #> 
 #> CONFIGURATION PARAMETERS:
 #>   bs_type: moving
@@ -706,6 +721,7 @@ The wild bootstrap multiplies observations by random signs (±1),
 preserving heteroskedasticity patterns. It does not use blocks.
 
 ``` r
+
 set.seed(321)
 
 # Generate heteroskedastic data
@@ -730,7 +746,7 @@ summary(result_wild$diagnostics)
 #>   Original series length: 150 
 #>   Number of variables: 1 
 #>   Number of replicates: 200 
-#>   Generated: 2026-01-31 10:05:48 
+#>   Generated: 2026-11-10 12:36:20 
 #> 
 #> CONFIGURATION PARAMETERS:
 #>   bs_type: wild
@@ -776,6 +792,7 @@ summary(result_wild$diagnostics)
 - Variance structure is preserved
 
 ``` r
+
 plot(result_wild$diagnostics, type = "means_comparison")
 ```
 
@@ -787,6 +804,7 @@ The diagnostics system fully supports multivariate time series,
 providing per-variable statistics.
 
 ``` r
+
 set.seed(555)
 
 # Generate correlated bivariate series
@@ -820,7 +838,7 @@ summary(result_mv$diagnostics)
 #>   Original series length: 200 
 #>   Number of variables: 2 
 #>   Number of replicates: 100 
-#>   Generated: 2026-01-31 10:05:48 
+#>   Generated: 2026-11-10 12:36:20 
 #> 
 #> CONFIGURATION PARAMETERS:
 #>   bs_type: moving
@@ -879,6 +897,7 @@ summary(result_mv$diagnostics)
 ```
 
 ``` r
+
 # Means comparison shows both variables
 plot(result_mv$diagnostics, type = "means_comparison")
 ```
@@ -886,6 +905,7 @@ plot(result_mv$diagnostics, type = "means_comparison")
 ![](bootstrap_diagnostics_files/figure-html/multivariate-plots-1.png)
 
 ``` r
+
 
 # ACF comparison for each variable
 plot(result_mv$diagnostics, type = "acf_comparison")
@@ -901,6 +921,7 @@ built-in summaries.
 ### Bootstrap Confidence Intervals
 
 ``` r
+
 # Extract bootstrap means
 stats_df <- as.data.frame(result$diagnostics, what = "stats")
 
@@ -917,6 +938,7 @@ cat("Original mean:", round(result$diagnostics$original_stats$means, 4), "\n")
 ### Assessing Autocorrelation Preservation
 
 ``` r
+
 # How well does the bootstrap preserve autocorrelation?
 orig_ac1 <- result$diagnostics$original_stats$ac1
 boot_ac1 <- do.call(rbind, result$diagnostics$series_stats$replicate_ac1)
@@ -940,6 +962,7 @@ cat("Fraction within ±0.1 of original:", round(within_tolerance, 3), "\n")
 ### Block Coverage Analysis
 
 ``` r
+
 # Analyze how well the bootstrap covers the original series
 blocks_df <- extract_blocks(result$diagnostics)
 
@@ -971,6 +994,7 @@ cat("  Interpretation:", ifelse(p_value > 0.05,
 ### Comparing Bootstrap Methods
 
 ``` r
+
 # Compare moving vs stationary bootstrap
 set.seed(999)
 x_compare <- as.matrix(arima.sim(n = 200, list(ar = 0.8)))
@@ -1016,7 +1040,7 @@ knitr::kable(comparison, digits = 4,
 | Moving Block |     0.6862 |   0.0488 |
 | Stationary   |     0.6479 |   0.0607 |
 
-Autocorrelation Preservation by Bootstrap Method
+Autocorrelation Preservation by Bootstrap Method {.table}
 
 ## Best Practices
 
@@ -1026,6 +1050,7 @@ The block length is a critical parameter for block bootstrap methods.
 Use diagnostics to assess your choice:
 
 ``` r
+
 # Try different block lengths and compare AC(1) preservation
 block_lengths <- c(5, 10, 15, 20, 25)
 ac1_results <- sapply(block_lengths, function(bl) {
@@ -1053,6 +1078,7 @@ More replicates provide more stable estimates but increase computation
 time. Use diagnostics to assess convergence:
 
 ``` r
+
 # Check if bootstrap mean has stabilized
 stats_df <- as.data.frame(result$diagnostics, what = "stats")
 running_mean <- cumsum(stats_df$mean_V1) / seq_along(stats_df$mean_V1)
@@ -1065,13 +1091,13 @@ plot(running_mean, type = "l", xlab = "Replicate", ylab = "Running Mean",
 The tsbs diagnostics system provides comprehensive tools for
 understanding and validating bootstrap analyses:
 
-| Function                                                                                      | Purpose                                   |
-|-----------------------------------------------------------------------------------------------|-------------------------------------------|
-| [`summary()`](https://rdrr.io/r/base/summary.html)                                            | Comprehensive text report                 |
-| [`plot()`](https://rdrr.io/r/graphics/plot.default.html)                                      | Diagnostic visualizations                 |
-| [`extract_blocks()`](https://mahovo.github.io/tsbs/reference/extract_blocks.md)               | Block composition data                    |
-| [`extract_summary_stats()`](https://mahovo.github.io/tsbs/reference/extract_summary_stats.md) | Statistical summaries                     |
-| [`as.data.frame()`](https://rdrr.io/r/base/as.data.frame.html)                                | Convert to data frame for custom analysis |
+| Function | Purpose |
+|----|----|
+| [`summary()`](https://rdrr.io/r/base/summary.html) | Comprehensive text report |
+| [`plot()`](https://rdrr.io/r/graphics/plot.default.html) | Diagnostic visualizations |
+| [`extract_blocks()`](https://mahovo.github.io/tsbs/reference/extract_blocks.md) | Block composition data |
+| [`extract_summary_stats()`](https://mahovo.github.io/tsbs/reference/extract_summary_stats.md) | Statistical summaries |
+| [`as.data.frame()`](https://rdrr.io/r/base/as.data.frame.html) | Convert to data frame for custom analysis |
 
 By examining these diagnostics, you can:
 
@@ -1084,10 +1110,11 @@ By examining these diagnostics, you can:
 ## Session Info
 
 ``` r
+
 sessionInfo()
-#> R version 4.5.2 (2025-10-31)
+#> R version 4.6.2 (2026-10-29)
 #> Platform: x86_64-pc-linux-gnu
-#> Running under: Ubuntu 24.04.3 LTS
+#> Running under: Ubuntu 24.04.5 LTS
 #> 
 #> Matrix products: default
 #> BLAS:   /usr/lib/x86_64-linux-gnu/openblas-pthread/libblas.so.3 
@@ -1109,56 +1136,57 @@ sessionInfo()
 #> [1] tsbs_0.1.0
 #> 
 #> loaded via a namespace (and not attached):
-#>   [1] tidyselect_1.2.1            dplyr_1.1.4                
-#>   [3] farver_2.1.2                S7_0.2.1                   
-#>   [5] fastmap_1.2.0               tsgarch_1.0.3              
+#>   [1] tidyselect_1.2.1            dplyr_1.2.1                
+#>   [3] farver_2.1.2                S7_0.2.2                   
+#>   [5] fastmap_1.2.0               tsgarch_1.0.5              
 #>   [7] JADE_2.0-4                  fontquiver_0.2.1           
 #>   [9] GeneralizedHyperbolic_0.8-7 digest_0.6.39              
 #>  [11] timechange_0.4.0            lifecycle_1.0.5            
-#>  [13] cluster_2.1.8.1             tsmarch_1.0.0              
-#>  [15] Rsolnp_2.0.1                mev_2.1                    
-#>  [17] magrittr_2.0.4              compiler_4.5.2             
-#>  [19] rlang_1.1.7                 sass_0.4.10                
-#>  [21] tools_4.5.2                 yaml_2.3.12                
-#>  [23] data.table_1.18.2.1         knitr_1.51                 
+#>  [13] cluster_2.1.8.3             tsmarch_1.0.3              
+#>  [15] Rsolnp_2.0.1                mev_2.2                    
+#>  [17] magrittr_2.0.5              compiler_4.6.2             
+#>  [19] rlang_1.3.0                 sass_0.4.10                
+#>  [21] tools_4.6.2                 yaml_2.3.12                
+#>  [23] data.table_1.18.6.1         knitr_1.52                 
 #>  [25] labeling_0.4.3              askpass_1.2.1              
-#>  [27] curl_7.0.0                  alabama_2025.1.0           
-#>  [29] xml2_1.5.2                  TTR_0.24.4                 
+#>  [27] curl_8.1.0                  alabama_2025.1.0           
+#>  [29] xml2_1.6.0                  TTR_0.24.4                 
 #>  [31] RColorBrewer_1.1-3          abind_1.4-8                
-#>  [33] KernSmooth_2.23-26          withr_3.0.2                
-#>  [35] nleqslv_3.3.5               purrr_1.2.1                
+#>  [33] KernSmooth_2.23-27          withr_3.0.3                
+#>  [35] nleqslv_3.3.7               purrr_1.2.2                
 #>  [37] numDeriv_2016.8-1.1         desc_1.4.3                 
-#>  [39] grid_4.5.2                  gdtools_0.4.4              
-#>  [41] xts_0.14.1                  future_1.69.0              
-#>  [43] progressr_0.18.0            ggplot2_4.0.1              
-#>  [45] iterators_1.0.14            globals_0.18.0             
-#>  [47] scales_1.4.0                MASS_7.3-65                
-#>  [49] cli_3.6.5                   rmarkdown_2.30             
-#>  [51] ragg_1.5.0                  generics_0.1.4             
-#>  [53] RcppParallel_5.1.11-1       RcppBessel_1.0.0           
-#>  [55] future.apply_1.20.1         cachem_1.1.0               
-#>  [57] parallel_4.5.2              vctrs_0.7.1                
-#>  [59] Matrix_1.7-4                sandwich_3.1-1             
-#>  [61] jsonlite_2.0.0              fontBitstreamVera_0.1.1    
-#>  [63] clue_0.3-66                 listenv_0.10.0             
-#>  [65] systemfonts_1.3.1           foreach_1.5.2              
-#>  [67] tidyr_1.3.2                 jquerylib_0.1.4            
-#>  [69] quantmod_0.4.28             glue_1.8.0                 
-#>  [71] parallelly_1.46.1           pkgdown_2.2.0              
-#>  [73] nloptr_2.2.1                SkewHyperbolic_0.4-2       
-#>  [75] codetools_0.2-20            DistributionUtils_0.6-2    
-#>  [77] shape_1.4.6.1               lubridate_1.9.4            
-#>  [79] flextable_0.9.10            gtable_0.3.6               
-#>  [81] tsmethods_1.0.2             tibble_3.3.1               
-#>  [83] pillar_1.11.1               htmltools_0.5.9            
-#>  [85] openssl_2.3.4               truncnorm_1.0-9            
-#>  [87] R6_2.6.1                    TMB_1.9.19                 
-#>  [89] textshaping_1.0.4           Rdpack_2.6.5               
-#>  [91] evaluate_1.0.5              lattice_0.22-7             
-#>  [93] rbibutils_2.4.1             fontLiberation_0.1.0       
-#>  [95] bslib_0.10.0                Rcpp_1.1.1                 
-#>  [97] zip_2.3.3                   uuid_1.2-2                 
-#>  [99] officer_0.7.3               xfun_0.56                  
-#> [101] fs_1.6.6                    zoo_1.8-15                 
-#> [103] pkgconfig_2.0.3             tsdistributions_1.0.3
+#>  [39] grid_4.6.2                  gdtools_0.5.3              
+#>  [41] xts_0.14.3                  future_1.82.0              
+#>  [43] progressr_1.1.0             ggplot2_4.0.3              
+#>  [45] iterators_1.0.14            globals_0.20.0             
+#>  [47] scales_1.4.0                MASS_7.3-66                
+#>  [49] cli_3.6.6                   rmarkdown_2.32             
+#>  [51] ragg_1.5.2                  generics_0.1.4             
+#>  [53] RcppParallel_6.2.1          RcppBessel_1.0.1           
+#>  [55] otel_0.3.0                  future.apply_1.21.0        
+#>  [57] cachem_1.1.0                parallel_4.6.2             
+#>  [59] vctrs_0.7.3                 Matrix_1.7-6               
+#>  [61] sandwich_3.1-3              jsonlite_2.0.0             
+#>  [63] fontBitstreamVera_0.1.1     clue_0.3-68                
+#>  [65] listenv_1.1.0               systemfonts_1.3.2          
+#>  [67] foreach_1.5.2               tidyr_1.3.2                
+#>  [69] jquerylib_0.1.4             quantmod_0.4.29            
+#>  [71] glue_1.8.1                  parallelly_1.50.0          
+#>  [73] pkgdown_2.2.1               nloptr_2.2.1               
+#>  [75] SkewHyperbolic_0.4-2        codetools_0.2-20           
+#>  [77] DistributionUtils_0.6-2     shape_1.4.6.1              
+#>  [79] lubridate_1.9.5             flextable_0.10.4           
+#>  [81] gtable_0.3.6                tsmethods_1.0.3            
+#>  [83] tibble_3.3.1                pillar_1.11.1              
+#>  [85] htmltools_0.5.9             openssl_2.5.0              
+#>  [87] truncnorm_1.0-9             R6_2.6.1                   
+#>  [89] TMB_1.9.25                  textshaping_1.0.5          
+#>  [91] Rdpack_2.6.6                evaluate_1.0.5             
+#>  [93] lattice_0.23-1              rbibutils_2.4.1            
+#>  [95] fontLiberation_0.1.0        bslib_0.12.0               
+#>  [97] Rcpp_1.1.2                  zip_3.0.2                  
+#>  [99] uuid_1.2-2                  officer_0.7.8              
+#> [101] xfun_0.62                   fs_2.1.0                   
+#> [103] zoo_1.9-1                   pkgconfig_2.0.3            
+#> [105] tsdistributions_1.0.4
 ```

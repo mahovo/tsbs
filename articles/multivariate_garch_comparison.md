@@ -42,37 +42,48 @@ through a two-stage process:
 
 **Stage 1: Univariate GARCH**
 
-For each series $i = 1,\ldots,k$:
-$$r_{i,t} = \mu_{i,t} + \varepsilon_{i,t},\quad\varepsilon_{i,t} = \sigma_{i,t}z_{i,t}$$$$\sigma_{i,t}^{2} = \omega_{i} + \alpha_{i}\varepsilon_{i,t - 1}^{2} + \beta_{i}\sigma_{i,t - 1}^{2}$$
+For each series $`i = 1, \ldots, k`$:
+``` math
+r_{i,t} = \mu_{i,t} + \varepsilon_{i,t}, \quad \varepsilon_{i,t} = \sigma_{i,t} z_{i,t}
+```
+``` math
+\sigma_{i,t}^2 = \omega_i + \alpha_i \varepsilon_{i,t-1}^2 + \beta_i \sigma_{i,t-1}^2
+```
 
 **Stage 2: Correlation Dynamics**
 
-The standardized residuals
-$z_{t} = \left( z_{1,t},\ldots,z_{k,t} \right)\prime$ follow DCC
-dynamics:
-$$Q_{t} = (1 - \alpha - \beta)\bar{Q} + \alpha z_{t - 1}z_{t - 1}\prime + \beta Q_{t - 1}$$$$R_{t} = \text{diag}\left( Q_{t} \right)^{- 1/2}\, Q_{t}\,\text{diag}\left( Q_{t} \right)^{- 1/2}$$
+The standardized residuals $`z_t = (z_{1,t}, \ldots, z_{k,t})'`$ follow
+DCC dynamics:
+``` math
+Q_t = (1 - \alpha - \beta) \bar{Q} + \alpha z_{t-1} z_{t-1}' + \beta Q_{t-1}
+```
+``` math
+R_t = \text{diag}(Q_t)^{-1/2} \, Q_t \, \text{diag}(Q_t)^{-1/2}
+```
 
-where $\bar{Q}$ is the unconditional covariance of $z_{t}$, and $R_{t}$
-is the time-varying correlation matrix.
+where $`\bar{Q}`$ is the unconditional covariance of $`z_t`$, and
+$`R_t`$ is the time-varying correlation matrix.
 
 ### Key Parameters
 
-| Parameter        | Description                | Typical Range       |
-|------------------|----------------------------|---------------------|
-| $\alpha$         | News impact (ARCH effect)  | 0.01 - 0.10         |
-| $\beta$          | Persistence (GARCH effect) | 0.85 - 0.98         |
-| $\alpha + \beta$ | Total persistence          | \< 1 (stationarity) |
+| Parameter          | Description                | Typical Range       |
+|--------------------|----------------------------|---------------------|
+| $`\alpha`$         | News impact (ARCH effect)  | 0.01 - 0.10         |
+| $`\beta`$          | Persistence (GARCH effect) | 0.85 - 0.98         |
+| $`\alpha + \beta`$ | Total persistence          | \< 1 (stationarity) |
 
 ### Assumptions
 
 1.  **Normality or Student-t**: Standardized residuals follow MVN or MVT
-2.  **Scalar dynamics**: Same $\alpha,\beta$ for all correlation pairs
+2.  **Scalar dynamics**: Same $`\alpha, \beta`$ for all correlation
+    pairs
 3.  **Symmetric response**: No distinction between positive/negative
     shocks
 
 ### Usage in tsbs
 
 ``` r
+
 spec <- list(
   list(
     var_order = 1,
@@ -112,20 +123,29 @@ structure using copula theory.
 **Stage 1: Univariate GARCH + PIT**
 
 Same univariate GARCH as DCC, but with Probability Integral Transform:
-$$u_{i,t} = F_{i}\left( z_{i,t}|\theta_{i} \right)$$
+``` math
+u_{i,t} = F_i(z_{i,t} | \theta_i)
+```
 
-where $F_{i}$ is the marginal CDF. This transforms residuals to uniform
-$\lbrack 0,1\rbrack$.
+where $`F_i`$ is the marginal CDF. This transforms residuals to uniform
+$`[0,1]`$.
 
 **Stage 2: Copula Transformation**
 
 Transform uniform margins to copula residuals:
-$${\widetilde{z}}_{i,t} = \Phi^{- 1}\left( u_{i,t} \right)\quad\text{(Gaussian copula)}$$$${\widetilde{z}}_{i,t} = t_{\nu}^{- 1}\left( u_{i,t} \right)\quad\text{(Student-t copula)}$$
+``` math
+\tilde{z}_{i,t} = \Phi^{-1}(u_{i,t}) \quad \text{(Gaussian copula)}
+```
+``` math
+\tilde{z}_{i,t} = t_\nu^{-1}(u_{i,t}) \quad \text{(Student-t copula)}
+```
 
 **Stage 3: Correlation Dynamics**
 
 Apply DCC-style dynamics to copula residuals:
-$$Q_{t} = (1 - \alpha - \beta)\bar{Q} + \alpha{\widetilde{z}}_{t - 1}{\widetilde{z}}_{t - 1}\prime + \beta Q_{t - 1}$$
+``` math
+Q_t = (1 - \alpha - \beta) \bar{Q} + \alpha \tilde{z}_{t-1} \tilde{z}_{t-1}' + \beta Q_{t-1}
+```
 
 ### PIT Transformation Methods
 
@@ -137,23 +157,25 @@ $$Q_{t} = (1 - \alpha - \beta)\bar{Q} + \alpha{\widetilde{z}}_{t - 1}{\widetilde
 
 ### Copula Distributions
 
-| Copula | Properties | Parameters                    |
-|--------|------------|-------------------------------|
-| `mvn`  | Gaussian   | None (symmetric)              |
-| `mvt`  | Student-t  | Shape $\nu$ (tail dependence) |
+| Copula | Properties | Parameters                      |
+|--------|------------|---------------------------------|
+| `mvn`  | Gaussian   | None (symmetric)                |
+| `mvt`  | Student-t  | Shape $`\nu`$ (tail dependence) |
 
 ### ADCC Extension
 
 CGARCH supports Asymmetric DCC (ADCC) for leverage effects:
-$$Q_{t} = \left( 1 - \alpha - \beta - \delta\bar{\gamma} \right)\bar{Q} + \alpha{\widetilde{z}}_{t - 1}{\widetilde{z}}_{t - 1}\prime + \beta Q_{t - 1} + \gamma n_{t - 1}n_{t - 1}\prime$$
+``` math
+Q_t = (1 - \alpha - \beta - \delta\bar{\gamma}) \bar{Q} + \alpha \tilde{z}_{t-1} \tilde{z}_{t-1}' + \beta Q_{t-1} + \gamma n_{t-1} n_{t-1}'
+```
 
-where
-$n_{t} = {\widetilde{z}}_{t} \cdot \mathbf{1}\left( {\widetilde{z}}_{t} < 0 \right)$
-captures negative shocks.
+where $`n_t = \tilde{z}_t \cdot \mathbf{1}(\tilde{z}_t < 0)`$ captures
+negative shocks.
 
 ### Usage in tsbs
 
 ``` r
+
 spec <- list(
   list(
     var_order = 1,
@@ -208,30 +230,42 @@ independent components.
 **Stage 1: ICA Decomposition**
 
 Decompose observed residuals into independent components:
-$$\varepsilon_{t} = A \cdot s_{t}$$
+``` math
+\varepsilon_t = A \cdot s_t
+```
 
-where $A$ is the mixing matrix and $s_{t}$ are independent components.
-Equivalently: $s_{t} = W \cdot \varepsilon_{t}$ where $W = A^{- 1}$ is
+where $`A`$ is the mixing matrix and $`s_t`$ are independent components.
+Equivalently: $`s_t = W \cdot \varepsilon_t`$ where $`W = A^{-1}`$ is
 the unmixing matrix.
 
 **Stage 2: Component GARCH**
 
 Each independent component follows univariate GARCH:
-$$s_{i,t} = \sqrt{h_{i,t}} \cdot \eta_{i,t}$$$$h_{i,t} = \omega_{i} + \alpha_{1,i}s_{i,t - 1}^{2} + \beta_{1,i}h_{i,t - 1}$$
+``` math
+s_{i,t} = \sqrt{h_{i,t}} \cdot \eta_{i,t}
+```
+``` math
+h_{i,t} = \omega_i + \alpha_{1,i} s_{i,t-1}^2 + \beta_{1,i} h_{i,t-1}
+```
 
-where $\eta_{i,t}\overset{iid}{\sim}(0,1)$.
+where $`\eta_{i,t} \stackrel{iid}{\sim} (0, 1)`$.
 
 **Stage 3: Covariance Reconstruction**
 
 Time-varying covariance is reconstructed via:
-$$\Sigma_{t} = A \cdot H_{t} \cdot A\prime$$
+``` math
+\Sigma_t = A \cdot H_t \cdot A'
+```
 
-where $H_{t} = \text{diag}\left( h_{1,t},\ldots,h_{k,t} \right)$.
+where $`H_t = \text{diag}(h_{1,t}, \ldots, h_{k,t})`$.
 
-The correlation matrix is: $$R_{t} = D_{t}^{- 1}\Sigma_{t}D_{t}^{- 1}$$
+The correlation matrix is:
+``` math
+R_t = D_t^{-1} \Sigma_t D_t^{-1}
+```
 
 where
-$D_{t} = \text{diag}\left( \sqrt{\Sigma_{11,t}},\ldots,\sqrt{\Sigma_{kk,t}} \right)$.
+$`D_t = \text{diag}(\sqrt{\Sigma_{11,t}}, \ldots, \sqrt{\Sigma_{kk,t}})`$.
 
 ### ICA Methods
 
@@ -246,12 +280,13 @@ $D_{t} = \text{diag}\left( \sqrt{\Sigma_{11,t}},\ldots,\sqrt{\Sigma_{kk,t}} \rig
 Unlike DCC/CGARCH, GOGARCH has **no α, β parameters for correlation
 dynamics**. Instead, time-varying correlations emerge from:
 
-1.  The fixed mixing matrix $A$ (estimated via ICA)
-2.  The time-varying component variances $h_{i,t}$ (via GARCH)
+1.  The fixed mixing matrix $`A`$ (estimated via ICA)
+2.  The time-varying component variances $`h_{i,t}`$ (via GARCH)
 
 ### Usage in tsbs
 
 ``` r
+
 spec <- list(
   list(
     var_order = 1,
@@ -394,6 +429,7 @@ GOGARCH has different challenges:
 All three models support parallelization in the tsbs bootstrap:
 
 ``` r
+
 library(future)
 plan(multisession, workers = 4)
 
@@ -412,6 +448,7 @@ result <- tsbs(
 All three models integrate with the Markov-Switching framework:
 
 ``` r
+
 # Two-regime model with DCC
 spec_ms <- list(
   # Regime 1: Low volatility

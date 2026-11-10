@@ -149,13 +149,10 @@ if (require(tsmarch) && require(tsgarch) && require(xts)) {
 #> The following objects are masked from ‘package:base’:
 #> 
 #>     as.Date, as.Date.numeric
-#> Warning: NaNs produced
-#> Warning: NaNs produced
-#> Warning: NaNs produced
-#> Warning: NaNs produced
-#> [1] "LL at estimated: -1409.00310436415"
-#> [1] "LL at alternative: -1414.19905089214"
-#> [1] "Difference: 5.19594652799151"
+#> Warning: Tried to assign NULL to column 'series', but this column does not exist to remove
+#> Warning: Tried to assign NULL to column 'series', but this column does not exist to remove
+#> Caught simpleError. Canceling all iterations ...
+#> Error in split.data.table(pmatrix, by = "series"): Argument 'by' must refer to column names in x
 # }
 
 if (FALSE) { # \dontrun{

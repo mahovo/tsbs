@@ -16,6 +16,7 @@ block methods to sophisticated model-based resampling.
 Install from GitHub:
 
 ``` r
+
 # install.packages("devtools")
 devtools::install_github("mahovo/tsbs")
 ```
@@ -25,18 +26,19 @@ devtools::install_github("mahovo/tsbs")
 The package supports the following bootstrap types via the main
 [`tsbs()`](https://mahovo.github.io/tsbs/reference/tsbs.md) function:
 
-| Method              | `bs_type`          | Description                                   |
-|---------------------|--------------------|-----------------------------------------------|
-| Moving Block        | `"moving"`         | Fixed-length blocks sampled with replacement  |
-| Stationary Block    | `"stationary"`     | Random block lengths (geometric distribution) |
-| Hidden Markov Model | `"hmm"`            | Regime-switching with discrete states         |
-| MS-VAR              | `"msvar"`          | Markov-Switching Vector Autoregression        |
-| MS-VARMA-GARCH      | `"ms_varma_garch"` | Markov-Switching VARMA with GARCH errors      |
-| Wild Bootstrap      | `"wild"`           | Residual-based with random sign flips         |
+| Method | `bs_type` | Description |
+|----|----|----|
+| Moving Block | `"moving"` | Fixed-length blocks sampled with replacement |
+| Stationary Block | `"stationary"` | Random block lengths (geometric distribution) |
+| Hidden Markov Model | `"hmm"` | Regime-switching with discrete states |
+| MS-VAR | `"msvar"` | Markov-Switching Vector Autoregression |
+| MS-VARMA-GARCH | `"ms_varma_garch"` | Markov-Switching VARMA with GARCH errors |
+| Wild Bootstrap | `"wild"` | Residual-based with random sign flips |
 
 ## Quick Start
 
 ``` r
+
 library(tsbs)
 
 # Simple stationary block bootstrap
@@ -66,11 +68,12 @@ The main entry point for the package is the
 which provides comprehensive documentation including detailed
 specification examples:
 
-[file:///Users/mhvpbp13/git/tsbs/docs/reference/tsbs.html](file:///Users/mhvpbp13/git/tsbs/docs/reference/tsbs.md)
+[https://mahovo.github.io/tsbs/reference/tsbs.html](file:///Users/mhvpbp13/git/tsbs/docs/reference/tsbs.md)
 
 In R with tsbs package installed and loaded:
 
 ``` r
+
 ?tsbs
 ```
 
@@ -81,13 +84,13 @@ Full reference manual:
 
 The package includes vignettes for specialized topics:
 
-| Vignette                                                                                                                                 | Description                                                                                   |
-|------------------------------------------------------------------------------------------------------------------------------------------|-----------------------------------------------------------------------------------------------|
-| [`vignette("portfolio-optimization-demo", package = "tsbs")`](https://mahovo.github.io/tsbs/articles/portfolio-optimization-demo.md)     | Comprehensive demo of portfolio optimization w/ tsbs                                          |
-| [`vignette("bootstrap_diagnostics", package = "tsbs")`](https://mahovo.github.io/tsbs/articles/bootstrap_diagnostics.md)                 | Diagnostic system for output bootstrap series                                                 |
-| `vignette("ms-varma-garch_diagnostics.Rmd", package = "tsbs")`                                                                           | Diagnostic system for monitoring EM convergence, parameter evolution, and numerical stability |
-| [`vignette("ms-varma-garch_inference", package = "tsbs")`](https://mahovo.github.io/tsbs/articles/ms-varma-garch_inference.md)           | Statistical inference for DCC, CGARCH and GOGARCH parameters                                  |
-| [`vignette("multivariate_garch_comparison", package = "tsbs")`](https://mahovo.github.io/tsbs/articles/multivariate_garch_comparison.md) | Diagnostic vignette comparing DCC, CGARCH and GOGARCH models                                  |
+| Vignette | Description |
+|----|----|
+| [`vignette("portfolio-optimization-demo", package = "tsbs")`](https://mahovo.github.io/tsbs/articles/portfolio-optimization-demo.md) | Comprehensive demo of portfolio optimization w/ tsbs |
+| [`vignette("bootstrap_diagnostics", package = "tsbs")`](https://mahovo.github.io/tsbs/articles/bootstrap_diagnostics.md) | Diagnostic system for output bootstrap series |
+| `vignette("ms-varma-garch_diagnostics.Rmd", package = "tsbs")` | Diagnostic system for monitoring EM convergence, parameter evolution, and numerical stability |
+| [`vignette("ms-varma-garch_inference", package = "tsbs")`](https://mahovo.github.io/tsbs/articles/ms-varma-garch_inference.md) | Statistical inference for DCC, CGARCH and GOGARCH parameters |
+| [`vignette("multivariate_garch_comparison", package = "tsbs")`](https://mahovo.github.io/tsbs/articles/multivariate_garch_comparison.md) | Diagnostic vignette comparing DCC, CGARCH and GOGARCH models |
 
 ### Demos
 
@@ -95,6 +98,7 @@ See a pre-rendered version of “portfolio-optimization.Rmd” :
 <https://github.com/mahovo/tsbs/blob/main/inst/demos/portfolio-optimization.md>
 
 ``` r
+
 library(tsbs)
 
 # See what demos are available
@@ -121,6 +125,7 @@ and usage patterns. Examining these files can be a helpful way to
 understand how to specify models for different scenarios:
 
 ``` r
+
 # Location of test files (after installation)
 system.file("tests", package = "tsbs")
 ```

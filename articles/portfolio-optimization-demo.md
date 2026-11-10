@@ -1,6 +1,7 @@
 # Portfolio Optimization with Multivariate GARCH Model Comparison
 
 ``` r
+
 library(tsbs)
 library(quantmod)
 library(ggplot2)
@@ -9,6 +10,7 @@ library(knitr)
 ```
 
 ``` r
+
 ## =============================================================================
 ## GLOBAL SETTINGS - Adjust these to control computation time and data source
 ## =============================================================================
@@ -91,6 +93,7 @@ really is.
 ## Part 1: Portfolio Optimization Functions
 
 ``` r
+
 ## =============================================================================
 ## PORTFOLIO OPTIMIZATION FUNCTIONS
 ## =============================================================================
@@ -323,6 +326,7 @@ calc_portfolio_metrics <- function(returns, weights) {
     ## =======================================================================
 
 ``` r
+
 ## Asset information
 symbols <- c("SPY", "EFA", "BND", "GLD", "VNQ")
 symbol_names <- c("US Equity", "Intl Equity", "US Bonds", "Gold", "REITs")
@@ -390,6 +394,7 @@ if (DATA_SOURCE == "package") {
     ##   Downloaded: 2026-01-21
 
 ``` r
+
 k <- ncol(y_full)
 ```
 
@@ -412,6 +417,7 @@ k <- ncol(y_full)
     ## Annualized statistics:
 
 ``` r
+
 ann_stats <- rbind(
   "Return (%)" = colMeans(y_full) * 252,
   "Vol (%)" = apply(y_full, 2, sd) * sqrt(252),
@@ -429,6 +435,7 @@ print(round(ann_stats, 2))
     ## Correlation matrix:
 
 ``` r
+
 print(round(cor(y_full), 2))
 ```
 
@@ -448,6 +455,7 @@ We define specifications for three multivariate GARCH model types:
 - **GOGARCH**: Uses `gogarch_modelspec` with ICA decomposition
 
 ``` r
+
 ## =============================================================================
 ## MODEL SPECIFICATIONS FOR DCC, CGARCH, AND GOGARCH
 ## =============================================================================
@@ -594,6 +602,7 @@ spec_gogarch <- list(
     ## =======================================================================
 
 ``` r
+
 ## Parameters
 rebalance_freq <- 63  ## Quarterly rebalancing
 
@@ -615,6 +624,7 @@ rebalance_dates <- seq(train_window + 1, n_total - rebalance_freq, by = rebalanc
     ##   Max rebalances with bootstrap: 3
 
 ``` r
+
 ## Strategies to test
 strategies <- list(
   "Equal Weight" = equal_weight_portfolio,
@@ -641,6 +651,7 @@ bootstrap using all three GARCH model types and compare their
 uncertainty estimates.
 
 ``` r
+
 ## =============================================================================
 ## RUN BACKTEST WITH DCC, CGARCH, AND GOGARCH COMPARISON
 ## =============================================================================
@@ -816,6 +827,7 @@ cat("\nBacktest completed!\n")
     ## -----------------------------------------------------------------------
 
 ``` r
+
 ## Remove NA rows
 backtest_returns <- backtest_returns[complete.cases(backtest_returns), ]
 
@@ -844,6 +856,7 @@ perf_summary <- t(sapply(colnames(backtest_returns), function(strat) {
     ## Out-of-sample performance:
 
 ``` r
+
 print(round(perf_summary, 3))
 ```
 
@@ -856,6 +869,7 @@ print(round(perf_summary, 3))
     ## Shrinkage               8.644     13.059  0.662  -25.572
 
 ``` r
+
 best_sharpe <- which.max(perf_summary[, "Sharpe"])
 ```
 
@@ -874,6 +888,7 @@ GOGARCH models.
     ## =======================================================================
 
 ``` r
+
 ## Safe list access function - returns NULL if index doesn't exist
 safe_get <- function(lst, idx) {
   if (length(lst) >= idx && !is.null(lst[[idx]])) {
@@ -936,6 +951,7 @@ n_models_ok <- sum(models_succeeded)
     ## --- First Rebalance Weight Comparison ---
 
 ``` r
+
 summary_dcc <- summarize_boot_weights(safe_get(boot_results_dcc, 1), symbols)
 summary_cgarch <- summarize_boot_weights(safe_get(boot_results_cgarch, 1), symbols)
 summary_gogarch <- summarize_boot_weights(safe_get(boot_results_gogarch, 1), symbols)
@@ -955,13 +971,14 @@ if (!is.null(summary_dcc)) {
     ## 
     ## |Asset |   Mean|     SD| CI_Lower| CI_Upper| CI_Width|
     ## |:-----|------:|------:|--------:|--------:|--------:|
-    ## |SPY   | 0.0692| 0.0224|   0.0332|   0.1094|   0.0763|
-    ## |EFA   | 0.0798| 0.0129|   0.0612|   0.1078|   0.0466|
-    ## |BND   | 0.6309| 0.0476|   0.5446|   0.7204|   0.1757|
-    ## |GLD   | 0.1473| 0.0226|   0.1025|   0.1801|   0.0776|
-    ## |VNQ   | 0.0729| 0.0127|   0.0552|   0.1002|   0.0450|
+    ## |SPY   | 0.0677| 0.0142|   0.0470|   0.0941|   0.0471|
+    ## |EFA   | 0.0788| 0.0153|   0.0570|   0.1066|   0.0496|
+    ## |BND   | 0.6395| 0.0429|   0.5649|   0.7166|   0.1517|
+    ## |GLD   | 0.1453| 0.0219|   0.1033|   0.1857|   0.0825|
+    ## |VNQ   | 0.0687| 0.0114|   0.0516|   0.0897|   0.0381|
 
 ``` r
+
 if (!is.null(summary_cgarch)) {
   cat("\nCGARCH Model:\n")
   print(kable(summary_cgarch, row.names = FALSE))
@@ -975,13 +992,14 @@ if (!is.null(summary_cgarch)) {
     ## 
     ## |Asset |   Mean|     SD| CI_Lower| CI_Upper| CI_Width|
     ## |:-----|------:|------:|--------:|--------:|--------:|
-    ## |SPY   | 0.0733| 0.0231|   0.0519|   0.1398|   0.0879|
-    ## |EFA   | 0.0841| 0.0216|   0.0622|   0.1337|   0.0715|
-    ## |BND   | 0.6050| 0.1221|   0.3992|   0.6957|   0.2965|
-    ## |GLD   | 0.1598| 0.0580|   0.1124|   0.2643|   0.1519|
-    ## |VNQ   | 0.0778| 0.0350|   0.0612|   0.1364|   0.0752|
+    ## |SPY   | 0.0696| 0.0220|   0.0366|   0.1098|   0.0732|
+    ## |EFA   | 0.1142| 0.1686|   0.0636|   0.4052|   0.3416|
+    ## |BND   | 0.5894| 0.1629|   0.0000|   0.6883|   0.6883|
+    ## |GLD   | 0.1520| 0.0681|   0.0803|   0.2771|   0.1968|
+    ## |VNQ   | 0.0748| 0.0292|   0.0465|   0.1169|   0.0704|
 
 ``` r
+
 if (!is.null(summary_gogarch)) {
   cat("\nGOGARCH Model:\n")
   print(kable(summary_gogarch, row.names = FALSE))
@@ -995,13 +1013,14 @@ if (!is.null(summary_gogarch)) {
     ## 
     ## |Asset |   Mean|     SD| CI_Lower| CI_Upper| CI_Width|
     ## |:-----|------:|------:|--------:|--------:|--------:|
-    ## |SPY   | 0.0887| 0.0465|   0.0505|   0.2153|   0.1648|
-    ## |EFA   | 0.0969| 0.0545|   0.0537|   0.2209|   0.1672|
-    ## |BND   | 0.5451| 0.1904|   0.0000|   0.6779|   0.6779|
-    ## |GLD   | 0.1749| 0.0878|   0.0699|   0.4385|   0.3686|
-    ## |VNQ   | 0.0944| 0.0635|   0.0579|   0.2637|   0.2058|
+    ## |SPY   | 0.0729| 0.0203|   0.0470|   0.1116|   0.0646|
+    ## |EFA   | 0.0825| 0.0182|   0.0574|   0.1158|   0.0584|
+    ## |BND   | 0.6042| 0.1208|   0.3887|   0.6907|   0.3020|
+    ## |GLD   | 0.1658| 0.0745|   0.1252|   0.3087|   0.1835|
+    ## |VNQ   | 0.0746| 0.0233|   0.0542|   0.1180|   0.0638|
 
 ``` r
+
 ## Compare uncertainty across available models (works with 2+ models)
 if (length(available_summaries) >= 2) {
   cat("\n--- Model Uncertainty Comparison (CI Width) ---\n")
@@ -1029,18 +1048,19 @@ if (length(available_summaries) >= 2) {
     ## 
     ## |Asset |    DCC| CGARCH| GOGARCH|
     ## |:-----|------:|------:|-------:|
-    ## |SPY   | 0.0763| 0.0879|  0.1648|
-    ## |EFA   | 0.0466| 0.0715|  0.1672|
-    ## |BND   | 0.1757| 0.2965|  0.6779|
-    ## |GLD   | 0.0776| 0.1519|  0.3686|
-    ## |VNQ   | 0.0450| 0.0752|  0.2058|
+    ## |SPY   | 0.0471| 0.0732|  0.0646|
+    ## |EFA   | 0.0496| 0.3416|  0.0584|
+    ## |BND   | 0.1517| 0.6883|  0.3020|
+    ## |GLD   | 0.0825| 0.1968|  0.1835|
+    ## |VNQ   | 0.0381| 0.0704|  0.0638|
     ## 
     ## Average CI Width by Model:
-    ##   DCC: 0.0842
-    ##   CGARCH: 0.1366
-    ##   GOGARCH: 0.3169
+    ##   DCC: 0.0738
+    ##   CGARCH: 0.2741
+    ##   GOGARCH: 0.1345
 
 ``` r
+
 ## =============================================================================
 ## VISUALIZATION: Multi-Model Weight Comparison
 ## =============================================================================
@@ -1118,13 +1138,13 @@ enabling quality assessment and visualization.
 
 Key functions in the diagnostics system:
 
-| Function                                                                                                      | Purpose                                       |
-|---------------------------------------------------------------------------------------------------------------|-----------------------------------------------|
-| [`compute_bootstrap_diagnostics()`](https://mahovo.github.io/tsbs/reference/compute_bootstrap_diagnostics.md) | Create diagnostics from bootstrap output      |
-| [`summary.tsbs_diagnostics()`](https://mahovo.github.io/tsbs/reference/summary.tsbs_diagnostics.md)           | Print comprehensive summary                   |
-| [`plot.tsbs_diagnostics()`](https://mahovo.github.io/tsbs/reference/plot.tsbs_diagnostics.md)                 | Visualize block lengths, coverage, statistics |
-| [`extract_blocks()`](https://mahovo.github.io/tsbs/reference/extract_blocks.md)                               | Extract block-level information               |
-| [`extract_summary_stats()`](https://mahovo.github.io/tsbs/reference/extract_summary_stats.md)                 | Get statistical summaries                     |
+| Function | Purpose |
+|----|----|
+| [`compute_bootstrap_diagnostics()`](https://mahovo.github.io/tsbs/reference/compute_bootstrap_diagnostics.md) | Create diagnostics from bootstrap output |
+| [`summary.tsbs_diagnostics()`](https://mahovo.github.io/tsbs/reference/summary.tsbs_diagnostics.md) | Print comprehensive summary |
+| [`plot.tsbs_diagnostics()`](https://mahovo.github.io/tsbs/reference/plot.tsbs_diagnostics.md) | Visualize block lengths, coverage, statistics |
+| [`extract_blocks()`](https://mahovo.github.io/tsbs/reference/extract_blocks.md) | Extract block-level information |
+| [`extract_summary_stats()`](https://mahovo.github.io/tsbs/reference/extract_summary_stats.md) | Get statistical summaries |
 
     ## =======================================================================
 
@@ -1139,6 +1159,7 @@ We use
 to analyze how each bootstrap method samples from the original data.
 
 ``` r
+
 ## Run bootstrap methods and compute diagnostics
 ## (Using smaller num_boots for demo speed)
 num_boots_diag <- 30
@@ -1150,6 +1171,7 @@ cat("Running Moving Block bootstrap for diagnostics...\n")
     ## Running Moving Block bootstrap for diagnostics...
 
 ``` r
+
 moving_bs <- tsbs(
   x = y_train,
   bs_type = "moving",
@@ -1171,6 +1193,7 @@ cat("Running Stationary Block bootstrap for diagnostics...\n")
     ## Running Stationary Block bootstrap for diagnostics...
 
 ``` r
+
 stationary_bs <- tsbs(
   x = y_train,
   bs_type = "stationary",
@@ -1191,6 +1214,7 @@ The [`summary()`](https://rdrr.io/r/base/summary.html) method provides a
 comprehensive overview of bootstrap characteristics.
 
 ``` r
+
 cat("\n--- Moving Block Bootstrap Diagnostics ---\n")
 ```
 
@@ -1198,6 +1222,7 @@ cat("\n--- Moving Block Bootstrap Diagnostics ---\n")
     ## --- Moving Block Bootstrap Diagnostics ---
 
 ``` r
+
 summary(moving_diag)
 ```
 
@@ -1210,7 +1235,7 @@ summary(moving_diag)
     ##   Original series length: 252 
     ##   Number of variables: 5 
     ##   Number of replicates: 30 
-    ##   Generated: 2026-01-31 11:07:34 
+    ##   Generated: 2026-11-10 13:53:14 
     ## 
     ## CONFIGURATION PARAMETERS:
     ##   block_length: 10
@@ -1286,6 +1311,7 @@ summary(moving_diag)
     ## ========================================
 
 ``` r
+
 cat("\n--- Stationary Block Bootstrap Diagnostics ---\n")
 ```
 
@@ -1293,6 +1319,7 @@ cat("\n--- Stationary Block Bootstrap Diagnostics ---\n")
     ## --- Stationary Block Bootstrap Diagnostics ---
 
 ``` r
+
 summary(stationary_diag)
 ```
 
@@ -1305,7 +1332,7 @@ summary(stationary_diag)
     ##   Original series length: 252 
     ##   Number of variables: 5 
     ##   Number of replicates: 30 
-    ##   Generated: 2026-01-31 11:07:34 
+    ##   Generated: 2026-11-10 13:53:14 
     ## 
     ## CONFIGURATION PARAMETERS:
     ##   p: 0.1
@@ -1391,6 +1418,7 @@ creates diagnostic visualizations. Available plot types include:
 - `"acf_comparison"` - Original vs bootstrap autocorrelation
 
 ``` r
+
 ## Block length comparison
 par(mfrow = c(1, 2))
 
@@ -1401,6 +1429,7 @@ plot(moving_diag, type = "block_lengths")
 ![](portfolio-optimization-demo_files/figure-html/plot_diagnostics_blocks-1.png)
 
 ``` r
+
 ## Stationary - should show geometric distribution
 plot(stationary_diag, type = "block_lengths")
 ```
@@ -1408,6 +1437,7 @@ plot(stationary_diag, type = "block_lengths")
 ![](portfolio-optimization-demo_files/figure-html/plot_diagnostics_blocks-2.png)
 
 ``` r
+
 ## Starting position distributions - assess coverage uniformity
 par(mfrow = c(1, 2))
 
@@ -1416,6 +1446,7 @@ plot(stationary_diag, type = "start_positions")
 ```
 
 ``` r
+
 ## Compare original vs bootstrap means
 par(mfrow = c(1, 2))
 
@@ -1425,6 +1456,7 @@ plot(moving_diag, type = "means_comparison")
 ![](portfolio-optimization-demo_files/figure-html/plot_diagnostics_means-1.png)
 
 ``` r
+
 plot(stationary_diag, type = "means_comparison")
 ```
 
@@ -1439,6 +1471,7 @@ and
 to access diagnostic data programmatically.
 
 ``` r
+
 ## Extract block information
 blocks_df <- extract_blocks(moving_diag)
 
@@ -1449,6 +1482,7 @@ cat("\n--- Block Information (first 10 rows) ---\n")
     ## --- Block Information (first 10 rows) ---
 
 ``` r
+
 print(kable(head(blocks_df, 10)))
 ```
 
@@ -1468,6 +1502,7 @@ print(kable(head(blocks_df, 10)))
     ## |        10|     10|        34|estimated  |         1|
 
 ``` r
+
 cat("\n--- Blocks per replicate ---\n")
 ```
 
@@ -1475,6 +1510,7 @@ cat("\n--- Blocks per replicate ---\n")
     ## --- Blocks per replicate ---
 
 ``` r
+
 blocks_per_rep <- table(blocks_df$replicate)
 cat("Mean blocks per replicate:", round(mean(blocks_per_rep), 1), "\n")
 ```
@@ -1482,12 +1518,14 @@ cat("Mean blocks per replicate:", round(mean(blocks_per_rep), 1), "\n")
     ## Mean blocks per replicate: 25.8
 
 ``` r
+
 cat("Range:", min(blocks_per_rep), "-", max(blocks_per_rep), "\n")
 ```
 
     ## Range: 24 - 26
 
 ``` r
+
 ## Extract summary statistics
 stats <- extract_summary_stats(stationary_diag)
 
@@ -1498,24 +1536,28 @@ cat("\n--- Block Length Statistics (Stationary Bootstrap) ---\n")
     ## --- Block Length Statistics (Stationary Bootstrap) ---
 
 ``` r
+
 cat("Mean:", round(stats$block_lengths$mean, 2), "\n")
 ```
 
     ## Mean: 8.74
 
 ``` r
+
 cat("SD:", round(stats$block_lengths$sd, 2), "\n")
 ```
 
     ## SD: 7.16
 
 ``` r
+
 cat("Median:", stats$block_lengths$median, "\n")
 ```
 
     ## Median: 7
 
 ``` r
+
 cat("Range: [", stats$block_lengths$min, ", ", stats$block_lengths$max, "]\n", sep = "")
 ```
 
@@ -1527,6 +1569,7 @@ The [`as.data.frame()`](https://rdrr.io/r/base/as.data.frame.html)
 method converts diagnostics to tabular format for further analysis.
 
 ``` r
+
 ## Convert to data frame
 diag_df <- as.data.frame(moving_diag, what = "stats")
 
@@ -1537,6 +1580,7 @@ cat("\n--- Replicate-Level Statistics (first 5) ---\n")
     ## --- Replicate-Level Statistics (first 5) ---
 
 ``` r
+
 print(kable(head(diag_df[, 1:min(6, ncol(diag_df))], 5)))
 ```
 
@@ -1556,6 +1600,7 @@ For MS-VARMA-GARCH models, the `ms_diagnostics` class provides
 additional information about EM algorithm convergence.
 
 ``` r
+
 ## Display MS-VARMA-GARCH diagnostics from earlier fitting
 for (model_info in list(
   list(name = "DCC", diag = safe_get(diagnostics_dcc, 1)),
@@ -1592,6 +1637,7 @@ using the coefficient of variation (CV).
     ## -----------------------------------------------------------------------
 
 ``` r
+
 ## CV-based stability classification
 calc_cv <- function(boot_w, model_name) {
   if (is.null(boot_w)) return(NULL)
@@ -1668,26 +1714,26 @@ if (!is.null(stability_all) && nrow(stability_all) > 0) {
     ## 
     ## |Model   |Asset |    CV|Stability |
     ## |:-------|:-----|-----:|:---------|
-    ## |DCC     |SPY   | 0.323|Moderate  |
-    ## |DCC     |EFA   | 0.161|Stable    |
-    ## |DCC     |BND   | 0.075|Stable    |
-    ## |DCC     |GLD   | 0.153|Stable    |
-    ## |DCC     |VNQ   | 0.174|Stable    |
+    ## |DCC     |SPY   | 0.209|Stable    |
+    ## |DCC     |EFA   | 0.194|Stable    |
+    ## |DCC     |BND   | 0.067|Stable    |
+    ## |DCC     |GLD   | 0.151|Stable    |
+    ## |DCC     |VNQ   | 0.166|Stable    |
     ## |CGARCH  |SPY   | 0.316|Moderate  |
-    ## |CGARCH  |EFA   | 0.257|Stable    |
-    ## |CGARCH  |BND   | 0.202|Stable    |
-    ## |CGARCH  |GLD   | 0.363|Moderate  |
-    ## |CGARCH  |VNQ   | 0.450|Moderate  |
-    ## |GOGARCH |SPY   | 0.525|Moderate  |
-    ## |GOGARCH |EFA   | 0.562|Moderate  |
-    ## |GOGARCH |BND   | 0.349|Moderate  |
-    ## |GOGARCH |GLD   | 0.502|Moderate  |
-    ## |GOGARCH |VNQ   | 0.673|Unstable  |
+    ## |CGARCH  |EFA   | 1.477|Unstable  |
+    ## |CGARCH  |BND   | 0.276|Stable    |
+    ## |CGARCH  |GLD   | 0.448|Moderate  |
+    ## |CGARCH  |VNQ   | 0.390|Moderate  |
+    ## |GOGARCH |SPY   | 0.278|Stable    |
+    ## |GOGARCH |EFA   | 0.221|Stable    |
+    ## |GOGARCH |BND   | 0.200|Stable    |
+    ## |GOGARCH |GLD   | 0.450|Moderate  |
+    ## |GOGARCH |VNQ   | 0.313|Moderate  |
     ## 
     ## Stability Summary by Model:
-    ##   DCC: Mean CV = 0.177, 4 Stable, 1 Moderate, 0 Unstable
-    ##   CGARCH: Mean CV = 0.318, 2 Stable, 3 Moderate, 0 Unstable
-    ##   GOGARCH: Mean CV = 0.522, 0 Stable, 4 Moderate, 1 Unstable
+    ##   DCC: Mean CV = 0.157, 5 Stable, 0 Moderate, 0 Unstable
+    ##   CGARCH: Mean CV = 0.581, 1 Stable, 3 Moderate, 1 Unstable
+    ##   GOGARCH: Mean CV = 0.292, 3 Stable, 2 Moderate, 0 Unstable
     ## 
     ## Interpretation:
     ##   Weight estimates show moderate variability across bootstrap replicates.
@@ -1696,6 +1742,7 @@ if (!is.null(stability_all) && nrow(stability_all) > 0) {
 ## Part 9: Performance Visualizations
 
 ``` r
+
 ## =============================================================================
 ## CUMULATIVE RETURNS
 ## =============================================================================
@@ -1713,6 +1760,7 @@ legend("topleft", colnames(cum_returns), col = rainbow(ncol(cum_returns)),
 ![](portfolio-optimization-demo_files/figure-html/cumulative_returns-1.png)
 
 ``` r
+
 ## =============================================================================
 ## ROLLING SHARPE RATIO
 ## =============================================================================
@@ -1743,6 +1791,7 @@ legend("topleft", colnames(sharpe_ts), col = rainbow(ncol(sharpe_ts)),
 ![](portfolio-optimization-demo_files/figure-html/rolling_sharpe-1.png)
 
 ``` r
+
 ## =============================================================================
 ## WEIGHT EVOLUTION OVER TIME
 ## =============================================================================
@@ -1763,6 +1812,7 @@ for (strat_name in names(weight_history)) {
 ![](portfolio-optimization-demo_files/figure-html/weight_evolution-1.png)
 
 ``` r
+
 par(mfrow = c(1, 1))
 
 ## Add legend
@@ -1782,6 +1832,7 @@ legend("center", symbols, fill = rainbow(k), ncol = length(symbols),
     ## -----------------------------------------------------------------------
 
 ``` r
+
 ## Calculate expected performance for each bootstrap weight set
 calc_boot_performance <- function(boot_w, hold_returns) {
   if (is.null(boot_w)) return(NULL)
@@ -1848,21 +1899,22 @@ if (length(available_perf) > 0) {
     ## Performance distributions from converged models:
     ## 
     ## DCC Performance Distribution:
-    ##   Ann_Return: Median=18.29, 95% CI=[15.00, 23.45]
-    ##   Ann_Vol: Median=3.02, 95% CI=[2.69, 3.38]
-    ##   Sharpe: Median=6.19, 95% CI=[5.15, 7.09]
+    ##   Ann_Return: Median=18.28, 95% CI=[15.42, 21.94]
+    ##   Ann_Vol: Median=2.98, 95% CI=[2.73, 3.27]
+    ##   Sharpe: Median=6.12, 95% CI=[5.23, 7.04]
     ## 
     ## CGARCH Performance Distribution:
-    ##   Ann_Return: Median=18.27, 95% CI=[16.67, 28.13]
-    ##   Ann_Vol: Median=3.05, 95% CI=[2.79, 4.23]
-    ##   Sharpe: Median=6.08, 95% CI=[5.45, 7.41]
+    ##   Ann_Return: Median=18.81, 95% CI=[16.69, 38.28]
+    ##   Ann_Vol: Median=2.99, 95% CI=[2.78, 8.02]
+    ##   Sharpe: Median=6.20, 95% CI=[4.88, 6.89]
     ## 
     ## GOGARCH Performance Distribution:
-    ##   Ann_Return: Median=18.90, 95% CI=[15.85, 44.21]
-    ##   Ann_Vol: Median=3.15, 95% CI=[2.80, 7.38]
-    ##   Sharpe: Median=6.12, 95% CI=[4.87, 7.26]
+    ##   Ann_Return: Median=19.20, 95% CI=[15.32, 24.48]
+    ##   Ann_Vol: Median=3.05, 95% CI=[2.85, 4.28]
+    ##   Sharpe: Median=6.09, 95% CI=[4.74, 7.13]
 
 ``` r
+
 ## Visualization - works with any number of available models
 if (length(available_perf) >= 1) {
   par(mfrow = c(1, 3))
@@ -1911,6 +1963,7 @@ if (length(available_perf) >= 1) {
     ## =======================================================================
 
 ``` r
+
 ## Use compute_robust_estimates() from bootstrap_diagnostics.R if available
 ## This provides mean, median, winsorized, and conservative estimates
 compute_robust_weight_estimates <- function(boot_w, point_est, symbols) {
@@ -2005,44 +2058,44 @@ if (length(robust_results) > 0) {
     ## 
     ## |Asset | Point| Boot_Mean| Boot_Median| Winsorized| Conservative|
     ## |:-----|-----:|---------:|-----------:|----------:|------------:|
-    ## |SPY   | 0.069|     0.069|       0.065|      0.069|        0.065|
-    ## |EFA   | 0.080|     0.080|       0.078|      0.079|        0.077|
-    ## |BND   | 0.627|     0.631|       0.629|      0.631|        0.647|
-    ## |GLD   | 0.153|     0.147|       0.151|      0.149|        0.142|
-    ## |VNQ   | 0.071|     0.073|       0.070|      0.072|        0.069|
+    ## |SPY   | 0.069|     0.068|       0.065|      0.067|        0.060|
+    ## |EFA   | 0.080|     0.079|       0.077|      0.078|        0.071|
+    ## |BND   | 0.627|     0.640|       0.639|      0.639|        0.657|
+    ## |GLD   | 0.153|     0.145|       0.146|      0.145|        0.145|
+    ## |VNQ   | 0.071|     0.069|       0.066|      0.068|        0.067|
     ## 
     ## --- CGARCH Model ---
     ## 
     ## 
     ## |Asset | Point| Boot_Mean| Boot_Median| Winsorized| Conservative|
     ## |:-----|-----:|---------:|-----------:|----------:|------------:|
-    ## |SPY   | 0.069|     0.073|       0.066|      0.068|        0.065|
-    ## |EFA   | 0.080|     0.084|       0.078|      0.081|        0.078|
-    ## |BND   | 0.627|     0.605|       0.632|      0.623|        0.641|
-    ## |GLD   | 0.153|     0.160|       0.147|      0.151|        0.142|
-    ## |VNQ   | 0.071|     0.078|       0.070|      0.071|        0.074|
+    ## |SPY   | 0.069|     0.070|       0.068|      0.069|        0.066|
+    ## |EFA   | 0.080|     0.114|       0.081|      0.081|        0.078|
+    ## |BND   | 0.627|     0.589|       0.625|      0.627|        0.643|
+    ## |GLD   | 0.153|     0.152|       0.141|      0.145|        0.141|
+    ## |VNQ   | 0.071|     0.075|       0.072|      0.073|        0.072|
     ## 
     ## --- GOGARCH Model ---
     ## 
     ## 
     ## |Asset | Point| Boot_Mean| Boot_Median| Winsorized| Conservative|
     ## |:-----|-----:|---------:|-----------:|----------:|------------:|
-    ## |SPY   | 0.069|     0.089|       0.076|      0.079|        0.072|
-    ## |EFA   | 0.080|     0.097|       0.087|      0.085|        0.080|
-    ## |BND   | 0.627|     0.545|       0.605|      0.596|        0.617|
-    ## |GLD   | 0.153|     0.175|       0.161|      0.163|        0.157|
-    ## |VNQ   | 0.071|     0.094|       0.076|      0.078|        0.075|
+    ## |SPY   | 0.069|     0.073|       0.071|      0.071|        0.060|
+    ## |EFA   | 0.080|     0.083|       0.084|      0.081|        0.071|
+    ## |BND   | 0.627|     0.604|       0.623|      0.623|        0.648|
+    ## |GLD   | 0.153|     0.166|       0.148|      0.152|        0.153|
+    ## |VNQ   | 0.071|     0.075|       0.069|      0.071|        0.068|
     ## 
     ## --- Cross-Model Comparison (Bootstrap Means) ---
     ## 
     ## 
     ## |Asset | Point|   DCC| CGARCH| GOGARCH|
     ## |:-----|-----:|-----:|------:|-------:|
-    ## |SPY   | 0.069| 0.069|  0.073|   0.089|
-    ## |EFA   | 0.080| 0.080|  0.084|   0.097|
-    ## |BND   | 0.627| 0.631|  0.605|   0.545|
-    ## |GLD   | 0.153| 0.147|  0.160|   0.175|
-    ## |VNQ   | 0.071| 0.073|  0.078|   0.094|
+    ## |SPY   | 0.069| 0.068|  0.070|   0.073|
+    ## |EFA   | 0.080| 0.079|  0.114|   0.083|
+    ## |BND   | 0.627| 0.640|  0.589|   0.604|
+    ## |GLD   | 0.153| 0.145|  0.152|   0.166|
+    ## |VNQ   | 0.071| 0.069|  0.075|   0.075|
     ## 
     ## The bootstrap means across models are generally consistent, suggesting
     ## the uncertainty estimates are robust to the choice of correlation model.
@@ -2069,6 +2122,7 @@ if (length(robust_results) > 0) {
     ## -----------------------------------------------------------------------
 
 ``` r
+
 ## Calculate turnover for each strategy
 turnover_by_strategy <- sapply(names(weight_history), function(strat) {
   w_hist <- weight_history[[strat]]
@@ -2087,6 +2141,7 @@ turnover_by_strategy <- sapply(names(weight_history), function(strat) {
     ## Average turnover per rebalance (sum of |Δw|):
 
 ``` r
+
 turnover_df <- data.frame(
   Strategy = names(turnover_by_strategy),
   Avg_Turnover = round(turnover_by_strategy, 4),
@@ -2110,6 +2165,7 @@ print(kable(turnover_df, row.names = FALSE))
     ## Sharpe ratio adjusted for transaction costs (assuming 10bps per turnover):
 
 ``` r
+
 tc_bps <- 10
 rebalances_per_year <- 252 / rebalance_freq
 
@@ -2153,6 +2209,7 @@ print(kable(tc_adj_df, row.names = FALSE))
     ## =======================================================================
 
 ``` r
+
 ## Rank strategies by different metrics
 rankings <- data.frame(
   Strategy = rownames(perf_summary),
@@ -2169,6 +2226,7 @@ rankings <- rankings[order(rankings$Avg_Rank), ]
     ## Strategy rankings (1 = best):
 
 ``` r
+
 print(kable(rankings, row.names = FALSE))
 ```
 
@@ -2260,14 +2318,14 @@ This **bootstrap-averaged** portfolio has two advantages:
 We compare six bootstrap approaches, ranging from simple to
 sophisticated:
 
-| Method               | Description                                                     |
-|----------------------|-----------------------------------------------------------------|
-| **Plain (iid)**      | Resample individual observations (ignores time structure)       |
-| **Moving Block**     | Resample contiguous blocks of 5 days                            |
-| **Stationary Block** | Random block lengths (geometric distribution)                   |
-| **HMM**              | Hidden Markov Model regime-based resampling                     |
-| **MS-VARMA-GARCH**   | Full Markov-Switching GARCH with DCC correlation                |
-| **Wild**             | Multiply returns by random signs (preserves heteroskedasticity) |
+| Method | Description |
+|----|----|
+| **Plain (iid)** | Resample individual observations (ignores time structure) |
+| **Moving Block** | Resample contiguous blocks of 5 days |
+| **Stationary Block** | Random block lengths (geometric distribution) |
+| **HMM** | Hidden Markov Model regime-based resampling |
+| **MS-VARMA-GARCH** | Full Markov-Switching GARCH with DCC correlation |
+| **Wild** | Multiply returns by random signs (preserves heteroskedasticity) |
 
 The simpler methods (Plain, Moving, Stationary) are fast but ignore
 complex dependence structures. The model-based methods (HMM,
@@ -2281,6 +2339,7 @@ Wild bootstrap is designed for heteroskedastic data.
     ## =======================================================================
 
 ``` r
+
 ## Use first training window for comparison
 y_compare <- y_full[1:train_window, ]
 
@@ -2292,6 +2351,7 @@ point_weights <- risk_parity_portfolio(y_compare)
 ```
 
 ``` r
+
 ## Storage for results
 bootstrap_methods <- list()
 
@@ -2304,6 +2364,7 @@ cat("Running Plain (iid) bootstrap...\n")
     ## Running Plain (iid) bootstrap...
 
 ``` r
+
 plain_result <- tryCatch({
   result <- tsbs(
     x = y_compare,
@@ -2329,6 +2390,7 @@ cat("Running Moving Block bootstrap...\n")
     ## Running Moving Block bootstrap...
 
 ``` r
+
 moving_result <- tryCatch({
   result <- tsbs(
     x = y_compare,
@@ -2354,6 +2416,7 @@ cat("Running Stationary Block bootstrap...\n")
     ## Running Stationary Block bootstrap...
 
 ``` r
+
 stationary_result <- tryCatch({
   result <- tsbs(
     x = y_compare,
@@ -2378,6 +2441,7 @@ cat("Running HMM bootstrap...\n")
     ## Running HMM bootstrap...
 
 ``` r
+
 hmm_result <- tryCatch({
   result <- tsbs(
     x = y_compare,
@@ -2397,6 +2461,7 @@ hmm_result <- tryCatch({
     ## converged at iteration 34 with logLik: -1084.145
 
 ``` r
+
 if (!is.null(hmm_result)) bootstrap_methods[["HMM"]] <- hmm_result
 
 ## -------------------------------------------------------------------------
@@ -2408,6 +2473,7 @@ cat("Running MS-VARMA-GARCH bootstrap...\n")
     ## Running MS-VARMA-GARCH bootstrap...
 
 ``` r
+
 msgarch_result <- tryCatch({
   result <- tsbs(
     x = y_compare,
@@ -2431,31 +2497,32 @@ msgarch_result <- tryCatch({
     ## 
     ## 
     ## ==========================================================
-    ## EM Iteration 1... Log-Likelihood: -855.394 (Duration: 00:02:09)
+    ## EM Iteration 1... Log-Likelihood: -855.394 (Duration: 00:02:18)
     ## 
     ## 
     ## ==========================================================
-    ## EM Iteration 2... Log-Likelihood: -845.701 (Duration: 00:02:00)
+    ## EM Iteration 2... Log-Likelihood: -845.699 (Duration: 00:02:24)
     ## 
     ## 
     ## ==========================================================
-    ## EM Iteration 3... Log-Likelihood: -846.658 (Duration: 00:02:13)
+    ## EM Iteration 3... Log-Likelihood: -846.659 (Duration: 00:02:46)
     ## 
     ## 
     ## ==========================================================
-    ## EM Iteration 1... Log-Likelihood: -856.924 (Duration: 00:02:07)
+    ## EM Iteration 1... Log-Likelihood: -856.923 (Duration: 00:02:19)
     ## 
     ## 
     ## ==========================================================
-    ## EM Iteration 2... Log-Likelihood: -846.938 (Duration: 00:02:12)
+    ## EM Iteration 2... Log-Likelihood: -846.938 (Duration: 00:02:21)
     ## 
     ## 
     ## ==========================================================
     ## EM Iteration 3...
 
-    ## Log-Likelihood: -847.703 (Duration: 00:02:12)
+    ## Log-Likelihood: -847.706 (Duration: 00:02:42)
 
 ``` r
+
 if (!is.null(msgarch_result)) bootstrap_methods[["MS-VARMA-GARCH"]] <- msgarch_result
 
 ## -------------------------------------------------------------------------
@@ -2467,6 +2534,7 @@ cat("Running Wild bootstrap...\n")
     ## Running Wild bootstrap...
 
 ``` r
+
 wild_result <- tryCatch({
   result <- tsbs(
     x = y_compare,
@@ -2592,6 +2660,7 @@ cat("\nCompleted", length(bootstrap_methods), "of 6 bootstrap methods.\n")
     ## |MS-VARMA-GARCH |        0.1535|
 
 ``` r
+
 ## Visualization: Weight distributions across all bootstrap methods
 if (length(bootstrap_methods) >= 2) {
   
@@ -2693,6 +2762,7 @@ the other bootstrap methods.
     ## -----------------------------------------------------------------------
 
 ``` r
+
 ## Define setups to benchmark (excluding slow MS-VARMA-GARCH for quick demo)
 benchmark_setups <- list(
   "Plain (iid)" = list(bs_type = "moving", block_length = 1),
@@ -2728,6 +2798,7 @@ cat("Benchmarking", length(benchmark_setups), "methods across",
     ## Benchmarking 5 methods across 7 replicate counts...
 
 ``` r
+
 ## Run benchmark
 bench_result <- tryCatch({
   benchmark_tsbs(
@@ -2768,6 +2839,7 @@ bench_result <- tryCatch({
     ## [85/105] Wild: num_boots = 8 (rep 1/3)    [86/105] Wild: num_boots = 8 (rep 2/3)    [87/105] Wild: num_boots = 8 (rep 3/3)    [88/105] Wild: num_boots = 16 (rep 1/3)    [89/105] Wild: num_boots = 16 (rep 2/3)    [90/105] Wild: num_boots = 16 (rep 3/3)    [91/105] Wild: num_boots = 32 (rep 1/3)    [92/105] Wild: num_boots = 32 (rep 2/3)    [93/105] Wild: num_boots = 32 (rep 3/3)    [94/105] Wild: num_boots = 64 (rep 1/3)    [95/105] Wild: num_boots = 64 (rep 2/3)    [96/105] Wild: num_boots = 64 (rep 3/3)    [97/105] Wild: num_boots = 128 (rep 1/3)    [98/105] Wild: num_boots = 128 (rep 2/3)    [99/105] Wild: num_boots = 128 (rep 3/3)    [100/105] Wild: num_boots = 256 (rep 1/3)    [101/105] Wild: num_boots = 256 (rep 2/3)    [102/105] Wild: num_boots = 256 (rep 3/3)    [103/105] Wild: num_boots = 512 (rep 1/3)    [104/105] Wild: num_boots = 512 (rep 2/3)    [105/105] Wild: num_boots = 512 (rep 3/3)
 
 ``` r
+
 ## Display results
 if (!is.null(bench_result)) {
   cat("\n")
@@ -2797,17 +2869,18 @@ if (!is.null(bench_result)) {
     ## Mean runtime (seconds) by setup and num_boots :
     ## 
     ##  Value   HMM Moving Block Plain (iid) Stationary    Wild
-    ##      8 0.196      0.00074    0.000726   0.000809 0.00330
-    ##     16 0.113      0.00113    0.001099   0.001238 0.00432
-    ##     32 0.122      0.01398    0.001908   0.003674 0.00676
-    ##     64 0.136      0.00443    0.003476   0.004915 0.01128
-    ##    128 0.174      0.00714    0.006567   0.007980 0.02463
-    ##    256 0.261      0.01712    0.018228   0.019970 0.04025
-    ##    512 0.433      0.03401    0.039309   0.102731 0.08424
+    ##      8 0.244     0.000863    0.000927    0.00111 0.00401
+    ##     16 0.133     0.001364    0.001433    0.00181 0.00534
+    ##     32 0.142     0.002352    0.002303    0.00304 0.00824
+    ##     64 0.158     0.010820    0.004144    0.00490 0.01721
+    ##    128 0.200     0.009286    0.007914    0.01563 0.02671
+    ##    256 0.297     0.020766    0.022087    0.02072 0.05483
+    ##    512 0.490     0.042706    0.044735    0.04242 0.10949
 
 ![](portfolio-optimization-demo_files/figure-html/benchmark_run-1.png)
 
 ``` r
+
 ## Define setups to benchmark (excluding slow MS-VARMA-GARCH for quick demo)
 benchmark_setups <- list(
   "Plain (iid)" = list(bs_type = "moving", block_length = 1),
@@ -2843,6 +2916,7 @@ cat("Benchmarking", length(benchmark_setups), "methods across",
     ## Benchmarking 5 methods across 5 replicate counts...
 
 ``` r
+
 ## Run benchmark
 bench_result <- tryCatch({
   benchmark_tsbs(
@@ -2877,6 +2951,7 @@ bench_result <- tryCatch({
     ## [61/75] Wild: n_boot = 64 (rep 1/3)    [62/75] Wild: n_boot = 64 (rep 2/3)    [63/75] Wild: n_boot = 64 (rep 3/3)    [64/75] Wild: n_boot = 128 (rep 1/3)    [65/75] Wild: n_boot = 128 (rep 2/3)    [66/75] Wild: n_boot = 128 (rep 3/3)    [67/75] Wild: n_boot = 256 (rep 1/3)    [68/75] Wild: n_boot = 256 (rep 2/3)    [69/75] Wild: n_boot = 256 (rep 3/3)    [70/75] Wild: n_boot = 512 (rep 1/3)    [71/75] Wild: n_boot = 512 (rep 2/3)    [72/75] Wild: n_boot = 512 (rep 3/3)    [73/75] Wild: n_boot = 1024 (rep 1/3)    [74/75] Wild: n_boot = 1024 (rep 2/3)    [75/75] Wild: n_boot = 1024 (rep 3/3)
 
 ``` r
+
 ## Display results
 if (!is.null(bench_result)) {
   cat("\n")
@@ -2906,15 +2981,16 @@ if (!is.null(bench_result)) {
     ## Mean runtime (seconds) by setup and n_boot :
     ## 
     ##  Value   HMM Moving Block Plain (iid) Stationary   Wild
-    ##     64 0.123      0.00473     0.00434    0.00419 0.0169
-    ##    128 0.207      0.00439     0.00469    0.00682 0.0168
-    ##    256 0.164      0.00494     0.00833    0.00529 0.0195
-    ##    512 0.239      0.00878     0.00889    0.00938 0.0169
-    ##   1024 0.430      0.01288     0.01791    0.01428 0.0174
+    ##     64 0.217      0.00479     0.00497    0.00502 0.0233
+    ##    128 0.238      0.00791     0.00536    0.00537 0.0214
+    ##    256 0.189      0.00598     0.00621    0.00890 0.0214
+    ##    512 0.266      0.01114     0.01261    0.00886 0.0242
+    ##   1024 0.463      0.01868     0.01425    0.01738 0.0212
 
 ![](portfolio-optimization-demo_files/figure-html/benchmark_run_nboot-1.png)
 
 ``` r
+
 ## Define setups to benchmark (excluding slow MS-VARMA-GARCH for quick demo)
 benchmark_setups <- list(
   "Plain (iid)" = list(bs_type = "moving", block_length = 1),
@@ -2950,6 +3026,7 @@ cat("Benchmarking", length(benchmark_setups), "methods across",
     ## Benchmarking 5 methods across 6 replicate counts...
 
 ``` r
+
 ## Run benchmark
 bench_result <- tryCatch({
   benchmark_tsbs(
@@ -2987,6 +3064,7 @@ bench_result <- tryCatch({
     ## [73/90] Wild: n_assets = 4 (rep 1/3)    [74/90] Wild: n_assets = 4 (rep 2/3)    [75/90] Wild: n_assets = 4 (rep 3/3)    [76/90] Wild: n_assets = 8 (rep 1/3)    [77/90] Wild: n_assets = 8 (rep 2/3)    [78/90] Wild: n_assets = 8 (rep 3/3)    [79/90] Wild: n_assets = 16 (rep 1/3)    [80/90] Wild: n_assets = 16 (rep 2/3)    [81/90] Wild: n_assets = 16 (rep 3/3)    [82/90] Wild: n_assets = 32 (rep 1/3)    [83/90] Wild: n_assets = 32 (rep 2/3)    [84/90] Wild: n_assets = 32 (rep 3/3)    [85/90] Wild: n_assets = 64 (rep 1/3)    [86/90] Wild: n_assets = 64 (rep 2/3)    [87/90] Wild: n_assets = 64 (rep 3/3)    [88/90] Wild: n_assets = 128 (rep 1/3)    [89/90] Wild: n_assets = 128 (rep 2/3)    [90/90] Wild: n_assets = 128 (rep 3/3)
 
 ``` r
+
 ## Display results
 if (!is.null(bench_result)) {
   cat("\n")
@@ -3016,12 +3094,12 @@ if (!is.null(bench_result)) {
     ## Mean runtime (seconds) by setup and n_assets :
     ## 
     ##  Value   HMM Moving Block Plain (iid) Stationary   Wild
-    ##      4 0.373      0.00433     0.00472    0.00468 0.0162
-    ##      8 0.532      0.00883     0.00715    0.00885 0.0185
-    ##     16 0.812      0.01158     0.01420    0.01371 0.0269
-    ##     32 1.676      0.02517     0.03374    0.09605 0.0356
-    ##     64 2.073      0.11823     0.11937    0.04633 0.0661
-    ##    128 5.490      0.09393     0.23989    0.16548 0.1690
+    ##      4 0.355      0.08719     0.00552    0.00747 0.0204
+    ##      8 0.706      0.00812     0.00836    0.00853 0.0234
+    ##     16 0.956      0.01396     0.01853    0.01787 0.0327
+    ##     32 2.090      0.02779     0.03588    0.02813 0.0431
+    ##     64 2.434      0.05647     0.13815    0.13401 0.1582
+    ##    128 6.675      0.18983     0.19883    0.19294 0.1994
 
 ![](portfolio-optimization-demo_files/figure-html/benchmark_run_nassets-1.png)
 
@@ -3063,6 +3141,7 @@ regime uncertainty.
     ## -----------------------------------------------------------------------
 
 ``` r
+
 ## Run bootstrap methods with diagnostics enabled for visualization
 ## Using a single replicate for clarity
 
@@ -3119,6 +3198,7 @@ cat("Generating Moving Block visualization...\n")
     ## Generating Moving Block visualization...
 
 ``` r
+
 moving_viz <- tsbs(x = y_compare, bs_type = "moving", block_length = 10, num_boots = 1)
 
 boot_series <- moving_viz$bootstrap_series[[1]]
@@ -3138,6 +3218,7 @@ cat("Generating Stationary Block visualization...\n")
     ## Generating Stationary Block visualization...
 
 ``` r
+
 stat_viz <- tsbs(x = y_compare, bs_type = "stationary", num_boots = 1)
 
 boot_series <- stat_viz$bootstrap_series[[1]]
@@ -3156,6 +3237,7 @@ cat("Generating HMM visualization...\n")
     ## Generating HMM visualization...
 
 ``` r
+
 hmm_viz <- tryCatch({
   tsbs(x = y_compare, bs_type = "hmm", num_states = 2, num_boots = 1, return_fit = TRUE)
 }, error = function(e) NULL)
@@ -3164,6 +3246,7 @@ hmm_viz <- tryCatch({
     ## converged at iteration 33 with logLik: -1084.145
 
 ``` r
+
 if (!is.null(hmm_viz)) {
   boot_series <- hmm_viz$bootstrap_series[[1]]
   plot_data_list[["HMM"]] <- data.frame(
@@ -3190,6 +3273,7 @@ cat("Generating Wild Bootstrap visualization...\n")
     ## Generating Wild Bootstrap visualization...
 
 ``` r
+
 wild_viz <- tsbs(x = y_compare, bs_type = "wild", num_boots = 1)
 
 boot_series <- wild_viz$bootstrap_series[[1]]
@@ -3339,6 +3423,6 @@ for runtime benchmarking
     ## =======================================================================
 
     ## 
-    ## Vignette completed at: 2026-01-31 11:21:28
+    ## Vignette completed at: 2026-11-10 14:09:17
 
-    ## R version: R version 4.5.2 (2025-10-31)
+    ## R version: R version 4.6.2 (2026-10-29)

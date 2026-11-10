@@ -161,13 +161,13 @@ where \\K\\ is the pre-whitening matrix. See
 
 ## Comparison with DCC and CGARCH
 
-|                    |                    |                 |                         |
-|--------------------|--------------------|-----------------|-------------------------|
-| **Aspect**         | **DCC**            | **CGARCH**      | **GOGARCH**             |
-| Correlation source | alpha, beta params | DCC on copula   | ICA mixing matrix       |
-| Dynamics           | DCC recursion      | DCC/ADCC        | Component volatilities  |
-| Marginal treatment | Assumed Normal     | Flexible (PIT)  | ICA components          |
-| Key strength       | Interpretable      | Tail dependence | Non-Gaussian dependence |
+|  |  |  |  |
+|----|----|----|----|
+| **Aspect** | **DCC** | **CGARCH** | **GOGARCH** |
+| Correlation source | alpha, beta params | DCC on copula | ICA mixing matrix |
+| Dynamics | DCC recursion | DCC/ADCC | Component volatilities |
+| Marginal treatment | Assumed Normal | Flexible (PIT) | ICA components |
+| Key strength | Interpretable | Tail dependence | Non-Gaussian dependence |
 
 ## When to Use GOGARCH
 

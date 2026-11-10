@@ -15,14 +15,14 @@ approaches for reliable standard errors and confidence intervals.
 
 ## Executive Summary
 
-| Model   | Parameter    | Recommended Method      | Reason                          |
-|---------|--------------|-------------------------|---------------------------------|
-| DCC     | Alpha (α)    | Hessian-based SE        | Well-calibrated (~0.8 ratio)    |
-| DCC     | Beta (β)     | Bootstrap or Profile LR | Hessian underestimates by ~5-6x |
-| CGARCH  | Alpha (α)    | Hessian-based SE        | Similar to DCC                  |
-| CGARCH  | Beta (β)     | Bootstrap or Profile LR | Same flat likelihood issue      |
-| CGARCH  | Shape (ν)    | Hessian-based SE        | Generally well-identified       |
-| GOGARCH | GARCH params | Bootstrap               | ICA uncertainty not captured    |
+| Model | Parameter | Recommended Method | Reason |
+|----|----|----|----|
+| DCC | Alpha (α) | Hessian-based SE | Well-calibrated (~0.8 ratio) |
+| DCC | Beta (β) | Bootstrap or Profile LR | Hessian underestimates by ~5-6x |
+| CGARCH | Alpha (α) | Hessian-based SE | Similar to DCC |
+| CGARCH | Beta (β) | Bootstrap or Profile LR | Same flat likelihood issue |
+| CGARCH | Shape (ν) | Hessian-based SE | Generally well-identified |
+| GOGARCH | GARCH params | Bootstrap | ICA uncertainty not captured |
 
 **Key Finding**: Both DCC and CGARCH share the “flat beta problem”—the
 likelihood surface is approximately 8x flatter in the beta direction
@@ -78,6 +78,7 @@ SE—severely underestimated.
 Fast but unreliable for beta at high persistence.
 
 ``` r
+
 se_result <- dcc11_standard_errors(
   params = c(alpha, beta),
   std_resid = std_resid,
@@ -96,6 +97,7 @@ se_result <- dcc11_standard_errors(
 Resamples data to estimate the true sampling distribution.
 
 ``` r
+
 boot_result <- dcc11_bootstrap_se(
   std_resid = std_resid,
   weights = weights,
@@ -121,6 +123,7 @@ boot_result <- dcc11_bootstrap_se(
 Inverts the likelihood ratio test—does not assume quadratic likelihood.
 
 ``` r
+
 profile_result <- correlation_profile_likelihood_ci(
   model_type = "dcc",
   residuals = std_resid,
@@ -140,6 +143,7 @@ profile_result <- correlation_profile_likelihood_ci(
 Computes all three methods with comparison:
 
 ``` r
+
 inf_result <- correlation_comprehensive_inference(
   model_type = "dcc",
   residuals = std_resid,
@@ -199,6 +203,7 @@ surface with respect to (α, β).
 #### 1. Bootstrap Standard Errors
 
 ``` r
+
 boot_result <- cgarch_bootstrap_se(
   z_matrix = z_matrix,      # PIT-transformed copula residuals
   weights = weights,
@@ -213,6 +218,7 @@ boot_result <- cgarch_bootstrap_se(
 #### 2. Profile Likelihood CIs
 
 ``` r
+
 profile_result <- correlation_profile_likelihood_ci(
   model_type = "cgarch",
   residuals = z_matrix,
@@ -227,6 +233,7 @@ profile_result <- correlation_profile_likelihood_ci(
 #### 3. Comprehensive CGARCH Inference
 
 ``` r
+
 inf_result <- correlation_comprehensive_inference(
   model_type = "cgarch",
   residuals = z_matrix,
@@ -244,15 +251,16 @@ print_inference_comparison(inf_result)
 ADCC adds a leverage parameter γ that captures asymmetric correlation
 responses to positive vs. negative shocks. The ADCC recursion is:
 
-$$Q_{t} = \Omega + \alpha z_{t - 1}z_{t - 1}\prime + \gamma n_{t - 1}n_{t - 1}\prime + \beta Q_{t - 1}$$
+``` math
+Q_t = \Omega + \alpha z_{t-1}z_{t-1}' + \gamma n_{t-1}n_{t-1}' + \beta Q_{t-1}
+```
 
-where: - $n_{t} = z_{t} \cdot \mathbf{1}\left( z_{t} < 0 \right)$
-captures negative shocks -
-$\bar{N} = E\left\lbrack n_{t}n_{t}\prime \right\rbrack$ is the expected
-outer product of negative shocks -
-$\Omega = (1 - \alpha - \beta)\bar{Q} - \gamma\bar{N}$ ensures
+where: - $`n_t = z_t \cdot \mathbf{1}(z_t < 0)`$ captures negative
+shocks - $`\bar{N} = E[n_t n_t']`$ is the expected outer product of
+negative shocks -
+$`\Omega = (1 - \alpha - \beta)\bar{Q} - \gamma\bar{N}`$ ensures
 stationarity - Stationarity requires:
-$\alpha + \beta + \delta\gamma < 1$ where $\delta \approx 0.5$
+$`\alpha + \beta + \delta\gamma < 1`$ where $`\delta \approx 0.5`$
 
 #### ADCC Hessian-Based Standard Errors
 
@@ -261,6 +269,7 @@ The
 function computes Hessian-based SEs for the 3-parameter ADCC model:
 
 ``` r
+
 # After fitting ADCC
 adcc_fit <- estimate_adcc_copula(
   z_matrix = z_matrix,
@@ -292,6 +301,7 @@ For production use, the robust wrapper handles boundary estimates and
 numerical issues:
 
 ``` r
+
 se_robust <- compute_adcc_standard_errors_robust(
   adcc_result = adcc_fit,
   z_matrix = z_matrix,
@@ -315,6 +325,7 @@ As with DCC/CGARCH, bootstrap is recommended for reliable inference,
 especially for beta:
 
 ``` r
+
 boot_result <- adcc_bootstrap_se(
   z_matrix = z_matrix,
   weights = weights,
@@ -337,6 +348,7 @@ print(boot_result$ci_percentile)
 Compare Hessian and bootstrap methods:
 
 ``` r
+
 adcc_inf <- adcc_comprehensive_inference(
   z_matrix = z_matrix,
   weights = weights,
@@ -371,12 +383,12 @@ Output example:
 
 #### ADCC Inference Recommendations
 
-| Parameter | Recommended Method   | Notes                                        |
-|-----------|----------------------|----------------------------------------------|
-| Alpha (α) | Hessian or Bootstrap | Usually well-identified                      |
-| Gamma (γ) | Bootstrap            | May have flat regions when asymmetry is weak |
-| Beta (β)  | Bootstrap            | Same flat likelihood issue as DCC            |
-| Shape (ν) | Hessian              | Generally well-identified (MVT copula)       |
+| Parameter | Recommended Method | Notes |
+|----|----|----|
+| Alpha (α) | Hessian or Bootstrap | Usually well-identified |
+| Gamma (γ) | Bootstrap | May have flat regions when asymmetry is weak |
+| Beta (β) | Bootstrap | Same flat likelihood issue as DCC |
+| Shape (ν) | Hessian | Generally well-identified (MVT copula) |
 
 **Key considerations for ADCC**:
 
@@ -396,17 +408,17 @@ Output example:
 
 Add rows for ADCC:
 
-| Model    | Parameter     | Recommended Method       | Reason                             |
-|----------|---------------|--------------------------|------------------------------------|
-| DCC      | Alpha (α)     | Hessian-based SE         | Well-calibrated (~0.8 ratio)       |
-| DCC      | Beta (β)      | Bootstrap or Profile LR  | Hessian underestimates by ~5-6x    |
-| CGARCH   | Alpha (α)     | Hessian-based SE         | Similar to DCC                     |
-| CGARCH   | Beta (β)      | Bootstrap or Profile LR  | Same flat likelihood issue         |
-| CGARCH   | Shape (ν)     | Hessian-based SE         | Generally well-identified          |
-| **ADCC** | **Alpha (α)** | **Hessian or Bootstrap** | **Usually well-identified**        |
-| **ADCC** | **Gamma (γ)** | **Bootstrap**            | **May have identification issues** |
-| **ADCC** | **Beta (β)**  | **Bootstrap**            | **Same flat likelihood as DCC**    |
-| GOGARCH  | GARCH params  | Bootstrap                | ICA uncertainty not captured       |
+| Model | Parameter | Recommended Method | Reason |
+|----|----|----|----|
+| DCC | Alpha (α) | Hessian-based SE | Well-calibrated (~0.8 ratio) |
+| DCC | Beta (β) | Bootstrap or Profile LR | Hessian underestimates by ~5-6x |
+| CGARCH | Alpha (α) | Hessian-based SE | Similar to DCC |
+| CGARCH | Beta (β) | Bootstrap or Profile LR | Same flat likelihood issue |
+| CGARCH | Shape (ν) | Hessian-based SE | Generally well-identified |
+| **ADCC** | **Alpha (α)** | **Hessian or Bootstrap** | **Usually well-identified** |
+| **ADCC** | **Gamma (γ)** | **Bootstrap** | **May have identification issues** |
+| **ADCC** | **Beta (β)** | **Bootstrap** | **Same flat likelihood as DCC** |
+| GOGARCH | GARCH params | Bootstrap | ICA uncertainty not captured |
 
 ------------------------------------------------------------------------
 
@@ -492,6 +504,7 @@ GOGARCH inference faces unique challenges:
 #### 1. Component-wise Hessian SEs (Limited Use)
 
 ``` r
+
 se_result <- gogarch_standard_errors(
   garch_pars = garch_pars,    # List of GARCH params per component
   ica_info = ica_info,        # ICA decomposition results
@@ -510,6 +523,7 @@ should be viewed as lower bounds.
 #### 2. Bootstrap Standard Errors (Recommended)
 
 ``` r
+
 boot_result <- gogarch_bootstrap_se(
   residuals = residuals,
   weights = weights,
@@ -530,6 +544,7 @@ Computes empirical standard deviations
 #### 3. Comprehensive GOGARCH Inference
 
 ``` r
+
 inf_result <- gogarch_comprehensive_inference(
   residuals = residuals,
   weights = weights,
@@ -557,6 +572,7 @@ model types.
 ### Unified Bootstrap
 
 ``` r
+
 # Works for DCC, CGARCH, and GOGARCH
 boot_result <- correlation_bootstrap_se(
   model_type = "dcc",      # or "cgarch", "gogarch"
@@ -574,6 +590,7 @@ boot_result <- correlation_bootstrap_se(
 For DCC and CGARCH:
 
 ``` r
+
 inf_result <- correlation_comprehensive_inference(
   model_type = "dcc",   # or "cgarch"
   residuals = residuals,
@@ -586,6 +603,7 @@ inf_result <- correlation_comprehensive_inference(
 For GOGARCH:
 
 ``` r
+
 inf_result <- gogarch_comprehensive_inference(
   residuals = residuals,
   weights = weights,
@@ -599,6 +617,7 @@ inf_result <- gogarch_comprehensive_inference(
 ### Pretty-printing Results
 
 ``` r
+
 # Works for all model types
 print_inference_comparison(inf_result)
 ```
@@ -613,6 +632,7 @@ All three models can produce boundary estimates that invalidate standard
 inference.
 
 ``` r
+
 # For DCC/CGARCH
 is_boundary <- alpha < 1e-4 || beta > 0.999 || (alpha + beta) > 0.999
 
@@ -626,6 +646,7 @@ for (i in 1:n_components) {
 ### Step 2: Assess Likelihood Curvature (DCC/CGARCH)
 
 ``` r
+
 hess <- dcc11_hessian(params, std_resid, weights, Qbar)
 
 # Eigenvalue ratio indicates anisotropy
@@ -643,6 +664,7 @@ if (hess$condition_number > 1000) {
 ### Step 3: Compare SE Methods
 
 ``` r
+
 # For DCC/CGARCH
 hess_se <- se_result$se
 boot_se <- boot_result$se
@@ -664,6 +686,7 @@ for (i in 1:n_components) {
 ### Step 4: Visualize (DCC/CGARCH)
 
 ``` r
+
 # Likelihood surface
 surface <- compute_nll_surface(std_resid, weights, Qbar)
 plot_nll_contours(surface, mle_params = c(alpha, beta))

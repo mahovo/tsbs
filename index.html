@@ -7,8 +7,8 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
 <title>Advanced Time Series Bootstrap Tools • tsbs</title>
 <script src="deps/jquery-3.6.0/jquery-3.6.0.min.js"></script><meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
-<link href="deps/bootstrap-5.3.1/bootstrap.min.css" rel="stylesheet">
-<script src="deps/bootstrap-5.3.1/bootstrap.bundle.min.js"></script><link href="deps/font-awesome-6.5.2/css/all.min.css" rel="stylesheet">
+<link href="deps/bootstrap-5.3.8/bootstrap.min.css" rel="stylesheet">
+<script src="deps/bootstrap-5.3.8/bootstrap.bundle.min.js"></script><link href="deps/font-awesome-6.5.2/css/all.min.css" rel="stylesheet">
 <link href="deps/font-awesome-6.5.2/css/v4-shims.min.css" rel="stylesheet">
 <script src="deps/headroom-0.11.0/headroom.min.js"></script><script src="deps/headroom-0.11.0/jQuery.headroom.min.js"></script><script src="deps/bootstrap-toc-1.0.1/bootstrap-toc.min.js"></script><script src="deps/clipboard.js-2.0.11/clipboard.min.js"></script><script src="deps/search-1.0.0/autocomplete.jquery.min.js"></script><script src="deps/search-1.0.0/fuse.min.js"></script><script src="deps/search-1.0.0/mark.min.js"></script><!-- pkgdown --><script src="pkgdown.js"></script><meta property="og:title" content="Advanced Time Series Bootstrap Tools">
 <meta name="description" content="Provides advanced block bootstrap algorithms for time series data, including moving, stationary, wild, HMM-based, and MSAR-based bootstraps. Includes automatic parameter tuning and high-performance C++ routines.">
@@ -88,38 +88,38 @@
 <col width="34%">
 <col width="40%">
 </colgroup>
-<thead><tr class="header">
+<thead><tr>
 <th>Method</th>
 <th><code>bs_type</code></th>
 <th>Description</th>
 </tr></thead>
 <tbody>
-<tr class="odd">
+<tr>
 <td>Moving Block</td>
 <td><code>"moving"</code></td>
 <td>Fixed-length blocks sampled with replacement</td>
 </tr>
-<tr class="even">
+<tr>
 <td>Stationary Block</td>
 <td><code>"stationary"</code></td>
 <td>Random block lengths (geometric distribution)</td>
 </tr>
-<tr class="odd">
+<tr>
 <td>Hidden Markov Model</td>
 <td><code>"hmm"</code></td>
 <td>Regime-switching with discrete states</td>
 </tr>
-<tr class="even">
+<tr>
 <td>MS-VAR</td>
 <td><code>"msvar"</code></td>
 <td>Markov-Switching Vector Autoregression</td>
 </tr>
-<tr class="odd">
+<tr>
 <td>MS-VARMA-GARCH</td>
 <td><code>"ms_varma_garch"</code></td>
 <td>Markov-Switching VARMA with GARCH errors</td>
 </tr>
-<tr class="even">
+<tr>
 <td>Wild Bootstrap</td>
 <td><code>"wild"</code></td>
 <td>Residual-based with random sign flips</td>
@@ -157,7 +157,7 @@
 <h3 id="primary-documentation">Primary Documentation<a class="anchor" aria-label="anchor" href="#primary-documentation"></a>
 </h3>
 <p>The main entry point for the package is the <code><a href="reference/tsbs.html">tsbs()</a></code> function, which provides comprehensive documentation including detailed specification examples:</p>
-<p><a href="file:///Users/mhvpbp13/git/tsbs/docs/reference/tsbs.html">file:///Users/mhvpbp13/git/tsbs/docs/reference/tsbs.html</a></p>
+<p><a href="file:///Users/mhvpbp13/git/tsbs/docs/reference/tsbs.html">https://mahovo.github.io/tsbs/reference/tsbs.html</a></p>
 <p>In R with tsbs package installed and loaded:</p>
 <div class="sourceCode" id="cb3"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="op">?</span><span class="va">tsbs</span></span></code></pre></div>
@@ -172,28 +172,28 @@
 <col width="43%">
 <col width="56%">
 </colgroup>
-<thead><tr class="header">
+<thead><tr>
 <th>Vignette</th>
 <th>Description</th>
 </tr></thead>
 <tbody>
-<tr class="odd">
+<tr>
 <td><code><a href="articles/portfolio-optimization-demo.html">vignette("portfolio-optimization-demo", package = "tsbs")</a></code></td>
 <td>Comprehensive demo of portfolio optimization w/ tsbs</td>
 </tr>
-<tr class="even">
+<tr>
 <td><code><a href="articles/bootstrap_diagnostics.html">vignette("bootstrap_diagnostics", package = "tsbs")</a></code></td>
 <td>Diagnostic system for output bootstrap series</td>
 </tr>
-<tr class="odd">
+<tr>
 <td><code>vignette("ms-varma-garch_diagnostics.Rmd", package = "tsbs")</code></td>
 <td>Diagnostic system for monitoring EM convergence, parameter evolution, and numerical stability</td>
 </tr>
-<tr class="even">
+<tr>
 <td><code><a href="articles/ms-varma-garch_inference.html">vignette("ms-varma-garch_inference", package = "tsbs")</a></code></td>
 <td>Statistical inference for DCC, CGARCH and GOGARCH parameters</td>
 </tr>
-<tr class="odd">
+<tr>
 <td><code><a href="articles/multivariate_garch_comparison.html">vignette("multivariate_garch_comparison", package = "tsbs")</a></code></td>
 <td>Diagnostic vignette comparing DCC, CGARCH and GOGARCH models</td>
 </tr>
@@ -336,7 +336,7 @@
 </div>
 
 <div class="pkgdown-footer-right">
-  <p>Site built with <a href="https://pkgdown.r-lib.org/" class="external-link">pkgdown</a> 2.2.0.</p>
+  <p>Site built with <a href="https://pkgdown.r-lib.org/" class="external-link">pkgdown</a> 2.2.1.</p>
 </div>
 
     </footer>

@@ -15,11 +15,11 @@ methods provide more reliable inference.
 
 ## Executive Summary
 
-| Parameter         | Suggested Method                | Reason                                              |
-|-------------------|---------------------------------|-----------------------------------------------------|
-| Alpha (α)         | Hessian-based SE                | Well-calibrated (ratio ~0.8)                        |
-| Beta (β)          | Bootstrap or Profile Likelihood | Hessian underestimates by ~5-6x                     |
-| Persistence (α+β) | Delta method or bootstrap       | May be better identified than individual parameters |
+| Parameter | Suggested Method | Reason |
+|----|----|----|
+| Alpha (α) | Hessian-based SE | Well-calibrated (ratio ~0.8) |
+| Beta (β) | Bootstrap or Profile Likelihood | Hessian underestimates by ~5-6x |
+| Persistence (α+β) | Delta method or bootstrap | May be better identified than individual parameters |
 
 ## Likelihood Surface Characteristics
 
@@ -48,6 +48,7 @@ implementation error.
 The likelihood contours are elongated in the beta direction:
 
 ``` r
+
 # Compute and visualize likelihood surface
 surface <- compute_nll_surface(
   std_resid,
@@ -116,6 +117,7 @@ The tsbs package provides three inference approaches:
 Fast but unreliable for beta at high persistence.
 
 ``` r
+
 se_result <- dcc11_standard_errors(
   params = c(alpha, beta),
   std_resid = std_resid,
@@ -134,6 +136,7 @@ se_result <- dcc11_standard_errors(
 Resamples data to estimate the true sampling distribution.
 
 ``` r
+
 boot_result <- dcc11_bootstrap_se(
   std_resid = std_resid,
   weights = weights,
@@ -159,6 +162,7 @@ boot_result <- dcc11_bootstrap_se(
 Inverts the likelihood ratio test—does not assume quadratic likelihood.
 
 ``` r
+
 profile_result <- dcc11_profile_likelihood_ci(
   std_resid = std_resid,
   weights = weights,
@@ -178,6 +182,7 @@ too slow
 Computes all three methods with comparison.
 
 ``` r
+
 inf_result <- dcc11_comprehensive_inference(
   std_resid = std_resid,
   weights = weights,
@@ -196,6 +201,7 @@ Before reporting results, assess estimation quality:
 ### Step 1: Check Likelihood Curvature
 
 ``` r
+
 hess <- dcc11_hessian(params, std_resid, weights, Qbar)
 
 # Eigenvalue ratio indicates anisotropy
@@ -209,6 +215,7 @@ if (ratio > 10) {
 ### Step 2: Compare SE Methods
 
 ``` r
+
 hess_se <- dcc11_standard_errors(...)$se
 boot_se <- dcc11_bootstrap_se(...)$se
 
@@ -221,6 +228,7 @@ if (ratio["beta"] < 0.5) {
 ### Step 3: Visualize the Surface
 
 ``` r
+
 surface <- compute_nll_surface(std_resid, weights, Qbar)
 plot_nll_contours(surface, mle_params = c(alpha, beta))
 
@@ -284,6 +292,7 @@ When α → 0, β → 0, or α + β → 1, standard asymptotic theory fails.
 ## Example: Complete Inference Workflow
 
 ``` r
+
 library(tsbs)
 
 # Assume std_resid, weights, Qbar are available from model fitting

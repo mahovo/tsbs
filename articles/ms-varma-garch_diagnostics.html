@@ -7,8 +7,8 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
 <title>Diagnostic System for MS-VARMA-GARCH Estimation • tsbs</title>
 <script src="../deps/jquery-3.6.0/jquery-3.6.0.min.js"></script><meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
-<link href="../deps/bootstrap-5.3.1/bootstrap.min.css" rel="stylesheet">
-<script src="../deps/bootstrap-5.3.1/bootstrap.bundle.min.js"></script><link href="../deps/font-awesome-6.5.2/css/all.min.css" rel="stylesheet">
+<link href="../deps/bootstrap-5.3.8/bootstrap.min.css" rel="stylesheet">
+<script src="../deps/bootstrap-5.3.8/bootstrap.bundle.min.js"></script><link href="../deps/font-awesome-6.5.2/css/all.min.css" rel="stylesheet">
 <link href="../deps/font-awesome-6.5.2/css/v4-shims.min.css" rel="stylesheet">
 <script src="../deps/headroom-0.11.0/headroom.min.js"></script><script src="../deps/headroom-0.11.0/jQuery.headroom.min.js"></script><script src="../deps/bootstrap-toc-1.0.1/bootstrap-toc.min.js"></script><script src="../deps/clipboard.js-2.0.11/clipboard.min.js"></script><script src="../deps/search-1.0.0/autocomplete.jquery.min.js"></script><script src="../deps/search-1.0.0/fuse.min.js"></script><script src="../deps/search-1.0.0/mark.min.js"></script><!-- pkgdown --><script src="../pkgdown.js"></script><meta property="og:title" content="Diagnostic System for MS-VARMA-GARCH Estimation">
 <script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-chtml.js"></script>
@@ -64,7 +64,7 @@
                         <h4 data-toc-skip class="author">tsbs
 Development Team</h4>
             
-            <h4 data-toc-skip class="date">2026-01-31</h4>
+            <h4 data-toc-skip class="date">2026-11-10</h4>
       
 
       <div class="d-none name"><code>ms-varma-garch_diagnostics.Rmd</code></div>
@@ -118,19 +118,19 @@ practical tutorial for using the diagnostic facilities in
 <h3 id="the-em-algorithm">The EM Algorithm<a class="anchor" aria-label="anchor" href="#the-em-algorithm"></a>
 </h3>
 <p>The MS-VARMA-GARCH model maximizes the marginal likelihood:</p>
-<p><math display="block" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mo>ℓ</mo><mrow><mo stretchy="true" form="prefix">(</mo><mi>θ</mi><mo stretchy="true" form="postfix">)</mo></mrow><mo>=</mo><munderover><mo>∏</mo><mrow><mi>t</mi><mo>=</mo><mn>1</mn></mrow><mi>T</mi></munderover><munderover><mo>∑</mo><mrow><mi>j</mi><mo>=</mo><mn>1</mn></mrow><mi>M</mi></munderover><mi>f</mi><mrow><mo stretchy="true" form="prefix">(</mo><msub><mi>y</mi><mi>t</mi></msub><mo>∣</mo><msub><mi>Y</mi><mrow><mi>t</mi><mo>−</mo><mn>1</mn></mrow></msub><mo>,</mo><msub><mi>S</mi><mi>t</mi></msub><mo>=</mo><mi>j</mi><mo>;</mo><msub><mi>θ</mi><mi>j</mi></msub><mo stretchy="true" form="postfix">)</mo></mrow><mi>P</mi><mrow><mo stretchy="true" form="prefix">(</mo><msub><mi>S</mi><mi>t</mi></msub><mo>=</mo><mi>j</mi><mo>∣</mo><msub><mi>Y</mi><mrow><mi>t</mi><mo>−</mo><mn>1</mn></mrow></msub><mo stretchy="true" form="postfix">)</mo></mrow></mrow><annotation encoding="application/x-tex">\ell(\theta) = \prod_{t=1}^T \sum_{j=1}^M f(y_t \mid Y_{t-1}, S_t=j; \theta_j) P(S_t=j \mid Y_{t-1})</annotation></semantics></math></p>
+<p><math display="block" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>ℓ</mi><mo stretchy="false" form="prefix">(</mo><mi>θ</mi><mo stretchy="false" form="postfix">)</mo><mo>=</mo><munderover><mo>∏</mo><mrow><mi>t</mi><mo>=</mo><mn>1</mn></mrow><mi>T</mi></munderover><munderover><mo>∑</mo><mrow><mi>j</mi><mo>=</mo><mn>1</mn></mrow><mi>M</mi></munderover><mi>f</mi><mo stretchy="false" form="prefix">(</mo><msub><mi>y</mi><mi>t</mi></msub><mo>∣</mo><msub><mi>Y</mi><mrow><mi>t</mi><mo>−</mo><mn>1</mn></mrow></msub><mo>,</mo><msub><mi>S</mi><mi>t</mi></msub><mo>=</mo><mi>j</mi><mo>;</mo><msub><mi>θ</mi><mi>j</mi></msub><mo stretchy="false" form="postfix">)</mo><mi>P</mi><mo stretchy="false" form="prefix">(</mo><msub><mi>S</mi><mi>t</mi></msub><mo>=</mo><mi>j</mi><mo>∣</mo><msub><mi>Y</mi><mrow><mi>t</mi><mo>−</mo><mn>1</mn></mrow></msub><mo stretchy="false" form="postfix">)</mo></mrow><annotation encoding="application/x-tex">\ell(\theta) = \prod_{t=1}^T \sum_{j=1}^M f(y_t \mid Y_{t-1}, S_t=j; \theta_j) P(S_t=j \mid Y_{t-1})</annotation></semantics></math></p>
 <p>where
 <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msub><mi>S</mi><mi>t</mi></msub><mo>∈</mo><mo stretchy="false" form="prefix">{</mo><mn>1</mn><mo>,</mo><mi>…</mi><mo>,</mo><mi>M</mi><mo stretchy="false" form="postfix">}</mo></mrow><annotation encoding="application/x-tex">S_t \in \{1, \ldots, M\}</annotation></semantics></math>
 denotes the latent state. The EM algorithm iterates between:</p>
 <p><strong>E-step:</strong> Compute smoothed probabilities
-<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msubsup><mi>ξ</mi><mrow><mi>t</mi><mo stretchy="false" form="prefix">|</mo><mi>T</mi></mrow><mrow><mo stretchy="true" form="prefix">(</mo><mi>j</mi><mo stretchy="true" form="postfix">)</mo></mrow></msubsup><mo>=</mo><mi>P</mi><mrow><mo stretchy="true" form="prefix">(</mo><msub><mi>S</mi><mi>t</mi></msub><mo>=</mo><mi>j</mi><mo>∣</mo><msub><mi>Y</mi><mi>T</mi></msub><mo>;</mo><msup><mi>θ</mi><mrow><mo stretchy="true" form="prefix">(</mo><mi>k</mi><mo stretchy="true" form="postfix">)</mo></mrow></msup><mo stretchy="true" form="postfix">)</mo></mrow></mrow><annotation encoding="application/x-tex">\xi_{t|T}^{(j)} = P(S_t=j \mid Y_T; \theta^{(k)})</annotation></semantics></math>
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msubsup><mi>ξ</mi><mrow><mi>t</mi><mo stretchy="false" form="prefix">|</mo><mi>T</mi></mrow><mrow><mo stretchy="false" form="prefix">(</mo><mi>j</mi><mo stretchy="false" form="postfix">)</mo></mrow></msubsup><mo>=</mo><mi>P</mi><mo stretchy="false" form="prefix">(</mo><msub><mi>S</mi><mi>t</mi></msub><mo>=</mo><mi>j</mi><mo>∣</mo><msub><mi>Y</mi><mi>T</mi></msub><mo>;</mo><msup><mi>θ</mi><mrow><mo stretchy="false" form="prefix">(</mo><mi>k</mi><mo stretchy="false" form="postfix">)</mo></mrow></msup><mo stretchy="false" form="postfix">)</mo></mrow><annotation encoding="application/x-tex">\xi_{t|T}^{(j)} = P(S_t=j \mid Y_T; \theta^{(k)})</annotation></semantics></math>
 using the Hamilton filter and Kim smoother.</p>
 <p><strong>M-step:</strong> Update parameters via weighted maximum
 likelihood:</p>
-<p><math display="block" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msubsup><mi>θ</mi><mi>j</mi><mrow><mo stretchy="true" form="prefix">(</mo><mi>k</mi><mo>+</mo><mn>1</mn><mo stretchy="true" form="postfix">)</mo></mrow></msubsup><mo>=</mo><mo>arg</mo><munder><mo>max</mo><msub><mi>θ</mi><mi>j</mi></msub></munder><munderover><mo>∑</mo><mrow><mi>t</mi><mo>=</mo><mn>1</mn></mrow><mi>T</mi></munderover><msubsup><mi>ξ</mi><mrow><mi>t</mi><mo stretchy="false" form="prefix">|</mo><mi>T</mi></mrow><mrow><mo stretchy="true" form="prefix">(</mo><mi>j</mi><mo stretchy="true" form="postfix">)</mo></mrow></msubsup><mo>log</mo><mi>f</mi><mrow><mo stretchy="true" form="prefix">(</mo><msub><mi>y</mi><mi>t</mi></msub><mo>∣</mo><msub><mi>Y</mi><mrow><mi>t</mi><mo>−</mo><mn>1</mn></mrow></msub><mo>,</mo><msub><mi>S</mi><mi>t</mi></msub><mo>=</mo><mi>j</mi><mo>;</mo><msub><mi>θ</mi><mi>j</mi></msub><mo stretchy="true" form="postfix">)</mo></mrow></mrow><annotation encoding="application/x-tex">\theta_j^{(k+1)} = \arg\max_{\theta_j} \sum_{t=1}^T \xi_{t|T}^{(j)} \log f(y_t \mid Y_{t-1}, S_t=j; \theta_j)</annotation></semantics></math></p>
+<p><math display="block" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msubsup><mi>θ</mi><mi>j</mi><mrow><mo stretchy="false" form="prefix">(</mo><mi>k</mi><mo>+</mo><mn>1</mn><mo stretchy="false" form="postfix">)</mo></mrow></msubsup><mo>=</mo><mrow><mi mathvariant="normal">arg</mi><mo>⁡</mo></mrow><munder><mi mathvariant="normal">max</mi><msub><mi>θ</mi><mi>j</mi></msub></munder><munderover><mo>∑</mo><mrow><mi>t</mi><mo>=</mo><mn>1</mn></mrow><mi>T</mi></munderover><msubsup><mi>ξ</mi><mrow><mi>t</mi><mo stretchy="false" form="prefix">|</mo><mi>T</mi></mrow><mrow><mo stretchy="false" form="prefix">(</mo><mi>j</mi><mo stretchy="false" form="postfix">)</mo></mrow></msubsup><mrow><mi mathvariant="normal">log</mi><mo>⁡</mo></mrow><mi>f</mi><mo stretchy="false" form="prefix">(</mo><msub><mi>y</mi><mi>t</mi></msub><mo>∣</mo><msub><mi>Y</mi><mrow><mi>t</mi><mo>−</mo><mn>1</mn></mrow></msub><mo>,</mo><msub><mi>S</mi><mi>t</mi></msub><mo>=</mo><mi>j</mi><mo>;</mo><msub><mi>θ</mi><mi>j</mi></msub><mo stretchy="false" form="postfix">)</mo></mrow><annotation encoding="application/x-tex">\theta_j^{(k+1)} = \arg\max_{\theta_j} \sum_{t=1}^T \xi_{t|T}^{(j)} \log f(y_t \mid Y_{t-1}, S_t=j; \theta_j)</annotation></semantics></math></p>
 <p>The diagnostic system monitors the critical property that the
 complete-data log-likelihood must be non-decreasing:</p>
-<p><math display="block" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>Q</mi><mrow><mo stretchy="true" form="prefix">(</mo><msup><mi>θ</mi><mrow><mo stretchy="true" form="prefix">(</mo><mi>k</mi><mo>+</mo><mn>1</mn><mo stretchy="true" form="postfix">)</mo></mrow></msup><mo>∣</mo><msup><mi>θ</mi><mrow><mo stretchy="true" form="prefix">(</mo><mi>k</mi><mo stretchy="true" form="postfix">)</mo></mrow></msup><mo stretchy="true" form="postfix">)</mo></mrow><mo>≥</mo><mi>Q</mi><mrow><mo stretchy="true" form="prefix">(</mo><msup><mi>θ</mi><mrow><mo stretchy="true" form="prefix">(</mo><mi>k</mi><mo stretchy="true" form="postfix">)</mo></mrow></msup><mo>∣</mo><msup><mi>θ</mi><mrow><mo stretchy="true" form="prefix">(</mo><mi>k</mi><mo stretchy="true" form="postfix">)</mo></mrow></msup><mo stretchy="true" form="postfix">)</mo></mrow></mrow><annotation encoding="application/x-tex">Q(\theta^{(k+1)} \mid \theta^{(k)}) \geq Q(\theta^{(k)} \mid \theta^{(k)})</annotation></semantics></math></p>
+<p><math display="block" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>Q</mi><mo stretchy="false" form="prefix">(</mo><msup><mi>θ</mi><mrow><mo stretchy="false" form="prefix">(</mo><mi>k</mi><mo>+</mo><mn>1</mn><mo stretchy="false" form="postfix">)</mo></mrow></msup><mo>∣</mo><msup><mi>θ</mi><mrow><mo stretchy="false" form="prefix">(</mo><mi>k</mi><mo stretchy="false" form="postfix">)</mo></mrow></msup><mo stretchy="false" form="postfix">)</mo><mo>≥</mo><mi>Q</mi><mo stretchy="false" form="prefix">(</mo><msup><mi>θ</mi><mrow><mo stretchy="false" form="prefix">(</mo><mi>k</mi><mo stretchy="false" form="postfix">)</mo></mrow></msup><mo>∣</mo><msup><mi>θ</mi><mrow><mo stretchy="false" form="prefix">(</mo><mi>k</mi><mo stretchy="false" form="postfix">)</mo></mrow></msup><mo stretchy="false" form="postfix">)</mo></mrow><annotation encoding="application/x-tex">Q(\theta^{(k+1)} \mid \theta^{(k)}) \geq Q(\theta^{(k)} \mid \theta^{(k)})</annotation></semantics></math></p>
 <p>Violations indicate numerical instability in the M-step
 optimization.</p>
 </div>
@@ -139,8 +139,8 @@ optimization.</p>
 </h3>
 <p>For multivariate models with DCC dynamics, the conditional
 correlation matrix evolves as:</p>
-<p><math display="block" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msub><mi>Q</mi><mi>t</mi></msub><mo>=</mo><mover><mi>Q</mi><mo accent="true">‾</mo></mover><mrow><mo stretchy="true" form="prefix">(</mo><mn>1</mn><mo>−</mo><mi>α</mi><mo>−</mo><mi>β</mi><mo stretchy="true" form="postfix">)</mo></mrow><mo>+</mo><mi>α</mi><msub><mi>z</mi><mrow><mi>t</mi><mo>−</mo><mn>1</mn></mrow></msub><msub><mi>z</mi><mrow><mi>t</mi><mo>−</mo><mn>1</mn></mrow></msub><mi>′</mi><mo>+</mo><mi>β</mi><msub><mi>Q</mi><mrow><mi>t</mi><mo>−</mo><mn>1</mn></mrow></msub></mrow><annotation encoding="application/x-tex">Q_t = \bar{Q}(1 - \alpha - \beta) + \alpha z_{t-1}z_{t-1}' + \beta Q_{t-1}</annotation></semantics></math></p>
-<p><math display="block" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msub><mi>R</mi><mi>t</mi></msub><mo>=</mo><mtext mathvariant="normal">diag</mtext><msup><mrow><mo stretchy="true" form="prefix">(</mo><msub><mi>Q</mi><mi>t</mi></msub><mo stretchy="true" form="postfix">)</mo></mrow><mrow><mo>−</mo><mn>1</mn><mi>/</mi><mn>2</mn></mrow></msup><msub><mi>Q</mi><mi>t</mi></msub><mtext mathvariant="normal">diag</mtext><msup><mrow><mo stretchy="true" form="prefix">(</mo><msub><mi>Q</mi><mi>t</mi></msub><mo stretchy="true" form="postfix">)</mo></mrow><mrow><mo>−</mo><mn>1</mn><mi>/</mi><mn>2</mn></mrow></msup></mrow><annotation encoding="application/x-tex">R_t = \text{diag}(Q_t)^{-1/2} Q_t \text{diag}(Q_t)^{-1/2}</annotation></semantics></math></p>
+<p><math display="block" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msub><mi>Q</mi><mi>t</mi></msub><mo>=</mo><mover><mi>Q</mi><mo accent="true">‾</mo></mover><mo stretchy="false" form="prefix">(</mo><mn>1</mn><mo>−</mo><mi>α</mi><mo>−</mo><mi>β</mi><mo stretchy="false" form="postfix">)</mo><mo>+</mo><mi>α</mi><msub><mi>z</mi><mrow><mi>t</mi><mo>−</mo><mn>1</mn></mrow></msub><msubsup><mi>z</mi><mrow><mi>t</mi><mo>−</mo><mn>1</mn></mrow><mo>′</mo></msubsup><mo>+</mo><mi>β</mi><msub><mi>Q</mi><mrow><mi>t</mi><mo>−</mo><mn>1</mn></mrow></msub></mrow><annotation encoding="application/x-tex">Q_t = \bar{Q}(1 - \alpha - \beta) + \alpha z_{t-1}z_{t-1}' + \beta Q_{t-1}</annotation></semantics></math></p>
+<p><math display="block" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msub><mi>R</mi><mi>t</mi></msub><mo>=</mo><mtext mathvariant="normal">diag</mtext><mo stretchy="false" form="prefix">(</mo><msub><mi>Q</mi><mi>t</mi></msub><msup><mo stretchy="false" form="postfix">)</mo><mrow><mi>−</mi><mn>1</mn><mi>/</mi><mn>2</mn></mrow></msup><msub><mi>Q</mi><mi>t</mi></msub><mtext mathvariant="normal">diag</mtext><mo stretchy="false" form="prefix">(</mo><msub><mi>Q</mi><mi>t</mi></msub><msup><mo stretchy="false" form="postfix">)</mo><mrow><mi>−</mi><mn>1</mn><mi>/</mi><mn>2</mn></mrow></msup></mrow><annotation encoding="application/x-tex">R_t = \text{diag}(Q_t)^{-1/2} Q_t \text{diag}(Q_t)^{-1/2}</annotation></semantics></math></p>
 <p>where
 <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><msub><mi>z</mi><mi>t</mi></msub><annotation encoding="application/x-tex">z_t</annotation></semantics></math>
 are standardized residuals. Stationarity requires
@@ -162,21 +162,21 @@ computationally simpler constant correlation specification.</p>
 structure using copulas. The key components are:</p>
 <p><strong>Probability Integral Transform (PIT):</strong> Standardized
 residuals are transformed to uniform margins:
-<math display="block" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msub><mi>u</mi><mrow><mi>i</mi><mo>,</mo><mi>t</mi></mrow></msub><mo>=</mo><msub><mi>F</mi><mi>i</mi></msub><mrow><mo stretchy="true" form="prefix">(</mo><msub><mi>z</mi><mrow><mi>i</mi><mo>,</mo><mi>t</mi></mrow></msub><mo stretchy="true" form="postfix">)</mo></mrow></mrow><annotation encoding="application/x-tex">u_{i,t} = F_i(z_{i,t})</annotation></semantics></math></p>
+<math display="block" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msub><mi>u</mi><mrow><mi>i</mi><mo>,</mo><mi>t</mi></mrow></msub><mo>=</mo><msub><mi>F</mi><mi>i</mi></msub><mo stretchy="false" form="prefix">(</mo><msub><mi>z</mi><mrow><mi>i</mi><mo>,</mo><mi>t</mi></mrow></msub><mo stretchy="false" form="postfix">)</mo></mrow><annotation encoding="application/x-tex">u_{i,t} = F_i(z_{i,t})</annotation></semantics></math></p>
 <p>where
 <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><msub><mi>F</mi><mi>i</mi></msub><annotation encoding="application/x-tex">F_i</annotation></semantics></math>
 can be parametric (from the estimated distribution), empirical, or
 semi-parametric (SPD).</p>
 <p><strong>Copula Transformation:</strong> Uniform margins are
 transformed to the copula space:
-<math display="block" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msub><mover><mi>z</mi><mo accent="true">̃</mo></mover><mrow><mi>i</mi><mo>,</mo><mi>t</mi></mrow></msub><mo>=</mo><msup><mi>Φ</mi><mrow><mo>−</mo><mn>1</mn></mrow></msup><mrow><mo stretchy="true" form="prefix">(</mo><msub><mi>u</mi><mrow><mi>i</mi><mo>,</mo><mi>t</mi></mrow></msub><mo stretchy="true" form="postfix">)</mo></mrow></mrow><annotation encoding="application/x-tex">\tilde{z}_{i,t} = \Phi^{-1}(u_{i,t})</annotation></semantics></math>
+<math display="block" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msub><mover><mi>z</mi><mo accent="true">̃</mo></mover><mrow><mi>i</mi><mo>,</mo><mi>t</mi></mrow></msub><mo>=</mo><msup><mi mathvariant="normal">Φ</mi><mrow><mi>−</mi><mn>1</mn></mrow></msup><mo stretchy="false" form="prefix">(</mo><msub><mi>u</mi><mrow><mi>i</mi><mo>,</mo><mi>t</mi></mrow></msub><mo stretchy="false" form="postfix">)</mo></mrow><annotation encoding="application/x-tex">\tilde{z}_{i,t} = \Phi^{-1}(u_{i,t})</annotation></semantics></math>
 for Gaussian copula, or the corresponding Student-t quantile for MVT
 copula.</p>
 <p><strong>ADCC Dynamics (Asymmetric DCC):</strong> When
 <code>dynamics = "adcc"</code>, the model includes leverage effects:
-<math display="block" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msub><mi>Q</mi><mi>t</mi></msub><mo>=</mo><mi>Ω</mi><mo>+</mo><mi>α</mi><msub><mi>z</mi><mrow><mi>t</mi><mo>−</mo><mn>1</mn></mrow></msub><msub><mi>z</mi><mrow><mi>t</mi><mo>−</mo><mn>1</mn></mrow></msub><mi>′</mi><mo>+</mo><mi>γ</mi><msub><mi>n</mi><mrow><mi>t</mi><mo>−</mo><mn>1</mn></mrow></msub><msub><mi>n</mi><mrow><mi>t</mi><mo>−</mo><mn>1</mn></mrow></msub><mi>′</mi><mo>+</mo><mi>β</mi><msub><mi>Q</mi><mrow><mi>t</mi><mo>−</mo><mn>1</mn></mrow></msub></mrow><annotation encoding="application/x-tex">Q_t = \Omega + \alpha z_{t-1}z_{t-1}' + \gamma n_{t-1}n_{t-1}' + \beta Q_{t-1}</annotation></semantics></math></p>
+<math display="block" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msub><mi>Q</mi><mi>t</mi></msub><mo>=</mo><mi mathvariant="normal">Ω</mi><mo>+</mo><mi>α</mi><msub><mi>z</mi><mrow><mi>t</mi><mo>−</mo><mn>1</mn></mrow></msub><msubsup><mi>z</mi><mrow><mi>t</mi><mo>−</mo><mn>1</mn></mrow><mo>′</mo></msubsup><mo>+</mo><mi>γ</mi><msub><mi>n</mi><mrow><mi>t</mi><mo>−</mo><mn>1</mn></mrow></msub><msubsup><mi>n</mi><mrow><mi>t</mi><mo>−</mo><mn>1</mn></mrow><mo>′</mo></msubsup><mo>+</mo><mi>β</mi><msub><mi>Q</mi><mrow><mi>t</mi><mo>−</mo><mn>1</mn></mrow></msub></mrow><annotation encoding="application/x-tex">Q_t = \Omega + \alpha z_{t-1}z_{t-1}' + \gamma n_{t-1}n_{t-1}' + \beta Q_{t-1}</annotation></semantics></math></p>
 <p>where
-<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msub><mi>n</mi><mi>t</mi></msub><mo>=</mo><msub><mi>z</mi><mi>t</mi></msub><mo>⋅</mo><mn>𝟏</mn><mrow><mo stretchy="true" form="prefix">(</mo><msub><mi>z</mi><mi>t</mi></msub><mo>&lt;</mo><mn>0</mn><mo stretchy="true" form="postfix">)</mo></mrow></mrow><annotation encoding="application/x-tex">n_t = z_t \cdot \mathbf{1}(z_t &lt; 0)</annotation></semantics></math>
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msub><mi>n</mi><mi>t</mi></msub><mo>=</mo><msub><mi>z</mi><mi>t</mi></msub><mo>⋅</mo><mn>𝟏</mn><mo stretchy="false" form="prefix">(</mo><msub><mi>z</mi><mi>t</mi></msub><mo>&lt;</mo><mn>0</mn><mo stretchy="false" form="postfix">)</mo></mrow><annotation encoding="application/x-tex">n_t = z_t \cdot \mathbf{1}(z_t &lt; 0)</annotation></semantics></math>
 captures negative shocks only. The persistence becomes:
 <math display="block" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mtext mathvariant="normal">persistence</mtext><mo>=</mo><mi>α</mi><mo>+</mo><mi>β</mi><mo>+</mo><mn>0.5</mn><mi>γ</mi></mrow><annotation encoding="application/x-tex">\text{persistence} = \alpha + \beta + 0.5\gamma</annotation></semantics></math></p>
 </div>
@@ -200,11 +200,11 @@ to each independent component
 <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><msub><mi>s</mi><mrow><mi>i</mi><mo>,</mo><mi>t</mi></mrow></msub><annotation encoding="application/x-tex">s_{i,t}</annotation></semantics></math>.</p>
 <p><strong>Covariance Reconstruction:</strong> The time-varying
 covariance is:
-<math display="block" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msub><mi>H</mi><mi>t</mi></msub><mo>=</mo><mi>A</mi><mo>⋅</mo><msub><mi>D</mi><mi>t</mi></msub><mo>⋅</mo><mi>A</mi><mi>′</mi></mrow><annotation encoding="application/x-tex">H_t = A \cdot D_t \cdot A'</annotation></semantics></math></p>
+<math display="block" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msub><mi>H</mi><mi>t</mi></msub><mo>=</mo><mi>A</mi><mo>⋅</mo><msub><mi>D</mi><mi>t</mi></msub><mo>⋅</mo><msup><mi>A</mi><mo>′</mo></msup></mrow><annotation encoding="application/x-tex">H_t = A \cdot D_t \cdot A'</annotation></semantics></math></p>
 <p>where
 <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>A</mi><annotation encoding="application/x-tex">A</annotation></semantics></math>
 is the mixing matrix from ICA and
-<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msub><mi>D</mi><mi>t</mi></msub><mo>=</mo><mtext mathvariant="normal">diag</mtext><mrow><mo stretchy="true" form="prefix">(</mo><msubsup><mi>σ</mi><mrow><mn>1</mn><mo>,</mo><mi>t</mi></mrow><mn>2</mn></msubsup><mo>,</mo><mi>…</mi><mo>,</mo><msubsup><mi>σ</mi><mrow><mi>k</mi><mo>,</mo><mi>t</mi></mrow><mn>2</mn></msubsup><mo stretchy="true" form="postfix">)</mo></mrow></mrow><annotation encoding="application/x-tex">D_t = \text{diag}(\sigma^2_{1,t}, \ldots, \sigma^2_{k,t})</annotation></semantics></math>
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msub><mi>D</mi><mi>t</mi></msub><mo>=</mo><mtext mathvariant="normal">diag</mtext><mo stretchy="false" form="prefix">(</mo><msubsup><mi>σ</mi><mrow><mn>1</mn><mo>,</mo><mi>t</mi></mrow><mn>2</mn></msubsup><mo>,</mo><mi>…</mi><mo>,</mo><msubsup><mi>σ</mi><mrow><mi>k</mi><mo>,</mo><mi>t</mi></mrow><mn>2</mn></msubsup><mo stretchy="false" form="postfix">)</mo></mrow><annotation encoding="application/x-tex">D_t = \text{diag}(\sigma^2_{1,t}, \ldots, \sigma^2_{k,t})</annotation></semantics></math>
 contains component variances.</p>
 <p>GOGARCH has no explicit correlation dynamics parameters—correlations
 evolve through the component volatilities.</p>
@@ -287,23 +287,23 @@ the following information is recorded:</p>
 <tr class="odd">
 <td><code>log_lik_before_mstep</code></td>
 <td>
-<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mo>ℓ</mo><mrow><mo stretchy="true" form="prefix">(</mo><msup><mi>θ</mi><mrow><mo stretchy="true" form="prefix">(</mo><mi>k</mi><mo stretchy="true" form="postfix">)</mo></mrow></msup><mo stretchy="true" form="postfix">)</mo></mrow></mrow><annotation encoding="application/x-tex">\ell(\theta^{(k)})</annotation></semantics></math>
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>ℓ</mi><mo stretchy="false" form="prefix">(</mo><msup><mi>θ</mi><mrow><mo stretchy="false" form="prefix">(</mo><mi>k</mi><mo stretchy="false" form="postfix">)</mo></mrow></msup><mo stretchy="false" form="postfix">)</mo></mrow><annotation encoding="application/x-tex">\ell(\theta^{(k)})</annotation></semantics></math>
 before parameter updates</td>
 </tr>
 <tr class="even">
 <td><code>log_lik_after_mstep</code></td>
 <td>
-<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mo>ℓ</mo><mrow><mo stretchy="true" form="prefix">(</mo><msup><mi>θ</mi><mrow><mo stretchy="true" form="prefix">(</mo><mi>k</mi><mo>+</mo><mn>1</mn><mo stretchy="true" form="postfix">)</mo></mrow></msup><mo stretchy="true" form="postfix">)</mo></mrow></mrow><annotation encoding="application/x-tex">\ell(\theta^{(k+1)})</annotation></semantics></math>
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>ℓ</mi><mo stretchy="false" form="prefix">(</mo><msup><mi>θ</mi><mrow><mo stretchy="false" form="prefix">(</mo><mi>k</mi><mo>+</mo><mn>1</mn><mo stretchy="false" form="postfix">)</mo></mrow></msup><mo stretchy="false" form="postfix">)</mo></mrow><annotation encoding="application/x-tex">\ell(\theta^{(k+1)})</annotation></semantics></math>
 after parameter updates</td>
 </tr>
 <tr class="odd">
 <td><code>ll_change</code></td>
-<td><math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>Δ</mi><msup><mo>ℓ</mo><mrow><mo stretchy="true" form="prefix">(</mo><mi>k</mi><mo stretchy="true" form="postfix">)</mo></mrow></msup><mo>=</mo><mo>ℓ</mo><mrow><mo stretchy="true" form="prefix">(</mo><msup><mi>θ</mi><mrow><mo stretchy="true" form="prefix">(</mo><mi>k</mi><mo>+</mo><mn>1</mn><mo stretchy="true" form="postfix">)</mo></mrow></msup><mo stretchy="true" form="postfix">)</mo></mrow><mo>−</mo><mo>ℓ</mo><mrow><mo stretchy="true" form="prefix">(</mo><msup><mi>θ</mi><mrow><mo stretchy="true" form="prefix">(</mo><mi>k</mi><mo stretchy="true" form="postfix">)</mo></mrow></msup><mo stretchy="true" form="postfix">)</mo></mrow></mrow><annotation encoding="application/x-tex">\Delta \ell^{(k)} = \ell(\theta^{(k+1)}) - \ell(\theta^{(k)})</annotation></semantics></math></td>
+<td><math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi mathvariant="normal">Δ</mi><msup><mi>ℓ</mi><mrow><mo stretchy="false" form="prefix">(</mo><mi>k</mi><mo stretchy="false" form="postfix">)</mo></mrow></msup><mo>=</mo><mi>ℓ</mi><mo stretchy="false" form="prefix">(</mo><msup><mi>θ</mi><mrow><mo stretchy="false" form="prefix">(</mo><mi>k</mi><mo>+</mo><mn>1</mn><mo stretchy="false" form="postfix">)</mo></mrow></msup><mo stretchy="false" form="postfix">)</mo><mo>−</mo><mi>ℓ</mi><mo stretchy="false" form="prefix">(</mo><msup><mi>θ</mi><mrow><mo stretchy="false" form="prefix">(</mo><mi>k</mi><mo stretchy="false" form="postfix">)</mo></mrow></msup><mo stretchy="false" form="postfix">)</mo></mrow><annotation encoding="application/x-tex">\Delta \ell^{(k)} = \ell(\theta^{(k+1)}) - \ell(\theta^{(k)})</annotation></semantics></math></td>
 </tr>
 <tr class="even">
 <td><code>ll_decreased</code></td>
 <td>Boolean flag for violations
-(<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>Δ</mi><msup><mo>ℓ</mo><mrow><mo stretchy="true" form="prefix">(</mo><mi>k</mi><mo stretchy="true" form="postfix">)</mo></mrow></msup><mo>&lt;</mo><mo>−</mo><msup><mn>10</mn><mrow><mo>−</mo><mn>6</mn></mrow></msup></mrow><annotation encoding="application/x-tex">\Delta \ell^{(k)} &lt; -10^{-6}</annotation></semantics></math>)</td>
+(<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi mathvariant="normal">Δ</mi><msup><mi>ℓ</mi><mrow><mo stretchy="false" form="prefix">(</mo><mi>k</mi><mo stretchy="false" form="postfix">)</mo></mrow></msup><mo>&lt;</mo><mi>−</mi><msup><mn>10</mn><mrow><mi>−</mi><mn>6</mn></mrow></msup></mrow><annotation encoding="application/x-tex">\Delta \ell^{(k)} &lt; -10^{-6}</annotation></semantics></math>)</td>
 </tr>
 <tr class="odd">
 <td><code>duration_seconds</code></td>
@@ -593,7 +593,7 @@ convergence and detecting non-monotonic behavior.</p>
 with separate colors for each regime state.</p>
 <p><strong>Sigma Evolution</strong> (<code>type = "sigma"</code>):</p>
 <p>Faceted plot showing the mean conditional volatility (with
-<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mo>±</mo><annotation encoding="application/x-tex">\pm</annotation></semantics></math>
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>±</mi><annotation encoding="application/x-tex">\pm</annotation></semantics></math>
 1 SD ribbon) for each series across iterations.</p>
 </div>
 <div class="section level4">
@@ -1086,7 +1086,7 @@ WARNINGS:
 <p><strong>Interpretation:</strong></p>
 <ul>
 <li>Monotonic likelihood increase
-(<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>Δ</mi><msup><mo>ℓ</mo><mrow><mo stretchy="true" form="prefix">(</mo><mi>k</mi><mo stretchy="true" form="postfix">)</mo></mrow></msup><mo>≥</mo><mn>0</mn></mrow><annotation encoding="application/x-tex">\Delta \ell^{(k)} \geq 0</annotation></semantics></math>
+(<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi mathvariant="normal">Δ</mi><msup><mi>ℓ</mi><mrow><mo stretchy="false" form="prefix">(</mo><mi>k</mi><mo stretchy="false" form="postfix">)</mo></mrow></msup><mo>≥</mo><mn>0</mn></mrow><annotation encoding="application/x-tex">\Delta \ell^{(k)} \geq 0</annotation></semantics></math>
 for all
 <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>k</mi><annotation encoding="application/x-tex">k</annotation></semantics></math>)</li>
 <li>Convergence achieved (minimum change approaches zero)</li>
@@ -1188,7 +1188,7 @@ numerical difficulties. Common causes:</p>
 <ol style="list-style-type: decimal">
 <li>
 <strong>Ill-conditioned weighted covariance:</strong> When
-<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><msubsup><mi>ξ</mi><mrow><mi>t</mi><mo stretchy="false" form="prefix">|</mo><mi>T</mi></mrow><mrow><mo stretchy="true" form="prefix">(</mo><mi>j</mi><mo stretchy="true" form="postfix">)</mo></mrow></msubsup><annotation encoding="application/x-tex">\xi_{t|T}^{(j)}</annotation></semantics></math>
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><msubsup><mi>ξ</mi><mrow><mi>t</mi><mo stretchy="false" form="prefix">|</mo><mi>T</mi></mrow><mrow><mo stretchy="false" form="prefix">(</mo><mi>j</mi><mo stretchy="false" form="postfix">)</mo></mrow></msubsup><annotation encoding="application/x-tex">\xi_{t|T}^{(j)}</annotation></semantics></math>
 concentrates on few observations</li>
 <li>
 <strong>DCC non-stationarity:</strong> Optimizer explored
@@ -1644,7 +1644,7 @@ Paris</em>, 8, 229-231.</p>
 </div>
 
 <div class="pkgdown-footer-right">
-  <p>Site built with <a href="https://pkgdown.r-lib.org/" class="external-link">pkgdown</a> 2.2.0.</p>
+  <p>Site built with <a href="https://pkgdown.r-lib.org/" class="external-link">pkgdown</a> 2.2.1.</p>
 </div>
 
     </footer>

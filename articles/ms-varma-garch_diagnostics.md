@@ -8,7 +8,7 @@ VARMA-GARCH models. This system supports three multivariate correlation
 specifications:
 
 - **DCC (Dynamic Conditional Correlation)**: Explicit correlation
-  dynamics via $\alpha$ and $\beta$ parameters
+  dynamics via $`\alpha`$ and $`\beta`$ parameters
 - **CGARCH (Copula GARCH)**: Copula-based dependence with flexible
   marginal distributions
 - **GOGARCH (Generalized Orthogonal GARCH)**: Factor-based approach with
@@ -20,7 +20,7 @@ collecting granular information about:
 
 - Log-likelihood evolution across EM iterations
 - Parameter trajectories for all states
-- Conditional volatility ($\sigma_{t}$) evolution
+- Conditional volatility ($`\sigma_t`$) evolution
 - Boundary conditions and degeneracy detection
 - Numerical warnings and optimization failures
 - Model-specific diagnostics (copula parameters, ICA metrics)
@@ -34,23 +34,29 @@ tutorial for using the diagnostic facilities in `tsbs`.
 
 The MS-VARMA-GARCH model maximizes the marginal likelihood:
 
-$$\ell(\theta) = \prod\limits_{t = 1}^{T}\sum\limits_{j = 1}^{M}f\left( y_{t} \mid Y_{t - 1},S_{t} = j;\theta_{j} \right)P\left( S_{t} = j \mid Y_{t - 1} \right)$$
+``` math
+\ell(\theta) = \prod_{t=1}^T \sum_{j=1}^M f(y_t \mid Y_{t-1}, S_t=j; \theta_j) P(S_t=j \mid Y_{t-1})
+```
 
-where $S_{t} \in \{ 1,\ldots,M\}$ denotes the latent state. The EM
+where $`S_t \in \{1, \ldots, M\}`$ denotes the latent state. The EM
 algorithm iterates between:
 
 **E-step:** Compute smoothed probabilities
-$\xi_{t|T}^{(j)} = P\left( S_{t} = j \mid Y_{T};\theta^{(k)} \right)$
-using the Hamilton filter and Kim smoother.
+$`\xi_{t|T}^{(j)} = P(S_t=j \mid Y_T; \theta^{(k)})`$ using the Hamilton
+filter and Kim smoother.
 
 **M-step:** Update parameters via weighted maximum likelihood:
 
-$$\theta_{j}^{(k + 1)} = \arg\max\limits_{\theta_{j}}\sum\limits_{t = 1}^{T}\xi_{t|T}^{(j)}\log f\left( y_{t} \mid Y_{t - 1},S_{t} = j;\theta_{j} \right)$$
+``` math
+\theta_j^{(k+1)} = \arg\max_{\theta_j} \sum_{t=1}^T \xi_{t|T}^{(j)} \log f(y_t \mid Y_{t-1}, S_t=j; \theta_j)
+```
 
 The diagnostic system monitors the critical property that the
 complete-data log-likelihood must be non-decreasing:
 
-$$Q\left( \theta^{(k + 1)} \mid \theta^{(k)} \right) \geq Q\left( \theta^{(k)} \mid \theta^{(k)} \right)$$
+``` math
+Q(\theta^{(k+1)} \mid \theta^{(k)}) \geq Q(\theta^{(k)} \mid \theta^{(k)})
+```
 
 Violations indicate numerical instability in the M-step optimization.
 
@@ -59,18 +65,21 @@ Violations indicate numerical instability in the M-step optimization.
 For multivariate models with DCC dynamics, the conditional correlation
 matrix evolves as:
 
-$$Q_{t} = \bar{Q}(1 - \alpha - \beta) + \alpha z_{t - 1}z_{t - 1}\prime + \beta Q_{t - 1}$$
+``` math
+Q_t = \bar{Q}(1 - \alpha - \beta) + \alpha z_{t-1}z_{t-1}' + \beta Q_{t-1}
+```
 
-$$R_{t} = \text{diag}\left( Q_{t} \right)^{- 1/2}Q_{t}\text{diag}\left( Q_{t} \right)^{- 1/2}$$
+``` math
+R_t = \text{diag}(Q_t)^{-1/2} Q_t \text{diag}(Q_t)^{-1/2}
+```
 
-where $z_{t}$ are standardized residuals. Stationarity requires
-$\alpha + \beta < 1$ with $\alpha,\beta \geq 0$.
+where $`z_t`$ are standardized residuals. Stationarity requires
+$`\alpha + \beta < 1`$ with $`\alpha, \beta \geq 0`$.
 
-**Degeneracy** occurs when $\left. \alpha\rightarrow 0 \right.$,
-indicating the correlation dynamics collapse to the constant correlation
-model $R_{t} = \bar{R}$. The diagnostic system detects this
-automatically and switches to the computationally simpler constant
-correlation specification.
+**Degeneracy** occurs when $`\alpha \to 0`$, indicating the correlation
+dynamics collapse to the constant correlation model $`R_t = \bar{R}`$.
+The diagnostic system detects this automatically and switches to the
+computationally simpler constant correlation specification.
 
 ### CGARCH (Copula GARCH) Dynamics
 
@@ -79,22 +88,32 @@ structure using copulas. The key components are:
 
 **Probability Integral Transform (PIT):** Standardized residuals are
 transformed to uniform margins:
-$$u_{i,t} = F_{i}\left( z_{i,t} \right)$$
+``` math
+u_{i,t} = F_i(z_{i,t})
+```
 
-where $F_{i}$ can be parametric (from the estimated distribution),
+where $`F_i`$ can be parametric (from the estimated distribution),
 empirical, or semi-parametric (SPD).
 
 **Copula Transformation:** Uniform margins are transformed to the copula
-space: $${\widetilde{z}}_{i,t} = \Phi^{- 1}\left( u_{i,t} \right)$$ for
-Gaussian copula, or the corresponding Student-t quantile for MVT copula.
+space:
+``` math
+\tilde{z}_{i,t} = \Phi^{-1}(u_{i,t})
+```
+for Gaussian copula, or the corresponding Student-t quantile for MVT
+copula.
 
 **ADCC Dynamics (Asymmetric DCC):** When `dynamics = "adcc"`, the model
 includes leverage effects:
-$$Q_{t} = \Omega + \alpha z_{t - 1}z_{t - 1}\prime + \gamma n_{t - 1}n_{t - 1}\prime + \beta Q_{t - 1}$$
+``` math
+Q_t = \Omega + \alpha z_{t-1}z_{t-1}' + \gamma n_{t-1}n_{t-1}' + \beta Q_{t-1}
+```
 
-where $n_{t} = z_{t} \cdot \mathbf{1}\left( z_{t} < 0 \right)$ captures
-negative shocks only. The persistence becomes:
-$$\text{persistence} = \alpha + \beta + 0.5\gamma$$
+where $`n_t = z_t \cdot \mathbf{1}(z_t < 0)`$ captures negative shocks
+only. The persistence becomes:
+``` math
+\text{persistence} = \alpha + \beta + 0.5\gamma
+```
 
 ### GOGARCH (Generalized Orthogonal GARCH) Dynamics
 
@@ -102,20 +121,25 @@ GOGARCH takes a fundamentally different approach—correlation dynamics
 emerge from independent factors:
 
 **ICA Decomposition:** Independent Component Analysis extracts
-statistically independent components: $$S = Y \cdot W$$
+statistically independent components:
+``` math
+S = Y \cdot W
+```
 
-where $Y$ is the residual matrix, $W$ is the unmixing matrix, and $S$
-contains independent components.
+where $`Y`$ is the residual matrix, $`W`$ is the unmixing matrix, and
+$`S`$ contains independent components.
 
 **Component GARCH:** Univariate GARCH models are fitted to each
-independent component $s_{i,t}$.
+independent component $`s_{i,t}`$.
 
 **Covariance Reconstruction:** The time-varying covariance is:
-$$H_{t} = A \cdot D_{t} \cdot A\prime$$
+``` math
+H_t = A \cdot D_t \cdot A'
+```
 
-where $A$ is the mixing matrix from ICA and
-$D_{t} = \text{diag}\left( \sigma_{1,t}^{2},\ldots,\sigma_{k,t}^{2} \right)$
-contains component variances.
+where $`A`$ is the mixing matrix from ICA and
+$`D_t = \text{diag}(\sigma^2_{1,t}, \ldots, \sigma^2_{k,t})`$ contains
+component variances.
 
 GOGARCH has no explicit correlation dynamics parameters—correlations
 evolve through the component volatilities.
@@ -128,6 +152,7 @@ Diagnostics are activated via the `collect_diagnostics` argument in
 [`fit_ms_varma_garch()`](https://mahovo.github.io/tsbs/reference/fit_ms_varma_garch.md):
 
 ``` r
+
 library(tsbs)
 
 fit <- fit_ms_varma_garch(
@@ -150,6 +175,7 @@ summary(diag)
 For detailed monitoring during estimation:
 
 ``` r
+
 # Console output (default)
 fit <- fit_ms_varma_garch(
   y = data,
@@ -181,16 +207,16 @@ with six components.
 
 ### EM Iteration Diagnostics
 
-For each EM iteration $k$, the following information is recorded:
+For each EM iteration $`k`$, the following information is recorded:
 
-| Field                  | Description                                                                                |
-|------------------------|--------------------------------------------------------------------------------------------|
-| `log_lik_before_mstep` | $\ell\left( \theta^{(k)} \right)$ before parameter updates                                 |
-| `log_lik_after_mstep`  | $\ell\left( \theta^{(k + 1)} \right)$ after parameter updates                              |
-| `ll_change`            | $\Delta\ell^{(k)} = \ell\left( \theta^{(k + 1)} \right) - \ell\left( \theta^{(k)} \right)$ |
-| `ll_decreased`         | Boolean flag for violations ($\Delta\ell^{(k)} < - 10^{- 6}$)                              |
-| `duration_seconds`     | Wall-clock time for iteration                                                              |
-| `converged`            | Boolean indicating if tolerance criterion met                                              |
+| Field | Description |
+|----|----|
+| `log_lik_before_mstep` | $`\ell(\theta^{(k)})`$ before parameter updates |
+| `log_lik_after_mstep` | $`\ell(\theta^{(k+1)})`$ after parameter updates |
+| `ll_change` | $`\Delta \ell^{(k)} = \ell(\theta^{(k+1)}) - \ell(\theta^{(k)})`$ |
+| `ll_decreased` | Boolean flag for violations ($`\Delta \ell^{(k)} < -10^{-6}`$) |
+| `duration_seconds` | Wall-clock time for iteration |
+| `converged` | Boolean indicating if tolerance criterion met |
 
 **Critical diagnostic:** If `ll_decreased = TRUE`, the M-step optimizer
 failed to improve the objective. This indicates numerical issues in the
@@ -199,11 +225,12 @@ weighted likelihood optimization.
 ### Parameter Evolution
 
 Nested list structure: `parameter_evolution$state_j[[k]]` contains all
-parameters for state $j$ at iteration $k$.
+parameters for state $`j`$ at iteration $`k`$.
 
 For **univariate** models:
 
 ``` r
+
 params <- diag$parameter_evolution$state_1[[5]]
 # Contains: arma_pars, garch_pars (omega, alpha, beta), dist_pars (shape, skew)
 ```
@@ -211,6 +238,7 @@ params <- diag$parameter_evolution$state_1[[5]]
 For **multivariate DCC** models:
 
 ``` r
+
 params <- diag$parameter_evolution$state_1[[5]]
 # Contains: 
 #   var_pars (VAR coefficients)
@@ -223,6 +251,7 @@ params <- diag$parameter_evolution$state_1[[5]]
 For **CGARCH** models:
 
 ``` r
+
 params <- diag$parameter_evolution$state_1[[5]]
 # Contains:
 #   var_pars (VAR coefficients)
@@ -238,6 +267,7 @@ params <- diag$parameter_evolution$state_1[[5]]
 For **GOGARCH** models:
 
 ``` r
+
 params <- diag$parameter_evolution$state_1[[5]]
 # Contains:
 #   var_pars (VAR coefficients)
@@ -257,17 +287,17 @@ switched to constant correlation for that state.
 
 ### Volatility Evolution
 
-Tracks the conditional standard deviation process $\sigma_{i,t}$ for
-each series $i$ in each state $j$.
+Tracks the conditional standard deviation process $`\sigma_{i,t}`$ for
+each series $`i`$ in each state $`j`$.
 
 Structure: `sigma_evolution$state_j_series_i[[k]]` contains:
 
-| Field                    | Description                                                    |
-|--------------------------|----------------------------------------------------------------|
-| `mean_sigma`, `sd_sigma` | Mean and standard deviation of $\{\sigma_{i,t}\}_{t = 1}^{T}$  |
-| `min_sigma`, `max_sigma` | Range of volatility values                                     |
-| `first_5`, `last_5`      | Initial and terminal values for pattern detection              |
-| `changed`                | Boolean indicating if $\sigma_{t}$ was successfully recomputed |
+| Field | Description |
+|----|----|
+| `mean_sigma`, `sd_sigma` | Mean and standard deviation of $`\{\sigma_{i,t}\}_{t=1}^T`$ |
+| `min_sigma`, `max_sigma` | Range of volatility values |
+| `first_5`, `last_5` | Initial and terminal values for pattern detection |
+| `changed` | Boolean indicating if $`\sigma_t`$ was successfully recomputed |
 
 **Diagnostic value:** Volatility should evolve smoothly across
 iterations. Sharp discontinuities indicate numerical issues.
@@ -277,26 +307,26 @@ iterations. Sharp discontinuities indicate numerical issues.
 Records when parameters approach their constraint boundaries during
 optimization:
 
-| Field           | Description                                                     |
-|-----------------|-----------------------------------------------------------------|
-| `parameter`     | Parameter name (e.g., `"alpha_1"`, `"gamma_1"`)                 |
-| `value`         | Numeric value at boundary                                       |
-| `boundary_type` | `"lower"` or `"upper"`                                          |
-| `action_taken`  | Automatic remediation (e.g., `"constant_correlation_fallback"`) |
+| Field | Description |
+|----|----|
+| `parameter` | Parameter name (e.g., `"alpha_1"`, `"gamma_1"`) |
+| `value` | Numeric value at boundary |
+| `boundary_type` | `"lower"` or `"upper"` |
+| `action_taken` | Automatic remediation (e.g., `"constant_correlation_fallback"`) |
 
 ### Warnings
 
 All warnings encountered during estimation, categorized by type:
 
-| Type                  | Description                                                       |
-|-----------------------|-------------------------------------------------------------------|
-| `ll_decrease`         | M-step decreased log-likelihood                                   |
-| `dcc_penalty`         | DCC optimization returned penalty value due to invalid parameters |
-| `dcc_bad_correlation` | Non-positive-definite correlation matrices                        |
-| `tmb_skip`            | TMB recomputation was skipped                                     |
-| `all_states_constant` | All states have degenerated to constant correlation               |
-| `ica_convergence`     | ICA decomposition failed to converge (GOGARCH)                    |
-| `pit_warning`         | PIT transformation generated warnings (CGARCH)                    |
+| Type | Description |
+|----|----|
+| `ll_decrease` | M-step decreased log-likelihood |
+| `dcc_penalty` | DCC optimization returned penalty value due to invalid parameters |
+| `dcc_bad_correlation` | Non-positive-definite correlation matrices |
+| `tmb_skip` | TMB recomputation was skipped |
+| `all_states_constant` | All states have degenerated to constant correlation |
+| `ica_convergence` | ICA decomposition failed to converge (GOGARCH) |
+| `pit_warning` | PIT transformation generated warnings (CGARCH) |
 
 ## Visualization
 
@@ -306,6 +336,7 @@ The [`plot()`](https://rdrr.io/r/graphics/plot.default.html) method for
 `ms_diagnostics` objects provides comprehensive visualization:
 
 ``` r
+
 # Plot all diagnostics
 plot(diag)
 
@@ -318,6 +349,7 @@ plot(diag, type = "sigma")
 #### Function Signature
 
 ``` r
+
 plot.ms_diagnostics(
   x,
   type = c("all", "ll_evolution", "parameters", "sigma"),
@@ -330,13 +362,13 @@ plot.ms_diagnostics(
 
 #### Arguments
 
-| Argument     | Description                                                                                |
-|--------------|--------------------------------------------------------------------------------------------|
-| `x`          | An object of class `ms_diagnostics`                                                        |
-| `type`       | Which plots to produce: `"all"`, `"ll_evolution"`, `"parameters"`, or `"sigma"`            |
+| Argument | Description |
+|----|----|
+| `x` | An object of class `ms_diagnostics` |
+| `type` | Which plots to produce: `"all"`, `"ll_evolution"`, `"parameters"`, or `"sigma"` |
 | `parameters` | Character vector of parameter names to include in parameter plot. Supports regex patterns. |
-| `normalize`  | If `TRUE`, normalize parameter values to \[0, 1\] for cross-parameter comparison           |
-| `quiet`      | If `TRUE`, suppress warnings from numeric coercion                                         |
+| `normalize` | If `TRUE`, normalize parameter values to \[0, 1\] for cross-parameter comparison |
+| `quiet` | If `TRUE`, suppress warnings from numeric coercion |
 
 #### Plot Types
 
@@ -353,12 +385,13 @@ with separate colors for each regime state.
 
 **Sigma Evolution** (`type = "sigma"`):
 
-Faceted plot showing the mean conditional volatility (with $\pm$ 1 SD
+Faceted plot showing the mean conditional volatility (with $`\pm`$ 1 SD
 ribbon) for each series across iterations.
 
 #### Filtering Parameters
 
 ``` r
+
 # Plot specific parameters by name
 plot(diag, type = "parameters", parameters = c("alpha_1", "beta_1"))
 
@@ -389,6 +422,7 @@ Extract the evolution of a specific parameter across EM iterations.
 Supports DCC, CGARCH, and GOGARCH with automatic model detection:
 
 ``` r
+
 # Extract DCC alpha for state 1
 alpha_traj <- extract_param_trajectory(diag, state = 1, param_name = "alpha_1")
 plot(alpha_traj$iteration, alpha_traj$value, type = "b",
@@ -419,6 +453,7 @@ all relevant parameters as columns.
 Extract log-likelihood values across iterations:
 
 ``` r
+
 # Log-likelihood after each M-step
 ll_after <- extract_ll_trajectory(diag, type = "after")
 
@@ -440,6 +475,7 @@ plot(ll_after, type = "b", main = "LL Evolution")
 Extract volatility evolution summary for a specific state and series:
 
 ``` r
+
 sigma_stats <- extract_sigma_stats(diag, state = 1, series = 1)
 # Returns: iteration, mean_sigma, sd_sigma, min_sigma, max_sigma
 
@@ -457,6 +493,7 @@ Extract CGARCH-specific parameter trajectories including ADCC gamma and
 copula shape:
 
 ``` r
+
 # Extract complete CGARCH trajectory
 cgarch_traj <- extract_cgarch_trajectory(diag, state = 1)
 
@@ -480,6 +517,7 @@ with(cgarch_traj, {
 Extract GOGARCH component GARCH parameters and ICA information:
 
 ``` r
+
 # Extract all components summary
 gogarch_traj <- extract_gogarch_trajectory(diag, state = 1)
 
@@ -513,6 +551,7 @@ Verify that the EM algorithm exhibits (near) monotonic log-likelihood
 improvement:
 
 ``` r
+
 mono_check <- check_em_monotonicity(diag, tolerance = 1e-4)
 
 if (!mono_check$passed) {
@@ -529,6 +568,7 @@ if (!mono_check$passed) {
 Verify that GARCH and DCC parameters satisfy stationarity constraints:
 
 ``` r
+
 stat_check <- check_param_stationarity(diag, state = 1)
 
 if (!stat_check$passed) {
@@ -542,6 +582,7 @@ Determine if all states switched to constant correlation (model
 collapse):
 
 ``` r
+
 const_check <- check_all_states_constant(diag)
 
 if (const_check$occurred) {
@@ -555,6 +596,7 @@ if (const_check$occurred) {
 Comprehensive problem detection with model-specific checks:
 
 ``` r
+
 # Auto-detect model type
 problems <- identify_problematic_states(diag)
 
@@ -571,10 +613,10 @@ problems_gogarch <- identify_problematic_states(diag, model_type = "gogarch")
 
 **Model-specific checks:**
 
-| Model   | Checks Performed                                                                                |
-|---------|-------------------------------------------------------------------------------------------------|
-| DCC     | High persistence, constant correlation fallback, parameter instability                          |
-| CGARCH  | All DCC checks + copula shape issues, ADCC gamma constraints, PIT warnings                      |
+| Model | Checks Performed |
+|----|----|
+| DCC | High persistence, constant correlation fallback, parameter instability |
+| CGARCH | All DCC checks + copula shape issues, ADCC gamma constraints, PIT warnings |
 | GOGARCH | ICA convergence, mixing matrix conditioning, component correlation, component GARCH persistence |
 
 ### Model-Specific Problem Detection
@@ -584,6 +626,7 @@ problems_gogarch <- identify_problematic_states(diag, model_type = "gogarch")
 CGARCH-specific diagnostics:
 
 ``` r
+
 cgarch_problems <- check_cgarch_problems(diag, state = 1)
 
 if (cgarch_problems$has_problems) {
@@ -605,6 +648,7 @@ if (cgarch_problems$has_problems) {
 GOGARCH-specific diagnostics:
 
 ``` r
+
 gogarch_problems <- check_gogarch_problems(diag, state = 1)
 
 if (gogarch_problems$has_problems) {
@@ -628,6 +672,7 @@ if (gogarch_problems$has_problems) {
 Save and reload diagnostic objects for archival and post-hoc analysis:
 
 ``` r
+
 # Save after estimation
 save_diagnostics(diag, filepath = "run_2024_diagnostics.rds")
 
@@ -644,6 +689,7 @@ Generate state-differentiated DCC specifications with sensible starting
 values:
 
 ``` r
+
 spec <- generate_dcc_spec(
   M = 2,                  # Number of states
   k = 2,                  # Number of series
@@ -662,6 +708,7 @@ spec <- generate_dcc_spec(
 Generate CGARCH specifications with copula and transformation options:
 
 ``` r
+
 spec <- generate_cgarch_spec(
   M = 2,                      # Number of states
   k = 3,                      # Number of series
@@ -681,6 +728,7 @@ spec <- generate_cgarch_spec(
 Generate GOGARCH specifications with ICA method selection:
 
 ``` r
+
 spec <- generate_gogarch_spec(
   M = 2,                      # Number of states
   k = 3,                      # Number of series/components
@@ -699,6 +747,7 @@ spec <- generate_gogarch_spec(
 Simulate DCC-GARCH data for testing and validation:
 
 ``` r
+
 y_sim <- simulate_dcc_garch(
   n = 500,
   k = 2,
@@ -716,6 +765,7 @@ y_sim <- simulate_dcc_garch(
 Simulate CGARCH data with optional ADCC dynamics:
 
 ``` r
+
 # Standard DCC dynamics with MVT copula
 y_cgarch <- simulate_cgarch(
   n = 500,
@@ -747,6 +797,7 @@ y_adcc <- simulate_cgarch(
 Simulate GOGARCH data with specified mixing matrix:
 
 ``` r
+
 y_gogarch <- simulate_gogarch(
   n = 500,
   k = 3,
@@ -770,6 +821,7 @@ y_gogarch <- simulate_gogarch(
 ### Healthy Convergence Pattern
 
 ``` r
+
 summary(diag)
 ```
 
@@ -796,7 +848,8 @@ Expected output:
 
 **Interpretation:**
 
-- Monotonic likelihood increase ($\Delta\ell^{(k)} \geq 0$ for all $k$)
+- Monotonic likelihood increase ($`\Delta \ell^{(k)} \geq 0`$ for all
+  $`k`$)
 - Convergence achieved (minimum change approaches zero)
 - No numerical issues
 
@@ -883,48 +936,49 @@ independence. This can happen when:
 **Interpretation:** The M-step optimizer encountered numerical
 difficulties. Common causes:
 
-1.  **Ill-conditioned weighted covariance:** When $\xi_{t|T}^{(j)}$
+1.  **Ill-conditioned weighted covariance:** When $`\xi_{t|T}^{(j)}`$
     concentrates on few observations
-2.  **DCC non-stationarity:** Optimizer explored $\alpha + \beta \geq 1$
-3.  **Near-singular correlation matrices:** Some $R_{t}$ had eigenvalues
-    $\approx 0$
+2.  **DCC non-stationarity:** Optimizer explored
+    $`\alpha + \beta \geq 1`$
+3.  **Near-singular correlation matrices:** Some $`R_t`$ had eigenvalues
+    $`\approx 0`$
 
 ## Troubleshooting Guide
 
 ### General Issues
 
-| Symptom                                  | Likely Cause             | Solution                                   |
-|------------------------------------------|--------------------------|--------------------------------------------|
-| LL decreases every iteration             | Poor starting values     | Initialize from simpler model              |
-| LL oscillates                            | Multimodal likelihood    | Increase EM tolerance, try multiple starts |
-| Very slow convergence (\>100 iterations) | Flat likelihood region   | Check identification, consider penalties   |
-| All states → constant correlation        | Over-parameterized model | Reduce $M$ or use simpler GARCH specs      |
+| Symptom | Likely Cause | Solution |
+|----|----|----|
+| LL decreases every iteration | Poor starting values | Initialize from simpler model |
+| LL oscillates | Multimodal likelihood | Increase EM tolerance, try multiple starts |
+| Very slow convergence (\>100 iterations) | Flat likelihood region | Check identification, consider penalties |
+| All states → constant correlation | Over-parameterized model | Reduce $`M`$ or use simpler GARCH specs |
 
 ### DCC-Specific Issues
 
-| Symptom                      | Likely Cause                        | Solution                                      |
-|------------------------------|-------------------------------------|-----------------------------------------------|
-| Many `dcc_penalty` warnings  | Invalid parameter space exploration | Tighten optimizer bounds                      |
-| `dcc_bad_correlation` \> 10% | Numerical instability               | Increase DCC lower bounds, check for outliers |
-| `tmb_skip` warnings          | Dimension mismatch                  | Check spec consistency                        |
+| Symptom | Likely Cause | Solution |
+|----|----|----|
+| Many `dcc_penalty` warnings | Invalid parameter space exploration | Tighten optimizer bounds |
+| `dcc_bad_correlation` \> 10% | Numerical instability | Increase DCC lower bounds, check for outliers |
+| `tmb_skip` warnings | Dimension mismatch | Check spec consistency |
 
 ### CGARCH-Specific Issues
 
-| Symptom                  | Likely Cause             | Solution                                |
-|--------------------------|--------------------------|-----------------------------------------|
-| PIT warnings             | Poor marginal fit        | Try different transformation method     |
-| Shape parameter \< 3     | Heavy-tailed data        | Use Gaussian copula, or bound shape ≥ 4 |
-| ADCC gamma \> 0.3        | Strong leverage effect   | Verify this is economically sensible    |
-| ADCC persistence \> 0.99 | Near-integrated dynamics | Reduce gamma or switch to DCC           |
+| Symptom | Likely Cause | Solution |
+|----|----|----|
+| PIT warnings | Poor marginal fit | Try different transformation method |
+| Shape parameter \< 3 | Heavy-tailed data | Use Gaussian copula, or bound shape ≥ 4 |
+| ADCC gamma \> 0.3 | Strong leverage effect | Verify this is economically sensible |
+| ADCC persistence \> 0.99 | Near-integrated dynamics | Reduce gamma or switch to DCC |
 
 ### GOGARCH-Specific Issues
 
-| Symptom                       | Likely Cause           | Solution                           |
-|-------------------------------|------------------------|------------------------------------|
-| ICA convergence failure       | Algorithm sensitivity  | Try `radical` ↔︎ `fastica`          |
-| Mixing matrix ill-conditioned | Near-collinear series  | Reduce components, pre-whiten data |
-| Components remain correlated  | Non-GOGARCH DGP        | Consider DCC or CGARCH instead     |
-| Component GARCH diverges      | Outliers in components | Robust ICA preprocessing           |
+| Symptom | Likely Cause | Solution |
+|----|----|----|
+| ICA convergence failure | Algorithm sensitivity | Try `radical` ↔︎ `fastica` |
+| Mixing matrix ill-conditioned | Near-collinear series | Reduce components, pre-whiten data |
+| Components remain correlated | Non-GOGARCH DGP | Consider DCC or CGARCH instead |
+| Component GARCH diverges | Outliers in components | Robust ICA preprocessing |
 
 ## Best Practices
 
@@ -947,7 +1001,7 @@ difficulties. Common causes:
     alongside fitted models for reproducibility and debugging.
 
 6.  **Compare diagnostics across model specifications:** Use diagnostic
-    plots to select $M$, GARCH orders, and distributional assumptions.
+    plots to select $`M`$, GARCH orders, and distributional assumptions.
 
 7.  **Use utility functions for programmatic analysis:** The extraction
     and check functions enable automated model validation pipelines.
@@ -965,6 +1019,7 @@ This example demonstrates the full diagnostic workflow from data
 simulation through analysis.
 
 ``` r
+
 library(tsbs)
 library(ggplot2)
 
@@ -1029,6 +1084,7 @@ legend("topright", legend = c("State 1", "State 2"), col = c("blue", "red"), lty
 ## Complete Example: CGARCH
 
 ``` r
+
 library(tsbs)
 
 # 1. Simulate CGARCH data with ADCC dynamics
@@ -1104,6 +1160,7 @@ if (!is.null(cgarch_traj$shape)) {
 ## Complete Example: GOGARCH
 
 ``` r
+
 library(tsbs)
 
 # 1. Simulate GOGARCH data
