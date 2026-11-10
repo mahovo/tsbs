@@ -1,8 +1,7 @@
 ---
 title: "HMM Bootstrap with tsbs()"
 subtitle: "Regime-Switching Bootstrap for Financial Time Series"
-author: "tsbs Package"
-date: "`r Sys.Date()`"
+author: "Martin Hoshi Vognsen"
 output:
   html_document:
     toc: true
@@ -13,6 +12,8 @@ output:
     code_folding: show
     fig_width: 10
     fig_height: 6
+    keep_md: TRUE
+date: "`r format(Sys.time(), '%H:%M %d %B %Y')`"
 ---
 
 ```{r setup, include=FALSE}

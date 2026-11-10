@@ -1,12 +1,21 @@
 ---
 title: "Portfolio Optimization with Multivariate GARCH Model Comparison"
-author: Martin Hoshi Vognsen
+author: "Martin Hoshi Vognsen"
 header-includes:
    - \usepackage[default]{sourcesanspro}
    - \usepackage[T1]{fontenc}
    - \usepackage[fontsize=8pt]{scrextend}
 mainfont: SourceSansPro
 output: 
+  html_document:
+    toc: true
+    toc_depth: 3
+    toc_float: true
+    theme: flatly
+    highlight: tango
+    code_folding: show
+    fig_width: 10
+    fig_height: 6
   md_document:
     variant: markdown_github
 date: "`r format(Sys.time(), '%H:%M %d %B %Y')`"
