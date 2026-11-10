@@ -64,7 +64,8 @@ In R with tsbs package installed and loaded:
 ?tsbs
 ```
 
-Full reference manual:  
+Full reference manual: 
+
 [https://mahovo.github.io/tsbs/](https://mahovo.github.io/tsbs/)
 
 ### Vignettes
