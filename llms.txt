@@ -11,6 +11,8 @@ regime-switching behavior and conditional heteroskedasticity. The
 package implements several bootstrap approaches ranging from classical
 block methods to sophisticated model-based resampling.
 
+[![tsbs](assets/screenshot.png)](https://mahovo.github.io/tsbs/)
+
 ## Installation
 
 Install from GitHub:
